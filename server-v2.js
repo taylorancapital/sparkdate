@@ -25,28 +25,6 @@ const db = {
   messages: [],
   checkins: []
 };
-// Load bars on page load
-document.addEventListener('DOMContentLoaded', async () =>
-{
-    const venueSelect = document.getElementById('venue_name');
-
-    try
-    {
-        const response = await fetch('/api/bars');
-        const bars = await response.json();
-
-        bars.forEach(bar =>
-        {
-            const option = document.createElement('option');
-            option.value = bar.name;
-            option.textContent = `${bar.name} - ${bar.city}`;
-            venueSelect.appendChild(option);
-        });
-    } catch (err)
-    {
-        console.error('Error loading bars:', err);
-    }
-});
 
 // PA Bars list for dropdown
 const BARS = [
@@ -450,3 +428,4 @@ app.listen(PORT, () => {
   console.log(`🎯 SparkDate API running on http://localhost:${PORT}`);
   console.log(`Visit: http://localhost:${PORT}/participant-landing-revamped.html`);
 });
+
