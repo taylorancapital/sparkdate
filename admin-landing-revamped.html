@@ -747,7 +747,9 @@
   </div>
 
   <script>
-    const API_URL = 'http://localhost:3001/api';
+    const API_URL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:3001/api' 
+  : 'https://sparkdate.onrender.com/api';
 
     function showLoginModal() {
       document.getElementById('loginModal').classList.add('active');
