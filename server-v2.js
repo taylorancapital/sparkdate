@@ -31,6 +31,16 @@ app.get('/*.html', (req, res) => {
   res.sendFile(path.join(__dirname, req.path));
 });
 
+// Serve root
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// API health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', users: db.users.length });
+});
+
 // ==================== AUTH ROUTES ====================
 
 app.post('/api/auth/register', (req, res) => {
