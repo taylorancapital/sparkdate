@@ -25,20 +25,80 @@ const db = {
   messages: [],
   checkins: []
 };
+// Load bars on page load
+document.addEventListener('DOMContentLoaded', async () =>
+{
+    const venueSelect = document.getElementById('venue_name');
+
+    try
+    {
+        const response = await fetch('/api/bars');
+        const bars = await response.json();
+
+        bars.forEach(bar =>
+        {
+            const option = document.createElement('option');
+            option.value = bar.name;
+            option.textContent = `${bar.name} - ${bar.city}`;
+            venueSelect.appendChild(option);
+        });
+    } catch (err)
+    {
+        console.error('Error loading bars:', err);
+    }
+});
+
+// PA Bars list for dropdown
+const BARS = [
+  { name: "Tavern on Broad", address: "1801 Broad St", city: "Philadelphia" },
+  { name: "The Alchemy Bar", address: "260 S 15th St", city: "Philadelphia" },
+  { name: "Continental Restaurant & Martini Bar", address: "1801 Chestnut St", city: "Philadelphia" },
+  { name: "Butcher & The Egg", address: "1500 S 15th St", city: "Philadelphia" },
+  { name: "Dirty Frank's", address: "347 South St", city: "Philadelphia" },
+  { name: "Fergie's Pub", address: "1214 Sansom St", city: "Philadelphia" },
+  { name: "Lokal", address: "537 S 4th St", city: "Philadelphia" },
+  { name: "Vintage", address: "130 N 2nd St", city: "Philadelphia" },
+  { name: "Rittenhouse Tavern", address: "1811 Rittenhouse Sq", city: "Philadelphia" },
+  { name: "Parc", address: "1829 Chestnut St", city: "Philadelphia" },
+  { name: "The Draught Horse", address: "1115 S Broad St", city: "Philadelphia" },
+  { name: "Cavanaugh's Rittenhouse", address: "1800 Rittenhouse Sq", city: "Philadelphia" },
+  { name: "Manayunk Brewery", address: "4120 Main St", city: "Philadelphia" },
+  { name: "The Bourse", address: "111 S Independence Hall W", city: "Philadelphia" },
+  { name: "Frankford Hall", address: "1210 Frankford Ave", city: "Philadelphia" },
+  { name: "Kung Fu Necktie", address: "1250 Frankford Ave", city: "Philadelphia" },
+  { name: "Barbuzzo", address: "110 S 13th St", city: "Philadelphia" },
+  { name: "Lacroix at The Rittenhouse", address: "210 W Rittenhouse Sq", city: "Philadelphia" },
+  { name: "Walnut Room", address: "1800 Walnut St", city: "Philadelphia" },
+  { name: "Woody's", address: "202 S 13th St", city: "Philadelphia" },
+  { name: "City Tavern", address: "138 S 2nd St", city: "Philadelphia" },
+  { name: "The Plough and The Stars", address: "123 Chestnut St", city: "Philadelphia" },
+  { name: "Ebar", address: "212 S Camac St", city: "Philadelphia" },
+  { name: "The Gypsy Saloon", address: "614 S 7th St", city: "Philadelphia" },
+  { name: "Bridget Foy's", address: "200 S Columbus Blvd", city: "Philadelphia" },
+  { name: "Nodding Head Brewery", address: "1516 Sansom St", city: "Philadelphia" },
+  { name: "The Tavern", address: "3402 Sansom St", city: "Philadelphia" },
+  { name: "Jing Fong", address: "1001 Cherry St", city: "Philadelphia" },
+  { name: "McGlinchey's Tavern", address: "1310 Drury St", city: "Philadelphia" },
+  { name: "South Bowl", address: "550 S 2nd St", city: "Philadelphia" },
+  { name: "Mama's on South St", address: "1234 South St", city: "Philadelphia" },
+  { name: "The Raven Grill", address: "200 Lawrence Rd", city: "Haverford" },
+  { name: "Vino Rosso", address: "149 W Lancaster Ave", city: "Wayne" },
+  { name: "Bridget's", address: "200 Conestoga Rd", city: "Wayne" },
+  { name: "Issei Noodle", address: "22 N Queen St", city: "Lancaster" },
+  { name: "Lola's Market", address: "237 N Queen St", city: "Lancaster" },
+  { name: "Mojo Asian Cuisine", address: "456 Walnut St", city: "Lancaster" },
+  { name: "The Foundry", address: "123 Main St", city: "Lancaster" },
+  { name: "Bellanave", address: "52 N Queen St", city: "Lancaster" }
+];
 
 // Serve HTML files
 app.get('/*.html', (req, res) => {
   res.sendFile(path.join(__dirname, req.path));
 });
 
-// Serve root
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// API health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', users: db.users.length });
+// Get all bars for dropdown
+app.get('/api/bars', (req, res) => {
+  res.json(BARS);
 });
 
 // ==================== AUTH ROUTES ====================
