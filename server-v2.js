@@ -339,9 +339,44 @@ app.delete('/api/admin/events/:id', (req, res) => {
   res.json(deleted[0]);
 });
 
+// ==================== INITIALIZE DUMMY DATA ====================
+
+function initializeDummyData() {
+  // Participants
+  const participants = [
+    { id: 1, email: 'alice@test.com', password: bcrypt.hashSync('password123', 10), name: 'Alice Johnson', gender: 'F', seeking: 'M', age: 27, city: 'Philadelphia', role: 'participant', bio: 'Adventure seeker' },
+    { id: 2, email: 'bob@test.com', password: bcrypt.hashSync('password123', 10), name: 'Bob Mitchell', gender: 'M', seeking: 'F', age: 29, city: 'Philadelphia', role: 'participant', bio: 'Tech enthusiast' },
+    { id: 3, email: 'sarah@test.com', password: bcrypt.hashSync('password123', 10), name: 'Sarah Davis', gender: 'F', seeking: 'M', age: 26, city: 'Philadelphia', role: 'participant', bio: 'Artist' },
+  ];
+
+  // Bartenders
+  const bartenders = [
+    { id: 4, email: 'bartender1@test.com', password: bcrypt.hashSync('password123', 10), name: 'Joe Santos', role: 'bartender', gender: null, seeking: null, age: null, city: null, bio: '' },
+    { id: 5, email: 'bartender2@test.com', password: bcrypt.hashSync('password123', 10), name: 'Maria Garcia', role: 'bartender', gender: null, seeking: null, age: null, city: null, bio: '' },
+  ];
+
+  // Admin
+  const admin = [
+    { id: 6, email: 'admin@test.com', password: bcrypt.hashSync('admin123', 10), name: 'Admin User', role: 'admin', gender: null, seeking: null, age: null, city: null, bio: '' },
+  ];
+
+  // Events
+  const events = [
+    { id: 1, title: 'Speed Dating Night - Philadelphia', description: 'Meet new singles!', date: '2026-05-15', time: '19:00', venue_name: 'The Foundry', venue_address: '123 Main St', city: 'Philadelphia', capacity: 30, attendees_count: 0, status: 'upcoming', created_by: 6, created_at: new Date().toISOString() },
+    { id: 2, title: 'Singles Mixer - Center City', description: 'Casual meetup for singles', date: '2026-05-20', time: '18:30', venue_name: 'Mojo Asian Cuisine', venue_address: '456 Walnut St', city: 'Philadelphia', capacity: 25, attendees_count: 0, status: 'upcoming', created_by: 6, created_at: new Date().toISOString() },
+  ];
+
+  db.users = [...participants, ...bartenders, ...admin];
+  db.events = events;
+
+  console.log('✅ Dummy data initialized');
+}
+
+initializeDummyData();
+
 // ==================== START SERVER ====================
 
 app.listen(PORT, () => {
   console.log(`🎯 SparkDate API running on http://localhost:${PORT}`);
-  console.log('✅ Database initialized (in-memory)');
+  console.log(`Visit: http://localhost:${PORT}/participant-landing-revamped.html`);
 });
