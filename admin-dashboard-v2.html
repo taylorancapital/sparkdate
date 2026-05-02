@@ -556,6 +556,13 @@
         </div>
 
         <div class="form-group">
+          <label>Venue Name *</label>
+          <select id="event-venue" required>
+            <option value="">Select a venue...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label>Description</label>
           <textarea id="event-description" rows="3"></textarea>
         </div>
@@ -569,11 +576,6 @@
             <label>Time *</label>
             <input type="time" id="event-time" required>
           </div>
-        </div>
-
-        <div class="form-group">
-          <label>Venue Name *</label>
-          <input type="text" id="event-venue" required>
         </div>
 
         <div class="form-group">
@@ -642,7 +644,9 @@
   </div>
 
   <script>
-    const API_URL = 'http://localhost:3001/api';
+    const API_URL = window.location.hostname === 'localhost' 
+      ? 'http://localhost:3001/api' 
+      : 'https://sparkdate.onrender.com/api';
     let currentEventId = null;
     let allEvents = [];
     let allUsers = [];
@@ -660,7 +664,27 @@
 
       document.getElementById('user-name').textContent = user.name || 'Admin';
       loadDashboard();
+      loadBarsDropdown();
     });
+
+    // Load bars dropdown
+    async function loadBarsDropdown() {
+      const venueSelect = document.getElementById('event-venue');
+      
+      try {
+        const response = await fetch(`${API_URL}/bars`);
+        const bars = await response.json();
+        
+        bars.forEach(bar => {
+          const option = document.createElement('option');
+          option.value = bar.name;
+          option.textContent = `${bar.name} - ${bar.city}`;
+          venueSelect.appendChild(option);
+        });
+      } catch (err) {
+        console.error('Error loading bars:', err);
+      }
+    }
 
     function logout() {
       localStorage.removeItem('token');
@@ -685,10 +709,10 @@
         const response = await fetch(`${API_URL}/admin/stats`);
         const stats = await response.json();
 
-        document.getElementById('stat-users').textContent = stats.total_users;
-        document.getElementById('stat-events').textContent = stats.total_events;
-        document.getElementById('stat-matches').textContent = stats.total_matches;
-        document.getElementById('stat-messages').textContent = stats.total_messages;
+        document.getElementById('stat-users').textContent = stats.users;
+        document.getElementById('stat-events').textContent = stats.events;
+        document.getElementById('stat-matches').textContent = stats.matches;
+        document.getElementById('stat-messages').textContent = stats.messages;
 
         loadRecentEvents();
       } catch (err) {
@@ -817,12 +841,11 @@
         const stats = await response.json();
 
         const tbody = document.getElementById('matches-tbody');
-        if (stats.total_matches === 0) {
+        if (stats.matches === 0) {
           tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No matches yet</td></tr>';
           return;
         }
 
-        // This would need a dedicated endpoint to fetch matches
         tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Matches data loading...</td></tr>';
       } catch (err) {
         console.error('Error loading matches:', err);
@@ -903,27 +926,9 @@
         document.getElementById('detail-event-capacity').textContent = `${event.attendees_count || 0} / ${event.capacity}`;
         document.getElementById('detail-event-status').textContent = event.status;
 
-        // Load checked-in attendees
-        const attendeesResponse = await fetch(`${API_URL}/events/${eventId}/checked-in`);
-        const attendees = await attendeesResponse.json();
-
         const attendeesList = document.getElementById('detail-attendees-list');
-        document.getElementById('detail-attendee-count').textContent = attendees.length;
-
-        if (attendees.length === 0) {
-          attendeesList.innerHTML = '<div class="empty-state" style="padding: 20px;">No attendees checked in yet</div>';
-        } else {
-          let html = '';
-          attendees.forEach(attendee => {
-            html += `<div class="attendee-item">
-              <div class="attendee-info">
-                <div class="attendee-name">${attendee.name}</div>
-                <div class="attendee-details">${attendee.age ? attendee.age + ' years old' : ''} • ${attendee.city || ''}</div>
-              </div>
-            </div>`;
-          });
-          attendeesList.innerHTML = html;
-        }
+        document.getElementById('detail-attendee-count').textContent = '0';
+        attendeesList.innerHTML = '<div class="empty-state" style="padding: 20px;">No attendees checked in yet</div>';
 
         document.getElementById('eventDetailsModal').classList.add('active');
       } catch (err) {
