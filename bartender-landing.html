@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SparkDate for Bartenders</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+      width: 100%;
+      padding: 50px 40px;
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 48px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      color: #333;
+      font-size: 32px;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      color: #f5576c;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .tagline {
+      color: #666;
+      font-size: 16px;
+      margin-bottom: 40px;
+      line-height: 1.5;
+    }
+
+    .features {
+      background: #fff5f7;
+      border-radius: 12px;
+      padding: 25px;
+      margin-bottom: 30px;
+      text-align: left;
+    }
+
+    .feature {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .feature:last-child {
+      margin-bottom: 0;
+    }
+
+    .feature-icon {
+      font-size: 24px;
+      margin-right: 12px;
+      min-width: 30px;
+    }
+
+    .auth-buttons {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      flex: 1;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(245, 87, 108, 0.4);
+    }
+
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+      border: 2px solid #ddd;
+    }
+
+    .btn-secondary:hover {
+      background: #e8e8e8;
+    }
+
+    .footer-text {
+      color: #999;
+      font-size: 12px;
+      margin-top: 20px;
+    }
+
+    .footer-text a {
+      color: #f5576c;
+      text-decoration: none;
+    }
+
+    .footer-text a:hover {
+      text-decoration: underline;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 400px;
+      width: 90%;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: none;
+      border: none;
+      font-size: 28px;
+      cursor: pointer;
+      color: #999;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+      text-align: left;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #333;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s ease;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #f5576c;
+    }
+
+    .error {
+      color: #e74c3c;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      color: #f5576c;
+      font-size: 14px;
+    }
+
+    .loading.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">🍹</div>
+    <p class="subtitle">BARTENDER PORTAL</p>
+    <h1>SparkDate</h1>
+    <p class="tagline">Manage speed dating events at your bar and check in guests</p>
+
+    <div class="features">
+      <div class="feature">
+        <span class="feature-icon">📱</span>
+        <span>Scan QR codes to check in attendees</span>
+      </div>
+      <div class="feature">
+        <span class="feature-icon">👥</span>
+        <span>View real-time attendee list</span>
+      </div>
+      <div class="feature">
+        <span class="feature-icon">⏱️</span>
+        <span>Manage event timing and flow</span>
+      </div>
+      <div class="feature">
+        <span class="feature-icon">📊</span>
+        <span>Track event statistics</span>
+      </div>
+    </div>
+
+    <div class="auth-buttons">
+      <button class="btn-primary" onclick="openSignup()">Sign Up</button>
+      <button class="btn-secondary" onclick="openLogin()">Log In</button>
+    </div>
+
+    <p class="footer-text">
+      By signing up, you agree to our <a href="#">Terms of Service</a>
+    </p>
+  </div>
+
+  <!-- Sign Up Modal -->
+  <div class="modal" id="signupModal">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeSignup()">×</button>
+      <h2 style="margin-bottom: 20px; color: #333;">Bartender Registration</h2>
+
+      <form onsubmit="handleSignup(event)">
+        <div class="form-group">
+          <label>Full Name *</label>
+          <input type="text" id="signup-name" required>
+        </div>
+
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" id="signup-email" required>
+        </div>
+
+        <div class="form-group">
+          <label>Password *</label>
+          <input type="password" id="signup-password" required>
+        </div>
+
+        <div class="form-group">
+          <label>Bar/Venue Name *</label>
+          <input type="text" id="signup-venue" required>
+        </div>
+
+        <div id="signup-error" class="error"></div>
+        <div id="signup-loading" class="loading">Creating account...</div>
+
+        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 20px;">Create Account</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Log In Modal -->
+  <div class="modal" id="loginModal">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeLogin()">×</button>
+      <h2 style="margin-bottom: 20px; color: #333;">Bartender Login</h2>
+
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" id="login-email" required>
+        </div>
+
+        <div class="form-group">
+          <label>Password *</label>
+          <input type="password" id="login-password" required>
+        </div>
+
+        <div id="login-error" class="error"></div>
+        <div id="login-loading" class="loading">Logging in...</div>
+
+        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 20px;">Log In</button>
+      </form>
+
+      <p style="margin-top: 15px; font-size: 14px; color: #666;">
+        Don't have an account? <a href="#" onclick="closeLogin(); openSignup();" style="color: #f5576c; text-decoration: none;">Sign up</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3001/api';
+
+    function openSignup() {
+      document.getElementById('signupModal').classList.add('active');
+    }
+
+    function closeSignup() {
+      document.getElementById('signupModal').classList.remove('active');
+      document.getElementById('signup-error').textContent = '';
+    }
+
+    function openLogin() {
+      document.getElementById('loginModal').classList.add('active');
+    }
+
+    function closeLogin() {
+      document.getElementById('loginModal').classList.remove('active');
+      document.getElementById('login-error').textContent = '';
+    }
+
+    async function handleSignup(e) {
+      e.preventDefault();
+
+      const name = document.getElementById('signup-name').value;
+      const email = document.getElementById('signup-email').value;
+      const password = document.getElementById('signup-password').value;
+
+      document.getElementById('signup-loading').classList.add('active');
+      document.getElementById('signup-error').textContent = '';
+
+      try {
+        const response = await fetch(`${API_URL}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password, role: 'bartender' })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Signup failed');
+        }
+
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        window.location.href = '/bartender-dashboard.html';
+      } catch (err) {
+        document.getElementById('signup-error').textContent = err.message;
+      } finally {
+        document.getElementById('signup-loading').classList.remove('active');
+      }
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+
+      document.getElementById('login-loading').classList.add('active');
+      document.getElementById('login-error').textContent = '';
+
+      try {
+        const response = await fetch(`${API_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Login failed');
+        }
+
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        window.location.href = '/bartender-dashboard.html';
+      } catch (err) {
+        document.getElementById('login-error').textContent = err.message;
+      } finally {
+        document.getElementById('login-loading').classList.remove('active');
+      }
+    }
+
+    window.addEventListener('load', () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        window.location.href = '/bartender-dashboard.html';
+      }
+    });
+  </script>
+</body>
+</html>

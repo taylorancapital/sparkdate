@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SparkDate - Bartender Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f7fa; color: #333; }
+    .header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 24px; font-weight: 700; }
+    .header-user { display: flex; align-items: center; gap: 15px; }
+    .logout-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .logout-btn:hover { background: rgba(255,255,255,0.3); }
+    .container { max-width: 1000px; margin: 0 auto; padding: 30px 20px; }
+    .event-selector { background: white; border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .event-selector h2 { margin-bottom: 15px; font-size: 18px; }
+    .event-selector select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+    .checkin-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+    @media (max-width: 768px) { .checkin-panel { grid-template-columns: 1fr; } }
+    .panel-card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .panel-card h3 { margin-bottom: 15px; font-size: 16px; color: #333; }
+    .scanner-area { background: #f8f9fa; border: 2px dashed #ddd; border-radius: 12px; padding: 40px; text-align: center; margin-bottom: 20px; }
+    .scanner-icon { font-size: 64px; margin-bottom: 15px; }
+    .scanner-text { color: #666; font-size: 14px; }
+    .manual-checkin { margin-top: 20px; }
+    .manual-checkin input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; margin-bottom: 10px; }
+    .manual-checkin input:focus { outline: none; border-color: #f5576c; }
+    .btn { padding: 12px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s; width: 100%; }
+    .btn-primary { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 5px 15px rgba(245,87,108,0.3); }
+    .btn-success { background: #43e97b; color: white; }
+    .btn-success:hover { background: #38d46b; }
+    .attendee-list { max-height: 400px; overflow-y: auto; }
+    .attendee-item { padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .attendee-item.checked-in { border-color: #43e97b; background: #f0fff4; }
+    .attendee-info h4 { font-size: 14px; margin-bottom: 3px; }
+    .attendee-info p { font-size: 12px; color: #999; }
+    .check-badge { background: #43e97b; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px; }
+    .stat-mini { background: white; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .stat-mini-value { font-size: 28px; font-weight: 700; color: #f5576c; }
+    .stat-mini-label { font-size: 12px; color: #999; margin-top: 5px; }
+    .success-msg { background: #e8f5e9; color: #388e3c; padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 14px; display: none; }
+    .error-msg { background: #ffebee; color: #c62828; padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 14px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🍹 Bartender Dashboard</h1>
+    <div class="header-user">
+      <span id="user-name">Bartender</span>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Event Selector -->
+    <div class="event-selector">
+      <h2>Select Tonight's Event</h2>
+      <select id="event-select" onchange="loadEventData()">
+        <option value="">Choose an event...</option>
+      </select>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-mini">
+        <div class="stat-mini-value" id="stat-rsvp">0</div>
+        <div class="stat-mini-label">RSVPs</div>
+      </div>
+      <div class="stat-mini">
+        <div class="stat-mini-value" id="stat-checkedin">0</div>
+        <div class="stat-mini-label">Checked In</div>
+      </div>
+      <div class="stat-mini">
+        <div class="stat-mini-value" id="stat-capacity">0</div>
+        <div class="stat-mini-label">Capacity</div>
+      </div>
+    </div>
+
+    <!-- Check-in Panel -->
+    <div class="checkin-panel">
+      <!-- Scanner / Manual Check-in -->
+      <div class="panel-card">
+        <h3>📱 Check In Attendee</h3>
+        <div class="scanner-area">
+          <div class="scanner-icon">📷</div>
+          <p class="scanner-text">QR Scanner Ready<br><small>Point camera at attendee's QR code</small></p>
+        </div>
+        <div class="manual-checkin">
+          <h4 style="margin-bottom: 10px; font-size: 14px; color: #666;">Or check in manually:</h4>
+          <input type="email" id="checkin-email" placeholder="Enter attendee's email">
+          <button class="btn btn-primary" onclick="manualCheckin()">Check In</button>
+          <div class="success-msg" id="checkin-success">✅ Successfully checked in!</div>
+          <div class="error-msg" id="checkin-error"></div>
+        </div>
+      </div>
+
+      <!-- Attendee List -->
+      <div class="panel-card">
+        <h3>👥 Attendee List (<span id="attendee-count">0</span>)</h3>
+        <div class="attendee-list" id="attendee-list">
+          <div style="text-align: center; padding: 40px; color: #999;">
+            <div style="font-size: 48px; margin-bottom: 10px;">📋</div>
+            <p>Select an event to see attendees</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3001/api';
+    let currentUser = null;
+    let selectedEventId = null;
+
+    window.addEventListener('load', () => {
+      const token = localStorage.getItem('token');
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (!token) { window.location.href = '/bartender-landing.html'; return; }
+      currentUser = user;
+      document.getElementById('user-name').textContent = user.name || 'Bartender';
+      loadEvents();
+    });
+
+    function logout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/bartender-landing.html';
+    }
+
+    async function loadEvents() {
+      try {
+        const response = await fetch(`${API_URL}/events`);
+        const events = await response.json();
+        const select = document.getElementById('event-select');
+        select.innerHTML = '<option value="">Choose an event...</option>' +
+          events.map(e => `<option value="${e.id}">${e.title} — ${e.venue_name} — ${e.date} ${e.time}</option>`).join('');
+      } catch (err) { console.error('Error:', err); }
+    }
+
+    async function loadEventData() {
+      selectedEventId = document.getElementById('event-select').value;
+      if (!selectedEventId) return;
+
+      try {
+        // Load event details
+        const eventRes = await fetch(`${API_URL}/events/${selectedEventId}`);
+        const event = await eventRes.json();
+
+        document.getElementById('stat-rsvp').textContent = event.attendees_count || 0;
+        document.getElementById('stat-capacity').textContent = event.capacity;
+
+        // Load checked-in attendees
+        const checkedInRes = await fetch(`${API_URL}/events/${selectedEventId}/checked-in`);
+        const checkedIn = await checkedInRes.json();
+
+        document.getElementById('stat-checkedin').textContent = checkedIn.length;
+
+        // Load all RSVPs
+        const attendeesRes = await fetch(`${API_URL}/events/${selectedEventId}/attendees`);
+        const attendees = await attendeesRes.json();
+
+        renderAttendeeList(attendees, checkedIn);
+      } catch (err) { console.error('Error:', err); }
+    }
+
+    function renderAttendeeList(attendees, checkedIn) {
+      const list = document.getElementById('attendee-list');
+      const checkedInIds = new Set(checkedIn.map(c => c.id));
+
+      document.getElementById('attendee-count').textContent = attendees.length;
+
+      if (attendees.length === 0) {
+        list.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;"><p>No RSVPs yet</p></div>';
+        return;
+      }
+
+      list.innerHTML = attendees.map(a => `
+        <div class="attendee-item ${checkedInIds.has(a.id) ? 'checked-in' : ''}">
+          <div class="attendee-info">
+            <h4>${a.name}</h4>
+            <p>${a.age ? a.age + ' years old' : ''} ${a.city ? '• ' + a.city : ''}</p>
+          </div>
+          ${checkedInIds.has(a.id)
+            ? '<span class="check-badge">✓ Checked In</span>'
+            : `<button class="btn btn-success" style="width: auto; padding: 6px 12px; font-size: 12px;" onclick="checkinById(${a.id})">Check In</button>`
+          }
+        </div>
+      `).join('');
+    }
+
+    async function manualCheckin() {
+      const email = document.getElementById('checkin-email').value.trim();
+      if (!email) { showError('Please enter an email'); return; }
+      if (!selectedEventId) { showError('Please select an event first'); return; }
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/events/${selectedEventId}/checkin-qr`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_email: email })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Check-in failed');
+
+        showSuccess(`✅ ${data.user.name} checked in successfully!`);
+        document.getElementById('checkin-email').value = '';
+        loadEventData();
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    async function checkinById(userId) {
+      if (!selectedEventId) return;
+      try {
+        const token = localStorage.getItem('token');
+        // We need to find the user's email first
+        const response = await fetch(`${API_URL}/events/${selectedEventId}/checkin-qr`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_email: '' }) // Will need email lookup
+        });
+        // Refresh the list
+        loadEventData();
+      } catch (err) { console.error('Error:', err); }
+    }
+
+    function showSuccess(msg) {
+      const el = document.getElementById('checkin-success');
+      el.textContent = msg;
+      el.style.display = 'block';
+      document.getElementById('checkin-error').style.display = 'none';
+      setTimeout(() => { el.style.display = 'none'; }, 3000);
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('checkin-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+      document.getElementById('checkin-success').style.display = 'none';
+      setTimeout(() => { el.style.display = 'none'; }, 3000);
+    }
+
+    // Auto-refresh every 10 seconds
+    setInterval(() => {
+      if (selectedEventId) loadEventData();
+    }, 10000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SparkDate Admin - Event Management & Analytics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #8338EC;
+      --primary-dark: #5B21B6;
+      --secondary: #06FFA5;
+      --accent: #3A86FF;
+      --dark-bg: #0A0E27;
+      --light-text: #FFFFFF;
+      --text-muted: #B0B8C1;
+      --card-bg: rgba(255, 255, 255, 0.08);
+      --card-border: rgba(255, 255, 255, 0.15);
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: linear-gradient(135deg, #0A0E27 0%, #1a1633 50%, #0d1426 100%);
+      color: var(--light-text);
+      line-height: 1.6;
+    }
+
+    /* Background animation */
+    .background-pattern {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      overflow: hidden;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.15;
+      animation: float 40s infinite ease-in-out;
+    }
+
+    .orb-1 {
+      width: 500px;
+      height: 500px;
+      background: var(--primary);
+      top: -20%;
+      left: -10%;
+      animation-delay: 0s;
+    }
+
+    .orb-2 {
+      width: 400px;
+      height: 400px;
+      background: var(--secondary);
+      bottom: -10%;
+      right: -5%;
+      animation-delay: -15s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(50px, -50px) scale(1.1); }
+    }
+
+    /* Navigation */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem 5%;
+      background: rgba(10, 14, 39, 0.7);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--card-border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: 'Poppins', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #8338EC 0%, #3A86FF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -1px;
+    }
+
+    .logo::before {
+      content: '⚙️ ';
+      font-size: 32px;
+    }
+
+    nav .btn {
+      padding: 12px 28px;
+      border-radius: 50px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: 2px solid var(--card-border);
+      background: transparent;
+      color: var(--light-text);
+    }
+
+    nav .btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 5%;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: rgba(131, 56, 236, 0.2);
+      border: 1px solid var(--primary);
+      color: var(--secondary);
+      padding: 8px 16px;
+      border-radius: 50px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 2rem;
+    }
+
+    .hero h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: clamp(40px, 8vw, 72px);
+      font-weight: 700;
+      line-height: 1.15;
+      margin-bottom: 1.5rem;
+      letter-spacing: -2px;
+      max-width: 800px;
+    }
+
+    .hero h1 .gradient {
+      background: linear-gradient(135deg, #8338EC 0%, #3A86FF 50%, #06FFA5 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 2rem;
+      line-height: 1.8;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 1.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 4rem;
+    }
+
+    .btn-cta {
+      padding: 14px 32px;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.3s cubic-bezier(0.23, 1, 0.320, 1);
+      font-family: 'Outfit', sans-serif;
+    }
+
+    .btn-primary-cta {
+      background: linear-gradient(135deg, #8338EC 0%, #5B21B6 100%);
+      color: white;
+    }
+
+    .btn-primary-cta:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 30px 60px rgba(131, 56, 236, 0.4);
+    }
+
+    .btn-secondary-cta {
+      background: transparent;
+      color: var(--light-text);
+      border: 2px solid var(--secondary);
+    }
+
+    .btn-secondary-cta:hover {
+      background: rgba(6, 255, 165, 0.1);
+      transform: translateY(-5px);
+    }
+
+    /* Features Grid */
+    .features {
+      padding: 6rem 5%;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    .section-title h2 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+
+    .section-title p {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .feature-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--card-border);
+      padding: 2.5rem;
+      border-radius: 16px;
+      transition: all 0.3s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--primary);
+      background: rgba(131, 56, 236, 0.1);
+      transform: translateY(-10px);
+    }
+
+    .feature-icon {
+      font-size: 48px;
+      margin-bottom: 1rem;
+      display: inline-block;
+    }
+
+    .feature-card h3 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 0.8rem;
+    }
+
+    .feature-card p {
+      color: var(--text-muted);
+      line-height: 1.8;
+      font-size: 14px;
+    }
+
+    /* Dashboard Preview */
+    .dashboard-section {
+      padding: 6rem 5%;
+      background: linear-gradient(135deg, rgba(131, 56, 236, 0.1) 0%, rgba(58, 134, 255, 0.1) 100%);
+      position: relative;
+      z-index: 1;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 2rem;
+      max-width: 1200px;
+      margin: 3rem auto 0;
+    }
+
+    .dashboard-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--card-border);
+      padding: 2rem;
+      border-radius: 16px;
+      text-align: center;
+    }
+
+    .card-icon {
+      font-size: 40px;
+      margin-bottom: 1rem;
+    }
+
+    .card-stat {
+      font-family: 'Poppins', sans-serif;
+      font-size: 32px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #8338EC 0%, #3A86FF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-label {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Capabilities */
+    .capabilities {
+      padding: 6rem 5%;
+      position: relative;
+      z-index: 1;
+    }
+
+    .capabilities-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+      margin-top: 3rem;
+    }
+
+    .capability {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--card-border);
+      padding: 2rem;
+      border-radius: 16px;
+      position: relative;
+      padding-left: 80px;
+    }
+
+    .capability-num {
+      position: absolute;
+      left: 2rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #8338EC 0%, #3A86FF 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 20px;
+    }
+
+    .capability h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .capability p {
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* CTA */
+    .cta-section {
+      padding: 4rem 5%;
+      position: relative;
+      z-index: 1;
+      text-align: center;
+    }
+
+    .cta-box {
+      background: linear-gradient(135deg, #8338EC 0%, #5B21B6 50%, #3A86FF 100%);
+      padding: 4rem;
+      border-radius: 20px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .cta-box h2 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 36px;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 1rem;
+    }
+
+    .cta-box p {
+      color: rgba(255, 255, 255, 0.9);
+      margin-bottom: 2rem;
+      font-size: 16px;
+    }
+
+    .cta-box .btn-cta {
+      background: white;
+      color: #8338EC;
+    }
+
+    .cta-box .btn-cta:hover {
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Footer */
+    footer {
+      padding: 2rem 5%;
+      text-align: center;
+      border-top: 1px solid var(--card-border);
+      color: var(--text-muted);
+      font-size: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: linear-gradient(135deg, #1a1633 0%, #0d1426 100%);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 3rem;
+      max-width: 450px;
+      width: 100%;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    .modal-header h2 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 28px;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--light-text);
+      font-family: 'Outfit', sans-serif;
+      font-size: 14px;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: rgba(131, 56, 236, 0.1);
+    }
+
+    input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #8338EC 0%, #5B21B6 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 1rem;
+      transition: all 0.3s;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 40px rgba(131, 56, 236, 0.3);
+    }
+
+    .form-footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .form-footer a {
+      color: var(--primary);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .form-footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero {
+        min-height: auto;
+        padding: 3rem 5%;
+      }
+
+      .hero h1 {
+        font-size: 32px;
+      }
+
+      .hero-buttons {
+        flex-direction: column;
+      }
+
+      .btn-cta {
+        width: 100%;
+      }
+
+      .section-title h2 {
+        font-size: 32px;
+      }
+
+      .cta-box {
+        padding: 2rem;
+      }
+
+      .cta-box h2 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="background-pattern">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
+
+  <nav>
+    <div class="logo">SparkDate</div>
+    <button class="btn" onclick="showLoginModal()">Admin Login</button>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-badge">Admin Control Panel</div>
+    <h1>Manage Everything from One <span class="gradient">Powerful Dashboard</span></h1>
+    <p>Real-time analytics, event management, user moderation, and full platform control. Everything you need to scale your speed dating marketplace.</p>
+
+    <div class="hero-buttons">
+      <button class="btn-cta btn-primary-cta" onclick="showLoginModal()">Admin Login 🔑</button>
+      <button class="btn-cta btn-secondary-cta" onclick="document.querySelector('.features').scrollIntoView()">Explore Features →</button>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="section-title">
+      <h2>Core Features</h2>
+      <p>Comprehensive tools for platform management</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Real-Time Analytics</h3>
+        <p>Track revenue, attendance, user growth, match rates, and event performance in real-time.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎯</div>
+        <h3>Event Management</h3>
+        <p>Create, edit, publish, and manage events. Set pricing, capacity, and special promotions.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">👥</div>
+        <h3>User Management</h3>
+        <p>View all users, verify profiles, manage roles, ban abusers, and moderate content.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💳</div>
+        <h3>Payment Processing</h3>
+        <p>Stripe integration for tickets, premium subscriptions, and payouts. Full audit trail.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💬</div>
+        <h3>Messaging Control</h3>
+        <p>Monitor conversations, report system, and handle user disputes. Privacy-first approach.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📈</div>
+        <h3>Reporting & Exports</h3>
+        <p>Generate custom reports, export data, and track KPIs. CSV, PDF, and dashboard views.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="dashboard-section">
+    <div class="section-title">
+      <h2>Dashboard at a Glance</h2>
+      <p>Key metrics and insights</p>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="dashboard-card">
+        <div class="card-icon">👤</div>
+        <div class="card-stat">12,847</div>
+        <div class="card-label">Active Users</div>
+      </div>
+      <div class="dashboard-card">
+        <div class="card-icon">🎉</div>
+        <div class="card-stat">847</div>
+        <div class="card-label">Total Events</div>
+      </div>
+      <div class="dashboard-card">
+        <div class="card-icon">💘</div>
+        <div class="card-stat">58,932</div>
+        <div class="card-label">Total Matches</div>
+      </div>
+      <div class="dashboard-card">
+        <div class="card-icon">💰</div>
+        <div class="card-stat">$847K</div>
+        <div class="card-label">Total Revenue</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="capabilities">
+    <div class="section-title">
+      <h2>Admin Capabilities</h2>
+      <p>Complete platform control</p>
+    </div>
+
+    <div class="capabilities-list">
+      <div class="capability">
+        <div class="capability-num">1</div>
+        <h3>Full Event Control</h3>
+        <p>Create events, set pricing, manage capacity, edit details, publish/unpublish, and delete.</p>
+      </div>
+      <div class="capability">
+        <div class="capability-num">2</div>
+        <h3>User Moderation</h3>
+        <p>View profiles, verify users, manage roles (participant/bartender/admin), and ban users.</p>
+      </div>
+      <div class="capability">
+        <div class="capability-num">3</div>
+        <h3>Payment Oversight</h3>
+        <p>Track transactions, process refunds, manage subscriptions, and view payment history.</p>
+      </div>
+      <div class="capability">
+        <div class="capability-num">4</div>
+        <h3>Content Moderation</h3>
+        <p>Review reported messages, ban inappropriate users, and maintain community standards.</p>
+      </div>
+      <div class="capability">
+        <div class="capability-num">5</div>
+        <h3>Reporting Suite</h3>
+        <p>Revenue reports, attendance analytics, user demographics, and custom date range reports.</p>
+      </div>
+      <div class="capability">
+        <div class="capability-num">6</div>
+        <h3>System Settings</h3>
+        <p>Configure email, SMS, payment settings, promotion rules, and platform features.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-section">
+    <div class="cta-box">
+      <h2>Ready to Scale Your Platform?</h2>
+      <p>Get complete visibility and control over your speed dating marketplace. Make data-driven decisions and grow confidently.</p>
+      <button class="btn-cta btn-primary-cta" onclick="showLoginModal()">Access Admin Panel 🚀</button>
+    </div>
+  </section>
+
+  <footer>
+    <p>&copy; 2025 SparkDate. Enterprise-grade speed dating platform.</p>
+  </footer>
+
+  <!-- Login Modal -->
+  <div class="modal" id="loginModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Admin Login</h2>
+        <button class="close-btn" onclick="closeLoginModal()">✕</button>
+      </div>
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" placeholder="admin@sparkdate.com" required>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="submit-btn">Login</button>
+        <div class="form-footer">
+          Demo account: admin@test.com / admin123
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3001/api';
+
+    function showLoginModal() {
+      document.getElementById('loginModal').classList.add('active');
+    }
+
+    function closeLoginModal() {
+      document.getElementById('loginModal').classList.remove('active');
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const form = e.target;
+      const email = form.querySelector('input[type="email"]').value;
+      const password = form.querySelector('input[type="password"]').value;
+
+      try {
+        const res = await fetch(`${API_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          window.location.href = '/admin-dashboard-v2.html';
+        } else {
+          alert('Invalid email or password');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    document.getElementById('loginModal').addEventListener('click', function(e) {
+      if (e.target === this) closeLoginModal();
+    });
+  </script>
+</body>
+</html>

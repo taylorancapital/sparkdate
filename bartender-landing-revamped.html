@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SparkDate Bartender - Manage Events & Check-Ins</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #FF006E;
+      --secondary: #3A86FF;
+      --accent: #06FFA5;
+      --dark-bg: #0A0E27;
+      --light-text: #FFFFFF;
+      --text-muted: #B0B8C1;
+      --card-bg: rgba(255, 255, 255, 0.08);
+      --card-border: rgba(255, 255, 255, 0.15);
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: linear-gradient(135deg, #0A0E27 0%, #1a1633 50%, #0d1426 100%);
+      color: var(--light-text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Animated background */
+    .background-orbs {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      overflow: hidden;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.2;
+      animation: float 30s infinite ease-in-out;
+    }
+
+    .orb-1 {
+      width: 400px;
+      height: 400px;
+      background: #FF006E;
+      top: -50%;
+      left: -10%;
+      animation-delay: 0s;
+    }
+
+    .orb-2 {
+      width: 300px;
+      height: 300px;
+      background: #3A86FF;
+      top: 50%;
+      right: -5%;
+      animation-delay: -10s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(40px, -40px) scale(1.1); }
+    }
+
+    /* Navigation */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem 5%;
+      background: rgba(10, 14, 39, 0.7);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--card-border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: 'Poppins', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #FF006E 0%, #3A86FF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -1px;
+    }
+
+    .logo::before {
+      content: '🍹 ';
+      font-size: 32px;
+    }
+
+    nav .btn {
+      padding: 12px 28px;
+      border-radius: 50px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: 2px solid var(--card-border);
+      background: transparent;
+      color: var(--light-text);
+    }
+
+    nav .btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      transform: translateY(-2px);
+    }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 4rem 5%;
+      gap: 3rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-content {
+      flex: 1;
+      max-width: 550px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: rgba(255, 0, 110, 0.2);
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      padding: 8px 16px;
+      border-radius: 50px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 1rem;
+    }
+
+    .hero h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: clamp(40px, 8vw, 64px);
+      font-weight: 700;
+      line-height: 1.15;
+      margin-bottom: 1.5rem;
+      letter-spacing: -1px;
+    }
+
+    .hero h1 .highlight {
+      background: linear-gradient(135deg, #FF006E 0%, #3A86FF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      font-size: 18px;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      line-height: 1.8;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .btn-cta {
+      padding: 14px 32px;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.3s cubic-bezier(0.23, 1, 0.320, 1);
+      font-family: 'Outfit', sans-serif;
+    }
+
+    .btn-primary-cta {
+      background: linear-gradient(135deg, #FF006E 0%, #FB5607 100%);
+      color: white;
+    }
+
+    .btn-primary-cta:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 30px 60px rgba(255, 0, 110, 0.4);
+    }
+
+    .btn-secondary-cta {
+      background: transparent;
+      color: var(--light-text);
+      border: 2px solid var(--accent);
+    }
+
+    .btn-secondary-cta:hover {
+      background: rgba(6, 255, 165, 0.1);
+      transform: translateY(-5px);
+    }
+
+    /* Hero Illustration */
+    .hero-visual {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .phone-mockup {
+      width: 100%;
+      max-width: 350px;
+      aspect-ratio: 9/16;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+      border-radius: 40px;
+      padding: 12px;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 50px 100px rgba(0, 0, 0, 0.3);
+      animation: float 4s ease-in-out infinite;
+    }
+
+    .phone-screen {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #3A86FF 0%, #06FFA5 100%);
+      border-radius: 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+      color: white;
+      font-weight: 700;
+      font-size: 24px;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-30px); }
+    }
+
+    /* Benefits Section */
+    .benefits {
+      padding: 6rem 5%;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    .section-title h2 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+
+    .section-title p {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .benefits-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+    }
+
+    .benefit-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--card-border);
+      padding: 2.5rem;
+      border-radius: 16px;
+      transition: all 0.3s;
+      text-align: center;
+    }
+
+    .benefit-card:hover {
+      border-color: var(--primary);
+      background: rgba(255, 0, 110, 0.08);
+      transform: translateY(-10px);
+    }
+
+    .benefit-icon {
+      font-size: 48px;
+      margin-bottom: 1rem;
+    }
+
+    .benefit-card h3 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 0.8rem;
+    }
+
+    .benefit-card p {
+      color: var(--text-muted);
+      line-height: 1.8;
+    }
+
+    /* Features Section */
+    .features {
+      padding: 6rem 5%;
+      background: linear-gradient(135deg, rgba(58, 134, 255, 0.1) 0%, rgba(6, 255, 165, 0.1) 100%);
+      position: relative;
+      z-index: 1;
+    }
+
+    .features-list {
+      display: grid;
+      gap: 2rem;
+      max-width: 700px;
+      margin: 3rem auto;
+    }
+
+    .feature {
+      display: flex;
+      gap: 1.5rem;
+      padding: 2rem;
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+    }
+
+    .feature-num {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #FF006E 0%, #3A86FF 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .feature-content h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-content p {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Stats */
+    .stats {
+      padding: 4rem 5%;
+      position: relative;
+      z-index: 1;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+    }
+
+    .stat-box {
+      text-align: center;
+      padding: 2rem;
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+    }
+
+    .stat-number {
+      font-family: 'Poppins', sans-serif;
+      font-size: 36px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #FF006E 0%, #3A86FF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* CTA */
+    .cta {
+      padding: 4rem 5%;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cta-box {
+      background: linear-gradient(135deg, #FF006E 0%, #FB5607 50%, #3A86FF 100%);
+      padding: 4rem;
+      border-radius: 20px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .cta-box h2 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 36px;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 1rem;
+    }
+
+    .cta-box p {
+      color: rgba(255, 255, 255, 0.9);
+      margin-bottom: 2rem;
+      font-size: 16px;
+    }
+
+    .cta-box .btn-cta {
+      background: white;
+      color: #FF006E;
+    }
+
+    .cta-box .btn-cta:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Footer */
+    footer {
+      padding: 2rem 5%;
+      text-align: center;
+      border-top: 1px solid var(--card-border);
+      color: var(--text-muted);
+      font-size: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: linear-gradient(135deg, #1a1633 0%, #0d1426 100%);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 3rem;
+      max-width: 450px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    .modal-header h2 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 28px;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--light-text);
+      font-family: 'Outfit', sans-serif;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: rgba(255, 0, 110, 0.1);
+    }
+
+    input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #FF006E 0%, #FB5607 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 1rem;
+      transition: all 0.3s;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 40px rgba(255, 0, 110, 0.3);
+    }
+
+    .form-footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 14px;
+    }
+
+    .form-footer a {
+      color: var(--primary);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .form-footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero {
+        flex-direction: column;
+        min-height: auto;
+        padding: 3rem 5%;
+      }
+
+      .hero h1 {
+        font-size: 32px;
+      }
+
+      .hero-buttons {
+        flex-direction: column;
+      }
+
+      .btn-cta {
+        width: 100%;
+        text-align: center;
+      }
+
+      .section-title h2 {
+        font-size: 32px;
+      }
+
+      .cta-box {
+        padding: 2rem;
+      }
+
+      .cta-box h2 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="background-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
+
+  <nav>
+    <div class="logo">SparkDate</div>
+    <button class="btn" onclick="showLoginModal()">Bartender Login</button>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-content">
+      <div class="badge">For Bartenders & Venues</div>
+      <h1>Manage Speed Dating Events<span class="highlight">. Boost Attendance.</span></h1>
+      <p>SparkDate handles the matchmaking while you focus on creating an amazing experience. Use our QR scanner to check in attendees and manage real-time event analytics.</p>
+      
+      <div class="hero-buttons">
+        <button class="btn-cta btn-primary-cta" onclick="showLoginModal()">Bartender Login 🔓</button>
+        <button class="btn-cta btn-secondary-cta" onclick="document.querySelector('.benefits').scrollIntoView()">How It Works →</button>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="phone-mockup">
+        <div class="phone-screen">
+          📱<br>Event Dashboard
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="benefits">
+    <div class="section-title">
+      <h2>Why Partner with SparkDate?</h2>
+      <p>Increase foot traffic and create memorable experiences</p>
+    </div>
+
+    <div class="benefits-grid">
+      <div class="benefit-card">
+        <div class="benefit-icon">👥</div>
+        <h3>Guaranteed Attendees</h3>
+        <p>Pre-registered singles RSVP in advance. Know exactly how many people are coming.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">💰</div>
+        <h3>Boost Revenue</h3>
+        <p>Speed dating events drive consistent foot traffic and increase bar sales.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">📊</div>
+        <h3>Live Analytics</h3>
+        <p>Real-time check-in count, attendee list, and event performance metrics.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">⚡</div>
+        <h3>Zero Hassle Setup</h3>
+        <p>We handle promotion, registration, and matching. You just show up and check people in.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🎯</div>
+        <h3>Targeted Marketing</h3>
+        <p>Reach hundreds of singles in your area actively looking for dating events.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🌟</div>
+        <h3>Brand Building</h3>
+        <p>Become THE destination for singles events. Build your venue's reputation.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="section-title">
+      <h2>Bartender Dashboard Features</h2>
+      <p>Everything you need to run a smooth event</p>
+    </div>
+
+    <div class="features-list">
+      <div class="feature">
+        <div class="feature-num">1</div>
+        <div class="feature-content">
+          <h3>QR Code Scanner</h3>
+          <p>Instantly check in attendees using your phone camera. No manual entry needed.</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="feature-num">2</div>
+        <div class="feature-content">
+          <h3>Live Attendee List</h3>
+          <p>See who's checked in in real-time. Track no-shows and manage capacity.</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="feature-num">3</div>
+        <div class="feature-content">
+          <h3>Event Control Panel</h3>
+          <p>Manage timers, start/pause speed dates, and handle last-minute changes.</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="feature-num">4</div>
+        <div class="feature-content">
+          <h3>Participant Details</h3>
+          <p>View attendee profiles, interests, and match history from your event.</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="feature-num">5</div>
+        <div class="feature-content">
+          <h3>Communication Hub</h3>
+          <p>Send messages to attendees, announce events, and manage registrations.</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="feature-num">6</div>
+        <div class="feature-content">
+          <h3>Performance Reports</h3>
+          <p>Track attendance, no-shows, revenue impact, and customer feedback per event.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats">
+    <div class="section-title">
+      <h2>By The Numbers</h2>
+      <p>What our partner venues are seeing</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-number">+45%</div>
+        <div class="stat-label">Average Foot Traffic Increase</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number">85+</div>
+        <div class="stat-label">Active Partner Venues</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number">5,847</div>
+        <div class="stat-label">Total Matches Made</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number">94%</div>
+        <div class="stat-label">Attendee Satisfaction</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="cta-box">
+      <h2>Ready to Host Events?</h2>
+      <p>Join 85+ venues already using SparkDate. Increase traffic, boost sales, and create unforgettable experiences.</p>
+      <button class="btn-cta btn-primary-cta" onclick="showLoginModal()" style="background: white; color: #FF006E;">Get Started Today 🚀</button>
+    </div>
+  </section>
+
+  <footer>
+    <p>&copy; 2025 SparkDate. Built for bartenders. Built for venues.</p>
+  </footer>
+
+  <!-- Login Modal -->
+  <div class="modal" id="loginModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Bartender Login</h2>
+        <button class="close-btn" onclick="closeLoginModal()">✕</button>
+      </div>
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" placeholder="your@email.com" required>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="submit-btn">Login</button>
+        <div class="form-footer">
+          Demo account: bartender1@test.com / password123
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3001/api';
+
+    function showLoginModal() {
+      document.getElementById('loginModal').classList.add('active');
+    }
+
+    function closeLoginModal() {
+      document.getElementById('loginModal').classList.remove('active');
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const form = e.target;
+      const email = form.querySelector('input[type="email"]').value;
+      const password = form.querySelector('input[type="password"]').value;
+
+      try {
+        const res = await fetch(`${API_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          window.location.href = '/bartender-dashboard.html';
+        } else {
+          alert('Invalid email or password');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    document.getElementById('loginModal').addEventListener('click', function(e) {
+      if (e.target === this) closeLoginModal();
+    });
+  </script>
+</body>
+</html>

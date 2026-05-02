@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SparkDate - Meet & Match at Your Favorite Bars</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Poppins:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary-gradient: linear-gradient(135deg, #FF006E 0%, #FB5607 50%, #FFBE0B 100%);
+      --secondary-gradient: linear-gradient(135deg, #8338EC 0%, #3A86FF 50%, #06FFA5 100%);
+      --accent-purple: #8338EC;
+      --accent-pink: #FF006E;
+      --accent-cyan: #06FFA5;
+      --accent-blue: #3A86FF;
+      --dark-bg: #0A0E27;
+      --light-text: #FFFFFF;
+      --text-muted: #B0B8C1;
+      --card-bg: rgba(255, 255, 255, 0.08);
+      --card-border: rgba(255, 255, 255, 0.15);
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: linear-gradient(135deg, #0A0E27 0%, #1a1633 50%, #0d1426 100%);
+      color: var(--light-text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Animated background elements */
+    .background-orbs {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      overflow: hidden;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.3;
+      animation: float 25s infinite ease-in-out;
+    }
+
+    .orb-1 {
+      width: 400px;
+      height: 400px;
+      background: var(--accent-pink);
+      top: -100px;
+      left: -100px;
+      animation-delay: 0s;
+    }
+
+    .orb-2 {
+      width: 300px;
+      height: 300px;
+      background: var(--accent-blue);
+      top: 50%;
+      right: -50px;
+      animation-delay: -5s;
+    }
+
+    .orb-3 {
+      width: 350px;
+      height: 350px;
+      background: var(--accent-cyan);
+      bottom: -100px;
+      left: 20%;
+      animation-delay: -10s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      25% { transform: translate(30px, -30px) scale(1.05); }
+      50% { transform: translate(-20px, 30px) scale(0.95); }
+      75% { transform: translate(-30px, -20px) scale(1.02); }
+    }
+
+    /* Navigation */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem 5%;
+      background: rgba(10, 14, 39, 0.7);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--card-border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: 'Poppins', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -1px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .logo::before {
+      content: '✨';
+      font-size: 32px;
+    }
+
+    nav .auth-buttons {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .btn {
+      padding: 12px 28px;
+      border: none;
+      border-radius: 50px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.23, 1, 0.320, 1);
+      font-family: 'Outfit', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-login {
+      background: transparent;
+      color: var(--light-text);
+      border: 2px solid var(--card-border);
+    }
+
+    .btn-login:hover {
+      border-color: var(--accent-pink);
+      color: var(--accent-pink);
+      transform: translateY(-2px);
+    }
+
+    .btn-signup {
+      background: var(--primary-gradient);
+      color: var(--dark-bg);
+      border: none;
+    }
+
+    .btn-signup:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 40px rgba(255, 0, 110, 0.3);
+    }
+
+    /* Hero Section */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4rem 5%;
+      gap: 3rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-content {
+      flex: 1;
+      max-width: 600px;
+    }
+
+    .hero h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: clamp(48px, 8vw, 72px);
+      font-weight: 700;
+      line-height: 1.15;
+      margin-bottom: 2rem;
+      letter-spacing: -2px;
+    }
+
+    .hero h1 .gradient-text {
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      font-size: 18px;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      line-height: 1.8;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+
+    .btn-cta {
+      padding: 16px 40px;
+      font-size: 16px;
+      border-radius: 50px;
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.23, 1, 0.320, 1);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary-cta {
+      background: var(--primary-gradient);
+      color: var(--dark-bg);
+    }
+
+    .btn-primary-cta:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 30px 60px rgba(255, 0, 110, 0.4);
+    }
+
+    .btn-secondary-cta {
+      background: transparent;
+      color: var(--light-text);
+      border: 2px solid var(--accent-cyan);
+    }
+
+    .btn-secondary-cta:hover {
+      background: rgba(6, 255, 165, 0.1);
+      transform: translateY(-5px);
+    }
+
+    .stats {
+      display: flex;
+      gap: 2rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--card-border);
+    }
+
+    .stat {
+      flex: 1;
+    }
+
+    .stat-number {
+      font-size: 32px;
+      font-weight: 700;
+      background: var(--secondary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 0.5rem;
+    }
+
+    /* Hero Visual */
+    .hero-visual {
+      flex: 1;
+      position: relative;
+      height: 600px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .profile-cards-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 400px;
+    }
+
+    .profile-card {
+      position: absolute;
+      width: 280px;
+      height: 380px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: grab;
+      transition: all 0.6s cubic-bezier(0.23, 1, 0.320, 1);
+      animation: float-card 4s ease-in-out infinite;
+    }
+
+    .profile-card:active {
+      cursor: grabbing;
+    }
+
+    .card-1 {
+      transform: rotate(-12deg) translateY(-30px);
+      z-index: 3;
+      animation-delay: 0s;
+    }
+
+    .card-2 {
+      transform: rotate(0deg) translateY(0px);
+      z-index: 2;
+      opacity: 0.85;
+      animation-delay: 0.2s;
+    }
+
+    .card-3 {
+      transform: rotate(12deg) translateY(30px);
+      z-index: 1;
+      opacity: 0.7;
+      animation-delay: 0.4s;
+    }
+
+    @keyframes float-card {
+      0%, 100% { transform: translateY(0px) rotate(-12deg); }
+      50% { transform: translateY(-20px) rotate(-12deg); }
+    }
+
+    .card-header {
+      flex: 1;
+      background: var(--secondary-gradient);
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      opacity: 0.8;
+    }
+
+    .card-info h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-info p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .tag {
+      background: rgba(255, 0, 110, 0.2);
+      color: var(--accent-pink);
+      padding: 4px 10px;
+      border-radius: 16px;
+      font-size: 12px;
+      border: 1px solid var(--accent-pink);
+    }
+
+    /* Features Section */
+    .features {
+      padding: 6rem 5%;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    .section-title h2 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      letter-spacing: -1px;
+    }
+
+    .section-title p {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+    }
+
+    .feature-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--card-border);
+      padding: 2rem;
+      border-radius: 16px;
+      transition: all 0.3s cubic-bezier(0.23, 1, 0.320, 1);
+    }
+
+    .feature-card:hover {
+      border-color: var(--accent-pink);
+      background: rgba(255, 0, 110, 0.08);
+      transform: translateY(-10px);
+      box-shadow: 0 20px 40px rgba(255, 0, 110, 0.15);
+    }
+
+    .feature-icon {
+      font-size: 48px;
+      margin-bottom: 1rem;
+      display: inline-block;
+    }
+
+    .feature-card h3 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 0.8rem;
+    }
+
+    .feature-card p {
+      color: var(--text-muted);
+      line-height: 1.8;
+    }
+
+    /* How It Works */
+    .how-it-works {
+      padding: 6rem 5%;
+      background: linear-gradient(135deg, rgba(131, 56, 236, 0.1) 0%, rgba(58, 134, 255, 0.1) 100%);
+      position: relative;
+      z-index: 1;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 2rem;
+      margin-top: 3rem;
+    }
+
+    .step {
+      position: relative;
+      padding-left: 80px;
+    }
+
+    .step-number {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--primary-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 24px;
+      color: var(--dark-bg);
+    }
+
+    .step h3 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 0.8rem;
+    }
+
+    .step p {
+      color: var(--text-muted);
+      line-height: 1.8;
+    }
+
+    /* Testimonials */
+    .testimonials {
+      padding: 6rem 5%;
+      position: relative;
+      z-index: 1;
+    }
+
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      margin-top: 3rem;
+    }
+
+    .testimonial {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--card-border);
+      padding: 2rem;
+      border-radius: 16px;
+    }
+
+    .testimonial-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .testimonial-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: var(--secondary-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 20px;
+    }
+
+    .testimonial-name {
+      font-weight: 600;
+    }
+
+    .testimonial-role {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .stars {
+      color: #FFBE0B;
+      margin-bottom: 1rem;
+      letter-spacing: 3px;
+    }
+
+    .testimonial p {
+      color: var(--text-muted);
+      line-height: 1.8;
+    }
+
+    /* CTA Section */
+    .cta-section {
+      padding: 4rem 5%;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cta-box {
+      background: var(--secondary-gradient);
+      padding: 4rem;
+      border-radius: 20px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .cta-box h2 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--dark-bg);
+      margin-bottom: 1rem;
+    }
+
+    .cta-box p {
+      color: rgba(10, 14, 39, 0.9);
+      margin-bottom: 2rem;
+      font-size: 16px;
+    }
+
+    .cta-box .btn-cta {
+      background: var(--dark-bg);
+      color: var(--light-text);
+      margin: 0 auto;
+    }
+
+    .cta-box .btn-cta:hover {
+      background: rgba(0, 0, 0, 0.8);
+    }
+
+    /* Footer */
+    footer {
+      padding: 2rem 5%;
+      text-align: center;
+      border-top: 1px solid var(--card-border);
+      color: var(--text-muted);
+      font-size: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: linear-gradient(135deg, #1a1633 0%, #0d1426 100%);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 3rem;
+      max-width: 450px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      animation: slideUp 0.3s cubic-bezier(0.23, 1, 0.320, 1);
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    .modal-header h2 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 28px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: color 0.3s;
+    }
+
+    .close-btn:hover {
+      color: var(--accent-pink);
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--light-text);
+      font-family: 'Outfit', sans-serif;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent-pink);
+      background: rgba(255, 0, 110, 0.1);
+    }
+
+    .form-group input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary-gradient);
+      color: var(--dark-bg);
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.3s cubic-bezier(0.23, 1, 0.320, 1);
+      margin-top: 1rem;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 40px rgba(255, 0, 110, 0.3);
+    }
+
+    .submit-btn:active {
+      transform: translateY(-1px);
+    }
+
+    .form-footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .form-footer a {
+      color: var(--accent-pink);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .form-footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero {
+        flex-direction: column;
+        min-height: auto;
+        padding: 3rem 5%;
+      }
+
+      .hero-visual {
+        height: 400px;
+      }
+
+      .hero h1 {
+        font-size: 36px;
+      }
+
+      .hero-buttons {
+        flex-direction: column;
+      }
+
+      .btn-cta {
+        justify-content: center;
+      }
+
+      nav .auth-buttons {
+        gap: 0.5rem;
+      }
+
+      .btn {
+        padding: 10px 20px;
+        font-size: 12px;
+      }
+
+      .section-title h2 {
+        font-size: 32px;
+      }
+
+      .cta-box {
+        padding: 2rem;
+      }
+
+      .cta-box h2 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="background-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <nav>
+    <div class="logo">SparkDate</div>
+    <div class="auth-buttons">
+      <button class="btn btn-login" onclick="showLoginModal()">Login</button>
+      <button class="btn btn-signup" onclick="showSignupModal()">Sign Up</button>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-content">
+      <h1>Meet Your <span class="gradient-text">Perfect Match</span> Tonight</h1>
+      <p>Real connections happen in real places. SparkDate brings singles together through curated speed dating events at your favorite bars. Swipe, match, and message—all at one event.</p>
+      
+      <div class="hero-buttons">
+        <button class="btn-cta btn-primary-cta" onclick="showSignupModal()">Get Started 🎉</button>
+        <button class="btn-cta btn-secondary-cta" onclick="document.querySelector('.features').scrollIntoView()">Learn More →</button>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-number">5,847</div>
+          <div class="stat-label">Matches Made</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">94%</div>
+          <div class="stat-label">Would Attend Again</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">85+</div>
+          <div class="stat-label">Partner Bars</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="profile-cards-container">
+        <div class="profile-card card-1">
+          <div class="card-header"></div>
+          <div class="card-info">
+            <h3>Alex, 28</h3>
+            <p>Creative Director</p>
+            <div class="card-tags">
+              <span class="tag">Art</span>
+              <span class="tag">Music</span>
+            </div>
+          </div>
+        </div>
+        <div class="profile-card card-2">
+          <div class="card-header"></div>
+          <div class="card-info">
+            <h3>Jordan, 26</h3>
+            <p>Tech Enthusiast</p>
+            <div class="card-tags">
+              <span class="tag">Hiking</span>
+              <span class="tag">Coffee</span>
+            </div>
+          </div>
+        </div>
+        <div class="profile-card card-3">
+          <div class="card-header"></div>
+          <div class="card-info">
+            <h3>Sam, 29</h3>
+            <p>Entrepreneur</p>
+            <div class="card-tags">
+              <span class="tag">Travel</span>
+              <span class="tag">Food</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="section-title">
+      <h2>Why SparkDate?</h2>
+      <p>We've reimagined speed dating for the modern era</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Instant Connections</h3>
+        <p>Meet 10+ genuine people in one night. Every conversation is timed and meaningful.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎯</div>
+        <h3>Real Matches</h3>
+        <p>Both like each other? It's a match! Start messaging and take it from there.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🍹</div>
+        <h3>Great Venues</h3>
+        <p>Events hosted at premium bars with signature cocktails, snacks, and perfect vibes.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💬</div>
+        <h3>Instant Messaging</h3>
+        <p>Match with someone? Message them immediately. No waiting, no games.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔐</div>
+        <h3>Verified Users</h3>
+        <p>All participants are genuine singles looking for real connections. No bots.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌟</div>
+        <h3>Exclusive Perks</h3>
+        <p>Early event access, drink discounts at partner bars, and VIP networking events.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="how-it-works">
+    <div class="section-title">
+      <h2>How It Works</h2>
+      <p>Four simple steps to your next great connection</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <h3>Create Profile</h3>
+        <p>Add your best photo, bio, and interests. Be authentic—it matters.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <h3>Pick an Event</h3>
+        <p>Browse upcoming SparkDate nights at your favorite bars. Choose your vibe.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <h3>Show Up & Connect</h3>
+        <p>Check in via QR code, meet people, have 5-minute speed dates, mark your interests.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">4</div>
+        <h3>Match & Message</h3>
+        <p>If they liked you too, it's a match! Start a conversation and see where it goes.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="testimonials">
+    <div class="section-title">
+      <h2>Love Stories</h2>
+      <p>Real people, real connections</p>
+    </div>
+
+    <div class="testimonials-grid">
+      <div class="testimonial">
+        <div class="testimonial-header">
+          <div class="testimonial-avatar">S</div>
+          <div>
+            <div class="testimonial-name">Sarah M.</div>
+            <div class="testimonial-role">Met her match</div>
+          </div>
+        </div>
+        <div class="stars">★★★★★</div>
+        <p>"I was skeptical about speed dating, but SparkDate changed my mind. I met amazing people and ended up dating someone for 6 months!"</p>
+      </div>
+
+      <div class="testimonial">
+        <div class="testimonial-header">
+          <div class="testimonial-avatar">J</div>
+          <div>
+            <div class="testimonial-name">James T.</div>
+            <div class="testimonial-role">Found his person</div>
+          </div>
+        </div>
+        <div class="stars">★★★★★</div>
+        <p>"The app makes it super easy. Check in, chat with people, and if there's chemistry, you match instantly. Love the concept!"</p>
+      </div>
+
+      <div class="testimonial">
+        <div class="testimonial-header">
+          <div class="testimonial-avatar">E</div>
+          <div>
+            <div class="testimonial-name">Emma L.</div>
+            <div class="testimonial-role">Regular attendee</div>
+          </div>
+        </div>
+        <div class="stars">★★★★★</div>
+        <p>"Best way to meet people. No awkward apps, just real conversations at a real bar. I've made amazing friends too!"</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-section">
+    <div class="cta-box">
+      <h2>Ready to Meet Your Match?</h2>
+      <p>Join thousands of singles meeting real people at real places. Your next great connection is waiting.</p>
+      <button class="btn-cta btn-primary-cta" onclick="showSignupModal()">Start for Free 🚀</button>
+    </div>
+  </section>
+
+  <footer>
+    <p>&copy; 2025 SparkDate. Meet. Match. Connect. Real relationships start here.</p>
+  </footer>
+
+  <!-- Login Modal -->
+  <div class="modal" id="loginModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Welcome Back</h2>
+        <button class="close-btn" onclick="closeLoginModal()">✕</button>
+      </div>
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" placeholder="you@example.com" required>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="submit-btn">Log In</button>
+        <div class="form-footer">
+          Don't have an account? <a onclick="switchToSignup()">Sign up</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Signup Modal -->
+  <div class="modal" id="signupModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Create Account</h2>
+        <button class="close-btn" onclick="closeSignupModal()">✕</button>
+      </div>
+      <form onsubmit="handleSignup(event)">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" placeholder="you@example.com" required>
+        </div>
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" placeholder="Your name" required>
+        </div>
+        <div class="form-group">
+          <label>I am a...</label>
+          <select required>
+            <option value="">Select</option>
+            <option value="M">Man</option>
+            <option value="F">Woman</option>
+            <option value="Other">Non-binary</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Looking for...</label>
+          <select required>
+            <option value="">Select</option>
+            <option value="M">Men</option>
+            <option value="F">Women</option>
+            <option value="Any">Anyone</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Age</label>
+          <input type="number" min="18" max="120" placeholder="Your age" required>
+        </div>
+        <div class="form-group">
+          <label>City</label>
+          <input type="text" placeholder="Where are you from?" required>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="submit-btn">Create Account</button>
+        <div class="form-footer">
+          Already have an account? <a onclick="switchToLogin()">Log in</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3001/api';
+
+    function showLoginModal() {
+      document.getElementById('loginModal').classList.add('active');
+      document.getElementById('signupModal').classList.remove('active');
+    }
+
+    function showSignupModal() {
+      document.getElementById('signupModal').classList.add('active');
+      document.getElementById('loginModal').classList.remove('active');
+    }
+
+    function closeLoginModal() {
+      document.getElementById('loginModal').classList.remove('active');
+    }
+
+    function closeSignupModal() {
+      document.getElementById('signupModal').classList.remove('active');
+    }
+
+    function switchToSignup() {
+      closeLoginModal();
+      showSignupModal();
+    }
+
+    function switchToLogin() {
+      closeSignupModal();
+      showLoginModal();
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const form = e.target;
+      const email = form.querySelector('input[type="email"]').value;
+      const password = form.querySelector('input[type="password"]').value;
+
+      try {
+        const res = await fetch(`${API_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          window.location.href = '/participant-dashboard.html';
+        } else {
+          alert('Invalid email or password');
+        }
+      } catch (err) {
+        alert('Error logging in: ' + err.message);
+      }
+    }
+
+    async function handleSignup(e) {
+      e.preventDefault();
+      const form = e.target;
+      const email = form.querySelector('input[type="email"]').value;
+      const name = form.querySelector('input[type="text"]').value;
+      const gender = form.querySelectorAll('select')[0].value;
+      const seeking = form.querySelectorAll('select')[1].value;
+      const age = parseInt(form.querySelector('input[type="number"]').value);
+      const city = form.querySelector('input[placeholder="Where are you from?"]').value;
+      const password = form.querySelector('input[type="password"]').value;
+
+      try {
+        const res = await fetch(`${API_URL}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, name, gender, seeking, age, city, password, role: 'participant' })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          window.location.href = '/participant-dashboard.html';
+        } else {
+          alert('Error creating account');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // Close modal on background click
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+          this.classList.remove('active');
+        }
+      });
+    });
+
+    // Inject dummy account info for demo
+    document.addEventListener('DOMContentLoaded', () => {
+      const footer = document.querySelector('footer');
+      footer.innerHTML += `
+        <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); font-size: 12px; color: #999;">
+          <strong>Demo Accounts (for testing):</strong><br>
+          👤 Participant: alice@test.com / password123<br>
+          🍹 Bartender: bartender1@test.com / password123<br>
+          👨‍💼 Admin: admin@test.com / admin123
+        </div>
+      `;
+    });
+  </script>
+</body>
+</html>

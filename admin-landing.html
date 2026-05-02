@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SparkDate Admin</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+      width: 100%;
+      padding: 50px 40px;
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 48px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      color: #333;
+      font-size: 32px;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      color: #667eea;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .tagline {
+      color: #666;
+      font-size: 16px;
+      margin-bottom: 40px;
+      line-height: 1.5;
+    }
+
+    .features {
+      background: #f0f3ff;
+      border-radius: 12px;
+      padding: 25px;
+      margin-bottom: 30px;
+      text-align: left;
+    }
+
+    .feature {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .feature:last-child {
+      margin-bottom: 0;
+    }
+
+    .feature-icon {
+      font-size: 24px;
+      margin-right: 12px;
+      min-width: 30px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-bottom: 12px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+    }
+
+    .footer-text {
+      color: #999;
+      font-size: 12px;
+      margin-top: 20px;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 400px;
+      width: 90%;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: none;
+      border: none;
+      font-size: 28px;
+      cursor: pointer;
+      color: #999;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+      text-align: left;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #333;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s ease;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .error {
+      color: #e74c3c;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      color: #667eea;
+      font-size: 14px;
+    }
+
+    .loading.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">⚙️</div>
+    <p class="subtitle">ADMIN PORTAL</p>
+    <h1>SparkDate</h1>
+    <p class="tagline">Manage all events, users, and platform operations</p>
+
+    <div class="features">
+      <div class="feature">
+        <span class="feature-icon">📊</span>
+        <span>View platform statistics</span>
+      </div>
+      <div class="feature">
+        <span class="feature-icon">🎯</span>
+        <span>Create and manage events</span>
+      </div>
+      <div class="feature">
+        <span class="feature-icon">👥</span>
+        <span>Manage users and bartenders</span>
+      </div>
+      <div class="feature">
+        <span class="feature-icon">📈</span>
+        <span>Monitor matches and engagement</span>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="openLogin()">Admin Login</button>
+
+    <p class="footer-text">
+      Admin access only. Contact support for credentials.
+    </p>
+  </div>
+
+  <!-- Log In Modal -->
+  <div class="modal" id="loginModal">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeLogin()">×</button>
+      <h2 style="margin-bottom: 20px; color: #333;">Admin Login</h2>
+
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" id="login-email" required>
+        </div>
+
+        <div class="form-group">
+          <label>Password *</label>
+          <input type="password" id="login-password" required>
+        </div>
+
+        <div id="login-error" class="error"></div>
+        <div id="login-loading" class="loading">Logging in...</div>
+
+        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 20px; margin-bottom: 0;">Log In</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3001/api';
+
+    function openLogin() {
+      document.getElementById('loginModal').classList.add('active');
+    }
+
+    function closeLogin() {
+      document.getElementById('loginModal').classList.remove('active');
+      document.getElementById('login-error').textContent = '';
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+
+      document.getElementById('login-loading').classList.add('active');
+      document.getElementById('login-error').textContent = '';
+
+      try {
+        const response = await fetch(`${API_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Login failed');
+        }
+
+        // Check if user is admin
+        if (data.user.role !== 'admin') {
+          throw new Error('Admin access required');
+        }
+
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        window.location.href = '/admin-dashboard.html';
+      } catch (err) {
+        document.getElementById('login-error').textContent = err.message;
+      } finally {
+        document.getElementById('login-loading').classList.remove('active');
+      }
+    }
+
+    window.addEventListener('load', () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        window.location.href = '/admin-dashboard.html';
+      }
+    });
+  </script>
+</body>
+</html>

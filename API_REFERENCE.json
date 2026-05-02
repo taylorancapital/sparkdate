@@ -1,0 +1,365 @@
+{
+  "app_name": "SparkDate",
+  "version": "1.0.0",
+  "base_url": "http://localhost:3001",
+  "database": "SQLite",
+  "auth_type": "JWT (7-day expiry)",
+  "endpoints": {
+    "auth": {
+      "register": {
+        "method": "POST",
+        "path": "/api/auth/register",
+        "auth_required": false,
+        "body": {
+          "email": "string (required)",
+          "password": "string (required)",
+          "name": "string (required)",
+          "gender": "string (optional)",
+          "seeking": "string (optional)",
+          "age": "integer (optional)",
+          "city": "string (optional)"
+        },
+        "response": {
+          "user": {"id": "integer", "email": "string", "name": "string"},
+          "token": "string"
+        }
+      },
+      "login": {
+        "method": "POST",
+        "path": "/api/auth/login",
+        "auth_required": false,
+        "body": {
+          "email": "string (required)",
+          "password": "string (required)"
+        },
+        "response": {
+          "user": {"id": "integer", "email": "string", "name": "string"},
+          "token": "string"
+        }
+      },
+      "me": {
+        "method": "GET",
+        "path": "/api/auth/me",
+        "auth_required": true,
+        "response": {
+          "id": "integer",
+          "email": "string",
+          "name": "string",
+          "bio": "string",
+          "photo_url": "string",
+          "age": "integer",
+          "city": "string"
+        }
+      }
+    },
+    "events": {
+      "list": {
+        "method": "GET",
+        "path": "/api/events",
+        "auth_required": false,
+        "response": [
+          {
+            "id": "integer",
+            "title": "string",
+            "description": "string",
+            "date": "string (YYYY-MM-DD)",
+            "time": "string (HH:MM)",
+            "venue_name": "string",
+            "venue_address": "string",
+            "city": "string",
+            "capacity": "integer",
+            "attendees_count": "integer",
+            "status": "string (upcoming/completed/cancelled)",
+            "created_at": "timestamp"
+          }
+        ]
+      },
+      "get": {
+        "method": "GET",
+        "path": "/api/events/:id",
+        "auth_required": false,
+        "response": {
+          "id": "integer",
+          "title": "string",
+          "description": "string",
+          "date": "string",
+          "time": "string",
+          "venue_name": "string",
+          "city": "string",
+          "capacity": "integer",
+          "attendees_count": "integer",
+          "status": "string",
+          "created_at": "timestamp"
+        }
+      },
+      "create": {
+        "method": "POST",
+        "path": "/api/events",
+        "auth_required": true,
+        "body": {
+          "title": "string (required)",
+          "description": "string (optional)",
+          "date": "string (required, YYYY-MM-DD)",
+          "time": "string (required, HH:MM)",
+          "venue_name": "string (required)",
+          "venue_address": "string (optional)",
+          "city": "string (required)",
+          "capacity": "integer (optional, default: 30)"
+        },
+        "response": {
+          "id": "integer",
+          "title": "string",
+          "description": "string",
+          "date": "string",
+          "time": "string",
+          "venue_name": "string",
+          "city": "string",
+          "capacity": "integer",
+          "created_by": "integer",
+          "created_at": "timestamp"
+        }
+      },
+      "attendees": {
+        "method": "GET",
+        "path": "/api/events/:id/attendees",
+        "auth_required": false,
+        "response": [
+          {
+            "id": "integer",
+            "name": "string",
+            "age": "integer",
+            "city": "string",
+            "bio": "string"
+          }
+        ]
+      },
+      "rsvp": {
+        "method": "POST",
+        "path": "/api/events/:id/rsvp",
+        "auth_required": true,
+        "response": {
+          "id": "integer",
+          "event_id": "integer",
+          "user_id": "integer",
+          "status": "string (confirmed)",
+          "created_at": "timestamp"
+        }
+      }
+    },
+    "matches": {
+      "create_or_update": {
+        "method": "POST",
+        "path": "/api/matches",
+        "auth_required": true,
+        "body": {
+          "event_id": "integer (required)",
+          "other_user_id": "integer (required)",
+          "liked": "boolean (required)"
+        },
+        "response": {
+          "id": "integer",
+          "event_id": "integer",
+          "user1_id": "integer",
+          "user2_id": "integer",
+          "user1_liked": "boolean",
+          "user2_liked": "boolean",
+          "matched": "boolean",
+          "created_at": "timestamp"
+        }
+      },
+      "get_user_matches": {
+        "method": "GET",
+        "path": "/api/matches/user/:userId",
+        "auth_required": false,
+        "response": [
+          {
+            "id": "integer",
+            "event_id": "integer",
+            "user1_id": "integer",
+            "user2_id": "integer",
+            "user1_liked": "boolean",
+            "user2_liked": "boolean",
+            "matched": "boolean",
+            "created_at": "timestamp"
+          }
+        ]
+      }
+    },
+    "messages": {
+      "send": {
+        "method": "POST",
+        "path": "/api/messages",
+        "auth_required": true,
+        "body": {
+          "match_id": "integer (required)",
+          "content": "string (required)"
+        },
+        "response": {
+          "id": "integer",
+          "match_id": "integer",
+          "sender_id": "integer",
+          "content": "string",
+          "read": "boolean",
+          "created_at": "timestamp"
+        }
+      },
+      "get_match_messages": {
+        "method": "GET",
+        "path": "/api/messages/:matchId",
+        "auth_required": false,
+        "response": [
+          {
+            "id": "integer",
+            "match_id": "integer",
+            "sender_id": "integer",
+            "content": "string",
+            "read": "boolean",
+            "created_at": "timestamp"
+          }
+        ]
+      }
+    },
+    "admin": {
+      "stats": {
+        "method": "GET",
+        "path": "/api/admin/stats",
+        "auth_required": false,
+        "response": {
+          "total_users": "integer",
+          "total_events": "integer",
+          "total_matches": "integer",
+          "total_messages": "integer"
+        }
+      },
+      "all_events": {
+        "method": "GET",
+        "path": "/api/admin/events",
+        "auth_required": false,
+        "response": [
+          {
+            "id": "integer",
+            "title": "string",
+            "description": "string",
+            "date": "string",
+            "time": "string",
+            "venue_name": "string",
+            "city": "string",
+            "capacity": "integer",
+            "attendees_count": "integer",
+            "status": "string",
+            "created_by": "integer",
+            "created_at": "timestamp"
+          }
+        ]
+      },
+      "update_event": {
+        "method": "PUT",
+        "path": "/api/admin/events/:id",
+        "auth_required": false,
+        "body": {
+          "title": "string (optional)",
+          "description": "string (optional)",
+          "date": "string (optional)",
+          "time": "string (optional)",
+          "venue_name": "string (optional)",
+          "city": "string (optional)",
+          "capacity": "integer (optional)",
+          "status": "string (optional)"
+        },
+        "response": {
+          "id": "integer",
+          "title": "string",
+          "description": "string",
+          "date": "string",
+          "time": "string",
+          "venue_name": "string",
+          "city": "string",
+          "capacity": "integer",
+          "status": "string",
+          "created_at": "timestamp"
+        }
+      },
+      "delete_event": {
+        "method": "DELETE",
+        "path": "/api/admin/events/:id",
+        "auth_required": false,
+        "response": {
+          "success": "boolean"
+        }
+      },
+      "all_users": {
+        "method": "GET",
+        "path": "/api/admin/users",
+        "auth_required": false,
+        "response": [
+          {
+            "id": "integer",
+            "email": "string",
+            "name": "string",
+            "age": "integer",
+            "city": "string",
+            "gender": "string",
+            "seeking": "string",
+            "created_at": "timestamp"
+          }
+        ]
+      }
+    }
+  },
+  "database_schema": {
+    "users": {
+      "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+      "email": "TEXT UNIQUE NOT NULL",
+      "password": "TEXT NOT NULL",
+      "name": "TEXT NOT NULL",
+      "gender": "TEXT",
+      "seeking": "TEXT",
+      "age": "INTEGER",
+      "city": "TEXT",
+      "bio": "TEXT",
+      "photo_url": "TEXT",
+      "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+      "updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+    },
+    "events": {
+      "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+      "title": "TEXT NOT NULL",
+      "description": "TEXT",
+      "date": "TEXT NOT NULL",
+      "time": "TEXT NOT NULL",
+      "venue_name": "TEXT NOT NULL",
+      "venue_address": "TEXT",
+      "city": "TEXT",
+      "capacity": "INTEGER DEFAULT 30",
+      "attendees_count": "INTEGER DEFAULT 0",
+      "status": "TEXT DEFAULT 'upcoming'",
+      "created_by": "INTEGER",
+      "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+    },
+    "rsvps": {
+      "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+      "event_id": "INTEGER NOT NULL",
+      "user_id": "INTEGER NOT NULL",
+      "status": "TEXT DEFAULT 'confirmed'",
+      "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+    },
+    "matches": {
+      "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+      "event_id": "INTEGER NOT NULL",
+      "user1_id": "INTEGER NOT NULL",
+      "user2_id": "INTEGER NOT NULL",
+      "user1_liked": "BOOLEAN DEFAULT 0",
+      "user2_liked": "BOOLEAN DEFAULT 0",
+      "matched": "BOOLEAN DEFAULT 0",
+      "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+    },
+    "messages": {
+      "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+      "match_id": "INTEGER NOT NULL",
+      "sender_id": "INTEGER NOT NULL",
+      "content": "TEXT NOT NULL",
+      "read": "BOOLEAN DEFAULT 0",
+      "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+    }
+  }
+}
