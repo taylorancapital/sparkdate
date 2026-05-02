@@ -1,19 +1,19 @@
 {
   "name": "sparkdate-app",
   "version": "2.0.0",
-  "description": "SparkDate - Speed Dating App with QR Check-in, Real-time Matching, and Multi-role Dashboards",
+  "description": "SparkDate - Speed Dating App",
   "main": "server-v2.js",
   "scripts": {
     "start": "node server-v2.js",
     "seed": "node seed-pa-bars.js"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
     "express": "^4.18.2",
+    "better-sqlite3": "^9.4.3",
+    "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
+    "cors": "^2.8.5",
     "qrcode": "^1.5.3",
-    "sqlite3": "^5.1.6",
-    "uuid": "^14.0.0"
+    "uuid": "^9.0.0"
   }
 }

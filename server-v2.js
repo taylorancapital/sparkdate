@@ -1,6 +1,6 @@
 // server-v2.js - Enhanced SparkDate Backend with QR Codes & Real-time Check-in
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -23,7 +23,8 @@ app.get('/*.html', (req, res) => {
 });
 
 // Initialize Database
-const db = new sqlite3.Database(DB_PATH, (err) => {
+const db = new Database(DB_PATH);
+console.log('Connected to SQLite');
   if (err) console.error('DB connection error:', err);
   else console.log('Connected to SQLite');
 });
