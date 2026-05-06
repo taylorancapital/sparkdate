@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SparkDate Founding Members</title>
+    <meta name="description" content="Join SparkDate's founding member cohort. Free events, lifetime status, real say in the product. Philadelphia.">
+    <meta property="og:title" content="SparkDate Founding Members">
+    <meta property="og:description" content="Stop swiping. Start living. Join SparkDate's founding member cohort in Philadelphia.">
+    <meta property="og:image" content="https://sparkdate.date/og-image.png">
+    <meta property="og:url" content="https://sparkdate.date/founding">
+    <meta name="twitter:card" content="summary_large_image">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Fraunces:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-navy: #0a0e27;
+            --coral: #ff6b6b;
+            --gold: #d4af37;
+            --cream: #f5f3f0;
+            --white: #ffffff;
+            --dark-gray: #1a1a1a;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--primary-navy);
+            color: var(--cream);
+            line-height: 1.6;
+        }
+
+        /* Header */
+        header {
+            position: sticky;
+            top: 0;
+            background: rgba(10, 14, 39, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px 40px;
+            border-bottom: 1px solid rgba(255, 107, 107, 0.1);
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 24px;
+            font-weight: 900;
+            color: var(--white);
+            letter-spacing: -1px;
+        }
+
+        .logo span {
+            color: var(--coral);
+        }
+
+        .nav-link {
+            color: var(--cream);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .nav-link:hover {
+            color: var(--coral);
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 60px 40px;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(255, 107, 107, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .hero-content {
+            max-width: 800px;
+            z-index: 1;
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(48px, 10vw, 92px);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            letter-spacing: -2px;
+        }
+
+        .hero h1 .highlight {
+            color: var(--coral);
+        }
+
+        .hero p {
+            font-size: 18px;
+            margin-bottom: 40px;
+            color: rgba(245, 243, 240, 0.8);
+            line-height: 1.8;
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid var(--coral);
+            color: var(--coral);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 30px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* CTA Button */
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
+            color: var(--white);
+            padding: 18px 48px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            border: 2px solid var(--coral);
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .cta-button:hover {
+            background: var(--white);
+            color: var(--coral);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3);
+        }
+
+        .cta-button:active {
+            transform: translateY(0);
+        }
+
+        /* What You Get Section */
+        .benefits-section {
+            max-width: 1200px;
+            margin: 100px auto;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        .section-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(32px, 8vw, 56px);
+            font-weight: 900;
+            margin-bottom: 60px;
+            letter-spacing: -1px;
+        }
+
+        .section-title .highlight {
+            color: var(--coral);
+        }
+
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 40px;
+            margin-bottom: 60px;
+        }
+
+        .benefit-card {
+            background: rgba(255, 107, 107, 0.05);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            padding: 40px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+
+        .benefit-card:hover {
+            background: rgba(255, 107, 107, 0.1);
+            border-color: var(--coral);
+            transform: translateY(-5px);
+        }
+
+        .benefit-icon {
+            font-size: 32px;
+            margin-bottom: 16px;
+        }
+
+        .benefit-card h3 {
+            font-family: 'Fraunces', serif;
+            font-size: 20px;
+            margin-bottom: 12px;
+            color: var(--white);
+            font-weight: 600;
+        }
+
+        .benefit-card p {
+            font-size: 14px;
+            color: rgba(245, 243, 240, 0.7);
+            line-height: 1.6;
+        }
+
+        /* Form Section */
+        .form-section {
+            max-width: 600px;
+            margin: 80px auto;
+            padding: 60px 40px;
+            background: rgba(255, 107, 107, 0.05);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 4px;
+        }
+
+        .form-section h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 36px;
+            font-weight: 900;
+            margin-bottom: 30px;
+            text-align: center;
+            letter-spacing: -1px;
+        }
+
+        .form-section h2 .highlight {
+            color: var(--coral);
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--gold);
+        }
+
+        input[type="text"],
+        input[type="email"] {
+            padding: 14px 16px;
+            background: rgba(10, 14, 39, 0.5);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 4px;
+            color: var(--white);
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        input[type="text"]::placeholder,
+        input[type="email"]::placeholder {
+            color: rgba(245, 243, 240, 0.4);
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus {
+            outline: none;
+            border-color: var(--coral);
+            background: rgba(10, 14, 39, 0.7);
+            box-shadow: 0 0 12px rgba(255, 107, 107, 0.2);
+        }
+
+        .form-submit {
+            margin-top: 12px;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
+            color: var(--white);
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 14px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .form-submit:hover {
+            background: var(--white);
+            color: var(--coral);
+            transform: translateY(-2px);
+        }
+
+        .form-submit:active {
+            transform: translateY(0);
+        }
+
+        /* FAQ Section */
+        .faq-section {
+            max-width: 800px;
+            margin: 80px auto;
+            padding: 60px 40px;
+        }
+
+        .faq-section h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 42px;
+            font-weight: 900;
+            margin-bottom: 50px;
+            text-align: center;
+            letter-spacing: -1px;
+        }
+
+        .faq-item {
+            margin-bottom: 30px;
+            border-bottom: 1px solid rgba(255, 107, 107, 0.1);
+            padding-bottom: 30px;
+        }
+
+        .faq-item:last-child {
+            border-bottom: none;
+        }
+
+        .faq-question {
+            font-family: 'Fraunces', serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--white);
+            margin-bottom: 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .faq-question:hover {
+            color: var(--coral);
+        }
+
+        .faq-answer {
+            font-size: 14px;
+            color: rgba(245, 243, 240, 0.7);
+            line-height: 1.7;
+            display: none;
+        }
+
+        .faq-answer.active {
+            display: block;
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid rgba(255, 107, 107, 0.1);
+            padding: 40px;
+            text-align: center;
+            color: rgba(245, 243, 240, 0.6);
+            font-size: 12px;
+        }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            header {
+                padding: 16px 20px;
+            }
+
+            .hero {
+                padding: 40px 20px;
+            }
+
+            .benefits-section,
+            .form-section,
+            .faq-section {
+                padding: 40px 20px;
+            }
+
+            .nav-link {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-content">
+            <div class="logo">Spark<span>Date</span></div>
+            <a href="#signup" class="nav-link">Join</a>
+        </div>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="badge">Founding Member Cohort</div>
+            <h1>Stop <span class="highlight">swiping.</span> Start <span class="highlight">living.</span></h1>
+            <p>You're in the first wave of people building a better way to meet.</p>
+            <a href="#signup" class="cta-button">Claim Your Spot</a>
+        </div>
+    </section>
+
+    <!-- What You Get -->
+    <section class="benefits-section">
+        <h2>What Founding Members Get</h2>
+        <div class="benefits-grid">
+            <div class="benefit-card">
+                <div class="benefit-icon">🎟️</div>
+                <h3>Free Events</h3>
+                <p>First two SparkDate events are completely free. Experience the product before anyone else.</p>
+            </div>
+            <div class="benefit-card">
+                <div class="benefit-icon">👑</div>
+                <h3>Lifetime Status</h3>
+                <p>"Founding Member" badge forever. You're part of the origin story. That means something.</p>
+            </div>
+            <div class="benefit-card">
+                <div class="benefit-icon">🎯</div>
+                <h3>Real Say</h3>
+                <p>Direct line to the founder. Your feedback shapes the product. We listen because you're building this with us.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Form -->
+    <section class="form-section" id="signup">
+        <h2>Join the <span class="highlight">Cohort</span></h2>
+        <form action="https://formspree.io/f/mkoyrrzl" method="POST" data-formspree-field="name" data-formspree-submit-btn=".form-submit">
+            <label for="name">Your Name</label>
+            <input type="text" id="name" name="name" placeholder="Jane Doe" required>
+
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="jane@example.com" required>
+
+            <button type="submit" class="form-submit">Claim Your Spot</button>
+        </form>
+        <p style="text-align: center; margin-top: 20px; font-size: 12px; color: rgba(245, 243, 240, 0.5);">
+            We'll email you event details, founding member perks, and how to shape the product.
+        </p>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq-section">
+        <h2>Questions?</h2>
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggleFaq(this)">
+                <span>What's SparkDate?</span>
+                <span>+</span>
+            </div>
+            <div class="faq-answer">
+                SparkDate is an experience-first dating platform. Instead of infinite swiping, we host curated events in real Philly venues where you meet compatible people. No algorithm tricks. No pen pals. Just real conversations that lead somewhere.
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggleFaq(this)">
+                <span>When's the first event?</span>
+                <span>+</span>
+            </div>
+            <div class="faq-answer">
+                We're launching in Q3 2026 (early July). Founding members get first access—we'll email you the exact date and venue in June. You'll know before anyone else.
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggleFaq(this)">
+                <span>Why should I sign up now?</span>
+                <span>+</span>
+            </div>
+            <div class="faq-answer">
+                Founding members get free entry to the first two events (valued at $60), lifetime founding member status, and direct access to the founder. You're not just a user—you're helping build the product. That's special.
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggleFaq(this)">
+                <span>What if I hate the first event?</span>
+                <span>+</span>
+            </div>
+            <div class="faq-answer">
+                No hard feelings. We're still figuring out what works. Your honest feedback helps us improve. You get one more free event to try again, and we listen to what didn't work.
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggleFaq(this)">
+                <span>How many founding members are there?</span>
+                <span>+</span>
+            </div>
+            <div class="faq-answer">
+                We're capping the founding cohort at 50 people. It's exclusive because we're building this together—smaller group, more real feedback, more weight to your voice.
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>SparkDate • Philadelphia • 2026</p>
+        <p style="margin-top: 12px; font-size: 11px;">Stop swiping. Start living.</p>
+    </footer>
+
+    <script src="https://cdn.formspree.io/js/forms.js"></script>
+    <script>
+        function toggleFaq(element) {
+            const answer = element.nextElementSibling;
+            answer.classList.toggle('active');
+            
+            const toggle = element.querySelector('span:last-child');
+            toggle.textContent = answer.classList.contains('active') ? '−' : '+';
+        }
+
+        // Form handling
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.querySelector('.form-submit');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Joining...';
+            submitBtn.disabled = true;
+
+            // Use Formspree
+            const formData = new FormData(form);
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Accept': 'application/json'
+                }
+            }).then(response => {
+                if (response.ok) {
+                    submitBtn.textContent = '✓ Welcome to the cohort!';
+                    form.reset();
+                    setTimeout(() => {
+                        submitBtn.textContent = originalText;
+                        submitBtn.disabled = false;
+                    }, 3000);
+                } else {
+                    submitBtn.textContent = 'Error. Try again.';
+                    submitBtn.disabled = false;
+                }
+            }).catch(error => {
+                submitBtn.textContent = 'Error. Try again.';
+                submitBtn.disabled = false;
+            });
+        });
+    </script>
+</body>
+</html>
