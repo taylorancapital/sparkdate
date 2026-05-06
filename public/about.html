@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About SparkDate</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Fraunces:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-navy: #0a0e27;
+            --coral: #ff6b6b;
+            --gold: #d4af37;
+            --cream: #f5f3f0;
+            --white: #ffffff;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--primary-navy);
+            color: var(--cream);
+        }
+
+        /* Navigation */
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(10, 14, 39, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px 40px;
+            border-bottom: 1px solid rgba(255, 107, 107, 0.1);
+            z-index: 1000;
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 24px;
+            font-weight: 900;
+            color: var(--white);
+            letter-spacing: -1px;
+            text-decoration: none;
+        }
+
+        .logo span {
+            color: var(--coral);
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 40px;
+            list-style: none;
+        }
+
+        .nav-menu a {
+            color: var(--cream);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-menu a:hover {
+            color: var(--coral);
+        }
+
+        .nav-menu a.active {
+            color: var(--coral);
+        }
+
+        /* Hero */
+        .hero {
+            padding: 100px 40px;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            text-align: center;
+        }
+
+        .hero-content {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(42px, 10vw, 72px);
+            font-weight: 900;
+            margin-bottom: 24px;
+            letter-spacing: -1px;
+        }
+
+        .hero h1 .highlight {
+            color: var(--coral);
+        }
+
+        .hero p {
+            font-size: 18px;
+            color: rgba(245, 243, 240, 0.8);
+            line-height: 1.8;
+        }
+
+        /* Section */
+        .section {
+            padding: 80px 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(36px, 8vw, 56px);
+            font-weight: 900;
+            margin-bottom: 50px;
+            text-align: center;
+            letter-spacing: -1px;
+        }
+
+        .section-title .highlight {
+            color: var(--coral);
+        }
+
+        /* Mission & Values */
+        .values-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin-bottom: 60px;
+        }
+
+        .value-card {
+            background: rgba(255, 107, 107, 0.05);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            padding: 40px;
+            border-radius: 4px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .value-card:hover {
+            background: rgba(255, 107, 107, 0.1);
+            border-color: var(--coral);
+        }
+
+        .value-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .value-card h3 {
+            font-family: 'Fraunces', serif;
+            font-size: 22px;
+            margin-bottom: 12px;
+            color: var(--white);
+            font-weight: 600;
+        }
+
+        .value-card p {
+            font-size: 14px;
+            color: rgba(245, 243, 240, 0.7);
+            line-height: 1.7;
+        }
+
+        /* Story Section */
+        .story-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+            margin-bottom: 60px;
+        }
+
+        .story-content h3 {
+            font-family: 'Fraunces', serif;
+            font-size: 24px;
+            margin-bottom: 16px;
+            color: var(--white);
+            font-weight: 600;
+        }
+
+        .story-content p {
+            font-size: 15px;
+            color: rgba(245, 243, 240, 0.8);
+            line-height: 1.8;
+            margin-bottom: 16px;
+        }
+
+        .story-visual {
+            background: rgba(255, 107, 107, 0.05);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 4px;
+            padding: 80px 40px;
+            text-align: center;
+            color: rgba(245, 243, 240, 0.6);
+        }
+
+        /* Team */
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+        }
+
+        .team-member {
+            background: rgba(255, 107, 107, 0.05);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 4px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .team-member:hover {
+            background: rgba(255, 107, 107, 0.1);
+            border-color: var(--coral);
+        }
+
+        .team-avatar {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
+            border-radius: 50%;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .team-member h4 {
+            font-family: 'Fraunces', serif;
+            font-size: 18px;
+            margin-bottom: 4px;
+            color: var(--white);
+            font-weight: 600;
+        }
+
+        .team-member p {
+            font-size: 13px;
+            color: rgba(245, 243, 240, 0.6);
+            margin-bottom: 12px;
+        }
+
+        .team-bio {
+            font-size: 13px;
+            color: rgba(245, 243, 240, 0.7);
+            line-height: 1.6;
+        }
+
+        /* CTA */
+        .cta-section {
+            background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
+            padding: 80px 40px;
+            text-align: center;
+            color: var(--white);
+        }
+
+        .cta-section h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(32px, 8vw, 52px);
+            font-weight: 900;
+            margin-bottom: 24px;
+            letter-spacing: -1px;
+        }
+
+        .cta-section p {
+            font-size: 16px;
+            margin-bottom: 32px;
+        }
+
+        .btn-cta {
+            background: var(--white);
+            color: var(--coral);
+            padding: 14px 40px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            display: inline-block;
+        }
+
+        .btn-cta:hover {
+            background: var(--primary-navy);
+            color: var(--white);
+            transform: translateY(-3px);
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid rgba(255, 107, 107, 0.1);
+            padding: 40px;
+            text-align: center;
+            color: rgba(245, 243, 240, 0.5);
+            font-size: 12px;
+        }
+
+        @media (max-width: 768px) {
+            nav {
+                padding: 16px 20px;
+            }
+
+            .nav-menu {
+                display: none;
+            }
+
+            .hero,
+            .section {
+                padding: 60px 20px;
+            }
+
+            .story-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo">Spark<span>Date</span></a>
+            <ul class="nav-menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/about" class="active">About</a></li>
+                <li><a href="/events">Events</a></li>
+                <li><a href="/founding">Join</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Our <span class="highlight">Story</span></h1>
+            <p>SparkDate exists because the current dating app model is broken. We're building something better—for people who want real connections, not endless swiping.</p>
+        </div>
+    </section>
+
+    <!-- Mission & Values -->
+    <section class="section">
+        <h2 class="section-title">Our <span class="highlight">Mission</span></h2>
+        <div class="values-grid">
+            <div class="value-card">
+                <div class="value-icon">🎯</div>
+                <h3>Real Connection</h3>
+                <p>We believe dating should lead to real conversations, not endless pen-pal syndrome. Meet in person. Feel the chemistry.</p>
+            </div>
+            <div class="value-card">
+                <div class="value-icon">✨</div>
+                <h3>Authenticity</h3>
+                <p>No algorithms optimizing for engagement. No gamification. No dopamine loops. Just honest people looking for honest connection.</p>
+            </div>
+            <div class="value-card">
+                <div class="value-icon">🌆</div>
+                <h3>Community</h3>
+                <p>SparkDate is built by and for our users. Your feedback shapes the product. You're not a user—you're a co-builder.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- The Problem & Solution -->
+    <section class="section" style="background: linear-gradient(135deg, #1a1f3a 0%, #2a2f4a 100%);">
+        <div class="story-grid">
+            <div class="story-content">
+                <h3>The Problem</h3>
+                <p>Dating apps are designed to keep you on the app, not to get you off it. 78% of users report burnout. 72% want to meet in person. Yet the incumbents keep pushing subscriptions and engagement loops.</p>
+                <p>The result? Endless swiping. Ghosting. Pen pals who disappear. No real connection.</p>
+            </div>
+            <div class="story-visual">
+                <p>78% report burnout. 72% want IRL. The incumbents are losing Gen Z.</p>
+            </div>
+        </div>
+
+        <div class="story-grid" style="margin-top: 60px;">
+            <div class="story-visual">
+                <p>Real venues. Real people. Real conversations. That's the SparkDate difference.</p>
+            </div>
+            <div class="story-content">
+                <h3>Our Solution</h3>
+                <p>SparkDate flips the model. We curate events at real Philadelphia venues. You show up. Meet 25-35 pre-filtered people. Actual conversation. Actual chemistry.</p>
+                <p>If you vibe with someone, exchange numbers. The app gets you off the app. That's the whole point.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Team -->
+    <section class="section">
+        <h2 class="section-title">Meet the <span class="highlight">Team</span></h2>
+        <div class="team-grid">
+            <div class="team-member">
+                <div class="team-avatar">TC</div>
+                <h4>Taylor Chambers</h4>
+                <p>Founder & CEO</p>
+                <p class="team-bio">Former [Company], obsessed with solving the "last mile" problem in digital dating. Built SparkDate because they couldn't find a partner through apps either.</p>
+            </div>
+            <div class="team-member">
+                <div class="team-avatar">JD</div>
+                <h4>Jordan Davis</h4>
+                <p>Head of Events</p>
+                <p class="team-bio">Event curator and community organizer. Designed every SparkDate event to maximize authentic connection and minimize awkwardness.</p>
+            </div>
+            <div class="team-member">
+                <div class="team-avatar">AK</div>
+                <h4>Alex Kumar</h4>
+                <p>Product & Tech</p>
+                <p class="team-bio">Built the matching algorithm that powers curation. Believes technology should facilitate human connection, not replace it.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-section">
+        <h2>Join Us in Building Better Dating</h2>
+        <p>We're just getting started. Be part of the founding cohort and help shape the future of IRL dating.</p>
+        <a href="/founding" class="btn-cta">Claim Your Spot</a>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2026 SparkDate. Philadelphia. Stop swiping. Start living.</p>
+    </footer>
+</body>
+</html>

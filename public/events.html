@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Events - SparkDate</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Fraunces:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-navy: #0a0e27;
+            --coral: #ff6b6b;
+            --gold: #d4af37;
+            --cream: #f5f3f0;
+            --white: #ffffff;
+            --success: #4ade80;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--primary-navy);
+            color: var(--cream);
+        }
+
+        /* Navigation */
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(10, 14, 39, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px 40px;
+            border-bottom: 1px solid rgba(255, 107, 107, 0.1);
+            z-index: 1000;
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 24px;
+            font-weight: 900;
+            color: var(--white);
+            letter-spacing: -1px;
+            text-decoration: none;
+        }
+
+        .logo span {
+            color: var(--coral);
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 40px;
+            list-style: none;
+        }
+
+        .nav-menu a {
+            color: var(--cream);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-menu a:hover,
+        .nav-menu a.active {
+            color: var(--coral);
+        }
+
+        /* Hero */
+        .hero {
+            padding: 60px 40px;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(36px, 10vw, 56px);
+            font-weight: 900;
+            margin-bottom: 16px;
+            letter-spacing: -1px;
+        }
+
+        .hero p {
+            font-size: 16px;
+            color: rgba(245, 243, 240, 0.8);
+        }
+
+        /* Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        /* Filters */
+        .filters {
+            background: rgba(255, 107, 107, 0.05);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 40px;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-label {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--gold);
+            font-weight: 600;
+        }
+
+        select {
+            background: rgba(10, 14, 39, 0.5);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            color: var(--white);
+            padding: 8px 12px;
+            border-radius: 3px;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        select option {
+            background: var(--primary-navy);
+            color: var(--white);
+        }
+
+        /* Events Grid */
+        .events-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 30px;
+            margin-bottom: 60px;
+        }
+
+        .event-card {
+            background: rgba(255, 107, 107, 0.05);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .event-card:hover {
+            background: rgba(255, 107, 107, 0.1);
+            border-color: var(--coral);
+            transform: translateY(-5px);
+        }
+
+        .event-image {
+            background: linear-gradient(135deg, rgba(255, 107, 107, 0.2) 0%, rgba(212, 175, 55, 0.1) 100%);
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            border-bottom: 1px solid rgba(255, 107, 107, 0.1);
+        }
+
+        .event-content {
+            padding: 24px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .event-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 12px;
+            color: rgba(245, 243, 240, 0.6);
+            margin-bottom: 12px;
+        }
+
+        .event-meta span {
+            padding: 2px 8px;
+            background: rgba(255, 107, 107, 0.1);
+            border-radius: 3px;
+        }
+
+        .event-title {
+            font-family: 'Fraunces', serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--white);
+            margin-bottom: 8px;
+        }
+
+        .event-description {
+            font-size: 13px;
+            color: rgba(245, 243, 240, 0.7);
+            line-height: 1.6;
+            margin-bottom: 16px;
+            flex-grow: 1;
+        }
+
+        .event-details {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 12px;
+            color: rgba(245, 243, 240, 0.6);
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 107, 107, 0.1);
+            margin-bottom: 16px;
+        }
+
+        .event-detail {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .event-detail strong {
+            color: var(--white);
+        }
+
+        .event-spots {
+            font-size: 13px;
+            padding: 8px;
+            background: rgba(74, 222, 128, 0.1);
+            border-radius: 3px;
+            color: var(--success);
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .btn-register {
+            background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
+            color: var(--white);
+            border: none;
+            padding: 10px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-register:hover {
+            background: var(--white);
+            color: var(--coral);
+        }
+
+        .btn-register:disabled {
+            background: rgba(100, 116, 139, 0.3);
+            color: rgba(245, 243, 240, 0.5);
+            cursor: not-allowed;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 40px;
+            background: rgba(255, 107, 107, 0.05);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 4px;
+        }
+
+        .empty-state h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 32px;
+            margin-bottom: 12px;
+            color: var(--white);
+        }
+
+        /* CTA Section */
+        .cta-section {
+            background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
+            padding: 60px 40px;
+            text-align: center;
+            color: var(--white);
+            border-radius: 4px;
+        }
+
+        .cta-section h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 36px;
+            margin-bottom: 12px;
+            letter-spacing: -1px;
+        }
+
+        .cta-section p {
+            margin-bottom: 24px;
+            font-size: 15px;
+        }
+
+        .btn-cta {
+            background: var(--white);
+            color: var(--coral);
+            padding: 12px 40px;
+            border-radius: 3px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+
+        .btn-cta:hover {
+            background: var(--primary-navy);
+            color: var(--white);
+            transform: translateY(-2px);
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid rgba(255, 107, 107, 0.1);
+            padding: 40px;
+            text-align: center;
+            color: rgba(245, 243, 240, 0.5);
+            font-size: 12px;
+        }
+
+        @media (max-width: 768px) {
+            nav, .hero, .container {
+                padding: 20px;
+            }
+
+            .nav-menu {
+                display: none;
+            }
+
+            .filters {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            select {
+                width: 100%;
+            }
+
+            .events-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo">Spark<span>Date</span></a>
+            <ul class="nav-menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/about">About</a></li>
+                <li><a href="/events" class="active">Events</a></li>
+                <li><a href="/founding">Join</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <h1>Upcoming <span style="color: var(--coral);">Events</span></h1>
+        <p>Curated gatherings where you'll meet compatible people in person.</p>
+    </section>
+
+    <!-- Main -->
+    <div class="container">
+        <!-- Filters -->
+        <div class="filters">
+            <label class="filter-label">Filter by:</label>
+            <select>
+                <option>All Neighborhoods</option>
+                <option>Rittenhouse</option>
+                <option>Old City</option>
+                <option>University City</option>
+                <option>Fishtown</option>
+                <option>Manayunk</option>
+            </select>
+            <select>
+                <option>All Event Types</option>
+                <option>Cocktails</option>
+                <option>Dinner</option>
+                <option>Activity</option>
+                <option>Wine & Dine</option>
+            </select>
+        </div>
+
+        <!-- Events Grid -->
+        <div class="events-grid">
+            <!-- Event 1 -->
+            <div class="event-card">
+                <div class="event-image">🍸</div>
+                <div class="event-content">
+                    <div class="event-meta">
+                        <span>Cocktails</span>
+                        <span>Rittenhouse</span>
+                    </div>
+                    <h3 class="event-title">Rooftop Mixer</h3>
+                    <p class="event-description">Cocktails and conversation at a stunning rooftop venue. Perfect for meeting new people in an elegant setting.</p>
+                    <div class="event-details">
+                        <div class="event-detail">📅 <strong>Friday, May 9</strong></div>
+                        <div class="event-detail">🕖 <strong>7:00 PM</strong></div>
+                        <div class="event-detail">📍 <strong>Rittenhouse Rooftop</strong></div>
+                    </div>
+                    <div class="event-spots">12 spots remaining</div>
+                    <button class="btn-register">Register</button>
+                </div>
+            </div>
+
+            <!-- Event 2 -->
+            <div class="event-card">
+                <div class="event-image">🍷</div>
+                <div class="event-content">
+                    <div class="event-meta">
+                        <span>Wine Tasting</span>
+                        <span>Old City</span>
+                    </div>
+                    <h3 class="event-title">Wine Tasting & Bites</h3>
+                    <p class="event-description">Sample fine wines from around the world while mingling with carefully curated singles.</p>
+                    <div class="event-details">
+                        <div class="event-detail">📅 <strong>Thursday, May 16</strong></div>
+                        <div class="event-detail">🕖 <strong>6:30 PM</strong></div>
+                        <div class="event-detail">📍 <strong>Old City Wine Bar</strong></div>
+                    </div>
+                    <div class="event-spots">3 spots remaining</div>
+                    <button class="btn-register">Register</button>
+                </div>
+            </div>
+
+            <!-- Event 3 -->
+            <div class="event-card">
+                <div class="event-image">👨‍🍳</div>
+                <div class="event-content">
+                    <div class="event-meta">
+                        <span>Cooking Class</span>
+                        <span>University City</span>
+                    </div>
+                    <h3 class="event-title">Cooking Class & Dinner</h3>
+                    <p class="event-description">Learn to cook together, then enjoy the meal you created. Hands-on bonding experience.</p>
+                    <div class="event-details">
+                        <div class="event-detail">📅 <strong>Saturday, May 23</strong></div>
+                        <div class="event-detail">🕖 <strong>6:00 PM</strong></div>
+                        <div class="event-detail">📍 <strong>University City Kitchen Studio</strong></div>
+                    </div>
+                    <div class="event-spots">7 spots remaining</div>
+                    <button class="btn-register">Register</button>
+                </div>
+            </div>
+
+            <!-- Event 4 -->
+            <div class="event-card">
+                <div class="event-image">⚡</div>
+                <div class="event-content">
+                    <div class="event-meta">
+                        <span>Speed Mixer</span>
+                        <span>Fishtown</span>
+                    </div>
+                    <h3 class="event-title">Cocktail Bar Speed Mixer</h3>
+                    <p class="event-description">Rotating conversations format. Meet multiple people in one evening in a fun, low-pressure setting.</p>
+                    <div class="event-details">
+                        <div class="event-detail">📅 <strong>Friday, May 30</strong></div>
+                        <div class="event-detail">🕖 <strong>7:30 PM</strong></div>
+                        <div class="event-detail">📍 <strong>Fishtown Cocktail Lounge</strong></div>
+                    </div>
+                    <div class="event-spots">1 spot remaining</div>
+                    <button class="btn-register">Register</button>
+                </div>
+            </div>
+
+            <!-- Event 5 -->
+            <div class="event-card">
+                <div class="event-image">🍽️</div>
+                <div class="event-content">
+                    <div class="event-meta">
+                        <span>Dinner</span>
+                        <span>Rittenhouse</span>
+                    </div>
+                    <h3 class="event-title">Sunset Dinner Party</h3>
+                    <p class="event-description">Curated group dinner at an upscale restaurant. Three-course meal with excellent company.</p>
+                    <div class="event-details">
+                        <div class="event-detail">📅 <strong>Wednesday, June 6</strong></div>
+                        <div class="event-detail">🕖 <strong>6:00 PM</strong></div>
+                        <div class="event-detail">📍 <strong>Rittenhouse Fine Dining</strong></div>
+                    </div>
+                    <div class="event-spots">6 spots remaining</div>
+                    <button class="btn-register">Register</button>
+                </div>
+            </div>
+
+            <!-- Event 6 -->
+            <div class="event-card">
+                <div class="event-image">🎨</div>
+                <div class="event-content">
+                    <div class="event-meta">
+                        <span>Art Experience</span>
+                        <span>Old City</span>
+                    </div>
+                    <h3 class="event-title">Gallery Opening & Drinks</h3>
+                    <p class="event-description">Private preview of a contemporary art show followed by drinks and conversation.</p>
+                    <div class="event-details">
+                        <div class="event-detail">📅 <strong>Saturday, June 13</strong></div>
+                        <div class="event-detail">🕖 <strong>6:30 PM</strong></div>
+                        <div class="event-detail">📍 <strong>Old City Gallery District</strong></div>
+                    </div>
+                    <div class="event-spots">14 spots remaining</div>
+                    <button class="btn-register">Register</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CTA Section -->
+        <div class="cta-section">
+            <h2>Not a member yet?</h2>
+            <p>Join our founding cohort to get free access to your first two events, lifetime founding status, and help shape the product.</p>
+            <a href="/founding" class="btn-cta">Join as Founding Member</a>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2026 SparkDate. <a href="/" style="color: var(--coral); text-decoration: none;">Back to Home</a></p>
+    </footer>
+</body>
+</html>
