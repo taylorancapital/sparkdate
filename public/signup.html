@@ -683,7 +683,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         // Firebase config
         const firebaseConfig = {
@@ -706,7 +706,7 @@
                 theme: 'night',
                 variables: {
                     colorPrimary: '#ff6b6b',
-                    colorBackground: 'rgba(10,14,39,0.5)',
+                    colorBackground: '#0d1230',
                     colorText: '#f5f3f0',
                     colorDanger: '#e74c3c',
                     fontFamily: 'Inter, sans-serif',
@@ -716,7 +716,7 @@
         });
         const cardElement = elements.create('card', {
             style: {
-                base: { color: '#f5f3f0', '::placeholder': { color: 'rgba(245,243,240,0.4)' } }
+                base: { color: '#f5f3f0', '::placeholder': { color: '#9990a8' } }
             }
         });
         cardElement.mount('#card-element');
@@ -743,78 +743,111 @@
             });
         });
 
-        // Form submission
+        // Form submission — full end-to-end flow
         document.getElementById('signupForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const gender = document.getElementById('gender').value;
-            const age = document.getElementById('age').value;
-            const interests = document.getElementById('interests').value;
-            const vibes = document.getElementById('vibes').value;
-            const tier = document.querySelector('input[name="tier"]:checked').value;
+            const firstName  = document.getElementById('firstName').value.trim();
+            const lastName   = document.getElementById('lastName').value.trim();
+            const email      = document.getElementById('email').value.trim();
+            const password   = document.getElementById('password').value;
+            const gender     = document.getElementById('gender').value;
+            const age        = document.getElementById('age').value;
+            const interests  = document.getElementById('interests').value;
+            const vibes      = document.getElementById('vibes').value;
+            const tier       = document.querySelector('input[name="tier"]:checked').value;
 
-            const submitBtn = document.getElementById('submitBtn');
-            const loading = document.getElementById('loading');
-            const errorMsg = document.getElementById('errorMessage');
+            const submitBtn  = document.getElementById('submitBtn');
+            const loading    = document.getElementById('loading');
+            const errorMsg   = document.getElementById('errorMessage');
             const successMsg = document.getElementById('successMessage');
 
             submitBtn.style.display = 'none';
-            loading.style.display = 'block';
-            errorMsg.style.display = 'none';
+            loading.style.display   = 'block';
+            errorMsg.style.display  = 'none';
             successMsg.style.display = 'none';
 
+            let firebaseUser = null;
+
             try {
-                // Step 1: Tokenize card with Stripe
+                // ── Step 1: Tokenize card ──────────────────────────────────────
                 const { paymentMethod, error: stripeError } = await stripe.createPaymentMethod({
                     type: 'card',
                     card: cardElement,
                     billing_details: { name: `${firstName} ${lastName}`, email }
                 });
+                if (stripeError) throw new Error(stripeError.message);
 
-                if (stripeError) {
-                    throw new Error(stripeError.message);
-                }
-
-                // Step 2: Create Firebase user
+                // ── Step 2: Create Firebase user ───────────────────────────────
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const userId = userCredential.user.uid;
+                firebaseUser = userCredential.user;
 
-                // Step 3: Save profile to Firestore (including Stripe payment method ID)
-                await addDoc(collection(db, 'users'), {
+                // ── Step 3: Save initial profile to Firestore ──────────────────
+                await setDoc(doc(db, 'users', firebaseUser.uid), {
                     firstName, lastName, email, gender,
-                    age: parseInt(age),
-                    interests: interests.split(',').map(i => i.trim()).filter(i => i),
-                    vibes: vibes.split(',').map(v => v.trim()).filter(v => v),
+                    age: parseInt(age) || 0,
+                    interests: interests.split(',').map(i => i.trim()).filter(Boolean),
+                    vibes:     vibes.split(',').map(v => v.trim()).filter(Boolean),
                     tier,
                     stripePaymentMethodId: paymentMethod.id,
                     createdAt: new Date(),
-                    stripeCustomerId: null,
-                    subscriptionId: null,
-                    uid: userId
+                    stripeCustomerId:  null,
+                    subscriptionId:    null,
+                    subscriptionStatus: 'pending',
                 });
 
-                // Step 4: Success message — subscription activation handled server-side
+                // ── Step 4: Call serverless function to create subscription ────
+                const res = await fetch('/api/create-subscription', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        paymentMethodId: paymentMethod.id,
+                        email,
+                        name: `${firstName} ${lastName}`,
+                        tier,
+                        firebaseUid: firebaseUser.uid,
+                    })
+                });
+
+                const result = await res.json();
+                if (!res.ok) throw new Error(result.error || 'Subscription failed');
+
+                // ── Step 5: Handle 3D Secure if required ──────────────────────
+                if (result.requiresAction) {
+                    const { error: actionError } = await stripe.confirmCardPayment(result.clientSecret);
+                    if (actionError) throw new Error(actionError.message);
+                }
+
+                // ── Step 6: Update Firestore with Stripe IDs ──────────────────
+                await updateDoc(doc(db, 'users', firebaseUser.uid), {
+                    stripeCustomerId:   result.customerId,
+                    subscriptionId:     result.subscriptionId,
+                    subscriptionStatus: result.status, // 'active' or 'trialing'
+                });
+
+                // ── Step 7: Success ────────────────────────────────────────────
                 const msgs = {
-                    free: '✅ Welcome to SparkDate! Your 30-day free trial starts now. No charge today.',
-                    mid: '✅ Welcome to SparkDate Kindling! You\'re in. Check your email for next steps.',
-                    premium: '✅ Welcome to SparkDate Fire! VIP access confirmed. Check your email.'
+                    free:    '🎉 Welcome to SparkDate! Your 30-day free trial is active. No charge today.',
+                    mid:     '🎉 Welcome to SparkDate Kindling! You\'re in. See you at the next event.',
+                    premium: '🎉 Welcome to SparkDate Fire! VIP access confirmed. See you Thursday.',
                 };
                 successMsg.textContent = msgs[tier];
                 successMsg.style.display = 'block';
                 document.getElementById('signupForm').reset();
                 cardElement.clear();
-                submitBtn.style.display = 'block';
-                loading.style.display = 'none';
+                document.getElementById('tier-free').classList.add('selected');
+                submitBtn.textContent = 'Start Free Trial';
 
-            } catch (error) {
-                errorMsg.textContent = '❌ ' + error.message;
+            } catch (err) {
+                // If Firebase user was created but Stripe failed, delete the orphan user
+                if (firebaseUser && err.message !== 'Firebase: Error (auth/email-already-in-use).') {
+                    try { await firebaseUser.delete(); } catch (_) {}
+                }
+                errorMsg.textContent = '❌ ' + err.message;
                 errorMsg.style.display = 'block';
+            } finally {
                 submitBtn.style.display = 'block';
-                loading.style.display = 'none';
+                loading.style.display   = 'none';
             }
         });
 
