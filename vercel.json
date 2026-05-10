@@ -1,24 +1,11 @@
 {
   "rewrites": [
-    {
-      "source": "/founding",
-      "destination": "/founding.html"
-    },
-    {
-      "source": "/about",
-      "destination": "/about.html"
-    },
-    {
-      "source": "/events",
-      "destination": "/events.html"
-    },
-    {
-      "source": "/admin",
-      "destination": "/admin.html"
-    },
-    {
-      "source": "/participant",
-      "destination": "/participant.html"
-    }
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/founding", "destination": "/founding.html" },
+    { "source": "/about", "destination": "/about.html" },
+    { "source": "/events", "destination": "/events.html" },
+    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/participant", "destination": "/participant.html" },
+    { "source": "/signup", "destination": "/signup.html" }
   ]
 }
