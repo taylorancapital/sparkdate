@@ -166,7 +166,32 @@
 
         .tier-card.selected {
             border-color: var(--coral);
-            background: rgba(255, 107, 107, 0.15);
+            background: var(--coral);
+        }
+
+        .tier-card.selected .tier-name {
+            color: var(--white);
+        }
+
+        .tier-card.selected .tier-price {
+            color: var(--white);
+        }
+
+        .tier-card.selected .tier-price-label {
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .tier-card.selected .tier-description {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .tier-card.selected .tier-benefits li {
+            color: var(--white);
+            border-bottom-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .tier-card.selected .tier-benefits li:before {
+            color: var(--white);
         }
 
         .tier-radio {
@@ -402,10 +427,23 @@
             margin: 0 auto;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        #card-element {
+            padding: 12px 15px;
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 4px;
+            background: rgba(10, 14, 39, 0.5);
+            transition: border-color 0.3s;
         }
+
+        #card-element.StripeElement--focus {
+            border-color: var(--coral);
+        }
+
+        #card-element.StripeElement--invalid {
+            border-color: #e74c3c;
+        }
+
+
 
         /* CTA */
         .cta-section {
@@ -600,6 +638,13 @@
                     <input type="text" id="vibes" name="vibes" placeholder="intellectual, adventurous, creative, laid-back">
                 </div>
 
+                <!-- Stripe Card Field -->
+                <div class="form-group">
+                    <label>Payment Card *</label>
+                    <div id="card-element"></div>
+                    <div id="card-errors" style="color: #e74c3c; font-size: 12px; margin-top: 8px;"></div>
+                </div>
+
                 <div class="checkbox-group">
                     <input type="checkbox" id="terms" name="terms" required>
                     <label for="terms">I agree to the Terms of Service and Privacy Policy</label>
@@ -607,9 +652,9 @@
 
                 <button type="submit" class="submit-btn" id="submitBtn">Join SparkDate</button>
 
-                <div class="legal-text">
-                    Spark tier: Free for 30 days, then $9.99/month. Cancel anytime.<br>
-                    Kindling & Fire tiers charge immediately.
+                <div class="legal-text" id="legalText">
+                    Spark tier: Free for 30 days, then $9.99/month. Your card will not be charged today. Cancel anytime.<br>
+                    Kindling & Fire tiers charge immediately upon signup.
                 </div>
             </form>
 
@@ -654,16 +699,47 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Stripe
+        // Stripe — mount card element
         const stripe = Stripe('pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1');
+        const elements = stripe.elements({
+            appearance: {
+                theme: 'night',
+                variables: {
+                    colorPrimary: '#ff6b6b',
+                    colorBackground: 'rgba(10,14,39,0.5)',
+                    colorText: '#f5f3f0',
+                    colorDanger: '#e74c3c',
+                    fontFamily: 'Inter, sans-serif',
+                    borderRadius: '4px',
+                }
+            }
+        });
+        const cardElement = elements.create('card', {
+            style: {
+                base: { color: '#f5f3f0', '::placeholder': { color: 'rgba(245,243,240,0.4)' } }
+            }
+        });
+        cardElement.mount('#card-element');
+        cardElement.on('change', (event) => {
+            document.getElementById('card-errors').textContent = event.error ? event.error.message : '';
+        });
 
-        // Tier selection UI
+        // Legal text + tier selection UI
+        const legalTexts = {
+            free: 'Spark tier: Free for 30 days, then $9.99/month. Your card will not be charged today. Cancel anytime.',
+            mid: 'Kindling tier: $19.99 charged immediately today. Cancel anytime.',
+            premium: 'Fire tier: $39.99 charged immediately today. Cancel anytime.'
+        };
+
         document.querySelectorAll('input[name="tier"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
-                document.querySelectorAll('.tier-card').forEach(card => {
-                    card.classList.remove('selected');
-                });
+                document.querySelectorAll('.tier-card').forEach(card => card.classList.remove('selected'));
                 document.getElementById('tier-' + e.target.value).classList.add('selected');
+                document.getElementById('legalText').textContent = legalTexts[e.target.value];
+                document.getElementById('submitBtn').textContent =
+                    e.target.value === 'free' ? 'Start Free Trial' :
+                    e.target.value === 'mid' ? 'Join as Kindling — $19.99/mo' :
+                    'Join as Fire — $39.99/mo';
             });
         });
 
@@ -692,41 +768,45 @@
             successMsg.style.display = 'none';
 
             try {
-                // Step 1: Create Firebase user
+                // Step 1: Tokenize card with Stripe
+                const { paymentMethod, error: stripeError } = await stripe.createPaymentMethod({
+                    type: 'card',
+                    card: cardElement,
+                    billing_details: { name: `${firstName} ${lastName}`, email }
+                });
+
+                if (stripeError) {
+                    throw new Error(stripeError.message);
+                }
+
+                // Step 2: Create Firebase user
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const userId = userCredential.user.uid;
 
-                // Step 2: Save profile to Firestore
-                const userProfile = {
-                    firstName,
-                    lastName,
-                    email,
-                    gender,
+                // Step 3: Save profile to Firestore (including Stripe payment method ID)
+                await addDoc(collection(db, 'users'), {
+                    firstName, lastName, email, gender,
                     age: parseInt(age),
                     interests: interests.split(',').map(i => i.trim()).filter(i => i),
                     vibes: vibes.split(',').map(v => v.trim()).filter(v => v),
                     tier,
+                    stripePaymentMethodId: paymentMethod.id,
                     createdAt: new Date(),
                     stripeCustomerId: null,
-                    subscriptionId: null
-                };
-
-                await addDoc(collection(db, 'users'), {
-                    ...userProfile,
+                    subscriptionId: null,
                     uid: userId
                 });
 
-                // Step 3: Handle payment based on tier
-                if (tier === 'free') {
-                    successMsg.textContent = '✅ Account created! Welcome to SparkDate. Check your email to get started.';
-                    successMsg.style.display = 'block';
-                    document.getElementById('signupForm').reset();
-                } else {
-                    successMsg.textContent = '✅ Account created! Redirecting to payment...';
-                    successMsg.style.display = 'block';
-                    // In production: redirect to checkout
-                }
-
+                // Step 4: Success message — subscription activation handled server-side
+                const msgs = {
+                    free: '✅ Welcome to SparkDate! Your 30-day free trial starts now. No charge today.',
+                    mid: '✅ Welcome to SparkDate Kindling! You\'re in. Check your email for next steps.',
+                    premium: '✅ Welcome to SparkDate Fire! VIP access confirmed. Check your email.'
+                };
+                successMsg.textContent = msgs[tier];
+                successMsg.style.display = 'block';
+                document.getElementById('signupForm').reset();
+                cardElement.clear();
                 submitBtn.style.display = 'block';
                 loading.style.display = 'none';
 
