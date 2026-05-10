@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SparkDate - Join Now</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --navy: #0a0e27;
+            --coral: #ff6b6b;
+            --gold: #d4af37;
+            --cream: #f5f1ed;
+            --light-gray: #e8e4df;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, var(--navy) 0%, #1a1f3a 100%);
+            color: var(--navy);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--coral);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 48px;
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            color: var(--cream);
+            opacity: 0.8;
+        }
+
+        .tiers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            margin-bottom: 60px;
+        }
+
+        .tier-card {
+            background: white;
+            border-radius: 12px;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .tier-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        .tier-card.selected {
+            border-color: var(--coral);
+            background: linear-gradient(135deg, rgba(255,107,107,0.05) 0%, rgba(212,175,55,0.05) 100%);
+        }
+
+        .tier-name {
+            font-family: 'Playfair Display', serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--navy);
+            margin-bottom: 10px;
+        }
+
+        .tier-price {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--coral);
+            margin-bottom: 5px;
+        }
+
+        .tier-price-label {
+            font-size: 14px;
+            color: #999;
+            margin-bottom: 20px;
+        }
+
+        .tier-description {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 25px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tier-benefits {
+            list-style: none;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .tier-benefits li {
+            font-size: 14px;
+            color: #666;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--light-gray);
+        }
+
+        .tier-benefits li:last-child {
+            border-bottom: none;
+        }
+
+        .tier-benefits li:before {
+            content: "✓";
+            color: var(--coral);
+            font-weight: 700;
+            margin-right: 10px;
+        }
+
+        .tier-radio {
+            display: none;
+        }
+
+        .tier-card input[type="radio"]:checked + .tier-label {
+            cursor: pointer;
+        }
+
+        .tier-label {
+            cursor: pointer;
+            display: block;
+            width: 100%;
+        }
+
+        .form-section {
+            background: white;
+            border-radius: 12px;
+            padding: 50px 40px;
+            margin-bottom: 30px;
+        }
+
+        .form-section h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            color: var(--navy);
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--navy);
+            margin-bottom: 8px;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid var(--light-gray);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--coral);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: var(--coral);
+        }
+
+        .checkbox-group label {
+            margin-bottom: 0;
+            cursor: pointer;
+            font-weight: 400;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(255,107,107,0.3);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .success-message {
+            display: none;
+            background: #f0f9ff;
+            border: 2px solid #0ea5e9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            color: #0369a1;
+            font-size: 14px;
+        }
+
+        .error-message {
+            display: none;
+            background: #fef2f2;
+            border: 2px solid #f87171;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            color: #dc2626;
+            font-size: 14px;
+        }
+
+        .legal-text {
+            font-size: 12px;
+            color: #999;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid var(--light-gray);
+            border-top: 3px solid var(--coral);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .trial-badge {
+            display: inline-block;
+            background: var(--coral);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">✨ SparkDate</div>
+            <h1>Join the Movement</h1>
+            <p class="subtitle">Stop swiping. Start living.</p>
+        </div>
+
+        <!-- Tier Selection -->
+        <div style="margin-bottom: 60px;">
+            <h2 style="font-family: 'Playfair Display', serif; font-size: 28px; color: white; text-align: center; margin-bottom: 40px;">Choose Your Plan</h2>
+            
+            <div class="tiers-grid">
+                <!-- Free Tier -->
+                <div class="tier-card" id="tier-free">
+                    <input type="radio" id="tier-free-radio" name="tier" value="free" class="tier-radio" checked>
+                    <label for="tier-free-radio" class="tier-label">
+                        <div class="tier-name">Spark</div>
+                        <div class="tier-price">$0</div>
+                        <div class="tier-price-label">First month free</div>
+                        <div class="tier-description">Then $9.99/month</div>
+                        <div class="trial-badge">30-Day Free Trial</div>
+                        <ul class="tier-benefits">
+                            <li>1 event per month</li>
+                            <li>Basic matching</li>
+                            <li>Profile access</li>
+                        </ul>
+                    </label>
+                </div>
+
+                <!-- Mid Tier -->
+                <div class="tier-card" id="tier-mid">
+                    <input type="radio" id="tier-mid-radio" name="tier" value="mid" class="tier-radio">
+                    <label for="tier-mid-radio" class="tier-label">
+                        <div class="tier-name">Kindling</div>
+                        <div class="tier-price">$19.99</div>
+                        <div class="tier-price-label">per month</div>
+                        <div class="tier-description">Most popular</div>
+                        <ul class="tier-benefits">
+                            <li>2-3 events per month</li>
+                            <li>Advanced matching</li>
+                            <li>Priority check-in</li>
+                            <li>Profile boost</li>
+                        </ul>
+                    </label>
+                </div>
+
+                <!-- Premium Tier -->
+                <div class="tier-card" id="tier-premium">
+                    <input type="radio" id="tier-premium-radio" name="tier" value="premium" class="tier-radio">
+                    <label for="tier-premium-radio" class="tier-label">
+                        <div class="tier-name">Fire</div>
+                        <div class="tier-price">$39.99</div>
+                        <div class="tier-price-label">per month</div>
+                        <div class="tier-description">Unlimited access</div>
+                        <ul class="tier-benefits">
+                            <li>Unlimited events</li>
+                            <li>VIP matching algorithm</li>
+                            <li>Priority check-in</li>
+                            <li>Exclusive events</li>
+                        </ul>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Signup Form -->
+        <div class="form-section">
+            <h2>Create Your Account</h2>
+            
+            <div class="success-message" id="successMessage">
+                ✅ Account created! Check your email to confirm.
+            </div>
+
+            <div class="error-message" id="errorMessage"></div>
+
+            <form id="signupForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="firstName">First Name *</label>
+                        <input type="text" id="firstName" name="firstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastName">Last Name *</label>
+                        <input type="text" id="lastName" name="lastName" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address *</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password *</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="gender">Gender *</label>
+                        <select id="gender" name="gender" required>
+                            <option value="">Select...</option>
+                            <option value="woman">Woman</option>
+                            <option value="man">Man</option>
+                            <option value="non-binary">Non-binary</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="age">Age *</label>
+                        <input type="text" id="age" name="age" placeholder="e.g., 28" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="interests">Interests (comma-separated)</label>
+                    <input type="text" id="interests" name="interests" placeholder="e.g., hiking, wine, startups">
+                </div>
+
+                <div class="form-group">
+                    <label for="vibes">What's your vibe? (comma-separated)</label>
+                    <input type="text" id="vibes" name="vibes" placeholder="e.g., intellectual, adventurous, creative">
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="terms" name="terms" required>
+                    <label for="terms">I agree to the Terms of Service and Privacy Policy</label>
+                </div>
+
+                <button type="submit" class="submit-btn" id="submitBtn">Create Account & Join SparkDate</button>
+
+                <div class="legal-text">
+                    No credit card required for 30-day free trial (Spark tier only).
+                    <br>
+                    Mid and Premium tiers charge immediately upon signup.
+                </div>
+            </form>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 15px; color: #666;">Creating your account...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stripe -->
+    <script src="https://js.stripe.com/v3/"></script>
+
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+        // Firebase config (REPLACE WITH YOUR CONFIG)
+        const firebaseConfig = {
+            apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
+            authDomain: "sparkdate-philly.firebaseapp.com",
+            projectId: "sparkdate-philly",
+            storageBucket: "sparkdate-philly.firebasestorage.app",
+            messagingSenderId: "330206052938",
+            appId: "1:330206052938:web:18762191153f4037b75cb3"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Stripe (REPLACE WITH YOUR KEY)
+        const stripe = Stripe('pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1');
+
+        // Tier selection UI
+        document.querySelectorAll('input[name="tier"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                document.querySelectorAll('.tier-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                document.getElementById('tier-' + e.target.value).classList.add('selected');
+            });
+        });
+
+        // Initial selection
+        document.getElementById('tier-free').classList.add('selected');
+
+        // Form submission
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const gender = document.getElementById('gender').value;
+            const age = document.getElementById('age').value;
+            const interests = document.getElementById('interests').value;
+            const vibes = document.getElementById('vibes').value;
+            const tier = document.querySelector('input[name="tier"]:checked').value;
+
+            const submitBtn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+            const errorMsg = document.getElementById('errorMessage');
+            const successMsg = document.getElementById('successMessage');
+
+            submitBtn.style.display = 'none';
+            loading.style.display = 'block';
+            errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
+
+            try {
+                // Step 1: Create Firebase user
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const userId = userCredential.user.uid;
+
+                // Step 2: Save profile to Firestore
+                const userProfile = {
+                    firstName,
+                    lastName,
+                    email,
+                    gender,
+                    age: parseInt(age),
+                    interests: interests.split(',').map(i => i.trim()),
+                    vibes: vibes.split(',').map(v => v.trim()),
+                    tier,
+                    createdAt: new Date(),
+                    stripeCustomerId: null,
+                    subscriptionId: null
+                };
+
+                await addDoc(collection(db, 'users'), {
+                    ...userProfile,
+                    uid: userId
+                });
+
+                // Step 3: Handle payment based on tier
+                if (tier === 'free') {
+                    // Free tier: create Stripe customer but don't charge
+                    // In production, you'd call a backend function to create the subscription with trial
+                    successMsg.textContent = '✅ Account created! Welcome to SparkDate.';
+                    successMsg.style.display = 'block';
+                } else {
+                    // Mid/Premium: redirect to Stripe payment
+                    const priceId = tier === 'mid' ? 'price_xxx_mid' : 'price_xxx_premium';
+                    
+                    // In production, call your backend to create a Checkout session
+                    // For now, show success
+                    successMsg.textContent = '✅ Account created! Proceeding to payment...';
+                    successMsg.style.display = 'block';
+                    
+                    // Redirect to Stripe Checkout (production)
+                    // window.location.href = '/checkout?tier=' + tier + '&uid=' + userId;
+                }
+
+                // Reset form
+                document.getElementById('signupForm').reset();
+                submitBtn.style.display = 'block';
+                loading.style.display = 'none';
+
+            } catch (error) {
+                errorMsg.textContent = '❌ ' + error.message;
+                errorMsg.style.display = 'block';
+                submitBtn.style.display = 'block';
+                loading.style.display = 'none';
+            }
+        });
+
+        window.firebaseApp = app; // Expose for testing
+    </script>
+</body>
+</html>
