@@ -1,0 +1,57 @@
+<!-- SUBJECT: You're in. Welcome to SparkDate. -->
+<!-- SEND: Immediately after signup -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f3f0; margin: 0; padding: 0; color: #0a0e27; }
+  .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
+  .header { background: #0a0e27; padding: 40px 30px; text-align: center; }
+  .logo { font-family: Georgia, serif; font-size: 32px; font-weight: 900; color: #ffffff; letter-spacing: -1px; }
+  .logo span { color: #ff6b6b; }
+  .content { padding: 40px 30px; }
+  h1 { font-family: Georgia, serif; font-size: 28px; color: #0a0e27; margin: 0 0 20px; font-weight: 900; }
+  p { font-size: 16px; line-height: 1.7; color: #1a1f3a; margin: 0 0 18px; }
+  .highlight { color: #ff6b6b; font-weight: 600; }
+  .button { display: inline-block; background: #ff6b6b; color: #ffffff !important; padding: 14px 32px; text-decoration: none; border-radius: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 13px; margin: 20px 0; }
+  .footer { background: #0a0e27; padding: 30px; text-align: center; color: #888; font-size: 12px; }
+  .footer a { color: #ff6b6b; text-decoration: none; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">Spark<span>Date</span></div>
+    </div>
+    <div class="content">
+      <h1>Welcome to SparkDate, {{first_name}}.</h1>
+
+      <p>You just did something most people won't — you stopped swiping and started showing up.</p>
+
+      <p>Here's what happens next:</p>
+
+      <p>
+        <strong>1. We curate.</strong> Our team reviews every member to keep events high-quality.<br>
+        <strong>2. We invite.</strong> You'll get your first event invitation within 7 days.<br>
+        <strong>3. You show up.</strong> No swiping. No pen pals. Real people, real conversations.
+      </p>
+
+      <p>Your first event is coming up soon. Keep an eye on your inbox — and follow us on Instagram for behind-the-scenes:</p>
+
+      <p style="text-align: center;">
+        <a href="https://instagram.com/sparkdate" class="button">Follow @sparkdate</a>
+      </p>
+
+      <p>One last thing: dating apps have trained us to wait for likes, swipes, and validation. SparkDate is different. You don't need permission to show up. You're already in.</p>
+
+      <p>See you soon,<br>
+      <span class="highlight">The SparkDate Team</span></p>
+    </div>
+    <div class="footer">
+      <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
+      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="{{unsubscribe_url}}">Unsubscribe</a></p>
+    </div>
+  </div>
+</body>
+</html>

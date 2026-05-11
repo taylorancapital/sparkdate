@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Tickets - SparkDate</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Fraunces:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary-navy: #0a0e27;
+            --coral: #ff6b6b;
+            --gold: #d4af37;
+            --cream: #f5f3f0;
+            --white: #ffffff;
+            --success: #4ade80;
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--primary-navy); color: var(--cream); line-height: 1.6; }
+        nav { position: sticky; top: 0; background: rgba(10, 14, 39, 0.95); backdrop-filter: blur(10px); padding: 20px 40px; border-bottom: 1px solid rgba(255, 107, 107, 0.1); z-index: 100; }
+        .nav-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 900; color: var(--white); letter-spacing: -1px; text-decoration: none; }
+        .logo span { color: var(--coral); }
+        .nav-menu { display: flex; gap: 40px; list-style: none; }
+        .nav-menu a { color: var(--cream); text-decoration: none; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+        .nav-menu a:hover { color: var(--coral); }
+        .nav-menu a.active { color: var(--coral); }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 60px 40px; }
+
+        .back-link {
+            color: rgba(245, 243, 240, 0.6);
+            font-size: 13px;
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 24px;
+            font-weight: 500;
+        }
+        .back-link:hover { color: var(--coral); }
+
+        .event-grid {
+            display: grid;
+            grid-template-columns: 1.4fr 1fr;
+            gap: 50px;
+        }
+        @media (max-width: 900px) { .event-grid { grid-template-columns: 1fr; } }
+
+        .event-hero {
+            background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
+            height: 360px;
+            border-radius: 6px;
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: flex-end;
+            padding: 30px;
+        }
+        .event-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, transparent 40%, rgba(10,14,39,0.7) 100%);
+        }
+        .event-tag {
+            position: relative;
+            z-index: 2;
+            background: rgba(10, 14, 39, 0.9);
+            color: var(--white);
+            padding: 6px 14px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .event-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 44px;
+            font-weight: 900;
+            color: var(--white);
+            margin-bottom: 12px;
+            letter-spacing: -1px;
+            line-height: 1.1;
+        }
+        .event-tagline {
+            font-size: 16px;
+            color: rgba(245, 243, 240, 0.8);
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+
+        .event-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 107, 107, 0.04);
+            border: 1px solid rgba(255, 107, 107, 0.12);
+            border-radius: 6px;
+        }
+        .meta-item .label {
+            font-size: 10px;
+            color: rgba(245, 243, 240, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        .meta-item .value {
+            font-size: 14px;
+            color: var(--white);
+            font-weight: 600;
+        }
+
+        .event-description {
+            margin-bottom: 30px;
+        }
+        .event-description h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 22px;
+            font-weight: 900;
+            color: var(--white);
+            margin-bottom: 14px;
+        }
+        .event-description p {
+            font-size: 15px;
+            color: rgba(245, 243, 240, 0.85);
+            margin-bottom: 14px;
+        }
+        .event-description ul { margin-left: 20px; }
+        .event-description li {
+            font-size: 14px;
+            color: rgba(245, 243, 240, 0.85);
+            margin-bottom: 8px;
+        }
+
+        /* Booking Sidebar */
+        .booking-card {
+            background: rgba(255, 107, 107, 0.05);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 6px;
+            padding: 30px;
+            position: sticky;
+            top: 100px;
+        }
+        .booking-card h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 24px;
+            font-weight: 900;
+            margin-bottom: 6px;
+        }
+        .booking-card .capacity {
+            font-size: 13px;
+            color: rgba(245, 243, 240, 0.6);
+            margin-bottom: 24px;
+        }
+        .capacity .filled {
+            color: var(--coral);
+            font-weight: 700;
+        }
+
+        .form-group { margin-bottom: 20px; }
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--cream);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        select, input[type="email"] {
+            width: 100%;
+            padding: 12px 14px;
+            background: rgba(10, 14, 39, 0.5);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 4px;
+            color: var(--white);
+            font-family: inherit;
+            font-size: 14px;
+        }
+        select:focus, input[type="email"]:focus { outline: none; border-color: var(--coral); }
+
+        #card-element {
+            padding: 12px 15px;
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 4px;
+            background: rgba(10, 14, 39, 0.5);
+        }
+
+        .price-breakdown {
+            background: rgba(10, 14, 39, 0.5);
+            padding: 16px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .price-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            padding: 4px 0;
+            color: rgba(245, 243, 240, 0.8);
+        }
+        .price-row.total {
+            border-top: 1px solid rgba(255, 107, 107, 0.2);
+            margin-top: 10px;
+            padding-top: 10px;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--white);
+        }
+        .price-row .gold-text { color: var(--gold); }
+
+        .checkout-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--coral), #ff5252);
+            color: var(--white);
+            border: none;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .checkout-btn:hover { transform: translateY(-2px); }
+        .checkout-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .legal {
+            font-size: 11px;
+            color: rgba(245, 243, 240, 0.5);
+            text-align: center;
+            margin-top: 14px;
+            line-height: 1.5;
+        }
+        .legal a { color: var(--coral); text-decoration: none; }
+
+        .success-message, .error-message {
+            padding: 14px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            display: none;
+        }
+        .success-message { background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.3); color: var(--success); }
+        .error-message { background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.3); color: #f87171; }
+
+        footer { border-top: 1px solid rgba(255, 107, 107, 0.1); padding: 40px; text-align: center; color: rgba(245, 243, 240, 0.5); font-size: 12px; }
+
+        @media (max-width: 768px) {
+            nav { padding: 16px 20px; }
+            .nav-menu { display: none; }
+            .container { padding: 30px 20px; }
+            .event-title { font-size: 32px; }
+            .booking-card { position: static; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo">Spark<span>Date</span></a>
+            <ul class="nav-menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/about">About</a></li>
+                <li><a href="/events" class="active">Events</a></li>
+                <li><a href="/signup">Join</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <a href="/events" class="back-link">← All events</a>
+
+        <div class="event-grid">
+            <!-- Event Details -->
+            <div>
+                <div class="event-hero">
+                    <span class="event-tag">Founding Event · Spots Filling Fast</span>
+                </div>
+
+                <h1 class="event-title" id="eventTitle">Founders Mixer</h1>
+                <p class="event-tagline" id="eventTagline">An intimate evening of cocktails, conversation, and connection.</p>
+
+                <div class="event-meta">
+                    <div class="meta-item">
+                        <div class="label">Date</div>
+                        <div class="value" id="eventDate">June 12, 2026</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="label">Time</div>
+                        <div class="value" id="eventTime">7:00 PM</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="label">Venue</div>
+                        <div class="value" id="eventVenue">TBA · Center City</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="label">Capacity</div>
+                        <div class="value" id="eventCapacity">30 guests</div>
+                    </div>
+                </div>
+
+                <div class="event-description">
+                    <h2>What to Expect</h2>
+                    <p>This isn't a speed dating event, and it isn't a singles bar. SparkDate's Founders Mixer is a curated evening designed for adults who are tired of swiping and ready for something real.</p>
+                    <ul>
+                        <li><strong>Pre-screened guest list.</strong> Every attendee is verified.</li>
+                        <li><strong>Trained host on-site.</strong> Natural introductions, no awkward icebreakers.</li>
+                        <li><strong>Curated venue.</strong> Quiet enough to talk, lively enough to flirt.</li>
+                        <li><strong>Light bites + welcome drink.</strong> Included with your ticket.</li>
+                        <li><strong>Approximate 50/50 gender ratio.</strong> Carefully balanced.</li>
+                    </ul>
+
+                    <h2 style="margin-top: 30px;">Dress Code</h2>
+                    <p>Smart casual. Think first-date confidence — not job interview.</p>
+
+                    <h2 style="margin-top: 30px;">Cancellation Policy</h2>
+                    <p>Full refund if canceled 48+ hours before the event. No refunds within 48 hours, but you can transfer your ticket to a friend (single, of course).</p>
+                </div>
+            </div>
+
+            <!-- Booking Card -->
+            <div>
+                <div class="booking-card">
+                    <h3>Reserve Your Spot</h3>
+                    <p class="capacity"><span class="filled" id="spotsLeft">Limited</span> spots remaining</p>
+
+                    <div class="success-message" id="successMessage"></div>
+                    <div class="error-message" id="errorMessage"></div>
+
+                    <form id="checkoutForm">
+                        <div class="form-group">
+                            <label for="ticketGender">I identify as</label>
+                            <select id="ticketGender" required>
+                                <option value="">Select...</option>
+                                <option value="woman">Woman ($20)</option>
+                                <option value="man">Man ($40)</option>
+                                <option value="non-binary">Non-binary ($30)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ticketEmail">Email</label>
+                            <input type="email" id="ticketEmail" placeholder="you@example.com" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Payment Card</label>
+                            <div id="card-element"></div>
+                        </div>
+
+                        <div class="price-breakdown">
+                            <div class="price-row">
+                                <span>Ticket</span>
+                                <span id="ticketPrice">$0.00</span>
+                            </div>
+                            <div class="price-row">
+                                <span>Service fee</span>
+                                <span id="serviceFee">$0.00</span>
+                            </div>
+                            <div class="price-row total">
+                                <span>Total</span>
+                                <span class="gold-text" id="totalPrice">$0.00</span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="checkout-btn" id="checkoutBtn" disabled>Select Ticket Type</button>
+
+                        <div class="legal">
+                            By purchasing, you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.<br>
+                            Must be 21+. Bring valid ID.
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 SparkDate. Philadelphia. Stop swiping. Start living.</p>
+    </footer>
+
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        // Stripe setup
+        const stripe = Stripe('pk_test_51TVE2YRsTCYDr2LLXojfnRz9J5aNhH2psndTEGVLFZfhUcd22GfwGkZkihT0x8ZZoeh4fcAyKPAsx9ObYkShbA2x00etveud7A');
+        const elements = stripe.elements({
+            appearance: {
+                theme: 'night',
+                variables: {
+                    colorPrimary: '#ff6b6b',
+                    colorBackground: '#0d1230',
+                    colorText: '#f5f3f0',
+                    fontFamily: 'Inter, sans-serif',
+                    borderRadius: '4px',
+                }
+            }
+        });
+        const cardElement = elements.create('card');
+        cardElement.mount('#card-element');
+
+        // Pricing logic
+        const TICKET_PRICES = { woman: 20, man: 40, 'non-binary': 30 };
+        const SERVICE_FEE = 2.50;
+
+        function updatePricing() {
+            const gender = document.getElementById('ticketGender').value;
+            const btn = document.getElementById('checkoutBtn');
+
+            if (!gender) {
+                document.getElementById('ticketPrice').textContent = '$0.00';
+                document.getElementById('serviceFee').textContent = '$0.00';
+                document.getElementById('totalPrice').textContent = '$0.00';
+                btn.textContent = 'Select Ticket Type';
+                btn.disabled = true;
+                return;
+            }
+
+            const ticket = TICKET_PRICES[gender];
+            const total = ticket + SERVICE_FEE;
+
+            document.getElementById('ticketPrice').textContent = `$${ticket.toFixed(2)}`;
+            document.getElementById('serviceFee').textContent = `$${SERVICE_FEE.toFixed(2)}`;
+            document.getElementById('totalPrice').textContent = `$${total.toFixed(2)}`;
+            btn.textContent = `Reserve Spot · $${total.toFixed(2)}`;
+            btn.disabled = false;
+        }
+
+        document.getElementById('ticketGender').addEventListener('change', updatePricing);
+
+        // Form submission
+        document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const gender = document.getElementById('ticketGender').value;
+            const email = document.getElementById('ticketEmail').value;
+            const btn = document.getElementById('checkoutBtn');
+            const errorMsg = document.getElementById('errorMessage');
+            const successMsg = document.getElementById('successMessage');
+
+            errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+
+            try {
+                const { paymentMethod, error: stripeError } = await stripe.createPaymentMethod({
+                    type: 'card',
+                    card: cardElement,
+                    billing_details: { email }
+                });
+                if (stripeError) throw new Error(stripeError.message);
+
+                const ticket = TICKET_PRICES[gender];
+                const total = (ticket + SERVICE_FEE) * 100; // cents
+
+                const res = await fetch('/api/purchase-ticket', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        paymentMethodId: paymentMethod.id,
+                        email,
+                        gender,
+                        amount: total,
+                        eventId: 'founders-mixer-001',
+                        eventName: 'Founders Mixer',
+                    })
+                });
+
+                const result = await res.json();
+                if (!res.ok) throw new Error(result.error || 'Payment failed');
+
+                successMsg.textContent = '🎉 You\'re in! Check your email for event details.';
+                successMsg.style.display = 'block';
+                document.getElementById('checkoutForm').reset();
+                cardElement.clear();
+                updatePricing();
+            } catch (err) {
+                errorMsg.textContent = '❌ ' + err.message;
+                errorMsg.style.display = 'block';
+                btn.disabled = false;
+                updatePricing();
+            }
+        });
+    </script>
+</body>
+</html>
