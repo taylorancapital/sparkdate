@@ -681,6 +681,7 @@
 
         // Whitelist of admin emails (only these can access)
         const ADMIN_EMAILS = ['taylor@sparkdate.date', 'pennsylvaniacabinetmaker@comcast.net'];
+        window.ADMIN_EMAILS = ADMIN_EMAILS;
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
