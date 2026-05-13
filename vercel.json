@@ -2,47 +2,47 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "/public/index.html"
+      "destination": "/index.html"
     },
     {
       "source": "/founding",
-      "destination": "/public/founding.html"
+      "destination": "/founding.html"
     },
     {
       "source": "/about",
-      "destination": "/public/about.html"
+      "destination": "/about.html"
     },
     {
       "source": "/events",
-      "destination": "/public/events.html"
+      "destination": "/events.html"
     },
     {
       "source": "/event",
-      "destination": "/public/event.html"
+      "destination": "/event.html"
     },
     {
       "source": "/admin",
-      "destination": "/public/admin.html"
+      "destination": "/admin.html"
     },
     {
       "source": "/participant",
-      "destination": "/public/participant.html"
+      "destination": "/participant.html"
     },
     {
       "source": "/signup",
-      "destination": "/public/signup.html"
+      "destination": "/signup.html"
     },
     {
       "source": "/account",
-      "destination": "/public/account.html"
+      "destination": "/account.html"
     },
     {
       "source": "/terms",
-      "destination": "/public/terms.html"
+      "destination": "/terms.html"
     },
     {
       "source": "/privacy",
-      "destination": "/public/privacy.html"
+      "destination": "/privacy.html"
     }
   ]
 }
