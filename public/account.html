@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Account - SparkDate</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Fraunces:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary-navy: #0a0e27;
+            --coral: #ff6b6b;
+            --gold: #d4af37;
+            --cream: #f5f3f0;
+            --white: #ffffff;
+            --success: #4ade80;
+            --warning: #facc15;
+            --danger: #f87171;
+            --info: #60a5fa;
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--primary-navy); color: var(--cream); line-height: 1.6; min-height: 100vh; }
+        nav { position: sticky; top: 0; background: rgba(10, 14, 39, 0.95); backdrop-filter: blur(10px); padding: 20px 40px; border-bottom: 1px solid rgba(255, 107, 107, 0.1); z-index: 100; }
+        .nav-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 900; color: var(--white); letter-spacing: -1px; text-decoration: none; }
+        .logo span { color: var(--coral); }
+        .nav-menu { display: flex; gap: 40px; list-style: none; }
+        .nav-menu a { color: var(--cream); text-decoration: none; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+        .nav-menu a:hover { color: var(--coral); }
+        .nav-menu a.active { color: var(--coral); }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 60px 40px; }
+        .page-title { font-family: 'Playfair Display', serif; font-size: 42px; font-weight: 900; margin-bottom: 8px; letter-spacing: -1px; }
+        .page-subtitle { color: rgba(245, 243, 240, 0.6); font-size: 15px; margin-bottom: 40px; }
+
+        .card { background: rgba(255, 107, 107, 0.04); border: 1px solid rgba(255, 107, 107, 0.15); border-radius: 6px; padding: 30px; margin-bottom: 24px; }
+        .card-title { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 900; margin-bottom: 20px; letter-spacing: -0.3px; }
+
+        .field { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid rgba(255, 107, 107, 0.08); }
+        .field:last-child { border-bottom: none; }
+        .field-label { color: rgba(245, 243, 240, 0.6); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .field-value { color: var(--white); font-weight: 500; font-size: 14px; }
+
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+        .badge-active { background: rgba(74, 222, 128, 0.15); color: var(--success); }
+        .badge-trialing { background: rgba(96, 165, 250, 0.15); color: var(--info); }
+        .badge-past_due { background: rgba(248, 113, 113, 0.15); color: var(--danger); }
+        .badge-canceled { background: rgba(245, 243, 240, 0.1); color: rgba(245, 243, 240, 0.5); }
+        .badge-free { background: rgba(245, 243, 240, 0.08); color: rgba(245, 243, 240, 0.7); }
+        .badge-mid { background: rgba(212, 175, 55, 0.15); color: var(--gold); }
+        .badge-premium { background: rgba(255, 107, 107, 0.15); color: var(--coral); }
+
+        .btn { padding: 12px 24px; border: none; border-radius: 4px; font-family: inherit; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background: linear-gradient(135deg, var(--coral), #ff5252); color: var(--white); }
+        .btn-primary:hover { transform: translateY(-1px); }
+        .btn-secondary { background: transparent; color: var(--cream); border: 1px solid rgba(255, 107, 107, 0.3); }
+        .btn-secondary:hover { background: rgba(255, 107, 107, 0.1); }
+        .btn-danger { background: transparent; color: var(--danger); border: 1px solid rgba(248, 113, 113, 0.3); }
+        .btn-danger:hover { background: rgba(248, 113, 113, 0.1); }
+
+        .action-bar { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+
+        .message { padding: 14px 18px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; display: none; }
+        .message-success { background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.3); color: var(--success); }
+        .message-error { background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.3); color: var(--danger); }
+
+        .login-overlay { position: fixed; inset: 0; background: var(--primary-navy); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .login-box { background: rgba(255, 107, 107, 0.05); border: 1px solid rgba(255, 107, 107, 0.2); border-radius: 8px; padding: 40px; width: 100%; max-width: 400px; }
+        .login-box h2 { font-family: 'Playfair Display', serif; font-size: 28px; margin-bottom: 8px; font-weight: 900; }
+        .login-box p { color: rgba(245, 243, 240, 0.6); font-size: 13px; margin-bottom: 24px; }
+        .login-input { width: 100%; padding: 12px 14px; background: rgba(10, 14, 39, 0.5); border: 1px solid rgba(255, 107, 107, 0.2); border-radius: 4px; color: var(--cream); font-family: inherit; font-size: 14px; margin-bottom: 12px; }
+        .login-input:focus { outline: none; border-color: var(--coral); }
+        .login-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, var(--coral), #ff5252); color: var(--white); border: none; border-radius: 4px; font-family: inherit; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; }
+        .login-link { color: var(--coral); font-size: 12px; text-decoration: underline; cursor: pointer; }
+
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 9999; }
+        .modal-backdrop.show { display: flex; }
+        .modal { background: var(--primary-navy); border: 1px solid rgba(255, 107, 107, 0.3); border-radius: 8px; padding: 40px; width: 100%; max-width: 460px; }
+        .modal h3 { font-family: 'Playfair Display', serif; font-size: 26px; margin-bottom: 12px; font-weight: 900; }
+        .modal p { font-size: 14px; color: rgba(245, 243, 240, 0.8); margin-bottom: 20px; }
+
+        footer { border-top: 1px solid rgba(255, 107, 107, 0.1); padding: 40px; text-align: center; color: rgba(245, 243, 240, 0.5); font-size: 12px; margin-top: 60px; }
+        @media (max-width: 768px) { nav { padding: 16px 20px; } .nav-menu { display: none; } .container { padding: 30px 20px; } .field { flex-direction: column; gap: 4px; } }
+    </style>
+</head>
+<body>
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-box">
+            <h2>Sign In</h2>
+            <p>Access your SparkDate account.</p>
+            <input type="email" class="login-input" id="loginEmail" placeholder="you@example.com">
+            <input type="password" class="login-input" id="loginPassword" placeholder="Password">
+            <button class="login-btn" onclick="memberLogin()">Sign In</button>
+            <p style="text-align: center; margin-top: 16px;"><span class="login-link" onclick="forgotPassword()">Forgot password?</span></p>
+            <p style="text-align: center; margin-top: 8px; font-size: 12px; color: rgba(245,243,240,0.5);">Don't have an account? <a href="/signup" style="color: var(--coral);">Sign up →</a></p>
+            <div id="loginError" style="color: var(--danger); font-size: 12px; margin-top: 12px; display: none;"></div>
+            <div id="loginSuccess" style="color: var(--success); font-size: 12px; margin-top: 12px; display: none;"></div>
+        </div>
+    </div>
+
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo">Spark<span>Date</span></a>
+            <ul class="nav-menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/events">Events</a></li>
+                <li><a href="/account" class="active">Account</a></li>
+                <li><a href="#" onclick="logout()">Sign Out</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1 class="page-title">My Account</h1>
+        <p class="page-subtitle">Manage your subscription and profile.</p>
+
+        <div class="message message-success" id="successMsg"></div>
+        <div class="message message-error" id="errorMsg"></div>
+
+        <div class="card">
+            <h2 class="card-title">Profile</h2>
+            <div class="field"><span class="field-label">Name</span><span class="field-value" id="profileName">—</span></div>
+            <div class="field"><span class="field-label">Email</span><span class="field-value" id="profileEmail">—</span></div>
+            <div class="field"><span class="field-label">Age</span><span class="field-value" id="profileAge">—</span></div>
+            <div class="field"><span class="field-label">Gender</span><span class="field-value" id="profileGender">—</span></div>
+            <div class="field"><span class="field-label">Member Since</span><span class="field-value" id="profileJoined">—</span></div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">Subscription</h2>
+            <div class="field"><span class="field-label">Tier</span><span class="field-value" id="subTier">—</span></div>
+            <div class="field"><span class="field-label">Status</span><span class="field-value" id="subStatus">—</span></div>
+            <div class="field"><span class="field-label">Next Billing</span><span class="field-value" id="subRenewal">—</span></div>
+            <div class="field"><span class="field-label">Monthly Price</span><span class="field-value" id="subPrice">—</span></div>
+
+            <div class="action-bar">
+                <button class="btn btn-secondary" onclick="window.location='/signup'">Upgrade Plan</button>
+                <button class="btn btn-danger" onclick="showCancelModal()" id="cancelBtn">Cancel Subscription</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">Interests & Vibes</h2>
+            <div class="field"><span class="field-label">Interests</span><span class="field-value" id="profileInterests">—</span></div>
+            <div class="field"><span class="field-label">Vibes</span><span class="field-value" id="profileVibes">—</span></div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="cancelModal">
+        <div class="modal">
+            <h3>Cancel Subscription?</h3>
+            <p>Your subscription will remain active until the end of your current billing period. You won't be charged again, and you can resubscribe anytime.</p>
+            <p style="font-size: 13px; color: rgba(245, 243, 240, 0.6); margin-bottom: 24px;">Are you sure you want to cancel?</p>
+            <div class="action-bar">
+                <button class="btn btn-secondary" onclick="hideCancelModal()">Keep Subscription</button>
+                <button class="btn btn-danger" onclick="confirmCancel()" id="confirmCancelBtn">Yes, Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 SparkDate. Philadelphia. Stop swiping. Start living.</p>
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
+            authDomain: "sparkdate-philly.firebaseapp.com",
+            projectId: "sparkdate-philly",
+            storageBucket: "sparkdate-philly.firebasestorage.app",
+            messagingSenderId: "330206052938",
+            appId: "1:330206052938:web:18762191153f4037b75cb3"
+        };
+
+        const TIER_PRICES = { free: 9.99, mid: 19.99, premium: 39.99 };
+        const TIER_LABELS = { free: 'Spark', mid: 'Kindling', premium: 'Fire' };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let userData = null;
+
+        window.memberLogin = async () => {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const err = document.getElementById('loginError');
+            err.style.display = 'none';
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (e) {
+                err.textContent = e.message;
+                err.style.display = 'block';
+            }
+        };
+
+        window.forgotPassword = async () => {
+            const email = document.getElementById('loginEmail').value.trim();
+            const err = document.getElementById('loginError');
+            const success = document.getElementById('loginSuccess');
+            err.style.display = 'none';
+            success.style.display = 'none';
+            if (!email) {
+                err.textContent = 'Enter your email above first, then click forgot password.';
+                err.style.display = 'block';
+                return;
+            }
+            try {
+                await sendPasswordResetEmail(auth, email);
+                success.textContent = '✓ Password reset email sent. Check your inbox.';
+                success.style.display = 'block';
+            } catch (e) {
+                err.textContent = e.message;
+                err.style.display = 'block';
+            }
+        };
+
+        window.logout = async () => { await signOut(auth); window.location = '/'; };
+
+        window.showCancelModal = () => document.getElementById('cancelModal').classList.add('show');
+        window.hideCancelModal = () => document.getElementById('cancelModal').classList.remove('show');
+
+        window.confirmCancel = async () => {
+            const btn = document.getElementById('confirmCancelBtn');
+            btn.disabled = true; btn.textContent = 'Canceling...';
+            try {
+                const res = await fetch('/api/cancel-subscription', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firebaseUid: currentUser.uid })
+                });
+                const result = await res.json();
+                if (!res.ok) throw new Error(result.error);
+                hideCancelModal();
+                showMessage('success', 'Subscription canceled. You\'ll have access until your current billing period ends.');
+                setTimeout(() => location.reload(), 2000);
+            } catch (e) {
+                hideCancelModal();
+                showMessage('error', e.message);
+                btn.disabled = false; btn.textContent = 'Yes, Cancel';
+            }
+        };
+
+        function showMessage(type, text) {
+            const el = document.getElementById(type === 'success' ? 'successMsg' : 'errorMsg');
+            el.textContent = text;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 6000);
+        }
+
+        function badge(text, type) { return `<span class="badge badge-${type}">${text}</span>`; }
+
+        async function loadProfile() {
+            const snap = await getDoc(doc(db, 'users', currentUser.uid));
+            if (!snap.exists()) {
+                showMessage('error', 'Profile not found. Please contact support.');
+                return;
+            }
+            userData = snap.data();
+
+            document.getElementById('profileName').textContent = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || '—';
+            document.getElementById('profileEmail').textContent = userData.email || '—';
+            document.getElementById('profileAge').textContent = userData.age || '—';
+            document.getElementById('profileGender').textContent = userData.gender || '—';
+
+            const created = userData.createdAt?.toDate ? userData.createdAt.toDate() : (userData.createdAt ? new Date(userData.createdAt) : null);
+            document.getElementById('profileJoined').textContent = created ? created.toLocaleDateString() : '—';
+
+            document.getElementById('subTier').innerHTML = badge(TIER_LABELS[userData.tier] || userData.tier, userData.tier);
+            document.getElementById('subStatus').innerHTML = badge(userData.subscriptionStatus || 'pending', userData.subscriptionStatus || 'pending');
+            document.getElementById('subPrice').textContent = '$' + (TIER_PRICES[userData.tier] || 0).toFixed(2) + '/month';
+
+            const renewal = userData.currentPeriodEnd?.toDate ? userData.currentPeriodEnd.toDate() : (userData.currentPeriodEnd ? new Date(userData.currentPeriodEnd) : null);
+            const label = userData.cancelAtPeriodEnd ? 'Access ends' : 'Next billing';
+            document.querySelector('#subRenewal').previousElementSibling.textContent = label;
+            document.getElementById('subRenewal').textContent = renewal ? renewal.toLocaleDateString() : '—';
+
+            document.getElementById('profileInterests').textContent = (userData.interests || []).join(', ') || '—';
+            document.getElementById('profileVibes').textContent = (userData.vibes || []).join(', ') || '—';
+
+            const cancelBtn = document.getElementById('cancelBtn');
+            if (userData.subscriptionStatus === 'canceled' || userData.cancelAtPeriodEnd) {
+                cancelBtn.style.display = 'none';
+            }
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('loginOverlay').style.display = 'none';
+                loadProfile();
+            } else {
+                document.getElementById('loginOverlay').style.display = 'flex';
+            }
+        });
+
+        document.getElementById('loginPassword').addEventListener('keydown', (e) => { if (e.key === 'Enter') memberLogin(); });
+    </script>
+</body>
+</html>

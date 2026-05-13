@@ -8,6 +8,7 @@
     { "source": "/admin",       "destination": "/public/admin.html" },
     { "source": "/participant", "destination": "/public/participant.html" },
     { "source": "/signup",      "destination": "/public/signup.html" },
+    { "source": "/account",     "destination": "/public/account.html" },
     { "source": "/terms",       "destination": "/public/terms.html" },
     { "source": "/privacy",     "destination": "/public/privacy.html" }
   ]

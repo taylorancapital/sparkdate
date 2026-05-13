@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0e27"/>
+      <stop offset="100%" stop-color="#1a1f3a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff6b6b" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#ff6b6b" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Base -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Coral glow accent -->
+  <circle cx="950" cy="320" r="280" fill="url(#glow)"/>
+  <circle cx="200" cy="500" r="220" fill="url(#glow)" opacity="0.4"/>
+
+  <!-- Spark icon -->
+  <g transform="translate(160, 220)">
+    <path d="M40 0 L48 36 L84 44 L48 52 L40 88 L32 52 L-4 44 L32 36 Z" fill="#ff6b6b"/>
+    <circle cx="40" cy="44" r="6" fill="#d4af37"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="280" y="280" font-family="Georgia, 'Playfair Display', serif" font-size="96" font-weight="900" fill="#ffffff" letter-spacing="-3">
+    Spark<tspan fill="#ff6b6b">Date</tspan>
+  </text>
+
+  <!-- Tagline -->
+  <text x="280" y="350" font-family="Georgia, 'Playfair Display', serif" font-size="42" font-weight="700" font-style="italic" fill="#f5f3f0">
+    Stop swiping.
+  </text>
+  <text x="280" y="402" font-family="Georgia, 'Playfair Display', serif" font-size="42" font-weight="700" font-style="italic" fill="#ff6b6b">
+    Start living.
+  </text>
+
+  <!-- Sub-tagline -->
+  <text x="280" y="470" font-family="-apple-system, BlinkMacSystemFont, 'Inter', sans-serif" font-size="22" font-weight="500" fill="#f5f3f0" opacity="0.7">
+    Real dates. Real venues. Real people.
+  </text>
+
+  <!-- Bottom URL bar -->
+  <rect x="0" y="580" width="1200" height="50" fill="#ff6b6b"/>
+  <text x="600" y="613" font-family="-apple-system, BlinkMacSystemFont, 'Inter', sans-serif" font-size="20" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="3">
+    SPARKDATE.DATE · PHILADELPHIA
+  </text>
+</svg>
