@@ -115,9 +115,7 @@
             font-weight: 600;
         }
 
-        .event-description {
-            margin-bottom: 30px;
-        }
+        .event-description { margin-bottom: 30px; }
         .event-description h2 {
             font-family: 'Playfair Display', serif;
             font-size: 22px;
@@ -204,6 +202,10 @@
             padding: 4px 0;
             color: rgba(245, 243, 240, 0.8);
         }
+        .price-row.subtotal {
+            font-weight: 600;
+            color: rgba(245, 243, 240, 0.95);
+        }
         .price-row.total {
             border-top: 1px solid rgba(255, 107, 107, 0.2);
             margin-top: 10px;
@@ -270,6 +272,7 @@
                 <li><a href="/">Home</a></li>
                 <li><a href="/about">About</a></li>
                 <li><a href="/events" class="active">Events</a></li>
+                <li><a href="/account">Account</a></li>
                 <li><a href="/signup">Join</a></li>
             </ul>
         </div>
@@ -337,12 +340,11 @@
 
                     <form id="checkoutForm">
                         <div class="form-group">
-                            <label for="ticketGender">I identify as</label>
+                            <label for="ticketGender">Gender</label>
                             <select id="ticketGender" required>
                                 <option value="">Select...</option>
-                                <option value="woman">Woman ($20)</option>
-                                <option value="man">Man ($40)</option>
-                                <option value="non-binary">Non-binary ($30)</option>
+                                <option value="woman">Woman</option>
+                                <option value="man">Man</option>
                             </select>
                         </div>
 
@@ -357,9 +359,9 @@
                         </div>
 
                         <div class="price-breakdown">
-                            <div class="price-row">
-                                <span>Ticket</span>
-                                <span id="ticketPrice">$0.00</span>
+                            <div class="price-row subtotal">
+                                <span id="subtotalLabel">Subtotal</span>
+                                <span id="subtotalPrice">$0.00</span>
                             </div>
                             <div class="price-row">
                                 <span>Service fee</span>
@@ -371,7 +373,7 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="checkout-btn" id="checkoutBtn" disabled>Select Ticket Type</button>
+                        <button type="submit" class="checkout-btn" id="checkoutBtn" disabled>Select Gender</button>
 
                         <div class="legal">
                             By purchasing, you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.<br>
@@ -406,8 +408,9 @@
         const cardElement = elements.create('card');
         cardElement.mount('#card-element');
 
-        // Pricing logic
-        const TICKET_PRICES = { woman: 20, man: 40, 'non-binary': 30 };
+        // Pricing logic - prices kept here; not exposed in the dropdown
+        const TICKET_PRICES = { woman: 20, man: 40 };
+        const SUBTOTAL_LABELS = { woman: "Woman's ticket", man: "Man's ticket" };
         const SERVICE_FEE = 2.50;
 
         function updatePricing() {
@@ -415,10 +418,11 @@
             const btn = document.getElementById('checkoutBtn');
 
             if (!gender) {
-                document.getElementById('ticketPrice').textContent = '$0.00';
+                document.getElementById('subtotalLabel').textContent = 'Subtotal';
+                document.getElementById('subtotalPrice').textContent = '$0.00';
                 document.getElementById('serviceFee').textContent = '$0.00';
                 document.getElementById('totalPrice').textContent = '$0.00';
-                btn.textContent = 'Select Ticket Type';
+                btn.textContent = 'Select Gender';
                 btn.disabled = true;
                 return;
             }
@@ -426,7 +430,8 @@
             const ticket = TICKET_PRICES[gender];
             const total = ticket + SERVICE_FEE;
 
-            document.getElementById('ticketPrice').textContent = `$${ticket.toFixed(2)}`;
+            document.getElementById('subtotalLabel').textContent = SUBTOTAL_LABELS[gender];
+            document.getElementById('subtotalPrice').textContent = `$${ticket.toFixed(2)}`;
             document.getElementById('serviceFee').textContent = `$${SERVICE_FEE.toFixed(2)}`;
             document.getElementById('totalPrice').textContent = `$${total.toFixed(2)}`;
             btn.textContent = `Reserve Spot · $${total.toFixed(2)}`;
