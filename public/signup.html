@@ -619,8 +619,6 @@
                             <option value="">Select...</option>
                             <option value="woman">Woman</option>
                             <option value="man">Man</option>
-                            <option value="non-binary">Non-binary</option>
-                            <option value="other">Other</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -840,8 +838,18 @@
                 submitBtn.textContent = 'Start Free Trial';
 
             } catch (err) {
+                // If account already exists, redirect to /account login page
+                if (err.code === 'auth/email-already-in-use' || err.message.includes('email-already-in-use')) {
+                    errorMsg.innerHTML = '⚠️ An account with this email already exists. <strong>Redirecting you to sign in...</strong>';
+                    errorMsg.style.display = 'block';
+                    // Stash email so /account login page can pre-fill it
+                    try { sessionStorage.setItem('sparkdate_login_email', email); } catch (_) {}
+                    setTimeout(() => { window.location.href = '/account'; }, 2000);
+                    return;
+                }
+
                 // If Firebase user was created but Stripe failed, delete the orphan user
-                if (firebaseUser && err.message !== 'Firebase: Error (auth/email-already-in-use).') {
+                if (firebaseUser) {
                     try { await firebaseUser.delete(); } catch (_) {}
                 }
                 errorMsg.textContent = '❌ ' + err.message;

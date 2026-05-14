@@ -652,6 +652,22 @@
                 loadProfile();
             } else {
                 document.getElementById('loginOverlay').style.display = 'flex';
+                // Pre-fill email if redirected from signup with existing account
+                try {
+                    const prefillEmail = sessionStorage.getItem('sparkdate_login_email');
+                    if (prefillEmail) {
+                        document.getElementById('loginEmail').value = prefillEmail;
+                        sessionStorage.removeItem('sparkdate_login_email');
+                        // Show a friendly note
+                        const note = document.createElement('p');
+                        note.style.cssText = 'color: var(--gold); font-size: 12px; margin-top: 8px; text-align: center;';
+                        note.textContent = 'Welcome back! Sign in to continue.';
+                        const loginBox = document.querySelector('.login-box');
+                        const passwordInput = document.getElementById('loginPassword');
+                        passwordInput.focus();
+                        loginBox.insertBefore(note, passwordInput);
+                    }
+                } catch (_) {}
             }
         });
 

@@ -24,21 +24,12 @@ const db = admin.firestore();
 // TIER → STRIPE PRICE ID MAPPING
 // ===================================================================
 // Keys MUST match the Firestore "tier" field: free / mid / premium
-//
-// IMPORTANT: priceId values MUST start with "price_" NOT "prod_"
-//   - "prod_..." is the PRODUCT ID  ❌ Do not use here
-//   - "price_..." is the PRICE ID   ✅ Use this
-//
-// To get Price IDs:
-//   1. Stripe Dashboard → Products
-//   2. Click each product
-//   3. Scroll to "Pricing" section
-//   4. Copy the ID starting with "price_1..." (NOT "prod_...")
+// Replace with your real Stripe Price IDs (start with "price_1...")
 // ===================================================================
 const TIER_PRICES = {
-    free: { priceId: 'price_1TVOO0RsTCYDr2LLEhJTQy7E',    name: 'Spark',    amount: 999 },   // $9.99
-    mid: { priceId: 'price_1TWmZ3RsTCYDr2LLxGgh7772', name: 'Kindling', amount: 1999 },  // $19.99
-    premium: { priceId: 'price_1TWmZsRsTCYDr2LLXeUVg95N',     name: 'Fire',     amount: 3999 },  // $39.99
+  free:    { priceId: 'price_1TVOO0RsTCYDr2LLEhJTQy7E', name: 'Spark',    amount: 999 },
+  mid:     { priceId: 'price_1TWmZ3RsTCYDr2LLxGgh7772', name: 'Kindling', amount: 1999 },
+  premium: { priceId: 'price_1TWmZsRsTCYDr2LLXeUVg95N', name: 'Fire',     amount: 3999 },
 };
 
 export default async function handler(req, res) {
@@ -64,10 +55,14 @@ export default async function handler(req, res) {
     }
 
     const userData = userDoc.data();
-    const { stripeSubscriptionId, tier: currentTier } = userData;
+    // NOTE: field name is "subscriptionId" to match the signup flow's schema
+    const { subscriptionId, tier: currentTier } = userData;
 
-    if (!stripeSubscriptionId) {
-      return res.status(400).json({ error: 'No active subscription to upgrade' });
+    if (!subscriptionId) {
+      return res.status(400).json({
+        error: 'No active subscription',
+        message: 'Your account does not have an active subscription. Please complete signup or contact support.'
+      });
     }
 
     if (currentTier === newTier) {
@@ -75,12 +70,12 @@ export default async function handler(req, res) {
     }
 
     // 2. Get the current Stripe subscription
-    const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
     const currentItemId = subscription.items.data[0].id;
     const newPriceId = TIER_PRICES[newTier].priceId;
 
     // 3. Update the subscription - swap the price, prorate immediately
-    const updatedSubscription = await stripe.subscriptions.update(stripeSubscriptionId, {
+    const updatedSubscription = await stripe.subscriptions.update(subscriptionId, {
       items: [{
         id: currentItemId,
         price: newPriceId,
