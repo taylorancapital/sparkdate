@@ -4,14 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Events - SparkDate</title>
+    <meta name="description" content="Upcoming SparkDate events in Philadelphia. Curated mixers, dinners, and gatherings.">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Fraunces:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --primary-navy: #0a0e27;
             --coral: #ff6b6b;
@@ -20,13 +16,12 @@
             --white: #ffffff;
             --success: #4ade80;
         }
-
         body {
             font-family: 'Inter', sans-serif;
             background: var(--primary-navy);
             color: var(--cream);
+            line-height: 1.6;
         }
-
         /* Navigation */
         nav {
             position: sticky;
@@ -35,509 +30,313 @@
             backdrop-filter: blur(10px);
             padding: 20px 40px;
             border-bottom: 1px solid rgba(255, 107, 107, 0.1);
-            z-index: 1000;
+            z-index: 100;
         }
-
-        .nav-container {
-            max-width: 1400px;
+        .nav-content {
+            max-width: 1200px;
             margin: 0 auto;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-
         .logo {
             font-family: 'Playfair Display', serif;
             font-size: 24px;
             font-weight: 900;
             color: var(--white);
-            letter-spacing: -1px;
             text-decoration: none;
+            letter-spacing: -1px;
         }
-
-        .logo span {
-            color: var(--coral);
-        }
-
+        .logo span { color: var(--coral); }
         .nav-menu {
             display: flex;
-            gap: 40px;
+            gap: 32px;
             list-style: none;
         }
-
         .nav-menu a {
             color: var(--cream);
             text-decoration: none;
             font-size: 14px;
-            font-weight: 500;
-            transition: color 0.3s;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 1px;
+            transition: color 0.3s;
         }
-
-        .nav-menu a:hover,
-        .nav-menu a.active {
-            color: var(--coral);
-        }
-
+        .nav-menu a:hover { color: var(--coral); }
         /* Hero */
         .hero {
-            padding: 60px 40px;
-            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
             text-align: center;
+            padding: 80px 40px 40px;
+            max-width: 900px;
+            margin: 0 auto;
         }
-
         .hero h1 {
             font-family: 'Playfair Display', serif;
-            font-size: clamp(36px, 10vw, 56px);
+            font-size: clamp(40px, 7vw, 72px);
             font-weight: 900;
-            margin-bottom: 16px;
-            letter-spacing: -1px;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            letter-spacing: -2px;
         }
-
+        .hero h1 .highlight { color: var(--coral); }
         .hero p {
-            font-size: 16px;
-            color: rgba(245, 243, 240, 0.8);
-        }
-
-        /* Container */
-        .container {
-            max-width: 1400px;
+            font-size: 18px;
+            color: rgba(245, 243, 240, 0.7);
+            max-width: 600px;
             margin: 0 auto;
-            padding: 60px 40px;
         }
-
-        /* Filters */
-        .filters {
-            background: rgba(255, 107, 107, 0.05);
-            border: 1px solid rgba(255, 107, 107, 0.2);
-            border-radius: 4px;
-            padding: 20px;
-            margin-bottom: 40px;
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            align-items: center;
+        /* Events grid */
+        .events-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 40px 100px;
         }
-
-        .filter-label {
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--gold);
-            font-weight: 600;
-        }
-
-        select {
-            background: rgba(10, 14, 39, 0.5);
-            border: 1px solid rgba(255, 107, 107, 0.2);
-            color: var(--white);
-            padding: 8px 12px;
-            border-radius: 3px;
-            font-family: 'Inter', sans-serif;
-            font-size: 13px;
-            cursor: pointer;
-        }
-
-        select option {
-            background: var(--primary-navy);
-            color: var(--white);
-        }
-
-        /* Events Grid */
         .events-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             gap: 30px;
-            margin-bottom: 60px;
         }
-
         .event-card {
             background: rgba(255, 107, 107, 0.05);
             border: 1px solid rgba(255, 107, 107, 0.2);
             border-radius: 4px;
             overflow: hidden;
-            transition: all 0.3s;
+            transition: all 0.3s ease;
             display: flex;
             flex-direction: column;
         }
-
         .event-card:hover {
             background: rgba(255, 107, 107, 0.1);
             border-color: var(--coral);
             transform: translateY(-5px);
         }
-
         .event-image {
-            background: linear-gradient(135deg, rgba(255, 107, 107, 0.2) 0%, rgba(212, 175, 55, 0.1) 100%);
-            height: 200px;
+            height: 180px;
+            background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 48px;
-            border-bottom: 1px solid rgba(255, 107, 107, 0.1);
+            font-size: 64px;
+            position: relative;
         }
-
+        .event-status {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(10, 14, 39, 0.8);
+            color: var(--success);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: 1px solid var(--success);
+        }
+        .event-status.full {
+            color: #ff9999;
+            border-color: #ff9999;
+        }
+        .event-status.almost {
+            color: var(--gold);
+            border-color: var(--gold);
+        }
         .event-content {
-            padding: 24px;
-            flex-grow: 1;
+            padding: 30px;
+            flex: 1;
             display: flex;
             flex-direction: column;
         }
-
-        .event-meta {
-            display: flex;
-            gap: 12px;
+        .event-date {
             font-size: 12px;
-            color: rgba(245, 243, 240, 0.6);
-            margin-bottom: 12px;
-        }
-
-        .event-meta span {
-            padding: 2px 8px;
-            background: rgba(255, 107, 107, 0.1);
-            border-radius: 3px;
-        }
-
-        .event-title {
-            font-family: 'Fraunces', serif;
-            font-size: 18px;
+            color: var(--gold);
             font-weight: 600;
-            color: var(--white);
+            text-transform: uppercase;
+            letter-spacing: 1px;
             margin-bottom: 8px;
         }
-
-        .event-description {
-            font-size: 13px;
-            color: rgba(245, 243, 240, 0.7);
-            line-height: 1.6;
-            margin-bottom: 16px;
-            flex-grow: 1;
+        .event-card h3 {
+            font-family: 'Fraunces', serif;
+            font-size: 22px;
+            color: var(--white);
+            margin-bottom: 12px;
+            font-weight: 600;
         }
-
-        .event-details {
+        .event-meta {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            font-size: 12px;
-            color: rgba(245, 243, 240, 0.6);
-            padding-top: 16px;
-            border-top: 1px solid rgba(255, 107, 107, 0.1);
             margin-bottom: 16px;
+            font-size: 14px;
+            color: rgba(245, 243, 240, 0.7);
         }
-
-        .event-detail {
+        .event-meta-row {
             display: flex;
             align-items: center;
             gap: 8px;
         }
-
-        .event-detail strong {
-            color: var(--white);
-        }
-
-        .event-spots {
-            font-size: 13px;
-            padding: 8px;
-            background: rgba(74, 222, 128, 0.1);
-            border-radius: 3px;
-            color: var(--success);
-            text-align: center;
-            margin-bottom: 12px;
-        }
-
-        .btn-register {
-            background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
-            color: var(--white);
-            border: none;
-            padding: 10px;
-            border-radius: 3px;
-            font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-register:hover {
-            background: var(--white);
-            color: var(--coral);
-        }
-
-        .btn-register:disabled {
-            background: rgba(100, 116, 139, 0.3);
-            color: rgba(245, 243, 240, 0.5);
-            cursor: not-allowed;
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 60px 40px;
-            background: rgba(255, 107, 107, 0.05);
-            border: 1px solid rgba(255, 107, 107, 0.2);
-            border-radius: 4px;
-        }
-
-        .empty-state h2 {
-            font-family: 'Playfair Display', serif;
-            font-size: 32px;
-            margin-bottom: 12px;
-            color: var(--white);
-        }
-
-        /* CTA Section */
-        .cta-section {
-            background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
-            padding: 60px 40px;
-            text-align: center;
-            color: var(--white);
-            border-radius: 4px;
-        }
-
-        .cta-section h2 {
-            font-family: 'Playfair Display', serif;
-            font-size: 36px;
-            margin-bottom: 12px;
-            letter-spacing: -1px;
-        }
-
-        .cta-section p {
+        .event-description {
+            font-size: 14px;
+            color: rgba(245, 243, 240, 0.6);
             margin-bottom: 24px;
-            font-size: 15px;
+            flex: 1;
+            line-height: 1.6;
         }
-
-        .btn-cta {
-            background: var(--white);
-            color: var(--coral);
-            padding: 12px 40px;
-            border-radius: 3px;
+        .event-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 107, 107, 0.1);
+        }
+        .event-price {
+            font-family: 'Playfair Display', serif;
+            font-size: 22px;
+            font-weight: 900;
+            color: var(--white);
+        }
+        .event-price small {
+            font-size: 12px;
+            color: rgba(245, 243, 240, 0.5);
+            font-weight: 400;
+            margin-left: 4px;
+            font-family: 'Inter', sans-serif;
+        }
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
+            color: var(--white);
+            padding: 12px 24px;
+            border-radius: 4px;
             text-decoration: none;
             font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            display: inline-block;
+            font-size: 13px;
+            letter-spacing: 1px;
             transition: all 0.3s;
+            border: 2px solid var(--coral);
+            cursor: pointer;
+            text-transform: uppercase;
         }
-
-        .btn-cta:hover {
-            background: var(--primary-navy);
-            color: var(--white);
+        .btn:hover {
+            background: var(--white);
+            color: var(--coral);
             transform: translateY(-2px);
         }
-
-        /* Footer */
+        .btn:disabled,
+        .btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: rgba(245, 243, 240, 0.5);
+            grid-column: 1 / -1;
+        }
+        .empty-state h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            color: var(--white);
+            margin-bottom: 12px;
+        }
         footer {
             border-top: 1px solid rgba(255, 107, 107, 0.1);
             padding: 40px;
             text-align: center;
-            color: rgba(245, 243, 240, 0.5);
+            color: rgba(245, 243, 240, 0.6);
             font-size: 12px;
         }
-
         @media (max-width: 768px) {
-            nav, .hero, .container {
-                padding: 20px;
-            }
-
-            .nav-menu {
-                display: none;
-            }
-
-            .filters {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            select {
-                width: 100%;
-            }
-
-            .events-grid {
-                grid-template-columns: 1fr;
-            }
+            nav { padding: 16px 20px; }
+            .nav-menu { gap: 16px; }
+            .nav-menu a { font-size: 12px; }
+            .hero { padding: 60px 20px 20px; }
+            .events-container { padding: 20px; }
+            .event-card { min-width: 100%; }
         }
     </style>
 </head>
 <body>
     <!-- Navigation -->
     <nav>
-        <div class="nav-container">
+        <div class="nav-content">
             <a href="/" class="logo">Spark<span>Date</span></a>
             <ul class="nav-menu">
-                <li><a href="/">Home</a></li>
                 <li><a href="/about">About</a></li>
-                <li><a href="/events" class="active">Events</a></li>
-                <li><a href="/founding">Join</a></li>
+                <li><a href="/events">Events</a></li>
                 <li><a href="/account">Account</a></li>
+                <li><a href="/signup">Join</a></li>
             </ul>
         </div>
     </nav>
 
     <!-- Hero -->
     <section class="hero">
-        <h1>Upcoming <span style="color: var(--coral);">Events</span></h1>
-        <p>Curated gatherings where you'll meet compatible people in person.</p>
+        <h1>Upcoming <span class="highlight">Events</span></h1>
+        <p>Curated gatherings at Philly's best venues. Reserve your spot, show up, meet real people.</p>
     </section>
 
-    <!-- Main -->
-    <div class="container">
-        <!-- Filters -->
-        <div class="filters">
-            <label class="filter-label">Filter by:</label>
-            <select>
-                <option>All Neighborhoods</option>
-                <option>Rittenhouse</option>
-                <option>Old City</option>
-                <option>University City</option>
-                <option>Fishtown</option>
-                <option>Manayunk</option>
-            </select>
-            <select>
-                <option>All Event Types</option>
-                <option>Cocktails</option>
-                <option>Dinner</option>
-                <option>Activity</option>
-                <option>Wine & Dine</option>
-            </select>
-        </div>
-
-        <!-- Events Grid -->
-        <div class="events-grid">
-            <!-- Event 1 -->
+    <!-- Events Grid -->
+    <section class="events-container">
+        <div class="events-grid" id="eventsGrid">
+            <!-- Founders Mixer (always shown - links to /event) -->
             <div class="event-card">
-                <div class="event-image">🍸</div>
+                <div class="event-image">
+                    🍸
+                    <div class="event-status">Open</div>
+                </div>
                 <div class="event-content">
+                    <div class="event-date">Saturday · June 12, 2026 · 7:30 PM</div>
+                    <h3>Founders Mixer</h3>
                     <div class="event-meta">
-                        <span>Cocktails</span>
-                        <span>Rittenhouse</span>
+                        <div class="event-meta-row">📍 a.kitchen + a.bar · Rittenhouse</div>
+                        <div class="event-meta-row">👥 30 spots · 15 men / 15 women</div>
+                        <div class="event-meta-row">🍹 Welcome cocktail included</div>
                     </div>
-                    <h3 class="event-title">Rooftop Mixer</h3>
-                    <p class="event-description">Cocktails and conversation at a stunning rooftop venue. Perfect for meeting new people in an elegant setting.</p>
-                    <div class="event-details">
-                        <div class="event-detail">📅 <strong>Friday, May 9</strong></div>
-                        <div class="event-detail">🕖 <strong>7:00 PM</strong></div>
-                        <div class="event-detail">📍 <strong>Rittenhouse Rooftop</strong></div>
+                    <div class="event-description">
+                        An intimate evening of cocktails, conversation, and connection. Our inaugural mixer at Philadelphia's most stylish bar. Curated guest list, two-hour open format, real people only.
                     </div>
-                    <div class="event-spots">12 spots remaining</div>
-                    <button class="btn-register">Register</button>
+                    <div class="event-footer">
+                        <div class="event-price">$20-$40 <small>by tier</small></div>
+                        <a href="/event" class="btn">Reserve</a>
+                    </div>
                 </div>
             </div>
 
-            <!-- Event 2 -->
-            <div class="event-card">
-                <div class="event-image">🍷</div>
-                <div class="event-content">
-                    <div class="event-meta">
-                        <span>Wine Tasting</span>
-                        <span>Old City</span>
-                    </div>
-                    <h3 class="event-title">Wine Tasting & Bites</h3>
-                    <p class="event-description">Sample fine wines from around the world while mingling with carefully curated singles.</p>
-                    <div class="event-details">
-                        <div class="event-detail">📅 <strong>Thursday, May 16</strong></div>
-                        <div class="event-detail">🕖 <strong>6:30 PM</strong></div>
-                        <div class="event-detail">📍 <strong>Old City Wine Bar</strong></div>
-                    </div>
-                    <div class="event-spots">3 spots remaining</div>
-                    <button class="btn-register">Register</button>
+            <!-- Placeholder card for "more coming" -->
+            <div class="event-card" style="border-style: dashed; opacity: 0.7;">
+                <div class="event-image" style="background: linear-gradient(135deg, #1a1f3a 0%, #0a0e27 100%); border: 1px dashed rgba(255, 107, 107, 0.3);">
+                    ✨
                 </div>
-            </div>
-
-            <!-- Event 3 -->
-            <div class="event-card">
-                <div class="event-image">👨‍🍳</div>
                 <div class="event-content">
+                    <div class="event-date">Coming Soon</div>
+                    <h3>More events on the way</h3>
                     <div class="event-meta">
-                        <span>Cooking Class</span>
-                        <span>University City</span>
+                        <div class="event-meta-row">📍 Rotating Philly venues</div>
+                        <div class="event-meta-row">👥 Curated group sizes</div>
+                        <div class="event-meta-row">🎭 Themed experiences</div>
                     </div>
-                    <h3 class="event-title">Cooking Class & Dinner</h3>
-                    <p class="event-description">Learn to cook together, then enjoy the meal you created. Hands-on bonding experience.</p>
-                    <div class="event-details">
-                        <div class="event-detail">📅 <strong>Saturday, May 23</strong></div>
-                        <div class="event-detail">🕖 <strong>6:00 PM</strong></div>
-                        <div class="event-detail">📍 <strong>University City Kitchen Studio</strong></div>
+                    <div class="event-description">
+                        Wine tastings, rooftop dinners, museum nights, cooking classes. Members get first access to every event before they're public.
                     </div>
-                    <div class="event-spots">7 spots remaining</div>
-                    <button class="btn-register">Register</button>
-                </div>
-            </div>
-
-            <!-- Event 4 -->
-            <div class="event-card">
-                <div class="event-image">⚡</div>
-                <div class="event-content">
-                    <div class="event-meta">
-                        <span>Speed Mixer</span>
-                        <span>Fishtown</span>
+                    <div class="event-footer">
+                        <div class="event-price">TBA</div>
+                        <a href="/signup" class="btn">Join List</a>
                     </div>
-                    <h3 class="event-title">Cocktail Bar Speed Mixer</h3>
-                    <p class="event-description">Rotating conversations format. Meet multiple people in one evening in a fun, low-pressure setting.</p>
-                    <div class="event-details">
-                        <div class="event-detail">📅 <strong>Friday, May 30</strong></div>
-                        <div class="event-detail">🕖 <strong>7:30 PM</strong></div>
-                        <div class="event-detail">📍 <strong>Fishtown Cocktail Lounge</strong></div>
-                    </div>
-                    <div class="event-spots">1 spot remaining</div>
-                    <button class="btn-register">Register</button>
-                </div>
-            </div>
-
-            <!-- Event 5 -->
-            <div class="event-card">
-                <div class="event-image">🍽️</div>
-                <div class="event-content">
-                    <div class="event-meta">
-                        <span>Dinner</span>
-                        <span>Rittenhouse</span>
-                    </div>
-                    <h3 class="event-title">Sunset Dinner Party</h3>
-                    <p class="event-description">Curated group dinner at an upscale restaurant. Three-course meal with excellent company.</p>
-                    <div class="event-details">
-                        <div class="event-detail">📅 <strong>Wednesday, June 6</strong></div>
-                        <div class="event-detail">🕖 <strong>6:00 PM</strong></div>
-                        <div class="event-detail">📍 <strong>Rittenhouse Fine Dining</strong></div>
-                    </div>
-                    <div class="event-spots">6 spots remaining</div>
-                    <button class="btn-register">Register</button>
-                </div>
-            </div>
-
-            <!-- Event 6 -->
-            <div class="event-card">
-                <div class="event-image">🎨</div>
-                <div class="event-content">
-                    <div class="event-meta">
-                        <span>Art Experience</span>
-                        <span>Old City</span>
-                    </div>
-                    <h3 class="event-title">Gallery Opening & Drinks</h3>
-                    <p class="event-description">Private preview of a contemporary art show followed by drinks and conversation.</p>
-                    <div class="event-details">
-                        <div class="event-detail">📅 <strong>Saturday, June 13</strong></div>
-                        <div class="event-detail">🕖 <strong>6:30 PM</strong></div>
-                        <div class="event-detail">📍 <strong>Old City Gallery District</strong></div>
-                    </div>
-                    <div class="event-spots">14 spots remaining</div>
-                    <button class="btn-register">Register</button>
                 </div>
             </div>
         </div>
-
-        <!-- CTA Section -->
-        <div class="cta-section">
-            <h2>Not a member yet?</h2>
-            <p>Join our founding cohort to get free access to your first two events, lifetime founding status, and help shape the product.</p>
-            <a href="/founding" class="btn-cta">Join as Founding Member</a>
-        </div>
-    </div>
+    </section>
 
     <!-- Footer -->
     <footer>
-        <p>&copy; 2026 SparkDate. <a href="/" style="color: var(--coral); text-decoration: none;">Back to Home</a></p>
+        <p>SparkDate · Philadelphia · 2026</p>
+        <p style="margin-top: 12px; font-size: 11px;">
+            <a href="/terms" style="color: rgba(245, 243, 240, 0.6); text-decoration: none; margin: 0 8px;">Terms</a>
+            ·
+            <a href="/privacy" style="color: rgba(245, 243, 240, 0.6); text-decoration: none; margin: 0 8px;">Privacy</a>
+        </p>
     </footer>
 </body>
 </html>
