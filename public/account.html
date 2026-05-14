@@ -52,13 +52,19 @@
 
         .btn { padding: 12px 24px; border: none; border-radius: 4px; font-family: inherit; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; }
         .btn-primary { background: linear-gradient(135deg, var(--coral), #ff5252); color: var(--white); }
-        .btn-primary:hover { transform: translateY(-1px); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(255, 107, 107, 0.3); }
         .btn-secondary { background: transparent; color: var(--cream); border: 1px solid rgba(255, 107, 107, 0.3); }
         .btn-secondary:hover { background: rgba(255, 107, 107, 0.1); }
         .btn-danger { background: transparent; color: var(--danger); border: 1px solid rgba(248, 113, 113, 0.3); }
         .btn-danger:hover { background: rgba(248, 113, 113, 0.1); }
+        .btn-large { padding: 16px 32px; font-size: 14px; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-        .action-bar { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+        .text-link { color: rgba(245, 243, 240, 0.4); font-size: 11px; text-decoration: underline; cursor: pointer; background: none; border: none; font-family: inherit; padding: 8px; transition: color 0.2s; }
+        .text-link:hover { color: rgba(245, 243, 240, 0.7); }
+
+        .action-bar { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; align-items: center; }
+        .action-bar-cancel { display: flex; justify-content: flex-end; margin-top: 24px; }
 
         .message { padding: 14px 18px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; display: none; }
         .message-success { background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.3); color: var(--success); }
@@ -73,14 +79,100 @@
         .login-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, var(--coral), #ff5252); color: var(--white); border: none; border-radius: 4px; font-family: inherit; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; }
         .login-link { color: var(--coral); font-size: 12px; text-decoration: underline; cursor: pointer; }
 
-        .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 9999; }
+        /* ===== CANCEL MODAL — RETENTION FLOW ===== */
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 20px; }
         .modal-backdrop.show { display: flex; }
-        .modal { background: var(--primary-navy); border: 1px solid rgba(255, 107, 107, 0.3); border-radius: 8px; padding: 40px; width: 100%; max-width: 460px; }
-        .modal h3 { font-family: 'Playfair Display', serif; font-size: 26px; margin-bottom: 12px; font-weight: 900; }
-        .modal p { font-size: 14px; color: rgba(245, 243, 240, 0.8); margin-bottom: 20px; }
+        .modal {
+            background: var(--primary-navy);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            border-radius: 8px;
+            padding: 40px;
+            width: 100%;
+            max-width: 520px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            margin-bottom: 16px;
+            font-weight: 900;
+            color: var(--white);
+            line-height: 1.2;
+        }
+        .modal p {
+            font-size: 14px;
+            color: rgba(245, 243, 240, 0.85);
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+        .modal-step { display: none; }
+        .modal-step.active { display: block; }
+
+        .loss-list {
+            background: rgba(248, 113, 113, 0.06);
+            border-left: 3px solid var(--danger);
+            border-radius: 4px;
+            padding: 18px 20px;
+            margin: 20px 0;
+            list-style: none;
+        }
+        .loss-list li {
+            color: rgba(245, 243, 240, 0.9);
+            font-size: 13px;
+            padding: 6px 0;
+            position: relative;
+            padding-left: 22px;
+        }
+        .loss-list li::before {
+            content: '✗';
+            position: absolute;
+            left: 0;
+            color: var(--danger);
+            font-weight: 700;
+        }
+
+        .keep-benefits {
+            background: rgba(74, 222, 128, 0.06);
+            border-left: 3px solid var(--success);
+            border-radius: 4px;
+            padding: 18px 20px;
+            margin: 20px 0;
+            list-style: none;
+        }
+        .keep-benefits li {
+            color: rgba(245, 243, 240, 0.9);
+            font-size: 13px;
+            padding: 6px 0;
+            position: relative;
+            padding-left: 22px;
+        }
+        .keep-benefits li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--success);
+            font-weight: 700;
+        }
+
+        .modal-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 28px;
+        }
+        .modal-actions .btn-keep {
+            width: 100%;
+            font-size: 14px;
+            padding: 16px;
+        }
+        .modal-actions .cancel-link-row {
+            text-align: center;
+            margin-top: 4px;
+        }
 
         footer { border-top: 1px solid rgba(255, 107, 107, 0.1); padding: 40px; text-align: center; color: rgba(245, 243, 240, 0.5); font-size: 12px; margin-top: 60px; }
-        @media (max-width: 768px) { nav { padding: 16px 20px; } .nav-menu { display: none; } .container { padding: 30px 20px; } .field { flex-direction: column; gap: 4px; } }
+        @media (max-width: 768px) { nav { padding: 16px 20px; } .nav-menu { display: none; } .container { padding: 30px 20px; } .field { flex-direction: column; gap: 4px; } .modal { padding: 28px 22px; } }
 
         /* Tier upgrade cards */
         .tier-card {
@@ -92,9 +184,10 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        .tier-card:hover {
+        .tier-card:hover:not(.current):not(.processing) {
             border-color: var(--coral);
             background: rgba(255, 107, 107, 0.05);
+            transform: translateY(-2px);
         }
         .tier-card.current {
             border-color: var(--gold);
@@ -109,6 +202,11 @@
             color: var(--gold);
             letter-spacing: 1px;
             font-weight: 600;
+        }
+        .tier-card.processing {
+            opacity: 0.5;
+            cursor: wait;
+            pointer-events: none;
         }
         .tier-card-name {
             font-family: 'Fraunces', serif;
@@ -202,7 +300,7 @@
                     Change Your Tier
                 </h3>
                 <p style="font-size: 14px; color: rgba(245, 243, 240, 0.7); margin-bottom: 24px;">
-                    Switch tiers anytime. We'll prorate the difference and charge your card on file.
+                    Click any tier to switch instantly. We'll prorate the difference and charge your card on file.
                 </p>
                 <div class="tier-options" id="tierOptions" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
                     <!-- Tier cards inserted by JS -->
@@ -210,8 +308,8 @@
                 <div id="tierMessage" style="margin-top: 16px; padding: 12px; border-radius: 4px; display: none;"></div>
             </div>
 
-            <div class="action-bar">
-                <button class="btn btn-danger" onclick="showCancelModal()" id="cancelBtn">Cancel Subscription</button>
+            <div class="action-bar-cancel">
+                <button class="text-link" onclick="showCancelModal()" id="cancelBtn">Cancel subscription</button>
             </div>
         </div>
 
@@ -222,14 +320,90 @@
         </div>
     </div>
 
+    <!-- ============================================================ -->
+    <!-- RETENTION-FOCUSED CANCEL MODAL (multi-step)                  -->
+    <!-- ============================================================ -->
     <div class="modal-backdrop" id="cancelModal">
         <div class="modal">
-            <h3>Cancel Subscription?</h3>
-            <p>Your subscription will remain active until the end of your current billing period. You won't be charged again, and you can resubscribe anytime.</p>
-            <p style="font-size: 13px; color: rgba(245, 243, 240, 0.6); margin-bottom: 24px;">Are you sure you want to cancel?</p>
-            <div class="action-bar">
-                <button class="btn btn-secondary" onclick="hideCancelModal()">Keep Subscription</button>
-                <button class="btn btn-danger" onclick="confirmCancel()" id="confirmCancelBtn">Yes, Cancel</button>
+            <!-- STEP 1: Wait, you're about to lose access to... -->
+            <div class="modal-step active" id="cancelStep1">
+                <h3>Wait — here's what you'll lose</h3>
+                <p>Cancellation is permanent. Before you go, please understand what canceling means:</p>
+
+                <ul class="loss-list">
+                    <li>Your profile information will be deactivated</li>
+                    <li>You'll lose access to all upcoming curated events</li>
+                    <li>Your match history and saved connections will be deleted within 30 days</li>
+                    <li>Any unused event credits will expire immediately</li>
+                    <li>To rejoin later, you'll need to re-apply and re-verify</li>
+                </ul>
+
+                <p style="color: rgba(245,243,240,0.6); font-size: 13px;">
+                    Your subscription will remain active until the end of your current billing period, but you won't be charged again.
+                </p>
+
+                <div class="modal-actions">
+                    <button class="btn btn-primary btn-keep" onclick="hideCancelModal()">
+                        Keep My Membership
+                    </button>
+                    <div class="cancel-link-row">
+                        <button class="text-link" onclick="cancelStepNext(2)">
+                            Continue canceling →
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 2: Are you really sure? -->
+            <div class="modal-step" id="cancelStep2">
+                <h3>One more thing before you go</h3>
+                <p>Most members who cancel say they wish they'd given it more time. Here's what you'd be giving up:</p>
+
+                <ul class="keep-benefits">
+                    <li>Priority access to every new curated event</li>
+                    <li>Verified, real members — no bots, no catfishing</li>
+                    <li>Active community with weekly meetups in Philly</li>
+                    <li>The first authentic IRL dating experience built for people tired of swiping</li>
+                </ul>
+
+                <p style="color: rgba(245,243,240,0.6); font-size: 13px;">
+                    If pricing is the issue, you can <a href="#" onclick="hideCancelModal(); document.getElementById('tierOptions').scrollIntoView({behavior:'smooth'}); return false;" style="color: var(--coral);">downgrade to a lower tier</a> instead.
+                </p>
+
+                <div class="modal-actions">
+                    <button class="btn btn-primary btn-keep" onclick="hideCancelModal()">
+                        Keep My Membership
+                    </button>
+                    <div class="cancel-link-row">
+                        <button class="text-link" onclick="cancelStepNext(3)">
+                            I understand, continue canceling →
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 3: Final confirmation -->
+            <div class="modal-step" id="cancelStep3">
+                <h3>Final step</h3>
+                <p>You're about to cancel your SparkDate membership. This action cannot be undone through this page.</p>
+                <p style="color: rgba(245,243,240,0.7);">Are you absolutely sure?</p>
+
+                <div class="modal-actions">
+                    <button class="btn btn-primary btn-keep" onclick="hideCancelModal()">
+                        No, Keep My Membership
+                    </button>
+                    <div class="cancel-link-row">
+                        <button class="text-link" style="color: rgba(248, 113, 113, 0.6);" onclick="confirmCancel()" id="confirmCancelBtn">
+                            Yes, cancel my subscription
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 4: Processing / done -->
+            <div class="modal-step" id="cancelStep4">
+                <h3 id="cancelDoneTitle">Canceling...</h3>
+                <p id="cancelDoneMessage">Please wait while we process your cancellation.</p>
             </div>
         </div>
     </div>
@@ -244,7 +418,7 @@
         import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         // ========= TIER CONFIG =========
-        // Single source of truth. Keys match Firestore values: free / mid / premium
+        // Keys match Firestore values: free / mid / premium
         const TIERS = {
             free:    { name: 'Spark',    price: 9.99,  desc: 'Get-started tier with free trial' },
             mid:     { name: 'Kindling', price: 19.99, desc: 'Includes 1 event per month' },
@@ -267,8 +441,9 @@
 
         let currentUser = null;
         let userData = null;
+        let isUpgrading = false;
 
-        // ========= TIER UPGRADE UI =========
+        // ========= TIER UPGRADE — INSTANT, NO CONFIRMATION =========
         function renderTierOptions(currentTier) {
             const container = document.getElementById('tierOptions');
             if (!container) return;
@@ -278,31 +453,25 @@
                 const isCurrent = tierKey === currentTier;
                 const card = document.createElement('div');
                 card.className = 'tier-card' + (isCurrent ? ' current' : '');
+                card.dataset.tier = tierKey;
                 card.innerHTML = `
                     <div class="tier-card-name">${tier.name}</div>
                     <div class="tier-card-price">$${tier.price.toFixed(2)}<small>/mo</small></div>
                     <div class="tier-card-desc">${tier.desc}</div>
                 `;
                 if (!isCurrent) {
-                    card.onclick = () => confirmTierChange(tierKey);
+                    card.onclick = () => performTierChange(tierKey);
                 }
                 container.appendChild(card);
             });
         }
 
-        async function confirmTierChange(newTier) {
-            const currentTier = userData?.tier || 'free';
-            const newTierName = TIERS[newTier].name;
-            const isUpgrade = TIERS[newTier].price > TIERS[currentTier].price;
-            const action = isUpgrade ? 'upgrade to' : 'downgrade to';
+        async function performTierChange(newTier) {
+            if (isUpgrading) return; // prevent double-clicks
+            isUpgrading = true;
 
-            if (!confirm(
-                `Are you sure you want to ${action} ${newTierName} ($${TIERS[newTier].price.toFixed(2)}/mo)?\n\n` +
-                `We'll charge your saved card the prorated difference immediately. ` +
-                `Your tier will change right away.`
-            )) {
-                return;
-            }
+            // Visual feedback: mark all cards as processing
+            document.querySelectorAll('.tier-card').forEach(c => c.classList.add('processing'));
 
             const messageEl = document.getElementById('tierMessage');
             messageEl.style.display = 'block';
@@ -332,7 +501,7 @@
                 messageEl.style.borderRadius = '4px';
                 messageEl.textContent = `✓ ${data.message || 'Tier updated.'} Refreshing...`;
 
-                setTimeout(() => window.location.reload(), 2000);
+                setTimeout(() => window.location.reload(), 1500);
 
             } catch (err) {
                 console.error('Tier change failed:', err);
@@ -340,11 +509,12 @@
                 messageEl.style.padding = '12px';
                 messageEl.style.borderRadius = '4px';
                 messageEl.textContent = '✗ ' + err.message;
+
+                // Re-enable cards on failure
+                document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('processing'));
+                isUpgrading = false;
             }
         }
-
-        // Expose to window for inline onclick handlers
-        window.confirmTierChange = confirmTierChange;
 
         // ========= AUTH =========
         window.memberLogin = async () => {
@@ -383,13 +553,28 @@
 
         window.logout = async () => { await signOut(auth); window.location = '/'; };
 
-        // ========= CANCEL =========
-        window.showCancelModal = () => document.getElementById('cancelModal').classList.add('show');
-        window.hideCancelModal = () => document.getElementById('cancelModal').classList.remove('show');
+        // ========= MULTI-STEP CANCEL MODAL =========
+        window.showCancelModal = () => {
+            // Always reset to step 1 when opening
+            document.querySelectorAll('.modal-step').forEach(s => s.classList.remove('active'));
+            document.getElementById('cancelStep1').classList.add('active');
+            document.getElementById('cancelModal').classList.add('show');
+        };
+
+        window.hideCancelModal = () => {
+            document.getElementById('cancelModal').classList.remove('show');
+        };
+
+        window.cancelStepNext = (stepNum) => {
+            document.querySelectorAll('.modal-step').forEach(s => s.classList.remove('active'));
+            document.getElementById('cancelStep' + stepNum).classList.add('active');
+        };
 
         window.confirmCancel = async () => {
-            const btn = document.getElementById('confirmCancelBtn');
-            btn.disabled = true; btn.textContent = 'Canceling...';
+            // Move to processing step
+            document.querySelectorAll('.modal-step').forEach(s => s.classList.remove('active'));
+            document.getElementById('cancelStep4').classList.add('active');
+
             try {
                 const res = await fetch('/api/cancel-subscription', {
                     method: 'POST',
@@ -398,13 +583,17 @@
                 });
                 const result = await res.json();
                 if (!res.ok) throw new Error(result.error);
-                hideCancelModal();
-                showMessage('success', 'Subscription canceled. You\'ll have access until your current billing period ends.');
-                setTimeout(() => location.reload(), 2000);
+
+                document.getElementById('cancelDoneTitle').textContent = 'Subscription canceled';
+                document.getElementById('cancelDoneMessage').innerHTML = `Your subscription has been canceled. You'll have access until the end of your current billing period.<br><br>We're sorry to see you go. <a href="/" style="color: var(--coral);">Return home</a>.`;
+
+                setTimeout(() => {
+                    hideCancelModal();
+                    location.reload();
+                }, 3500);
             } catch (e) {
-                hideCancelModal();
-                showMessage('error', e.message);
-                btn.disabled = false; btn.textContent = 'Yes, Cancel';
+                document.getElementById('cancelDoneTitle').textContent = 'Something went wrong';
+                document.getElementById('cancelDoneMessage').textContent = e.message + ' — Please contact support@sparkdate.date if this continues.';
             }
         };
 
@@ -452,7 +641,6 @@
                 cancelBtn.style.display = 'none';
             }
 
-            // Render tier upgrade cards now that we know the user's current tier
             renderTierOptions(tierKey);
         }
 

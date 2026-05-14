@@ -20,12 +20,25 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-// Tier → Stripe Price ID mapping
-// IMPORTANT: Replace these with your actual Stripe Price IDs
+// ===================================================================
+// TIER → STRIPE PRICE ID MAPPING
+// ===================================================================
+// Keys MUST match the Firestore "tier" field: free / mid / premium
+//
+// IMPORTANT: priceId values MUST start with "price_" NOT "prod_"
+//   - "prod_..." is the PRODUCT ID  ❌ Do not use here
+//   - "price_..." is the PRICE ID   ✅ Use this
+//
+// To get Price IDs:
+//   1. Stripe Dashboard → Products
+//   2. Click each product
+//   3. Scroll to "Pricing" section
+//   4. Copy the ID starting with "price_1..." (NOT "prod_...")
+// ===================================================================
 const TIER_PRICES = {
-    spark: { priceId: 'prod_UUN8ewZIL5J8id',    name: 'Spark',    amount: 999 },   // $9.99
-    kindling: { priceId: 'prod_UVoBn7v6L3Amyb', name: 'Kindling', amount: 1999 },  // $19.99
-    fire: { priceId: 'prod_UVoCt3qybsyXBC',     name: 'Fire',     amount: 3999 },  // $39.99
+    free: { priceId: 'price_1TVOO0RsTCYDr2LLEhJTQy7E',    name: 'Spark',    amount: 999 },   // $9.99
+    mid: { priceId: 'price_1TWmZ3RsTCYDr2LLxGgh7772', name: 'Kindling', amount: 1999 },  // $19.99
+    premium: { priceId: 'price_1TWmZsRsTCYDr2LLXeUVg95N',     name: 'Fire',     amount: 3999 },  // $39.99
 };
 
 export default async function handler(req, res) {
@@ -41,7 +54,7 @@ export default async function handler(req, res) {
     }
 
     if (!TIER_PRICES[newTier]) {
-      return res.status(400).json({ error: 'Invalid tier' });
+      return res.status(400).json({ error: 'Invalid tier', message: `Tier "${newTier}" not found. Expected: free, mid, or premium.` });
     }
 
     // 1. Get the user's Firestore document
@@ -72,8 +85,8 @@ export default async function handler(req, res) {
         id: currentItemId,
         price: newPriceId,
       }],
-      proration_behavior: 'always_invoice', // Charge the difference now (or credit if downgrading)
-      payment_behavior: 'error_if_incomplete', // Fails clean if saved card declines
+      proration_behavior: 'always_invoice',
+      payment_behavior: 'error_if_incomplete',
     });
 
     // 4. Update Firestore
@@ -84,19 +97,16 @@ export default async function handler(req, res) {
     });
 
     // 5. Log to activity feed
+    const isUpgrade = TIER_PRICES[newTier].amount > (TIER_PRICES[currentTier]?.amount || 0);
     await db.collection('activity').add({
       type: 'subscription_tier_changed',
       userId: userId,
       userEmail: userData.email,
-      userName: userData.name || userData.email,
+      userName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.email,
       fromTier: currentTier,
       toTier: newTier,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      message: `${userData.name || userData.email} ${
-        TIER_PRICES[newTier].amount > (TIER_PRICES[currentTier]?.amount || 0)
-          ? 'upgraded'
-          : 'downgraded'
-      } from ${currentTier} to ${newTier}`,
+      message: `${userData.firstName || userData.email} ${isUpgrade ? 'upgraded' : 'downgraded'} from ${TIER_PRICES[currentTier]?.name || currentTier} to ${TIER_PRICES[newTier].name}`,
     });
 
     return res.status(200).json({
@@ -112,7 +122,6 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Upgrade subscription error:', error);
 
-    // Handle Stripe-specific errors gracefully
     if (error.type === 'StripeCardError') {
       return res.status(402).json({
         error: 'Payment failed',
