@@ -742,6 +742,42 @@
             });
         });
 
+        // Client-side validation — returns a user-friendly error string or null
+        function validateSignup({ firstName, lastName, email, password, gender, age, tier }) {
+            if (!firstName || !lastName) return 'Please enter your first and last name.';
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Please enter a valid email address.';
+            if (!password || password.length < 8) return 'Password must be at least 8 characters.';
+            if (gender !== 'woman' && gender !== 'man') return 'Please select a gender.';
+            const ageNum = parseInt(age, 10);
+            if (!ageNum || ageNum < 18) return 'You must be at least 18 to join.';
+            if (ageNum > 120) return 'Please enter a valid age.';
+            if (!['free', 'mid', 'premium'].includes(tier)) return 'Please select a membership tier.';
+            return null;
+        }
+
+        // Map error codes/messages to friendly text. Falls back to a generic message.
+        function friendlyError(err) {
+            const code = err.code || '';
+            const msg = (err.message || '').toLowerCase();
+
+            if (code === 'auth/weak-password' || msg.includes('weak-password')) {
+                return 'Password is too weak. Please use at least 8 characters.';
+            }
+            if (code === 'auth/invalid-email' || msg.includes('invalid-email')) {
+                return 'That email address looks invalid. Please double-check.';
+            }
+            if (code === 'auth/network-request-failed' || msg.includes('network')) {
+                return 'Network error. Please check your connection and try again.';
+            }
+            if (msg.includes('card was declined') || msg.includes('declined')) {
+                return 'Your card was declined. Please try a different payment method.';
+            }
+            if (msg.includes('incomplete')) {
+                return 'Please complete all payment details.';
+            }
+            return 'Something went wrong. Please try again, or contact support@sparkdate.date if it keeps happening.';
+        }
+
         // Form submission — full end-to-end flow
         document.getElementById('signupForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -761,10 +797,19 @@
             const errorMsg   = document.getElementById('errorMessage');
             const successMsg = document.getElementById('successMessage');
 
-            submitBtn.style.display = 'none';
-            loading.style.display   = 'block';
             errorMsg.style.display  = 'none';
             successMsg.style.display = 'none';
+
+            // ── Client-side validation ─────────────────────────────────────
+            const validationError = validateSignup({ firstName, lastName, email, password, gender, age, tier });
+            if (validationError) {
+                errorMsg.textContent = validationError;
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            submitBtn.style.display = 'none';
+            loading.style.display   = 'block';
 
             let firebaseUser = null;
 
@@ -852,8 +897,9 @@
                 if (firebaseUser) {
                     try { await firebaseUser.delete(); } catch (_) {}
                 }
-                errorMsg.textContent = '❌ ' + err.message;
+                errorMsg.textContent = friendlyError(err);
                 errorMsg.style.display = 'block';
+                console.error('[signup] error', err);
             } finally {
                 submitBtn.style.display = 'block';
                 loading.style.display   = 'none';
