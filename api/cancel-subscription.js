@@ -58,7 +58,18 @@ module.exports = async function handler(req, res) {
       accessUntil: subscription.current_period_end,
     });
   } catch (err) {
-    console.error('[cancel-subscription]', err.message);
-    return res.status(400).json({ error: err.message });
+    console.error('[cancel-subscription] error', { message: err.message, type: err.type, code: err.code });
+
+    if (err.type === 'StripeInvalidRequestError') {
+      return res.status(400).json({
+        error: 'Subscription not found',
+        message: 'We could not find your subscription. Please contact support.',
+      });
+    }
+
+    return res.status(500).json({
+      error: 'Cancellation failed',
+      message: 'Could not cancel your subscription. Please try again or contact support@sparkdate.date.',
+    });
   }
 };

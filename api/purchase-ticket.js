@@ -119,7 +119,30 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({ success: true, ticketId: paymentIntent.id });
   } catch (err) {
-    console.error('[purchase-ticket]', err.message);
-    return res.status(400).json({ error: err.message });
+    console.error('[purchase-ticket] error', { message: err.message, type: err.type, code: err.code });
+
+    if (err.type === 'StripeCardError') {
+      return res.status(402).json({
+        error: 'Card declined',
+        message: err.message || 'Your card was declined. Please try a different payment method.',
+      });
+    }
+    if (err.code === 'authentication_required' || err.decline_code === 'authentication_required') {
+      return res.status(402).json({
+        error: 'Authentication required',
+        message: 'Your bank requires authentication for this purchase. Please try a different card.',
+      });
+    }
+    if (err.type === 'StripeInvalidRequestError') {
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'Something went wrong with the payment details. Please try again.',
+      });
+    }
+
+    return res.status(500).json({
+      error: 'Ticket purchase failed',
+      message: 'We could not process your ticket. Please try again or contact support.',
+    });
   }
 };

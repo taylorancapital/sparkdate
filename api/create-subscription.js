@@ -107,7 +107,30 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error('[create-subscription]', err.message);
-    return res.status(400).json({ error: err.message });
+    console.error('[create-subscription] error', { message: err.message, type: err.type, code: err.code });
+
+    if (err.type === 'StripeCardError') {
+      return res.status(402).json({
+        error: 'Card declined',
+        message: err.message || 'Your card was declined. Please check your details and try again.',
+      });
+    }
+    if (err.type === 'StripeInvalidRequestError') {
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'Something is wrong with the payment details. Please try again.',
+      });
+    }
+    if (err.code === 'auth/email-already-in-use') {
+      return res.status(409).json({
+        error: 'Account exists',
+        message: 'This email is already registered. Please sign in.',
+      });
+    }
+
+    return res.status(500).json({
+      error: 'Subscription failed',
+      message: 'Something went wrong on our end. Please try again or contact support.',
+    });
   }
 };
