@@ -1278,7 +1278,7 @@
                                 </div>
                             </div>
                         </td>
-                        <td style="color: rgba(245,243,240,0.7);">${u.age || '—'} · ${u.gender || '—'}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${u.age || '—'} · ${({woman:'Woman',man:'Man'})[u.gender] || u.gender || '—'}</td>
                         <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${interests}</td>
                         <td>${tierBadge(u.tier)}</td>
                         <td>${statusBadge(u.subscriptionStatus)}</td>

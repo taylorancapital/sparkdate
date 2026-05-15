@@ -625,7 +625,8 @@
             document.getElementById('profileName').textContent = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || '—';
             document.getElementById('profileEmail').textContent = userData.email || '—';
             document.getElementById('profileAge').textContent = userData.age || '—';
-            document.getElementById('profileGender').textContent = userData.gender || '—';
+            const genderDisplay = { woman: 'Woman', man: 'Man' };
+            document.getElementById('profileGender').textContent = genderDisplay[userData.gender] || userData.gender || '—';
 
             const created = userData.createdAt?.toDate ? userData.createdAt.toDate() : (userData.createdAt ? new Date(userData.createdAt) : null);
             document.getElementById('profileJoined').textContent = created ? created.toLocaleDateString() : '—';
