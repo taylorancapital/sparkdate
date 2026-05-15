@@ -29,11 +29,19 @@ async function getOrCreatePrice(tier) {
   return price.id;
 }
 
-module.exports = async function handler(req, res) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+function applyCors(req, res) {
+  const origin = req.headers.origin || '';
+  const allowed = /^https:\/\/(www\.)?sparkdate\.date$|^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
+  if (allowed.test(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
+module.exports = async function handler(req, res) {
+  applyCors(req, res);
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -107,7 +115,30 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error('[create-subscription]', err.message);
-    return res.status(400).json({ error: err.message });
+    console.error('[create-subscription] error', { message: err.message, type: err.type, code: err.code });
+
+    if (err.type === 'StripeCardError') {
+      return res.status(402).json({
+        error: 'Card declined',
+        message: err.message || 'Your card was declined. Please check your details and try again.',
+      });
+    }
+    if (err.type === 'StripeInvalidRequestError') {
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'Something is wrong with the payment details. Please try again.',
+      });
+    }
+    if (err.code === 'auth/email-already-in-use') {
+      return res.status(409).json({
+        error: 'Account exists',
+        message: 'This email is already registered. Please sign in.',
+      });
+    }
+
+    return res.status(500).json({
+      error: 'Subscription failed',
+      message: 'Something went wrong on our end. Please try again or contact support.',
+    });
   }
 };
