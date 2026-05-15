@@ -655,10 +655,10 @@
         async function loadMyEvents() {
             const container = document.getElementById('myEventsList');
             try {
+                // Avoid composite index requirement: query by userId only, sort in JS
                 const snap = await getDocs(
                     query(collection(db, 'event_registrations'),
-                          where('userId', '==', currentUser.uid),
-                          orderBy('registeredAt', 'desc'))
+                          where('userId', '==', currentUser.uid))
                 );
 
                 if (snap.empty) {
@@ -668,8 +668,13 @@
 
                 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-                container.innerHTML = snap.docs.map(d => {
-                    const reg = d.data();
+                const regs = snap.docs.map(d => d.data()).sort((a, b) => {
+                    const aT = a.registeredAt?.toDate ? a.registeredAt.toDate() : new Date(a.registeredAt || 0);
+                    const bT = b.registeredAt?.toDate ? b.registeredAt.toDate() : new Date(b.registeredAt || 0);
+                    return bT - aT;
+                });
+
+                container.innerHTML = regs.map(reg => {
                     const registeredAt = reg.registeredAt?.toDate ? reg.registeredAt.toDate() : new Date(reg.registeredAt);
                     const month = reg.month || '';
                     const [year, mon] = month.split('-');
