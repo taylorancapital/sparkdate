@@ -22,23 +22,61 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { paymentMethodId, email, gender, amount, eventId, eventName } = req.body;
+    const { paymentMethodId, firebaseUid, email, gender, amount, eventId, eventName } = req.body;
 
-    if (!paymentMethodId || !email || !gender || !amount || !eventId) {
+    if (!email || !gender || !amount || !eventId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
+    if (!paymentMethodId && !firebaseUid) {
+      return res.status(400).json({ error: 'Must provide either paymentMethodId or firebaseUid' });
+    }
 
-    // One-time charge with PaymentIntent
-    const paymentIntent = await stripe.paymentIntents.create({
+    // Build PaymentIntent params — two paths:
+    //  1. Logged-in member: charge their saved Stripe customer's default card off-session
+    //  2. Guest: charge the new paymentMethodId they just entered
+    let intentParams = {
       amount,
       currency: 'usd',
-      payment_method: paymentMethodId,
-      confirm: true,
-      automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
       receipt_email: email,
       description: `SparkDate ticket — ${eventName}`,
       metadata: { eventId, gender, type: 'ticket' },
-    });
+      confirm: true,
+    };
+
+    if (firebaseUid) {
+      const userSnap = await db.collection('users').doc(firebaseUid).get();
+      if (!userSnap.exists) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      const { stripeCustomerId, stripePaymentMethodId } = userSnap.data();
+      if (!stripeCustomerId) {
+        return res.status(400).json({ error: 'No payment method on file. Please add a card to your subscription first.' });
+      }
+
+      // Get the customer's default payment method (or fall back to the one from signup)
+      let pmId = stripePaymentMethodId;
+      if (!pmId) {
+        const customer = await stripe.customers.retrieve(stripeCustomerId);
+        pmId = customer.invoice_settings?.default_payment_method;
+        if (!pmId) {
+          const methods = await stripe.paymentMethods.list({ customer: stripeCustomerId, type: 'card', limit: 1 });
+          pmId = methods.data[0]?.id;
+        }
+      }
+      if (!pmId) {
+        return res.status(400).json({ error: 'No card on file. Please update your payment method.' });
+      }
+
+      intentParams.customer = stripeCustomerId;
+      intentParams.payment_method = pmId;
+      intentParams.off_session = true;
+      intentParams.metadata.firebaseUid = firebaseUid;
+    } else {
+      intentParams.payment_method = paymentMethodId;
+      intentParams.automatic_payment_methods = { enabled: true, allow_redirects: 'never' };
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create(intentParams);
 
     if (paymentIntent.status === 'requires_action') {
       return res.status(200).json({
@@ -53,12 +91,14 @@ module.exports = async function handler(req, res) {
 
     // Record ticket in Firestore
     await db.collection('tickets').add({
+      firebaseUid: firebaseUid || null,
       email,
       gender,
       eventId,
       eventName,
       amount,
       paymentIntentId: paymentIntent.id,
+      paidWithCardOnFile: !!firebaseUid,
       status: 'confirmed',
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
