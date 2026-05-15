@@ -550,14 +550,14 @@
                             <h3>${ev.title}</h3>
                             <div class="event-meta">
                                 <div class="event-meta-row">
-                                    <span class="meta-label">Where</span>
+                                    <span class="meta-label">📍</span>
                                     <span>${ev.venue}${ev.neighborhood ? ' · ' + ev.neighborhood : ''}</span>
                                 </div>
                                 <div class="event-meta-row">
-                                    <span class="meta-label">Spots</span>
+                                    <span class="meta-label">👥</span>
                                     <span>${capacity}</span>
                                 </div>
-                                ${ev.amenities ? `<div class="event-meta-row"><span class="meta-label">Incl.</span><span>${ev.amenities}</span></div>` : ''}
+                                ${ev.amenities ? `<div class="event-meta-row"><span class="meta-label">✓</span><span>${ev.amenities}</span></div>` : ''}
                             </div>
                             ${ev.blurb ? `<div class="event-description">${ev.blurb}</div>` : ''}
                             <div class="event-footer">
