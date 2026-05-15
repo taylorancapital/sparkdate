@@ -515,7 +515,12 @@
                 messageEl.className = 'tier-message-error';
                 messageEl.style.padding = '12px';
                 messageEl.style.borderRadius = '4px';
-                messageEl.textContent = '✗ ' + err.message;
+                const msg = (err.message || '').toLowerCase();
+                messageEl.textContent = msg.includes('declin')
+                    ? 'Your card on file was declined. Please update your payment method.'
+                    : msg.includes('network')
+                        ? 'Network error. Please check your connection and try again.'
+                        : 'Could not change your tier. Please try again, or contact support.';
 
                 // Re-enable cards on failure
                 document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('processing'));

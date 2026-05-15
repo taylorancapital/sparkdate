@@ -615,7 +615,21 @@
                 cardElement.clear();
                 updatePricing();
             } catch (err) {
-                errorMsg.textContent = err.message;
+                console.error('[event] checkout error', err);
+                const msg = (err.message || '').toLowerCase();
+                let friendly;
+                if (msg.includes('limit')) {
+                    friendly = err.message; // tier-limit messages are already friendly
+                } else if (msg.includes('declin')) {
+                    friendly = 'Your card was declined. Please try a different payment method.';
+                } else if (msg.includes('network')) {
+                    friendly = 'Network error. Please check your connection and try again.';
+                } else if (msg.includes('incomplete')) {
+                    friendly = 'Please complete all payment details.';
+                } else {
+                    friendly = 'We could not complete your purchase. Please try again, or contact support@sparkdate.date.';
+                }
+                errorMsg.textContent = friendly;
                 errorMsg.style.display = 'block';
                 btn.disabled = false;
                 updatePricing();
