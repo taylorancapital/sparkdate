@@ -433,11 +433,76 @@
             display: none;
         }
 
+        /* Event form */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .form-grid.full { grid-template-columns: 1fr; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(245, 243, 240, 0.5);
+        }
+        .form-input, .form-textarea {
+            padding: 10px 12px;
+            background: rgba(10, 14, 39, 0.6);
+            border: 1px solid rgba(255, 107, 107, 0.15);
+            border-radius: 4px;
+            color: var(--cream);
+            font-family: inherit;
+            font-size: 13px;
+        }
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--coral);
+        }
+        .form-textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+        .form-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(245, 243, 240, 0.4);
+            margin: 20px 0 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 107, 107, 0.08);
+        }
+        .submit-btn {
+            padding: 12px 28px;
+            background: linear-gradient(135deg, var(--coral), #ff5252);
+            color: var(--white);
+            border: none;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .submit-btn:hover { transform: translateY(-1px); }
+        .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .form-status {
+            font-size: 12px;
+            margin-top: 10px;
+            display: none;
+        }
+        .form-status.success { color: var(--success); }
+        .form-status.error { color: var(--danger); }
+
         @media (max-width: 768px) {
             header { padding: 12px 16px; }
             .container { padding: 16px; }
             .page-title { font-size: 28px; }
             .kpi-value { font-size: 24px; }
+            .form-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -522,6 +587,7 @@
             <button class="tab" onclick="switchTab('members', this)">Members</button>
             <button class="tab" onclick="switchTab('activity', this)">Activity</button>
             <button class="tab" onclick="switchTab('revenue', this)">Revenue</button>
+            <button class="tab" onclick="switchTab('events', this)">Events</button>
         </div>
 
         <!-- Overview Tab -->
@@ -664,11 +730,128 @@
         </div>
     </div>
 
+        <!-- Events Tab -->
+        <div class="tab-content" id="tab-events">
+            <div class="two-col">
+                <div>
+                    <!-- Existing Events -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Scheduled Events</h2>
+                            <span style="font-size: 12px; color: rgba(245,243,240,0.5);" id="eventCount">—</span>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Event</th>
+                                    <th>Date</th>
+                                    <th>Venue</th>
+                                    <th>Spots</th>
+                                    <th>Registrations</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="eventsTable">
+                                <tr><td colspan="6"><div class="spinner"></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Create Event Form -->
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">New Event</h2>
+                        </div>
+
+                        <div class="form-section-title">Details</div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Title</label>
+                                <input type="text" class="form-input" id="evTitle" placeholder="e.g. Founders Mixer">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Status</label>
+                                <select class="form-input" id="evStatus">
+                                    <option value="open">Open</option>
+                                    <option value="almost">Almost Full</option>
+                                    <option value="full">Full</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Emoji accent (optional)</label>
+                                <input type="text" class="form-input" id="evEmoji" placeholder="e.g. 🍸" maxlength="4" style="font-size: 20px;">
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Blurb — shown on event cards</label>
+                                <textarea class="form-textarea" id="evBlurb" placeholder="A short, vivid description of the vibe and experience…"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-section-title">Date & Venue</div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Date</label>
+                                <input type="date" class="form-input" id="evDate">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Time</label>
+                                <input type="time" class="form-input" id="evTime">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Venue</label>
+                                <input type="text" class="form-input" id="evVenue" placeholder="e.g. a.kitchen + a.bar">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Neighborhood</label>
+                                <input type="text" class="form-input" id="evNeighborhood" placeholder="e.g. Rittenhouse">
+                            </div>
+                        </div>
+
+                        <div class="form-section-title">Capacity & Pricing</div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Spots — Women</label>
+                                <input type="number" class="form-input" id="evSpotsWomen" value="15" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Spots — Men</label>
+                                <input type="number" class="form-input" id="evSpotsMen" value="15" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Ticket Price — Women ($)</label>
+                                <input type="number" class="form-input" id="evPriceWomen" value="20" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Ticket Price — Men ($)</label>
+                                <input type="number" class="form-input" id="evPriceMen" value="40" min="0">
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Inclusions (optional)</label>
+                                <input type="text" class="form-input" id="evAmenities" placeholder="e.g. Welcome cocktail included">
+                            </div>
+                        </div>
+
+                        <button class="submit-btn" id="createEventBtn" onclick="createEvent()">Create Event</button>
+                        <div class="form-status" id="eventFormStatus"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase + App Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getFirestore, collection, query, orderBy, limit, getDocs, where } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, collection, query, orderBy, limit, getDocs, where, addDoc, Timestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
@@ -726,20 +909,147 @@
         });
 
         // ─── Data Loaders ──────────────────────────────────
+        let allEvents = [];
+        let allRegistrations = [];
+
         async function loadDashboard() {
             try {
-                await Promise.all([loadUsers(), loadActivity(), loadPayments()]);
+                await Promise.all([loadUsers(), loadActivity(), loadPayments(), loadAdminEvents()]);
                 renderKPIs();
                 renderRecentSignups();
                 renderTierBreakdown();
                 renderActivityFeed();
                 renderAllMembers();
                 renderPaymentHistory();
+                renderAdminEvents();
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
             } catch (err) {
                 console.error('[dashboard] load error:', err);
             }
         }
+
+        async function loadAdminEvents() {
+            try {
+                const [evSnap, regSnap] = await Promise.all([
+                    getDocs(query(collection(db, 'events'), orderBy('date', 'asc'))),
+                    getDocs(collection(db, 'event_registrations')),
+                ]);
+                allEvents = evSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                allRegistrations = regSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            } catch (e) {
+                allEvents = [];
+                allRegistrations = [];
+            }
+        }
+
+        function renderAdminEvents() {
+            const tbody = document.getElementById('eventsTable');
+            const countEl = document.getElementById('eventCount');
+            if (!tbody) return;
+            countEl.textContent = `${allEvents.length} event${allEvents.length !== 1 ? 's' : ''}`;
+
+            if (allEvents.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty">No events yet. Create one using the form.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = allEvents.map(ev => {
+                const date = ev.date?.toDate ? ev.date.toDate() : new Date(ev.date);
+                const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const timeStr = ev.time || '';
+                const spots = ev.spotsTotal || ((ev.spotsMen || 0) + (ev.spotsWomen || 0));
+                const regCount = allRegistrations.filter(r => r.eventId === ev.id).length;
+                const statusClass = ev.status === 'open' ? 'badge-active' : ev.status === 'almost' ? 'badge-pending' : 'badge-canceled';
+                return `
+                    <tr>
+                        <td style="color: var(--white); font-weight: 500;">${ev.title}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${dateStr}${timeStr ? ' · ' + timeStr : ''}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${ev.venue || '—'}${ev.neighborhood ? ' · ' + ev.neighborhood : ''}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${spots}</td>
+                        <td style="color: var(--gold); font-weight: 600;">${regCount}</td>
+                        <td><span class="badge ${statusClass}">${ev.status || 'open'}</span></td>
+                    </tr>`;
+            }).join('');
+        }
+
+        window.createEvent = async () => {
+            const btn = document.getElementById('createEventBtn');
+            const status = document.getElementById('eventFormStatus');
+            const title = document.getElementById('evTitle').value.trim();
+            const dateVal = document.getElementById('evDate').value;
+            const timeVal = document.getElementById('evTime').value;
+            const venue = document.getElementById('evVenue').value.trim();
+            const neighborhood = document.getElementById('evNeighborhood').value.trim();
+            const spotsWomen = parseInt(document.getElementById('evSpotsWomen').value) || 0;
+            const spotsMen = parseInt(document.getElementById('evSpotsMen').value) || 0;
+            const priceWomen = parseFloat(document.getElementById('evPriceWomen').value) || 0;
+            const priceMen = parseFloat(document.getElementById('evPriceMen').value) || 0;
+            const blurb = document.getElementById('evBlurb').value.trim();
+            const amenities = document.getElementById('evAmenities').value.trim();
+            const evStatus = document.getElementById('evStatus').value;
+            const emoji = document.getElementById('evEmoji').value.trim();
+
+            if (!title || !dateVal || !venue) {
+                status.textContent = 'Title, date, and venue are required.';
+                status.className = 'form-status error';
+                status.style.display = 'block';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Creating…';
+            status.style.display = 'none';
+
+            try {
+                // Parse date + time into a Timestamp
+                const dateTime = new Date(`${dateVal}T${timeVal || '19:00'}:00`);
+                const formattedTime = timeVal
+                    ? new Date(`1970-01-01T${timeVal}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+                    : '';
+
+                await addDoc(collection(db, 'events'), {
+                    title,
+                    date: Timestamp.fromDate(dateTime),
+                    time: formattedTime,
+                    venue,
+                    neighborhood,
+                    spotsWomen,
+                    spotsMen,
+                    spotsTotal: spotsWomen + spotsMen,
+                    priceWomen,
+                    priceMen,
+                    blurb,
+                    amenities,
+                    emoji,
+                    status: evStatus,
+                    createdAt: Timestamp.now(),
+                });
+
+                status.textContent = `"${title}" created successfully.`;
+                status.className = 'form-status success';
+                status.style.display = 'block';
+
+                // Reset form
+                ['evTitle','evBlurb','evDate','evTime','evVenue','evNeighborhood','evAmenities','evEmoji'].forEach(id => {
+                    document.getElementById(id).value = '';
+                });
+                document.getElementById('evSpotsWomen').value = '15';
+                document.getElementById('evSpotsMen').value = '15';
+                document.getElementById('evPriceWomen').value = '20';
+                document.getElementById('evPriceMen').value = '40';
+                document.getElementById('evStatus').value = 'open';
+
+                await loadAdminEvents();
+                renderAdminEvents();
+            } catch (err) {
+                status.textContent = 'Error: ' + err.message;
+                status.className = 'form-status error';
+                status.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Create Event';
+            }
+        };
 
         async function loadUsers() {
             const snap = await getDocs(query(collection(db, 'users'), orderBy('createdAt', 'desc')));

@@ -2,12 +2,11 @@
 // Upgrades or downgrades a user's subscription tier using their saved payment method.
 // Uses Stripe Subscription update with proration - they're billed/credited for the difference immediately.
 
-import Stripe from 'stripe';
-import admin from 'firebase-admin';
+const Stripe = require('stripe');
+const admin = require('firebase-admin');
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Initialize Firebase Admin (only once)
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -32,7 +31,7 @@ const TIER_PRICES = {
   premium: { priceId: 'price_1TWmZsRsTCYDr2LLXeUVg95N', name: 'Fire',     amount: 3999 },
 };
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

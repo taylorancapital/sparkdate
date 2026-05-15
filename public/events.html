@@ -22,7 +22,6 @@
             color: var(--cream);
             line-height: 1.6;
         }
-        /* Navigation */
         nav {
             position: sticky;
             top: 0;
@@ -63,7 +62,7 @@
             transition: color 0.3s;
         }
         .nav-menu a:hover { color: var(--coral); }
-        /* Hero */
+
         .hero {
             text-align: center;
             padding: 80px 40px 40px;
@@ -85,7 +84,36 @@
             max-width: 600px;
             margin: 0 auto;
         }
-        /* Events grid */
+
+        /* Quota banner for logged-in members */
+        .quota-banner {
+            max-width: 1200px;
+            margin: 0 auto 8px;
+            padding: 0 40px;
+            display: none;
+        }
+        .quota-inner {
+            background: rgba(212, 175, 55, 0.07);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 4px;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            color: rgba(245, 243, 240, 0.8);
+        }
+        .quota-inner .quota-left {
+            font-weight: 600;
+            color: var(--gold);
+        }
+        .quota-inner .quota-label {
+            font-size: 12px;
+            color: rgba(245, 243, 240, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
         .events-container {
             max-width: 1200px;
             margin: 0 auto;
@@ -110,14 +138,57 @@
             border-color: var(--coral);
             transform: translateY(-5px);
         }
+        .event-card.at-limit:hover {
+            transform: none;
+        }
+
+        /* Image area: gradient with typographic date + optional emoji accent */
         .event-image {
             height: 180px;
-            background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
+            background: linear-gradient(135deg, var(--coral) 0%, #c84b4b 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 64px;
             position: relative;
+        }
+        .event-image.alt-1 {
+            background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+        }
+        .event-image.alt-2 {
+            background: linear-gradient(135deg, #059669 0%, #065f46 100%);
+        }
+        .event-image.alt-3 {
+            background: linear-gradient(135deg, #b45309 0%, #78350f 100%);
+        }
+        .date-badge {
+            text-align: center;
+            line-height: 1;
+        }
+        .date-badge .month {
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: rgba(255, 255, 255, 0.75);
+            margin-bottom: 6px;
+        }
+        .date-badge .day {
+            display: block;
+            font-family: 'Playfair Display', serif;
+            font-size: 58px;
+            font-weight: 900;
+            color: var(--white);
+            line-height: 1;
+        }
+        /* Small emoji accent — bottom-left corner, feels chosen not generated */
+        .event-emoji {
+            position: absolute;
+            bottom: 14px;
+            left: 16px;
+            font-size: 22px;
+            line-height: 1;
+            opacity: 0.9;
         }
         .event-status {
             position: absolute;
@@ -141,13 +212,14 @@
             color: var(--gold);
             border-color: var(--gold);
         }
+
         .event-content {
             padding: 30px;
             flex: 1;
             display: flex;
             flex-direction: column;
         }
-        .event-date {
+        .event-date-label {
             font-size: 12px;
             color: var(--gold);
             font-weight: 600;
@@ -165,22 +237,32 @@
         .event-meta {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 5px;
             margin-bottom: 16px;
-            font-size: 14px;
-            color: rgba(245, 243, 240, 0.7);
+            font-size: 13px;
+            color: rgba(245, 243, 240, 0.6);
         }
         .event-meta-row {
             display: flex;
-            align-items: center;
-            gap: 8px;
+            align-items: baseline;
+            gap: 6px;
+        }
+        .event-meta-row .meta-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: rgba(245, 243, 240, 0.35);
+            min-width: 52px;
+            flex-shrink: 0;
         }
         .event-description {
             font-size: 14px;
-            color: rgba(245, 243, 240, 0.6);
+            color: rgba(245, 243, 240, 0.65);
             margin-bottom: 24px;
             flex: 1;
-            line-height: 1.6;
+            line-height: 1.7;
+            font-style: italic;
         }
         .event-footer {
             display: flex;
@@ -222,12 +304,19 @@
             color: var(--coral);
             transform: translateY(-2px);
         }
-        .btn:disabled,
-        .btn.disabled {
-            opacity: 0.5;
+        .btn.disabled, .btn[disabled] {
+            opacity: 0.4;
             cursor: not-allowed;
             pointer-events: none;
         }
+        .btn.limit-reached {
+            background: transparent;
+            border-color: rgba(255, 107, 107, 0.3);
+            color: rgba(245, 243, 240, 0.4);
+            font-size: 11px;
+            pointer-events: none;
+        }
+
         .empty-state {
             text-align: center;
             padding: 80px 20px;
@@ -240,6 +329,19 @@
             color: var(--white);
             margin-bottom: 12px;
         }
+
+        .spinner {
+            border: 2px solid rgba(255, 107, 107, 0.1);
+            border-top: 2px solid var(--coral);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            animation: spin 0.8s linear infinite;
+            margin: 80px auto;
+            grid-column: 1 / -1;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
         footer {
             border-top: 1px solid rgba(255, 107, 107, 0.1);
             padding: 40px;
@@ -253,12 +355,11 @@
             .nav-menu a { font-size: 12px; }
             .hero { padding: 60px 20px 20px; }
             .events-container { padding: 20px; }
-            .event-card { min-width: 100%; }
+            .quota-banner { padding: 0 20px; }
         }
     </style>
 </head>
 <body>
-    <!-- Navigation -->
     <nav>
         <div class="nav-content">
             <a href="/" class="logo">Spark<span>Date</span></a>
@@ -271,65 +372,27 @@
         </div>
     </nav>
 
-    <!-- Hero -->
     <section class="hero">
         <h1>Upcoming <span class="highlight">Events</span></h1>
         <p>Curated gatherings at Philly's best venues. Reserve your spot, show up, meet real people.</p>
     </section>
 
-    <!-- Events Grid -->
+    <div class="quota-banner" id="quotaBanner">
+        <div class="quota-inner">
+            <div>
+                <div class="quota-label">Your monthly events</div>
+                <div id="quotaText" style="margin-top: 2px;"></div>
+            </div>
+            <div class="quota-left" id="quotaRemaining"></div>
+        </div>
+    </div>
+
     <section class="events-container">
         <div class="events-grid" id="eventsGrid">
-            <!-- Founders Mixer (always shown - links to /event) -->
-            <div class="event-card">
-                <div class="event-image">
-                    🍸
-                    <div class="event-status">Open</div>
-                </div>
-                <div class="event-content">
-                    <div class="event-date">Saturday · June 12, 2026 · 7:30 PM</div>
-                    <h3>Founders Mixer</h3>
-                    <div class="event-meta">
-                        <div class="event-meta-row">📍 a.kitchen + a.bar · Rittenhouse</div>
-                        <div class="event-meta-row">👥 30 spots · 15 men / 15 women</div>
-                        <div class="event-meta-row">🍹 Welcome cocktail included</div>
-                    </div>
-                    <div class="event-description">
-                        An intimate evening of cocktails, conversation, and connection. Our inaugural mixer at Philadelphia's most stylish bar. Curated guest list, two-hour open format, real people only.
-                    </div>
-                    <div class="event-footer">
-                        <div class="event-price">$20-$40 <small>by tier</small></div>
-                        <a href="/event" class="btn">Reserve</a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Placeholder card for "more coming" -->
-            <div class="event-card" style="border-style: dashed; opacity: 0.7;">
-                <div class="event-image" style="background: linear-gradient(135deg, #1a1f3a 0%, #0a0e27 100%); border: 1px dashed rgba(255, 107, 107, 0.3);">
-                    ✨
-                </div>
-                <div class="event-content">
-                    <div class="event-date">Coming Soon</div>
-                    <h3>More events on the way</h3>
-                    <div class="event-meta">
-                        <div class="event-meta-row">📍 Rotating Philly venues</div>
-                        <div class="event-meta-row">👥 Curated group sizes</div>
-                        <div class="event-meta-row">🎭 Themed experiences</div>
-                    </div>
-                    <div class="event-description">
-                        Wine tastings, rooftop dinners, museum nights, cooking classes. Members get first access to every event before they're public.
-                    </div>
-                    <div class="event-footer">
-                        <div class="event-price">TBA</div>
-                        <a href="/signup" class="btn">Join List</a>
-                    </div>
-                </div>
-            </div>
+            <div class="spinner"></div>
         </div>
     </section>
 
-    <!-- Footer -->
     <footer>
         <p>SparkDate · Philadelphia · 2026</p>
         <p style="margin-top: 12px; font-size: 11px;">
@@ -338,5 +401,181 @@
             <a href="/privacy" style="color: rgba(245, 243, 240, 0.6); text-decoration: none; margin: 0 8px;">Privacy</a>
         </p>
     </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+        import { getFirestore, collection, query, orderBy, getDocs, where } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
+            authDomain: "sparkdate-philly.firebaseapp.com",
+            projectId: "sparkdate-philly",
+            storageBucket: "sparkdate-philly.firebasestorage.app",
+            messagingSenderId: "330206052938",
+            appId: "1:330206052938:web:18762191153f4037b75cb3"
+        };
+
+        const MONTHLY_LIMITS = { free: 1, mid: 2, premium: Infinity };
+        const TIER_LABELS = { free: 'Spark', mid: 'Kindling', premium: 'Fire' };
+        const GRADIENT_ALTS = ['', 'alt-1', 'alt-2', 'alt-3'];
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let userTier = null;
+        let usedThisMonth = 0;
+
+        const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+        function currentMonthKey() {
+            const now = new Date();
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        async function loadUserContext(user) {
+            currentUser = user;
+            // Load user doc for tier
+            const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js");
+            const snap = await getDoc(doc(db, 'users', user.uid));
+            userTier = snap.exists() ? (snap.data().tier || 'free') : 'free';
+
+            // Count registrations this month
+            const monthKey = currentMonthKey();
+            const regSnap = await getDocs(
+                query(collection(db, 'event_registrations'),
+                      where('userId', '==', user.uid),
+                      where('month', '==', monthKey))
+            );
+            usedThisMonth = regSnap.size;
+        }
+
+        function showQuotaBanner() {
+            const limit = MONTHLY_LIMITS[userTier] || 1;
+            const remaining = limit === Infinity ? Infinity : Math.max(0, limit - usedThisMonth);
+            const tierLabel = TIER_LABELS[userTier] || 'Spark';
+            const banner = document.getElementById('quotaBanner');
+            const quotaText = document.getElementById('quotaText');
+            const quotaRemaining = document.getElementById('quotaRemaining');
+
+            banner.style.display = 'block';
+            if (limit === Infinity) {
+                quotaText.textContent = `${tierLabel} · Unlimited events`;
+                quotaRemaining.textContent = 'Unlimited';
+            } else {
+                quotaText.textContent = `${tierLabel} · ${usedThisMonth} of ${limit} used this month`;
+                quotaRemaining.textContent = remaining === 0 ? 'None remaining' : `${remaining} remaining`;
+                if (remaining === 0) quotaRemaining.style.color = '#f87171';
+            }
+        }
+
+        async function loadEvents() {
+            const grid = document.getElementById('eventsGrid');
+            try {
+                const snap = await getDocs(
+                    query(collection(db, 'events'), orderBy('date', 'asc'))
+                );
+                const events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderEvents(events, grid);
+            } catch (err) {
+                console.error('[events] load error:', err);
+                // Fallback: show the hardcoded Founders Mixer
+                renderEvents([{
+                    id: 'founders-mixer-001',
+                    title: 'Founders Mixer',
+                    date: { toDate: () => new Date('2026-06-12T19:30:00') },
+                    time: '7:30 PM',
+                    venue: 'a.kitchen + a.bar',
+                    neighborhood: 'Rittenhouse',
+                    spotsMen: 15,
+                    spotsWomen: 15,
+                    spotsTotal: 30,
+                    priceWomen: 20,
+                    priceMen: 40,
+                    blurb: 'An intimate evening of cocktails, conversation, and connection at Philadelphia\'s most stylish bar. Curated guest list, real people only.',
+                    status: 'open',
+                }], grid);
+            }
+        }
+
+        function renderEvents(events, grid) {
+            if (events.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No events yet</h3>
+                        <p>Check back soon — something is always in the works.</p>
+                    </div>`;
+                return;
+            }
+
+            const limit = userTier ? (MONTHLY_LIMITS[userTier] || 1) : null;
+            const atLimit = limit !== null && limit !== Infinity && usedThisMonth >= limit;
+
+            grid.innerHTML = events.map((ev, i) => {
+                const date = ev.date?.toDate ? ev.date.toDate() : new Date(ev.date);
+                const month = MONTHS[date.getMonth()];
+                const day = date.getDate();
+                const dayStr = date.toLocaleDateString('en-US', { weekday: 'short' });
+                const dateLabel = `${dayStr} · ${month} ${day}, ${date.getFullYear()} · ${ev.time || ''}`.trim().replace(/ · $/, '');
+                const capacity = `${ev.spotsTotal || (ev.spotsMen + ev.spotsWomen)} spots · ${ev.spotsMen} men / ${ev.spotsWomen} women`;
+                const priceLabel = ev.priceWomen === ev.priceMen
+                    ? `$${ev.priceWomen}`
+                    : `$${ev.priceWomen}–$${ev.priceMen}`;
+                const statusLabel = ev.status === 'full' ? 'Full' : ev.status === 'almost' ? 'Almost Full' : 'Open';
+                const gradientClass = GRADIENT_ALTS[i % GRADIENT_ALTS.length];
+
+                let reserveBtn;
+                if (ev.status === 'full') {
+                    reserveBtn = `<span class="btn disabled">Sold Out</span>`;
+                } else if (currentUser && atLimit) {
+                    reserveBtn = `<span class="btn limit-reached">Limit Reached</span>`;
+                } else {
+                    reserveBtn = `<a href="/event?id=${ev.id}" class="btn">Reserve</a>`;
+                }
+
+                return `
+                    <div class="event-card${currentUser && atLimit ? ' at-limit' : ''}">
+                        <div class="event-image ${gradientClass}">
+                            <div class="date-badge">
+                                <span class="month">${month}</span>
+                                <span class="day">${day}</span>
+                            </div>
+                            <div class="event-status ${ev.status === 'full' ? 'full' : ev.status === 'almost' ? 'almost' : ''}">${statusLabel}</div>
+                            ${ev.emoji ? `<span class="event-emoji">${ev.emoji}</span>` : ''}
+                        </div>
+                        <div class="event-content">
+                            <div class="event-date-label">${dateLabel}</div>
+                            <h3>${ev.title}</h3>
+                            <div class="event-meta">
+                                <div class="event-meta-row">
+                                    <span class="meta-label">Where</span>
+                                    <span>${ev.venue}${ev.neighborhood ? ' · ' + ev.neighborhood : ''}</span>
+                                </div>
+                                <div class="event-meta-row">
+                                    <span class="meta-label">Spots</span>
+                                    <span>${capacity}</span>
+                                </div>
+                                ${ev.amenities ? `<div class="event-meta-row"><span class="meta-label">Incl.</span><span>${ev.amenities}</span></div>` : ''}
+                            </div>
+                            ${ev.blurb ? `<div class="event-description">${ev.blurb}</div>` : ''}
+                            <div class="event-footer">
+                                <div class="event-price">${priceLabel} <small>by tier</small></div>
+                                ${reserveBtn}
+                            </div>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                await loadUserContext(user);
+                showQuotaBanner();
+            }
+            await loadEvents();
+        });
+    </script>
 </body>
 </html>
