@@ -839,7 +839,7 @@
                             </div>
                         </div>
 
-                        <button class="submit-btn" id="createEventBtn" onclick="createEvent()">Create Event</button>
+                        <button class="submit-btn" id="createEventBtn" onclick="addEvent()">Create Event</button>
                         <div class="form-status" id="eventFormStatus"></div>
                     </div>
                 </div>
@@ -972,7 +972,7 @@
             }).join('');
         }
 
-        window.createEvent = async () => {
+        window.addEvent = async () => {
             const btn = document.getElementById('createEventBtn');
             const status = document.getElementById('eventFormStatus');
             const title = document.getElementById('evTitle').value.trim();
