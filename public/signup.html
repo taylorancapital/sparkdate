@@ -840,7 +840,7 @@
             } catch (err) {
                 // If account already exists, redirect to /account login page
                 if (err.code === 'auth/email-already-in-use' || err.message.includes('email-already-in-use')) {
-                    errorMsg.innerHTML = '⚠️ An account with this email already exists. <strong>Redirecting you to sign in...</strong>';
+                    errorMsg.innerHTML = 'An account with this email already exists. <strong>Redirecting you to sign in…</strong>';
                     errorMsg.style.display = 'block';
                     // Stash email so /account login page can pre-fill it
                     try { sessionStorage.setItem('sparkdate_login_email', email); } catch (_) {}
