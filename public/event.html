@@ -412,7 +412,7 @@
             appId: "1:330206052938:web:18762191153f4037b75cb3"
         };
 
-        const MONTHLY_LIMITS = { free: 1, mid: 2, premium: Infinity };
+        const MONTHLY_LIMITS = { free: 1, mid: 3, premium: Infinity };
         const SERVICE_FEE = 2.50;
 
         const app = initializeApp(firebaseConfig);
@@ -547,7 +547,7 @@
                 if (currentUser) {
                     const allowed = await checkQuota(currentUser);
                     if (!allowed) {
-                        const tierLabels = { free: 'Spark (1/month)', mid: 'Kindling (2/month)', premium: 'Fire' };
+                        const tierLabels = { free: 'Spark (1/month)', mid: 'Kindling (3/month)', premium: 'Fire' };
                         throw new Error(`You've reached your monthly event limit for ${tierLabels[userTier] || 'your tier'}. Upgrade your plan to attend more events.`);
                     }
                 }
