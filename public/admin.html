@@ -504,6 +504,96 @@
             .kpi-value { font-size: 24px; }
             .form-grid { grid-template-columns: 1fr; }
         }
+
+        /* Candidate scorer modal */
+        .candidate-modal-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            align-items: flex-start;
+            justify-content: center;
+            z-index: 9000;
+            padding: 40px 20px;
+            overflow-y: auto;
+        }
+        .candidate-modal-backdrop.show { display: flex; }
+        .candidate-modal {
+            background: var(--primary-navy);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            border-radius: 8px;
+            padding: 32px;
+            width: 100%;
+            max-width: 1100px;
+        }
+        .candidate-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 8px;
+            gap: 16px;
+        }
+        .candidate-modal h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 26px;
+            font-weight: 900;
+            color: var(--white);
+            margin-bottom: 4px;
+        }
+        .candidate-modal .modal-sub {
+            color: rgba(245,243,240,0.6);
+            font-size: 13px;
+            margin-bottom: 22px;
+        }
+        .close-x {
+            background: none;
+            border: none;
+            color: rgba(245,243,240,0.5);
+            font-size: 24px;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .close-x:hover { color: var(--coral); }
+
+        .candidate-stats {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .candidate-stat {
+            background: rgba(255, 107, 107, 0.05);
+            border: 1px solid rgba(255, 107, 107, 0.15);
+            border-radius: 4px;
+            padding: 10px 16px;
+            font-size: 12px;
+            color: rgba(245,243,240,0.7);
+        }
+        .candidate-stat strong { color: var(--gold); font-size: 16px; display: block; font-family: 'Playfair Display', serif; }
+
+        .score-cell {
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--gold);
+        }
+        .score-cell.high { color: var(--success); }
+        .score-cell.low { color: rgba(245,243,240,0.4); }
+
+        .action-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            color: var(--coral);
+            padding: 6px 12px;
+            border-radius: 3px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .action-btn:hover { background: rgba(255, 107, 107, 0.1); }
     </style>
 </head>
 <body>
@@ -749,10 +839,11 @@
                                     <th>Spots</th>
                                     <th>Registrations</th>
                                     <th>Status</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody id="eventsTable">
-                                <tr><td colspan="6"><div class="spinner"></div></td></tr>
+                                <tr><td colspan="7"><div class="spinner"></div></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -843,6 +934,39 @@
                         <div class="form-status" id="eventFormStatus"></div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Candidate scorer modal -->
+    <div class="candidate-modal-backdrop" id="candidateModal">
+        <div class="candidate-modal">
+            <div class="candidate-modal-header">
+                <div>
+                    <h3 id="candidateModalTitle">Candidate Scoring</h3>
+                    <div class="modal-sub" id="candidateModalSub">Ranked by compatibility &amp; balance for this event</div>
+                </div>
+                <button class="close-x" onclick="closeCandidates()">&times;</button>
+            </div>
+            <div class="candidate-stats" id="candidateStats"></div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Score</th>
+                            <th>Member</th>
+                            <th>Tier</th>
+                            <th>Age / Gender</th>
+                            <th>Looking for</th>
+                            <th>Interests</th>
+                            <th>Vibes</th>
+                            <th>Why</th>
+                        </tr>
+                    </thead>
+                    <tbody id="candidateTable">
+                        <tr><td colspan="8" class="empty">Loading…</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -949,7 +1073,7 @@
             countEl.textContent = `${allEvents.length} event${allEvents.length !== 1 ? 's' : ''}`;
 
             if (allEvents.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="empty">No events yet. Create one using the form.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="empty">No events yet. Create one using the form.</td></tr>';
                 return;
             }
 
@@ -968,9 +1092,137 @@
                         <td style="color: rgba(245,243,240,0.7);">${spots}</td>
                         <td style="color: var(--gold); font-weight: 600;">${regCount}</td>
                         <td><span class="badge ${statusClass}">${ev.status || 'open'}</span></td>
+                        <td><button class="action-btn" onclick="openCandidates('${ev.id}')">Score Candidates</button></td>
                     </tr>`;
             }).join('');
         }
+
+        // ────────────────────────────────────────────────────────────────
+        // CANDIDATE SCORING — algorithmic guest-list curation MVP
+        // ────────────────────────────────────────────────────────────────
+        const INTENT_LABELS = { long_term: 'Long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
+
+        function scoreCandidate(member, event, regUsersByGender, regUsersByIntent) {
+            let score = 50;
+            const reasons = [];
+
+            // Gender balance — boost the underrepresented side
+            const wRegistered = regUsersByGender.woman || 0;
+            const mRegistered = regUsersByGender.man || 0;
+            const wNeeded = Math.max(0, (event.spotsWomen || 0) - wRegistered);
+            const mNeeded = Math.max(0, (event.spotsMen || 0) - mRegistered);
+
+            if (member.gender === 'woman') {
+                if (wNeeded === 0) { score -= 40; reasons.push('Women full'); }
+                else if (wNeeded > mNeeded) { score += 25; reasons.push('Women slot needed'); }
+                else { score += 10; reasons.push('Eligible'); }
+            } else if (member.gender === 'man') {
+                if (mNeeded === 0) { score -= 40; reasons.push('Men full'); }
+                else if (mNeeded > wNeeded) { score += 25; reasons.push('Men slot needed'); }
+                else { score += 10; reasons.push('Eligible'); }
+            }
+
+            // Intent diversity — avoid letting one intent dominate the room
+            const totalRegs = Object.values(regUsersByIntent).reduce((a,b) => a+b, 0);
+            const sameIntent = regUsersByIntent[member.intent] || 0;
+            if (totalRegs >= 6 && sameIntent / totalRegs > 0.6) {
+                score -= 8;
+                reasons.push('Intent over-represented');
+            } else if (totalRegs > 0 && sameIntent === 0) {
+                score += 6;
+                reasons.push('Adds intent diversity');
+            }
+
+            // Active subscription
+            if (member.subscriptionStatus === 'active' || member.subscriptionStatus === 'trialing') {
+                score += 8;
+            } else {
+                score -= 15;
+                reasons.push('Inactive sub');
+            }
+
+            // Premium tier slight priority (engaged members)
+            if (member.tier === 'premium') { score += 5; reasons.push('Fire tier'); }
+            else if (member.tier === 'mid') { score += 2; }
+
+            return { score: Math.max(0, Math.min(100, Math.round(score))), reasons };
+        }
+
+        window.openCandidates = (eventId) => {
+            const event = allEvents.find(e => e.id === eventId);
+            if (!event) return;
+
+            document.getElementById('candidateModalTitle').textContent = `Candidates · ${event.title}`;
+            const date = event.date?.toDate ? event.date.toDate() : new Date(event.date);
+            document.getElementById('candidateModalSub').textContent =
+                `${date.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})} · ${event.venue || ''} — ranked by gender balance, intent diversity, and engagement`;
+
+            // Build registration counts by gender + intent for THIS event
+            const eventRegs = allRegistrations.filter(r => r.eventId === eventId);
+            const registeredUserIds = new Set(eventRegs.map(r => r.userId));
+            const registeredUsers = allUsers.filter(u => registeredUserIds.has(u.id));
+
+            const regUsersByGender = {};
+            const regUsersByIntent = {};
+            registeredUsers.forEach(u => {
+                if (u.gender) regUsersByGender[u.gender] = (regUsersByGender[u.gender] || 0) + 1;
+                if (u.intent) regUsersByIntent[u.intent] = (regUsersByIntent[u.intent] || 0) + 1;
+            });
+
+            // Stat cards
+            const wNeeded = Math.max(0, (event.spotsWomen || 0) - (regUsersByGender.woman || 0));
+            const mNeeded = Math.max(0, (event.spotsMen || 0) - (regUsersByGender.man || 0));
+            document.getElementById('candidateStats').innerHTML = `
+                <div class="candidate-stat"><strong>${registeredUsers.length}</strong>Registered</div>
+                <div class="candidate-stat"><strong>${wNeeded}</strong>Women slots open</div>
+                <div class="candidate-stat"><strong>${mNeeded}</strong>Men slots open</div>
+                <div class="candidate-stat"><strong>${allUsers.length - registeredUsers.length}</strong>Eligible pool</div>
+            `;
+
+            // Score every non-registered user
+            const candidates = allUsers
+                .filter(u => !registeredUserIds.has(u.id))
+                .map(u => ({ user: u, ...scoreCandidate(u, event, regUsersByGender, regUsersByIntent) }))
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 50); // top 50
+
+            const tbody = document.getElementById('candidateTable');
+            if (candidates.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="empty">No eligible candidates.</td></tr>';
+            } else {
+                tbody.innerHTML = candidates.map(({ user, score, reasons }) => {
+                    const scoreClass = score >= 70 ? 'high' : score >= 40 ? '' : 'low';
+                    const interests = (user.interests || []).slice(0, 3).join(', ') || '—';
+                    const vibes = (user.vibes || []).slice(0, 3).join(', ') || '—';
+                    const genderDisp = ({woman:'Woman',man:'Man'})[user.gender] || '—';
+                    return `
+                        <tr>
+                            <td><span class="score-cell ${scoreClass}">${score}</span></td>
+                            <td>
+                                <div style="color: var(--white); font-weight: 500;">${user.firstName || ''} ${user.lastName || ''}</div>
+                                <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${user.email || ''}</div>
+                            </td>
+                            <td><span class="badge badge-${user.tier || 'free'}">${({free:'Spark',mid:'Kindling',premium:'Fire'})[user.tier] || user.tier}</span></td>
+                            <td style="color: rgba(245,243,240,0.7);">${user.age || '—'} · ${genderDisp}</td>
+                            <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${INTENT_LABELS[user.intent] || '—'}</td>
+                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${interests}</td>
+                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${vibes}</td>
+                            <td style="color: rgba(245,243,240,0.5); font-size: 11px;">${reasons.slice(0,2).join(' · ')}</td>
+                        </tr>`;
+                }).join('');
+            }
+
+            document.getElementById('candidateModal').classList.add('show');
+        };
+
+        window.closeCandidates = () => {
+            document.getElementById('candidateModal').classList.remove('show');
+        };
+
+        // Close modal on backdrop click
+        document.getElementById('candidateModal').addEventListener('click', (e) => {
+            if (e.target.id === 'candidateModal') closeCandidates();
+        });
 
         window.addEvent = async () => {
             const btn = document.getElementById('createEventBtn');
