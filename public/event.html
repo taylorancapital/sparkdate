@@ -557,6 +557,21 @@
                 const evName = eventData?.title || 'Founders Mixer';
                 const evId = eventData?.id || eventId;
 
+                // Enforce per-gender capacity. Server also re-checks for safety.
+                if (eventData) {
+                    const ticketsSnap = await getDocs(
+                        query(collection(db, 'tickets'), where('eventId', '==', evId))
+                    );
+                    const confirmedSameGender = ticketsSnap.docs
+                        .map(d => d.data())
+                        .filter(t => (t.status || 'confirmed') === 'confirmed' && t.gender === gender);
+                    const cap = gender === 'woman' ? (eventData.spotsWomen || 0) : (eventData.spotsMen || 0);
+                    if (cap > 0 && confirmedSameGender.length >= cap) {
+                        const side = gender === 'woman' ? "women's" : "men's";
+                        throw new Error(`This event is full on the ${side} side. Try a different upcoming event.`);
+                    }
+                }
+
                 // Build request payload: prefer card on file for logged-in members
                 const useCardOnFile = currentUser && userProfile?.stripeCustomerId;
                 let payload;
@@ -618,8 +633,8 @@
                 console.error('[event] checkout error', err);
                 const msg = (err.message || '').toLowerCase();
                 let friendly;
-                if (msg.includes('limit')) {
-                    friendly = err.message; // tier-limit messages are already friendly
+                if (msg.includes('limit') || msg.includes('full on') || msg.includes('event is full')) {
+                    friendly = err.message; // capacity/limit messages are already user-friendly
                 } else if (msg.includes('declin')) {
                     friendly = 'Your card was declined. Please try a different payment method.';
                 } else if (msg.includes('network')) {

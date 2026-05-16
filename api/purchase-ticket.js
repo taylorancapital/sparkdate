@@ -39,6 +39,33 @@ module.exports = async function handler(req, res) {
     if (!paymentMethodId && !firebaseUid) {
       return res.status(400).json({ error: 'Must provide either paymentMethodId or firebaseUid' });
     }
+    if (gender !== 'woman' && gender !== 'man') {
+      return res.status(400).json({ error: 'Invalid gender' });
+    }
+
+    // ─── Server-side per-gender capacity check ─────────────────────
+    // Look up the event, count confirmed tickets of the same gender, refuse if full.
+    const eventSnap = await db.collection('events').doc(eventId).get();
+    if (eventSnap.exists) {
+      const event = eventSnap.data();
+      const cap = gender === 'woman' ? (event.spotsWomen || 0) : (event.spotsMen || 0);
+      if (cap > 0) {
+        const ticketsSnap = await db.collection('tickets')
+          .where('eventId', '==', eventId)
+          .get();
+        const sameGenderCount = ticketsSnap.docs.filter(d => {
+          const t = d.data();
+          return t.gender === gender && (t.status || 'confirmed') === 'confirmed';
+        }).length;
+        if (sameGenderCount >= cap) {
+          const side = gender === 'woman' ? "women's" : "men's";
+          return res.status(409).json({
+            error: 'Event full',
+            message: `This event is full on the ${side} side.`,
+          });
+        }
+      }
+    }
 
     // Build PaymentIntent params — two paths:
     //  1. Logged-in member: charge their saved Stripe customer's default card off-session
