@@ -243,6 +243,101 @@
             border: 1px solid var(--coral);
             color: var(--coral);
         }
+
+        /* Connections list */
+        .event-group {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid rgba(255, 107, 107, 0.08);
+        }
+        .event-group:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .event-group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 14px;
+        }
+        .event-group-title {
+            font-family: 'Fraunces', serif;
+            font-size: 17px;
+            color: var(--white);
+            font-weight: 600;
+        }
+        .event-group-date {
+            font-size: 11px;
+            color: rgba(245,243,240,0.5);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .attendee-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 107, 107, 0.04);
+            gap: 12px;
+        }
+        .attendee-row:last-child { border-bottom: none; }
+        .attendee-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .attendee-name {
+            color: var(--white);
+            font-weight: 500;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+        .attendee-meta {
+            font-size: 12px;
+            color: rgba(245,243,240,0.5);
+        }
+        .attendee-contact {
+            font-size: 12px;
+            color: var(--success);
+            margin-top: 4px;
+        }
+        .connect-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 107, 107, 0.4);
+            color: var(--coral);
+            padding: 7px 14px;
+            border-radius: 3px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .connect-btn:hover { background: rgba(255, 107, 107, 0.1); }
+        .connect-btn:disabled { opacity: 0.6; cursor: default; }
+        .connect-state {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            padding: 6px 10px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .connect-state.sent {
+            background: rgba(212, 175, 55, 0.1);
+            color: var(--gold);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+        }
+        .connect-state.matched {
+            background: rgba(74, 222, 128, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(74, 222, 128, 0.4);
+        }
+        .connect-state.theyre-interested {
+            background: rgba(96, 165, 250, 0.1);
+            color: var(--info);
+            border: 1px solid rgba(96, 165, 250, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -314,14 +409,25 @@
         </div>
 
         <div class="card">
-            <h2 class="card-title">Interests & Vibes</h2>
+            <h2 class="card-title">Interests &amp; Vibes</h2>
+            <div class="field"><span class="field-label">Looking for</span><span class="field-value" id="profileIntent">—</span></div>
             <div class="field"><span class="field-label">Interests</span><span class="field-value" id="profileInterests">—</span></div>
             <div class="field"><span class="field-label">Vibes</span><span class="field-value" id="profileVibes">—</span></div>
         </div>
 
         <div class="card">
-            <h2 class="card-title">My Events</h2>
-            <div id="myEventsList">
+            <h2 class="card-title">Upcoming Events</h2>
+            <div id="upcomingEventsList">
+                <div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">Loading…</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">Connections</h2>
+            <p style="font-size: 13px; color: rgba(245,243,240,0.6); margin: -10px 0 18px; line-height: 1.6;">
+                The morning after each event, tell us who you'd like to stay in touch with. When they pick you too, we'll exchange contact info.
+            </p>
+            <div id="connectionsList">
                 <div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">Loading…</div>
             </div>
         </div>
@@ -422,7 +528,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, collection, query, where, getDocs, orderBy, addDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         // ========= TIER CONFIG =========
         // Keys match Firestore values: free / mid / premium
@@ -646,6 +752,8 @@
             document.querySelector('#subRenewal').previousElementSibling.textContent = label;
             document.getElementById('subRenewal').textContent = renewal ? renewal.toLocaleDateString() : '—';
 
+            const intentLabels = { long_term: 'Something long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
+            document.getElementById('profileIntent').textContent = intentLabels[userData.intent] || '—';
             document.getElementById('profileInterests').textContent = (userData.interests || []).join(', ') || '—';
             document.getElementById('profileVibes').textContent = (userData.vibes || []).join(', ') || '—';
 
@@ -655,50 +763,167 @@
             }
 
             renderTierOptions(tierKey);
-            loadMyEvents();
+            loadEventsAndConnections();
         }
 
-        async function loadMyEvents() {
-            const container = document.getElementById('myEventsList');
-            try {
-                // Avoid composite index requirement: query by userId only, sort in JS
-                const snap = await getDocs(
-                    query(collection(db, 'event_registrations'),
-                          where('userId', '==', currentUser.uid))
-                );
+        async function loadEventsAndConnections() {
+            const upcomingEl = document.getElementById('upcomingEventsList');
+            const connectionsEl = document.getElementById('connectionsList');
 
-                if (snap.empty) {
-                    container.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">No events yet. <a href="/events" style="color: var(--coral);">Browse upcoming events →</a></div>`;
+            try {
+                // 1. Load my event registrations
+                const myRegsSnap = await getDocs(query(
+                    collection(db, 'event_registrations'),
+                    where('userId', '==', currentUser.uid)
+                ));
+                const myRegs = myRegsSnap.docs.map(d => d.data());
+
+                if (myRegs.length === 0) {
+                    upcomingEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">No events yet. <a href="/events" style="color: var(--coral);">Browse upcoming events →</a></div>`;
+                    connectionsEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">After you attend an event, the people you met will appear here.</div>`;
                     return;
                 }
 
-                const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                // 2. Load event details for each registration
+                const eventIds = [...new Set(myRegs.map(r => r.eventId))];
+                const eventDocs = await Promise.all(eventIds.map(id => getDoc(doc(db, 'events', id))));
+                const events = eventDocs
+                    .map((d, i) => d.exists() ? { id: eventIds[i], ...d.data() } : { id: eventIds[i], title: myRegs.find(r => r.eventId === eventIds[i])?.eventTitle || 'Event', date: null })
+                    .filter(Boolean);
 
-                const regs = snap.docs.map(d => d.data()).sort((a, b) => {
-                    const aT = a.registeredAt?.toDate ? a.registeredAt.toDate() : new Date(a.registeredAt || 0);
-                    const bT = b.registeredAt?.toDate ? b.registeredAt.toDate() : new Date(b.registeredAt || 0);
-                    return bT - aT;
-                });
+                const now = new Date();
+                const eventDate = (e) => e.date?.toDate ? e.date.toDate() : (e.date ? new Date(e.date) : null);
+                const upcoming = events.filter(e => { const d = eventDate(e); return d && d >= now; });
+                const past = events.filter(e => { const d = eventDate(e); return !d || d < now; });
 
-                container.innerHTML = regs.map(reg => {
-                    const registeredAt = reg.registeredAt?.toDate ? reg.registeredAt.toDate() : new Date(reg.registeredAt);
-                    const month = reg.month || '';
-                    const [year, mon] = month.split('-');
-                    const monthLabel = mon ? `${MONTHS[parseInt(mon, 10) - 1]} ${year}` : '';
+                // ── Upcoming Events ─────────────────────────────────
+                upcomingEl.innerHTML = upcoming.length === 0
+                    ? `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">No upcoming events. <a href="/events" style="color: var(--coral);">Browse events →</a></div>`
+                    : upcoming.map(e => {
+                        const d = eventDate(e);
+                        const dateStr = d ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+                        const timeStr = e.time || (d ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '');
+                        return `
+                            <div class="field">
+                                <div>
+                                    <div class="field-value" style="margin-bottom: 2px;">${e.title}</div>
+                                    <div style="font-size: 12px; color: rgba(245,243,240,0.5);">${e.venue || ''}${e.neighborhood ? ' · ' + e.neighborhood : ''}</div>
+                                </div>
+                                <div style="font-size: 12px; color: var(--gold); text-align: right;">${dateStr}${timeStr ? '<br>' + timeStr : ''}</div>
+                            </div>`;
+                    }).join('');
+
+                // ── Connections (past events) ───────────────────────
+                if (past.length === 0) {
+                    connectionsEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">After you attend an event, the people you met will appear here.</div>`;
+                    return;
+                }
+
+                // 3. Load all attendees for past events I attended (chunk by 10 due to 'in' limit)
+                const pastEventIds = past.map(e => e.id);
+                const attendeeChunks = [];
+                for (let i = 0; i < pastEventIds.length; i += 10) {
+                    const chunk = pastEventIds.slice(i, i + 10);
+                    attendeeChunks.push(
+                        getDocs(query(collection(db, 'event_registrations'), where('eventId', 'in', chunk)))
+                    );
+                }
+                const attendeeSnaps = await Promise.all(attendeeChunks);
+                const allAttendees = attendeeSnaps.flatMap(s => s.docs.map(d => d.data()));
+
+                // 4. Load other attendees' user data
+                const otherUserIds = [...new Set(allAttendees.filter(a => a.userId !== currentUser.uid).map(a => a.userId))];
+                const userDocs = await Promise.all(otherUserIds.map(uid => getDoc(doc(db, 'users', uid))));
+                const usersById = {};
+                userDocs.forEach((d, i) => { if (d.exists()) usersById[otherUserIds[i]] = d.data(); });
+
+                // 5. Load my outgoing + incoming connection intents
+                const [outSnap, inSnap] = await Promise.all([
+                    getDocs(query(collection(db, 'connection_intents'), where('fromUserId', '==', currentUser.uid))),
+                    getDocs(query(collection(db, 'connection_intents'), where('toUserId', '==', currentUser.uid))),
+                ]);
+                const myIntents = new Set(outSnap.docs.map(d => `${d.data().toUserId}_${d.data().eventId}`));
+                const incomingIntents = new Set(inSnap.docs.map(d => `${d.data().fromUserId}_${d.data().eventId}`));
+
+                // 6. Build display
+                const renderAttendee = (otherUid, event) => {
+                    const u = usersById[otherUid];
+                    if (!u) return '';
+                    const key = `${otherUid}_${event.id}`;
+                    const sent = myIntents.has(key);
+                    const received = incomingIntents.has(key);
+                    const matched = sent && received;
+                    const genderDisp = ({woman:'Woman',man:'Man'})[u.gender] || '';
+                    const intentLabels = { long_term: 'Long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
+                    const intentDisp = intentLabels[u.intent] || '';
+                    const meta = [u.age, genderDisp, intentDisp].filter(Boolean).join(' · ');
+
+                    let action;
+                    if (matched) {
+                        action = `<div class="connect-state matched">Connected</div>`;
+                    } else if (sent) {
+                        action = `<div class="connect-state sent">Sent</div>`;
+                    } else if (received) {
+                        action = `<button class="connect-btn" onclick="markConnection('${otherUid}','${event.id}')" style="border-color: var(--info); color: var(--info);">They're interested · Connect</button>`;
+                    } else {
+                        action = `<button class="connect-btn" onclick="markConnection('${otherUid}','${event.id}')">I'd like to connect</button>`;
+                    }
+
+                    const contactLine = matched && u.email
+                        ? `<div class="attendee-contact">${u.email}</div>`
+                        : '';
 
                     return `
-                        <div class="field">
-                            <div>
-                                <div class="field-value" style="margin-bottom: 2px;">${reg.eventTitle || 'Event'}</div>
-                                ${monthLabel ? `<div style="font-size: 11px; color: rgba(245,243,240,0.4); text-transform: uppercase; letter-spacing: 0.5px;">${monthLabel}</div>` : ''}
+                        <div class="attendee-row">
+                            <div class="attendee-info">
+                                <div class="attendee-name">${u.firstName || 'Member'} ${(u.lastName || '').charAt(0)}${u.lastName ? '.' : ''}</div>
+                                <div class="attendee-meta">${meta}</div>
+                                ${contactLine}
                             </div>
-                            <div style="font-size: 12px; color: rgba(245,243,240,0.4);">Registered ${registeredAt.toLocaleDateString()}</div>
+                            ${action}
+                        </div>`;
+                };
+
+                connectionsEl.innerHTML = past.map(event => {
+                    const others = allAttendees
+                        .filter(a => a.eventId === event.id && a.userId !== currentUser.uid)
+                        .map(a => a.userId);
+                    const d = eventDate(event);
+                    const dateStr = d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
+                    return `
+                        <div class="event-group">
+                            <div class="event-group-header">
+                                <div class="event-group-title">${event.title}</div>
+                                <div class="event-group-date">${dateStr}</div>
+                            </div>
+                            ${others.length === 0
+                                ? '<div style="color: rgba(245,243,240,0.4); font-size: 12px; padding: 8px 0;">No other attendees registered yet.</div>'
+                                : others.map(uid => renderAttendee(uid, event)).join('')}
                         </div>`;
                 }).join('');
             } catch (e) {
-                container.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">Could not load events.</div>`;
+                console.error('[connections] load error', e);
+                upcomingEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">Could not load events.</div>`;
+                connectionsEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">Could not load connections.</div>`;
             }
         }
+
+        // Mark a connection intent: A → B for a specific event
+        window.markConnection = async (toUserId, eventId) => {
+            try {
+                await addDoc(collection(db, 'connection_intents'), {
+                    fromUserId: currentUser.uid,
+                    toUserId,
+                    eventId,
+                    createdAt: Timestamp.now(),
+                });
+                loadEventsAndConnections(); // refresh to reflect new state
+            } catch (e) {
+                console.error('[connections] markConnection error', e);
+                showMessage('error', 'Could not save your connection. Please try again.');
+            }
+        };
 
         // ========= AUTH STATE =========
         onAuthStateChanged(auth, (user) => {

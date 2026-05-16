@@ -317,6 +317,51 @@
             pointer-events: none;
         }
 
+        /* How-it-works explainer */
+        .how-it-works {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px 40px 40px;
+        }
+        .how-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 28px;
+            position: relative;
+        }
+        .how-step {
+            background: rgba(255, 107, 107, 0.03);
+            border: 1px solid rgba(255, 107, 107, 0.15);
+            border-radius: 4px;
+            padding: 28px 24px;
+            position: relative;
+        }
+        .how-step-num {
+            font-family: 'Playfair Display', serif;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--gold);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 14px;
+        }
+        .how-step h3 {
+            font-family: 'Fraunces', serif;
+            font-size: 19px;
+            color: var(--white);
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .how-step p {
+            font-size: 13px;
+            color: rgba(245, 243, 240, 0.65);
+            line-height: 1.7;
+        }
+        @media (max-width: 768px) {
+            .how-it-works { padding: 0 20px 20px; }
+            .how-grid { grid-template-columns: 1fr; gap: 16px; }
+        }
+
         .empty-state {
             text-align: center;
             padding: 80px 20px;
@@ -375,6 +420,26 @@
     <section class="hero">
         <h1>Upcoming <span class="highlight">Events</span></h1>
         <p>Curated gatherings at Philly's best venues. Reserve your spot, show up, meet real people.</p>
+    </section>
+
+    <section class="how-it-works">
+        <div class="how-grid">
+            <div class="how-step">
+                <div class="how-step-num">01 · Before</div>
+                <h3>The guest list is curated</h3>
+                <p>Our algorithm matches you with people you actually have a shot with — looking at intent, vibe, and shared interests. No surprise compatibility issues at the door.</p>
+            </div>
+            <div class="how-step">
+                <div class="how-step-num">02 · During</div>
+                <h3>You just show up</h3>
+                <p>A balanced room of 20–30 pre-screened people, a curated Philly venue, a trained host making natural introductions. Talk to whoever you click with.</p>
+            </div>
+            <div class="how-step">
+                <div class="how-step-num">03 · After</div>
+                <h3>We exchange contacts</h3>
+                <p>The morning after, tell us who you'd like to keep in touch with. If they pick you too, we connect you — no awkward Instagram hunting required.</p>
+            </div>
+        </div>
     </section>
 
     <div class="quota-banner" id="quotaBanner">
