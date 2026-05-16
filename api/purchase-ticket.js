@@ -48,22 +48,29 @@ module.exports = async function handler(req, res) {
     const eventSnap = await db.collection('events').doc(eventId).get();
     if (eventSnap.exists) {
       const event = eventSnap.data();
-      const cap = gender === 'woman' ? (event.spotsWomen || 0) : (event.spotsMen || 0);
-      if (cap > 0) {
-        const ticketsSnap = await db.collection('tickets')
-          .where('eventId', '==', eventId)
-          .get();
-        const sameGenderCount = ticketsSnap.docs.filter(d => {
-          const t = d.data();
-          return t.gender === gender && (t.status || 'confirmed') === 'confirmed';
-        }).length;
-        if (sameGenderCount >= cap) {
-          const side = gender === 'woman' ? "women's" : "men's";
-          return res.status(409).json({
-            error: 'Event full',
-            message: `This event is full on the ${side} side.`,
-          });
-        }
+      const cap = gender === 'woman' ? (event.spotsWomen ?? 0) : (event.spotsMen ?? 0);
+      const side = gender === 'woman' ? "women's" : "men's";
+
+      if (cap <= 0) {
+        return res.status(409).json({
+          error: 'No spots for this gender',
+          message: `This event has no ${side} spots available.`,
+        });
+      }
+
+      const ticketsSnap = await db.collection('tickets')
+        .where('eventId', '==', eventId)
+        .get();
+      const sameGenderCount = ticketsSnap.docs.filter(d => {
+        const t = d.data();
+        return t.gender === gender && (t.status || 'confirmed') === 'confirmed';
+      }).length;
+
+      if (sameGenderCount >= cap) {
+        return res.status(409).json({
+          error: 'Event full',
+          message: `This event is full on the ${side} side.`,
+        });
       }
     }
 
