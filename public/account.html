@@ -338,6 +338,97 @@
             color: var(--info);
             border: 1px solid rgba(96, 165, 250, 0.3);
         }
+
+        /* Fire upsell card */
+        .upsell {
+            text-align: center;
+            padding: 16px 8px;
+        }
+        .upsell-eyebrow {
+            font-size: 11px;
+            color: var(--coral);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        .upsell h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 26px;
+            color: var(--white);
+            margin-bottom: 14px;
+            line-height: 1.2;
+            font-weight: 900;
+        }
+        .upsell p {
+            font-size: 14px;
+            color: rgba(245,243,240,0.7);
+            line-height: 1.7;
+            max-width: 500px;
+            margin: 0 auto 24px;
+        }
+        .upsell-price {
+            font-family: 'Playfair Display', serif;
+            font-size: 32px;
+            font-weight: 900;
+            color: var(--gold);
+            margin-bottom: 18px;
+            line-height: 1;
+        }
+        .upsell-price small {
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 400;
+            color: rgba(245,243,240,0.5);
+            margin-left: 4px;
+        }
+        .upsell-btn {
+            background: linear-gradient(135deg, var(--coral), #ff5252);
+            color: var(--white);
+            border: none;
+            padding: 14px 36px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .upsell-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(255, 107, 107, 0.3); }
+        .upsell-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
+
+        /* Suggested upcoming events for a marked connection */
+        .suggested-events {
+            margin-top: 8px;
+            padding: 12px 14px;
+            background: rgba(212, 175, 55, 0.05);
+            border-left: 2px solid var(--gold);
+            border-radius: 0 3px 3px 0;
+            font-size: 12px;
+        }
+        .suggested-events-label {
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 10px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .suggested-events ul {
+            list-style: none;
+            margin: 0;
+        }
+        .suggested-events li {
+            color: rgba(245,243,240,0.7);
+            padding: 3px 0;
+        }
+        .suggested-events li a {
+            color: var(--cream);
+            text-decoration: none;
+        }
+        .suggested-events li a:hover { color: var(--coral); }
     </style>
 </head>
 <body>
@@ -424,9 +515,6 @@
 
         <div class="card">
             <h2 class="card-title">Connections</h2>
-            <p style="font-size: 13px; color: rgba(245,243,240,0.6); margin: -10px 0 18px; line-height: 1.6;">
-                The morning after each event, tell us who you'd like to stay in touch with. When they pick you too, we'll exchange contact info.
-            </p>
             <div id="connectionsList">
                 <div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">Loading…</div>
             </div>
@@ -771,32 +859,30 @@
             const connectionsEl = document.getElementById('connectionsList');
 
             try {
-                // 1. Load my event registrations
+                // ── 1. My event registrations ──────────────────────────
                 const myRegsSnap = await getDocs(query(
                     collection(db, 'event_registrations'),
                     where('userId', '==', currentUser.uid)
                 ));
                 const myRegs = myRegsSnap.docs.map(d => d.data());
 
-                if (myRegs.length === 0) {
-                    upcomingEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">No events yet. <a href="/events" style="color: var(--coral);">Browse upcoming events →</a></div>`;
-                    connectionsEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">After you attend an event, the people you met will appear here.</div>`;
-                    return;
-                }
-
-                // 2. Load event details for each registration
+                // ── 2. Load event details for my registrations ─────────
                 const eventIds = [...new Set(myRegs.map(r => r.eventId))];
-                const eventDocs = await Promise.all(eventIds.map(id => getDoc(doc(db, 'events', id))));
-                const events = eventDocs
-                    .map((d, i) => d.exists() ? { id: eventIds[i], ...d.data() } : { id: eventIds[i], title: myRegs.find(r => r.eventId === eventIds[i])?.eventTitle || 'Event', date: null })
+                const myEventDocs = eventIds.length > 0
+                    ? await Promise.all(eventIds.map(id => getDoc(doc(db, 'events', id))))
+                    : [];
+                const myEvents = myEventDocs
+                    .map((d, i) => d.exists()
+                        ? { id: eventIds[i], ...d.data() }
+                        : { id: eventIds[i], title: myRegs.find(r => r.eventId === eventIds[i])?.eventTitle || 'Event', date: null })
                     .filter(Boolean);
 
                 const now = new Date();
                 const eventDate = (e) => e.date?.toDate ? e.date.toDate() : (e.date ? new Date(e.date) : null);
-                const upcoming = events.filter(e => { const d = eventDate(e); return d && d >= now; });
-                const past = events.filter(e => { const d = eventDate(e); return !d || d < now; });
+                const upcoming = myEvents.filter(e => { const d = eventDate(e); return d && d >= now; });
+                const past = myEvents.filter(e => { const d = eventDate(e); return !d || d < now; });
 
-                // ── Upcoming Events ─────────────────────────────────
+                // ── Upcoming Events card ───────────────────────────────
                 upcomingEl.innerHTML = upcoming.length === 0
                     ? `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">No upcoming events. <a href="/events" style="color: var(--coral);">Browse events →</a></div>`
                     : upcoming.map(e => {
@@ -813,39 +899,61 @@
                             </div>`;
                     }).join('');
 
-                // ── Connections (past events) ───────────────────────
-                if (past.length === 0) {
-                    connectionsEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">After you attend an event, the people you met will appear here.</div>`;
+                // ── 3. Gate Connections to Fire (premium) tier ─────────
+                const tier = userData?.tier || 'free';
+                if (tier !== 'premium') {
+                    renderConnectionsUpsell(connectionsEl);
                     return;
                 }
 
-                // 3. Load all attendees for past events I attended (chunk by 10 due to 'in' limit)
+                // ── 4. Fire member: load past-event attendees + suggestions ───
+                if (past.length === 0) {
+                    connectionsEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0; line-height: 1.6;">After you attend an event, the people you met will appear here. Tell us who you'd like to stay in touch with and we'll suggest upcoming events to bring you back together.</div>`;
+                    return;
+                }
+
                 const pastEventIds = past.map(e => e.id);
                 const attendeeChunks = [];
                 for (let i = 0; i < pastEventIds.length; i += 10) {
-                    const chunk = pastEventIds.slice(i, i + 10);
                     attendeeChunks.push(
-                        getDocs(query(collection(db, 'event_registrations'), where('eventId', 'in', chunk)))
+                        getDocs(query(collection(db, 'event_registrations'), where('eventId', 'in', pastEventIds.slice(i, i + 10))))
                     );
                 }
                 const attendeeSnaps = await Promise.all(attendeeChunks);
                 const allAttendees = attendeeSnaps.flatMap(s => s.docs.map(d => d.data()));
 
-                // 4. Load other attendees' user data
                 const otherUserIds = [...new Set(allAttendees.filter(a => a.userId !== currentUser.uid).map(a => a.userId))];
                 const userDocs = await Promise.all(otherUserIds.map(uid => getDoc(doc(db, 'users', uid))));
                 const usersById = {};
                 userDocs.forEach((d, i) => { if (d.exists()) usersById[otherUserIds[i]] = d.data(); });
 
-                // 5. Load my outgoing + incoming connection intents
-                const [outSnap, inSnap] = await Promise.all([
+                // ── 5. Connection intents + upcoming events globally ──
+                const [outSnap, inSnap, allUpcomingSnap] = await Promise.all([
                     getDocs(query(collection(db, 'connection_intents'), where('fromUserId', '==', currentUser.uid))),
                     getDocs(query(collection(db, 'connection_intents'), where('toUserId', '==', currentUser.uid))),
+                    getDocs(query(collection(db, 'events'), orderBy('date', 'asc'))),
                 ]);
                 const myIntents = new Set(outSnap.docs.map(d => `${d.data().toUserId}_${d.data().eventId}`));
                 const incomingIntents = new Set(inSnap.docs.map(d => `${d.data().fromUserId}_${d.data().eventId}`));
+                const allUpcomingEvents = allUpcomingSnap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter(e => { const d = eventDate(e); return d && d >= now && e.status !== 'full'; });
 
-                // 6. Build display
+                // ── 6. Render ─────────────────────────────────────────
+                const renderSuggestions = () => {
+                    if (allUpcomingEvents.length === 0) return '';
+                    const top = allUpcomingEvents.slice(0, 3).map(e => {
+                        const d = eventDate(e);
+                        const dateStr = d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+                        return `<li>· <a href="/event?id=${e.id}">${e.title}</a> — ${dateStr}${e.venue ? ' · ' + e.venue : ''}</li>`;
+                    }).join('');
+                    return `
+                        <div class="suggested-events">
+                            <div class="suggested-events-label">We'll try to bring you both to</div>
+                            <ul>${top}</ul>
+                        </div>`;
+                };
+
                 const renderAttendee = (otherUid, event) => {
                     const u = usersById[otherUid];
                     if (!u) return '';
@@ -858,33 +966,34 @@
                     const intentDisp = intentLabels[u.intent] || '';
                     const meta = [u.age, genderDisp, intentDisp].filter(Boolean).join(' · ');
 
-                    let action;
+                    let action, extra = '';
                     if (matched) {
-                        action = `<div class="connect-state matched">Connected</div>`;
+                        action = `<div class="connect-state matched">Mutual</div>`;
+                        if (u.email) extra = `<div class="attendee-contact">${u.email}</div>`;
+                        extra += renderSuggestions();
                     } else if (sent) {
-                        action = `<div class="connect-state sent">Sent</div>`;
+                        action = `<div class="connect-state sent">Saved</div>`;
+                        extra = renderSuggestions();
                     } else if (received) {
-                        action = `<button class="connect-btn" onclick="markConnection('${otherUid}','${event.id}')" style="border-color: var(--info); color: var(--info);">They're interested · Connect</button>`;
+                        action = `<button class="connect-btn" onclick="markConnection('${otherUid}','${event.id}')" style="border-color: var(--info); color: var(--info);">They picked you · Stay in touch</button>`;
                     } else {
-                        action = `<button class="connect-btn" onclick="markConnection('${otherUid}','${event.id}')">I'd like to connect</button>`;
+                        action = `<button class="connect-btn" onclick="markConnection('${otherUid}','${event.id}')">Stay in touch</button>`;
                     }
-
-                    const contactLine = matched && u.email
-                        ? `<div class="attendee-contact">${u.email}</div>`
-                        : '';
 
                     return `
                         <div class="attendee-row">
                             <div class="attendee-info">
                                 <div class="attendee-name">${u.firstName || 'Member'} ${(u.lastName || '').charAt(0)}${u.lastName ? '.' : ''}</div>
                                 <div class="attendee-meta">${meta}</div>
-                                ${contactLine}
+                                ${extra}
                             </div>
                             ${action}
                         </div>`;
                 };
 
-                connectionsEl.innerHTML = past.map(event => {
+                const intro = `<p style="font-size: 13px; color: rgba(245,243,240,0.6); margin: -10px 0 18px; line-height: 1.6;">Tell us who you'd like to stay in touch with. We'll suggest upcoming events to you both and try to get you in the same room again.</p>`;
+
+                connectionsEl.innerHTML = intro + past.map(event => {
                     const others = allAttendees
                         .filter(a => a.eventId === event.id && a.userId !== currentUser.uid)
                         .map(a => a.userId);
@@ -898,7 +1007,7 @@
                                 <div class="event-group-date">${dateStr}</div>
                             </div>
                             ${others.length === 0
-                                ? '<div style="color: rgba(245,243,240,0.4); font-size: 12px; padding: 8px 0;">No other attendees registered yet.</div>'
+                                ? '<div style="color: rgba(245,243,240,0.4); font-size: 12px; padding: 8px 0;">No other attendees registered.</div>'
                                 : others.map(uid => renderAttendee(uid, event)).join('')}
                         </div>`;
                 }).join('');
@@ -909,7 +1018,53 @@
             }
         }
 
-        // Mark a connection intent: A → B for a specific event
+        // Upsell shown to non-Fire members
+        function renderConnectionsUpsell(el) {
+            el.innerHTML = `
+                <div class="upsell">
+                    <div class="upsell-eyebrow">Fire members only</div>
+                    <h3>Want to get connected?</h3>
+                    <p>Tell us who you'd like to stay in touch with from past events. We'll suggest upcoming events to you — and try to get you both in the same room again.</p>
+                    <div class="upsell-price">$39.99<small>/mo</small></div>
+                    <button class="upsell-btn" id="upgradeFireBtn" onclick="upgradeToFire()">Upgrade to Fire</button>
+                    <div id="upgradeFireStatus" style="margin-top: 14px; font-size: 12px; display: none;"></div>
+                </div>`;
+        }
+
+        // Inline Fire upgrade — reuses performTierChange under the hood
+        window.upgradeToFire = async () => {
+            const btn = document.getElementById('upgradeFireBtn');
+            const status = document.getElementById('upgradeFireStatus');
+            btn.disabled = true;
+            btn.textContent = 'Upgrading…';
+            status.style.display = 'block';
+            status.style.color = 'rgba(245,243,240,0.6)';
+            status.textContent = 'Charging your card on file and switching your plan to Fire…';
+
+            try {
+                const response = await fetch('/api/upgrade-subscription', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentUser.uid, newTier: 'premium' }),
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || data.error || 'Upgrade failed');
+                status.style.color = 'var(--success)';
+                status.textContent = 'You\'re Fire! Reloading your account…';
+                setTimeout(() => window.location.reload(), 1400);
+            } catch (err) {
+                console.error('[upgrade] error', err);
+                btn.disabled = false;
+                btn.textContent = 'Upgrade to Fire';
+                status.style.color = 'var(--danger)';
+                const msg = (err.message || '').toLowerCase();
+                status.textContent = msg.includes('declin')
+                    ? 'Your card on file was declined. Update your payment method and try again.'
+                    : 'Could not upgrade. Please try again, or contact support@sparkdate.date.';
+            }
+        };
+
+        // Mark a connection: A wants to stay in touch with B from a specific past event
         window.markConnection = async (toUserId, eventId) => {
             try {
                 await addDoc(collection(db, 'connection_intents'), {
@@ -918,10 +1073,10 @@
                     eventId,
                     createdAt: Timestamp.now(),
                 });
-                loadEventsAndConnections(); // refresh to reflect new state
+                loadEventsAndConnections();
             } catch (e) {
                 console.error('[connections] markConnection error', e);
-                showMessage('error', 'Could not save your connection. Please try again.');
+                showMessage('error', 'Could not save. Please try again.');
             }
         };
 
