@@ -710,11 +710,16 @@
                 messageEl.style.padding = '12px';
                 messageEl.style.borderRadius = '4px';
                 const msg = (err.message || '').toLowerCase();
-                messageEl.textContent = msg.includes('declin')
-                    ? 'Your card on file was declined. Please update your payment method.'
-                    : msg.includes('network')
-                        ? 'Network error. Please check your connection and try again.'
-                        : 'Could not change your tier. Please try again, or contact support.';
+                if (msg.includes('declin')) {
+                    messageEl.textContent = 'Your card on file was declined. Please update your payment method.';
+                } else if (msg.includes('network')) {
+                    messageEl.textContent = 'Network error. Please check your connection and try again.';
+                } else if (err.message && err.message.length < 200) {
+                    // Surface specific API errors (e.g. "Already on this tier", trial issues, etc.)
+                    messageEl.textContent = err.message;
+                } else {
+                    messageEl.textContent = 'Could not change your tier. Please try again, or contact support.';
+                }
 
                 // Re-enable cards on failure
                 document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('processing'));

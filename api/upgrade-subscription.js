@@ -86,15 +86,32 @@ module.exports = async function handler(req, res) {
     const currentItemId = subscription.items.data[0].id;
     const newPriceId = TIER_PRICES[newTier].priceId;
 
-    // 3. Update the subscription - swap the price, prorate immediately
-    const updatedSubscription = await stripe.subscriptions.update(subscriptionId, {
-      items: [{
-        id: currentItemId,
-        price: newPriceId,
-      }],
-      proration_behavior: 'always_invoice',
+    // 3. Build update params — handle trial-active subs differently
+    const updateParams = {
+      items: [{ id: currentItemId, price: newPriceId }],
       payment_behavior: 'error_if_incomplete',
+    };
+
+    const isTrialing = subscription.status === 'trialing';
+    if (isTrialing) {
+      // User is on free trial: end trial now and bill new price immediately.
+      // Skip proration since there's nothing to prorate from a $0 trial.
+      updateParams.trial_end = 'now';
+      updateParams.proration_behavior = 'none';
+    } else {
+      // Active paid subscription: prorate the change across the current billing cycle
+      updateParams.proration_behavior = 'create_prorations';
+    }
+
+    console.log('[upgrade-subscription] updating', {
+      subscriptionId,
+      fromTier: currentTier,
+      toTier: newTier,
+      isTrialing,
+      proration: updateParams.proration_behavior,
     });
+
+    const updatedSubscription = await stripe.subscriptions.update(subscriptionId, updateParams);
 
     // 4. Update Firestore
     await db.collection('users').doc(userId).update({
@@ -127,19 +144,35 @@ module.exports = async function handler(req, res) {
       message: `Successfully changed to ${TIER_PRICES[newTier].name} tier.`,
     });
   } catch (error) {
-    console.error('Upgrade subscription error:', error);
+    console.error('[upgrade-subscription] error', {
+      type: error.type,
+      code: error.code,
+      message: error.message,
+      raw: error.raw?.message,
+    });
 
     if (error.type === 'StripeCardError') {
       return res.status(402).json({
         error: 'Payment failed',
         message: 'Your saved card was declined. Please update your payment method.',
-        stripeError: error.message,
+      });
+    }
+    if (error.code === 'authentication_required') {
+      return res.status(402).json({
+        error: 'Authentication required',
+        message: 'Your bank requires 3-D Secure authentication for this charge. Please update your card or try a different one.',
+      });
+    }
+    if (error.type === 'StripeInvalidRequestError') {
+      return res.status(400).json({
+        error: 'Invalid subscription state',
+        message: error.message || 'Could not update your subscription in its current state. Please contact support.',
       });
     }
 
     return res.status(500).json({
       error: 'Failed to update subscription',
-      message: error.message,
+      message: error.message || 'Unexpected error. Please try again or contact support.',
     });
   }
 }
