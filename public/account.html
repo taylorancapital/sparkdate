@@ -969,8 +969,7 @@
                     let action, extra = '';
                     if (matched) {
                         action = `<div class="connect-state matched">Mutual</div>`;
-                        if (u.email) extra = `<div class="attendee-contact">${u.email}</div>`;
-                        extra += renderSuggestions();
+                        extra = renderSuggestions();
                     } else if (sent) {
                         action = `<div class="connect-state sent">Saved</div>`;
                         extra = renderSuggestions();
