@@ -628,6 +628,16 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="intent">What are you here for? *</label>
+                    <select id="intent" name="intent" required>
+                        <option value="">Select...</option>
+                        <option value="long_term">Something long-term</option>
+                        <option value="dating_around">Dating around, seeing what's out there</option>
+                        <option value="friends_first">Friends first, see where it goes</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
                     <label for="interests">What are your interests? (comma-separated)</label>
                     <input type="text" id="interests" name="interests" placeholder="hiking, wine, startups, art">
                 </div>
@@ -743,7 +753,7 @@
         });
 
         // Client-side validation — returns a user-friendly error string or null
-        function validateSignup({ firstName, lastName, email, password, gender, age, tier }) {
+        function validateSignup({ firstName, lastName, email, password, gender, age, intent, tier }) {
             if (!firstName || !lastName) return 'Please enter your first and last name.';
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Please enter a valid email address.';
             if (!password || password.length < 8) return 'Password must be at least 8 characters.';
@@ -751,6 +761,7 @@
             const ageNum = parseInt(age, 10);
             if (!ageNum || ageNum < 18) return 'You must be at least 18 to join.';
             if (ageNum > 120) return 'Please enter a valid age.';
+            if (!['long_term', 'dating_around', 'friends_first'].includes(intent)) return 'Please tell us what you\'re here for.';
             if (!['free', 'mid', 'premium'].includes(tier)) return 'Please select a membership tier.';
             return null;
         }
@@ -788,6 +799,7 @@
             const password   = document.getElementById('password').value;
             const gender     = document.getElementById('gender').value;
             const age        = document.getElementById('age').value;
+            const intent     = document.getElementById('intent').value;
             const interests  = document.getElementById('interests').value;
             const vibes      = document.getElementById('vibes').value;
             const tier       = document.querySelector('input[name="tier"]:checked').value;
@@ -801,7 +813,7 @@
             successMsg.style.display = 'none';
 
             // ── Client-side validation ─────────────────────────────────────
-            const validationError = validateSignup({ firstName, lastName, email, password, gender, age, tier });
+            const validationError = validateSignup({ firstName, lastName, email, password, gender, age, intent, tier });
             if (validationError) {
                 errorMsg.textContent = validationError;
                 errorMsg.style.display = 'block';
@@ -828,7 +840,7 @@
 
                 // ── Step 3: Save initial profile to Firestore ──────────────────
                 await setDoc(doc(db, 'users', firebaseUser.uid), {
-                    firstName, lastName, email, gender,
+                    firstName, lastName, email, gender, intent,
                     age: parseInt(age) || 0,
                     interests: interests.split(',').map(i => i.trim()).filter(Boolean),
                     vibes:     vibes.split(',').map(v => v.trim()).filter(Boolean),

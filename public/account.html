@@ -314,7 +314,8 @@
         </div>
 
         <div class="card">
-            <h2 class="card-title">Interests & Vibes</h2>
+            <h2 class="card-title">Interests &amp; Vibes</h2>
+            <div class="field"><span class="field-label">Looking for</span><span class="field-value" id="profileIntent">—</span></div>
             <div class="field"><span class="field-label">Interests</span><span class="field-value" id="profileInterests">—</span></div>
             <div class="field"><span class="field-label">Vibes</span><span class="field-value" id="profileVibes">—</span></div>
         </div>
@@ -646,6 +647,8 @@
             document.querySelector('#subRenewal').previousElementSibling.textContent = label;
             document.getElementById('subRenewal').textContent = renewal ? renewal.toLocaleDateString() : '—';
 
+            const intentLabels = { long_term: 'Something long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
+            document.getElementById('profileIntent').textContent = intentLabels[userData.intent] || '—';
             document.getElementById('profileInterests').textContent = (userData.interests || []).join(', ') || '—';
             document.getElementById('profileVibes').textContent = (userData.vibes || []).join(', ') || '—';
 
