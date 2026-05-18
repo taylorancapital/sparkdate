@@ -834,45 +834,85 @@
         function badge(text, type) { return `<span class="badge badge-${safe(type)}">${safe(text)}</span>`; }
 
         // ========= LOAD PROFILE =========
+        // Safe DOM setter — never throws even if the element is missing or
+        // an upstream value is malformed. Logs to console for debugging.
+        function setText(id, value) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = (value === null || value === undefined || value === '') ? '—' : value;
+        }
+        function setHTML(id, value) {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = value;
+        }
+
         async function loadProfile() {
-            const snap = await getDoc(doc(db, 'users', currentUser.uid));
-            if (!snap.exists()) {
-                showMessage('error', 'Profile not found. Please contact support.');
-                return;
+            // Whole-function try/catch so a missing field or broken DOM ref
+            // never leaves the page in a frozen state. Always call
+            // loadEventsAndConnections in the finally block.
+            let tierKey = 'free';
+            try {
+                const snap = await getDoc(doc(db, 'users', currentUser.uid));
+                if (!snap.exists()) {
+                    showMessage('error', 'Profile not found. If you just signed up, your payment may not have completed — please contact support@sparkdate.date.');
+                    // Replace the loading placeholders with something honest.
+                    setHTML('upcomingEventsList', '<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">No profile data.</div>');
+                    setHTML('connectionsList',   '<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">No profile data.</div>');
+                    return;
+                }
+                userData = snap.data();
+
+                setText('profileName',  `${userData.firstName || ''} ${userData.lastName || ''}`.trim());
+                setText('profileEmail', userData.email);
+                setText('profileAge',   userData.age);
+                const genderDisplay = { woman: 'Woman', man: 'Man' };
+                setText('profileGender', genderDisplay[userData.gender] || userData.gender);
+
+                const created = userData.createdAt?.toDate ? userData.createdAt.toDate() : (userData.createdAt ? new Date(userData.createdAt) : null);
+                setText('profileJoined', created ? created.toLocaleDateString() : null);
+
+                tierKey = userData.tier || 'free';
+                setHTML('subTier',   badge(TIER_LABELS[tierKey] || tierKey, tierKey));
+                // Distinguish "pending" (signup never completed) so users get a clear message instead of a generic badge.
+                const status = userData.subscriptionStatus || 'pending';
+                setHTML('subStatus', badge(status, status));
+                setText('subPrice',  '$' + ((TIERS[tierKey]?.price) || 0).toFixed(2) + '/month');
+
+                const renewal = userData.currentPeriodEnd?.toDate ? userData.currentPeriodEnd.toDate() : (userData.currentPeriodEnd ? new Date(userData.currentPeriodEnd) : null);
+                const label   = userData.cancelAtPeriodEnd ? 'Access ends' : 'Next billing';
+                const renewalEl = document.getElementById('subRenewal');
+                if (renewalEl) {
+                    if (renewalEl.previousElementSibling) renewalEl.previousElementSibling.textContent = label;
+                    renewalEl.textContent = renewal ? renewal.toLocaleDateString() : '—';
+                }
+
+                const intentLabels = { long_term: 'Something long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
+                setText('profileIntent',    intentLabels[userData.intent]);
+                setText('profileInterests', (userData.interests || []).join(', '));
+                setText('profileVibes',     (userData.vibes || []).join(', '));
+
+                const cancelBtn = document.getElementById('cancelBtn');
+                if (cancelBtn && (userData.subscriptionStatus === 'canceled' || userData.cancelAtPeriodEnd)) {
+                    cancelBtn.style.display = 'none';
+                }
+
+                // Surface "pending" payment state explicitly — most likely
+                // cause of someone landing here confused after signup.
+                if (status === 'pending' && !userData.subscriptionId) {
+                    showMessage('error',
+                        'Your subscription did not finish setting up. Your card was not charged. ' +
+                        'Please sign up again or email support@sparkdate.date.');
+                }
+
+                renderTierOptions(tierKey);
+            } catch (err) {
+                console.error('[loadProfile] failed:', err);
+                showMessage('error', 'We had trouble loading your account. Please refresh, or email support@sparkdate.date.');
+            } finally {
+                // Always run — even if profile rendering above hit an error,
+                // the events/connections section should still render or fail
+                // gracefully on its own.
+                loadEventsAndConnections();
             }
-            userData = snap.data();
-
-            document.getElementById('profileName').textContent = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || '—';
-            document.getElementById('profileEmail').textContent = userData.email || '—';
-            document.getElementById('profileAge').textContent = userData.age || '—';
-            const genderDisplay = { woman: 'Woman', man: 'Man' };
-            document.getElementById('profileGender').textContent = genderDisplay[userData.gender] || userData.gender || '—';
-
-            const created = userData.createdAt?.toDate ? userData.createdAt.toDate() : (userData.createdAt ? new Date(userData.createdAt) : null);
-            document.getElementById('profileJoined').textContent = created ? created.toLocaleDateString() : '—';
-
-            const tierKey = userData.tier || 'free';
-            document.getElementById('subTier').innerHTML = badge(TIER_LABELS[tierKey] || tierKey, tierKey);
-            document.getElementById('subStatus').innerHTML = badge(userData.subscriptionStatus || 'pending', userData.subscriptionStatus || 'pending');
-            document.getElementById('subPrice').textContent = '$' + ((TIERS[tierKey]?.price) || 0).toFixed(2) + '/month';
-
-            const renewal = userData.currentPeriodEnd?.toDate ? userData.currentPeriodEnd.toDate() : (userData.currentPeriodEnd ? new Date(userData.currentPeriodEnd) : null);
-            const label = userData.cancelAtPeriodEnd ? 'Access ends' : 'Next billing';
-            document.querySelector('#subRenewal').previousElementSibling.textContent = label;
-            document.getElementById('subRenewal').textContent = renewal ? renewal.toLocaleDateString() : '—';
-
-            const intentLabels = { long_term: 'Something long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
-            document.getElementById('profileIntent').textContent = intentLabels[userData.intent] || '—';
-            document.getElementById('profileInterests').textContent = (userData.interests || []).join(', ') || '—';
-            document.getElementById('profileVibes').textContent = (userData.vibes || []).join(', ') || '—';
-
-            const cancelBtn = document.getElementById('cancelBtn');
-            if (userData.subscriptionStatus === 'canceled' || userData.cancelAtPeriodEnd) {
-                cancelBtn.style.display = 'none';
-            }
-
-            renderTierOptions(tierKey);
-            loadEventsAndConnections();
         }
 
         async function loadEventsAndConnections() {
