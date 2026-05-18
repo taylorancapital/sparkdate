@@ -160,5 +160,5 @@ What still needs human attention:
   ticket sits as `pending_3ds` until Stripe webhook fires. A weekly
   sweep should expire these.
 - **Stale Stripe products/prices**: if you change tier amounts in
-  `api/_tiers.js`, old prices keep their lookup_key — you'll need to
+  `lib/tiers.js`, old prices keep their lookup_key — you'll need to
   archive old prices in the Stripe dashboard manually.

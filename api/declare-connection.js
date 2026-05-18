@@ -11,8 +11,8 @@
 //   - Verifies the target user exists
 //   - Idempotent: re-declaring the same intent is a no-op
 
-const { admin, requireAuth } = require('./_auth');
-const { applyCors } = require('./_cors');
+const { admin, requireAuth } = require('../lib/auth');
+const { applyCors } = require('../lib/cors');
 
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;

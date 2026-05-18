@@ -11,9 +11,9 @@
 //     if the request is retried after a network blip.
 
 const Stripe = require('stripe');
-const { requireAuth } = require('./_auth');
-const { applyCors } = require('./_cors');
-const { TIERS, getOrCreatePrice } = require('./_tiers');
+const { requireAuth } = require('../lib/auth');
+const { applyCors } = require('../lib/cors');
+const { TIERS, getOrCreatePrice } = require('../lib/tiers');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 

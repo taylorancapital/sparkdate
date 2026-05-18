@@ -1,6 +1,6 @@
 const Stripe = require('stripe');
-const { admin, requireAuth } = require('./_auth');
-const { applyCors } = require('./_cors');
+const { admin, requireAuth } = require('../lib/auth');
+const { applyCors } = require('../lib/cors');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const db = admin.firestore();
