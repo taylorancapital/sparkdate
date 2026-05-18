@@ -675,10 +675,10 @@
         <div class="tabs">
             <button class="tab active" onclick="switchTab('overview', this)">Overview</button>
             <button class="tab" onclick="switchTab('members', this)">Members</button>
-            <button class="tab" onclick="switchTab('leads', this)">Leads</button>
             <button class="tab" onclick="switchTab('activity', this)">Activity</button>
             <button class="tab" onclick="switchTab('revenue', this)">Revenue</button>
             <button class="tab" onclick="switchTab('events', this)">Events</button>
+            <button class="tab" onclick="switchTab('venues', this)">Venues</button>
         </div>
 
         <!-- Overview Tab -->
@@ -782,46 +782,6 @@
                     </thead>
                     <tbody id="allMembers">
                         <tr><td colspan="8"><div class="spinner"></div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Leads Tab -->
-        <div class="tab-content" id="tab-leads">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">Email Marketing Leads</h2>
-                    <span style="font-size: 12px; color: rgba(245,243,240,0.5);" id="leadCount">—</span>
-                </div>
-                <div class="search-bar">
-                    <input type="text" class="search-input" id="leadSearch" placeholder="Search by name or email…" oninput="filterLeads()">
-                    <select class="filter-select" id="leadWelcomeFilter" onchange="filterLeads()">
-                        <option value="">All statuses</option>
-                        <option value="sent">Welcome sent</option>
-                        <option value="pending">Welcome pending</option>
-                    </select>
-                    <select class="filter-select" id="leadSourceFilter" onchange="filterLeads()">
-                        <option value="">All sources</option>
-                        <option value="founding_form">Founding form</option>
-                        <option value="direct">Direct</option>
-                    </select>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;" id="leadKPIs"></div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Phone</th>
-                            <th>Source</th>
-                            <th>Signed Up</th>
-                            <th>Welcome Email</th>
-                            <th>Sequence</th>
-                        </tr>
-                    </thead>
-                    <tbody id="leadsTable">
-                        <tr><td colspan="7"><div class="spinner"></div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -968,7 +928,7 @@
                         <div class="form-grid full">
                             <div class="form-group">
                                 <label class="form-label">Inclusions (optional)</label>
-                                <input type="text" class="form-input" id="evAmenities" placeholder="e.g. Premium venue with full bar">
+                                <input type="text" class="form-input" id="evAmenities" placeholder="e.g. Welcome cocktail included">
                             </div>
                         </div>
 
@@ -1012,12 +972,49 @@
             </div>
         </div>
     </div>
+        </div>
+
+        <!-- Venues Tab -->
+        <div class="tab-content" id="tab-venues">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Venue Outreach Pipeline</h2>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <select id="venueStatusFilter" class="form-input" style="width: 150px; height: 36px; font-size: 13px;">
+                            <option value="">All Statuses</option>
+                            <option value="not_contacted">Not Contacted</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="interested">Interested</option>
+                            <option value="booked">Booked</option>
+                            <option value="event_created">Event Created</option>
+                        </select>
+                        <button class="action-btn" onclick="sendBulkOutreach()" style="background: var(--coral);">Send Outreach to All</button>
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Venue</th>
+                            <th>City</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Contacted</th>
+                            <th>Notes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="venuesTable">
+                        <tr><td colspan="7"><div class="spinner"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
     <!-- Firebase + App Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getFirestore, collection, query, orderBy, limit, getDocs, where, addDoc, Timestamp, doc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, collection, query, orderBy, limit, getDocs, where, addDoc, Timestamp, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
@@ -1029,10 +1026,7 @@
         };
 
         // Whitelist of admin emails (only these can access)
-        // NOTE: the client-side allowlist is cosmetic only — the real
-        // gate is the `admin: true` custom claim checked by Firestore rules.
-        // Set/revoke claims via scripts/set-admin-claim.js.
-        const ADMIN_EMAILS = ['taylor.ancapital@gmail.com', 'pennsylvaniacabinetmaker@comcast.net'];
+        const ADMIN_EMAILS = ['taylor@sparkdate.date', 'pennsylvaniacabinetmaker@comcast.net'];
         window.ADMIN_EMAILS = ADMIN_EMAILS;
 
         const app = initializeApp(firebaseConfig);
@@ -1083,7 +1077,7 @@
 
         async function loadDashboard() {
             try {
-                await Promise.all([loadUsers(), loadActivity(), loadPayments(), loadAdminEvents(), loadLeads()]);
+                await Promise.all([loadUsers(), loadActivity(), loadPayments(), loadAdminEvents()]);
                 renderKPIs();
                 renderRecentSignups();
                 renderTierBreakdown();
@@ -1091,7 +1085,6 @@
                 renderAllMembers();
                 renderPaymentHistory();
                 renderAdminEvents();
-                renderLeads();
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
             } catch (err) {
                 console.error('[dashboard] load error:', err);
@@ -1130,31 +1123,17 @@
                 const spots = ev.spotsTotal || ((ev.spotsMen || 0) + (ev.spotsWomen || 0));
                 const regCount = allRegistrations.filter(r => r.eventId === ev.id).length;
                 const statusClass = ev.status === 'open' ? 'badge-active' : ev.status === 'almost' ? 'badge-pending' : 'badge-canceled';
-                const venueLine = (ev.venue || '—') + (ev.neighborhood ? ' · ' + ev.neighborhood : '');
                 return `
                     <tr>
-                        <td style="color: var(--white); font-weight: 500;">${safe(ev.title)}</td>
-                        <td style="color: rgba(245,243,240,0.7);">${safe(dateStr)}${timeStr ? ' · ' + safe(timeStr) : ''}</td>
-                        <td style="color: rgba(245,243,240,0.7);">${safe(venueLine)}</td>
+                        <td style="color: var(--white); font-weight: 500;">${ev.title}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${dateStr}${timeStr ? ' · ' + timeStr : ''}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${ev.venue || '—'}${ev.neighborhood ? ' · ' + ev.neighborhood : ''}</td>
                         <td style="color: rgba(245,243,240,0.7);">${spots}</td>
                         <td style="color: var(--gold); font-weight: 600;">${regCount}</td>
-                        <td><span class="badge ${statusClass}">${safe(ev.status || 'open')}</span></td>
-                        <td style="display:flex;gap:6px;">
-                            <button class="action-btn" data-act="score" data-id="${safe(ev.id)}">Score Candidates</button>
-                            <button class="action-btn" style="background:rgba(248,113,113,0.12);color:var(--danger);border-color:rgba(248,113,113,0.3);" data-act="delete" data-id="${safe(ev.id)}" data-title="${safe(ev.title)}">Delete</button>
-                        </td>
+                        <td><span class="badge ${statusClass}">${ev.status || 'open'}</span></td>
+                        <td><button class="action-btn" onclick="openCandidates('${ev.id}')">Score Candidates</button></td>
                     </tr>`;
             }).join('');
-
-            // Event delegation — safer than inline onclick with user-controlled titles
-            tbody.querySelectorAll('button[data-act]').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const act = btn.dataset.act;
-                    const id = btn.dataset.id;
-                    if (act === 'score') window.openCandidates(id);
-                    else if (act === 'delete') window.deleteEvent(id, btn.dataset.title || '');
-                });
-            });
         }
 
         // ────────────────────────────────────────────────────────────────
@@ -1255,21 +1234,19 @@
                     const interests = (user.interests || []).slice(0, 3).join(', ') || '—';
                     const vibes = (user.vibes || []).slice(0, 3).join(', ') || '—';
                     const genderDisp = ({woman:'Woman',man:'Man'})[user.gender] || '—';
-                    const tierLabel = ({free:'Spark',mid:'Kindling',premium:'Fire'})[user.tier] || user.tier || '';
-                    const intentLabel = INTENT_LABELS[user.intent] || '—';
                     return `
                         <tr>
                             <td><span class="score-cell ${scoreClass}">${score}</span></td>
                             <td>
-                                <div style="color: var(--white); font-weight: 500;">${safe(user.firstName || '')} ${safe(user.lastName || '')}</div>
-                                <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(user.email || '')}</div>
+                                <div style="color: var(--white); font-weight: 500;">${user.firstName || ''} ${user.lastName || ''}</div>
+                                <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${user.email || ''}</div>
                             </td>
-                            <td><span class="badge badge-${safe(user.tier || 'free')}">${safe(tierLabel)}</span></td>
-                            <td style="color: rgba(245,243,240,0.7);">${safe(user.age || '—')} · ${safe(genderDisp)}</td>
-                            <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${safe(intentLabel)}</td>
-                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(interests)}</td>
-                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(vibes)}</td>
-                            <td style="color: rgba(245,243,240,0.5); font-size: 11px;">${safe(reasons.slice(0,2).join(' · '))}</td>
+                            <td><span class="badge badge-${user.tier || 'free'}">${({free:'Spark',mid:'Kindling',premium:'Fire'})[user.tier] || user.tier}</span></td>
+                            <td style="color: rgba(245,243,240,0.7);">${user.age || '—'} · ${genderDisp}</td>
+                            <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${INTENT_LABELS[user.intent] || '—'}</td>
+                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${interests}</td>
+                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${vibes}</td>
+                            <td style="color: rgba(245,243,240,0.5); font-size: 11px;">${reasons.slice(0,2).join(' · ')}</td>
                         </tr>`;
                 }).join('');
             }
@@ -1365,140 +1342,6 @@
             }
         };
 
-        // ─── Delete Event (with cascade) ───────────────────
-        // Removes the event doc AND its dependent registrations, tickets,
-        // and connection_intents — otherwise these dangle and break
-        // queries on the admin and account pages.
-        //
-        // NOTE: this does NOT refund Stripe charges. If a paid event is
-        // deleted, you must refund customers manually in the Stripe
-        // dashboard. The confirm() text warns about this.
-        window.deleteEvent = async (id, title) => {
-            const ok = confirm(
-                `Delete "${title}"?\n\n` +
-                `This will permanently delete:\n` +
-                `  • the event\n` +
-                `  • all registrations for it\n` +
-                `  • all ticket records for it\n` +
-                `  • any connection intents tied to it\n\n` +
-                `Stripe charges are NOT refunded — issue any refunds in the Stripe dashboard.\n\n` +
-                `Continue?`
-            );
-            if (!ok) return;
-
-            try {
-                // Collect dependent docs first. Firestore caps batch writes
-                // at 500 ops, so we chunk if needed.
-                const [regSnap, ticketSnap, intentSnap] = await Promise.all([
-                    getDocs(query(collection(db, 'event_registrations'), where('eventId', '==', id))),
-                    getDocs(query(collection(db, 'tickets'),             where('eventId', '==', id))),
-                    getDocs(query(collection(db, 'connection_intents'),  where('eventId', '==', id))),
-                ]);
-
-                const allRefs = [
-                    ...regSnap.docs.map(d => d.ref),
-                    ...ticketSnap.docs.map(d => d.ref),
-                    ...intentSnap.docs.map(d => d.ref),
-                ];
-
-                // Delete dependents in 400-doc chunks (safe under the 500 limit).
-                while (allRefs.length) {
-                    const chunk = allRefs.splice(0, 400);
-                    await Promise.all(chunk.map(r => deleteDoc(r)));
-                }
-
-                // Finally remove the event itself.
-                await deleteDoc(doc(db, 'events', id));
-
-                await loadAdminEvents();
-                renderAdminEvents();
-                alert(`Deleted "${title}" and ${regSnap.size + ticketSnap.size + intentSnap.size} dependent records.`);
-            } catch (err) {
-                console.error('[admin] deleteEvent failed', err);
-                alert('Delete failed: ' + err.message);
-            }
-        };
-
-        // ─── Leads ────────────────────────────────────────
-        let allLeads = [];
-
-        async function loadLeads() {
-            try {
-                const snap = await getDocs(query(collection(db, 'leads'), orderBy('createdAt', 'desc')));
-                allLeads = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            } catch (e) {
-                allLeads = [];
-            }
-        }
-
-        function renderLeads(data) {
-            const leads = data || allLeads;
-            const tbody = document.getElementById('leadsTable');
-            const countEl = document.getElementById('leadCount');
-            const kpiEl = document.getElementById('leadKPIs');
-            if (!tbody) return;
-
-            countEl.textContent = `${leads.length} lead${leads.length !== 1 ? 's' : ''}`;
-
-            // KPIs
-            const welcomed = leads.filter(l => l.welcome_sent).length;
-            const pct = leads.length > 0 ? Math.round(welcomed / leads.length * 100) : 0;
-            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-            const newThisWeek = leads.filter(l => {
-                const d = l.createdAt?.toDate ? l.createdAt.toDate() : new Date(l.createdAt);
-                return d > weekAgo;
-            }).length;
-
-            kpiEl.innerHTML = `
-                <div class="kpi-card"><div class="kpi-label">Total Leads</div><div class="kpi-value coral">${leads.length}</div><div class="kpi-trend up">+${newThisWeek} this week</div></div>
-                <div class="kpi-card"><div class="kpi-label">Welcome Sent</div><div class="kpi-value">${welcomed}</div><div class="kpi-trend">${pct}% of leads</div></div>
-                <div class="kpi-card"><div class="kpi-label">Pending Welcome</div><div class="kpi-value">${leads.length - welcomed}</div><div class="kpi-trend">awaiting send</div></div>
-            `;
-
-            if (leads.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty">No leads yet. Form submissions will appear here.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = leads.map(l => {
-                const created = l.createdAt?.toDate ? l.createdAt.toDate() : (l.createdAt ? new Date(l.createdAt) : null);
-                const createdStr = created ? created.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + created.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—';
-                const welcomeStatus = l.welcome_sent
-                    ? `<span class="badge badge-active">✓ Sent</span>`
-                    : `<span class="badge badge-pending">Pending</span>`;
-                const source = l.source === 'founding_form' ? 'Founding form' : (l.source || '—');
-
-                // Sequence progress dots
-                const seq = ['day2','day5','day14','day25'];
-                const seqDots = seq.map(k => {
-                    const sent = l[`${k}_sent`];
-                    return `<span title="${k}" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${sent ? 'var(--success)' : 'rgba(245,243,240,0.2)'};margin:0 2px;"></span>`;
-                }).join('');
-
-                return `<tr>
-                    <td style="color:var(--white);font-weight:500;">${safe(l.name || '—')}</td>
-                    <td style="color:rgba(245,243,240,0.7);font-size:12px;">${safe(l.email || '—')}</td>
-                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(l.phone || '—')}</td>
-                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(source)}</td>
-                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(createdStr)}</td>
-                    <td>${welcomeStatus}</td>
-                    <td title="Day 2 / Day 5 / Day 14 / Day 25">${seqDots}</td>
-                </tr>`;
-            }).join('');
-        }
-
-        window.filterLeads = () => {
-            const q = document.getElementById('leadSearch').value.toLowerCase();
-            const welcomeF = document.getElementById('leadWelcomeFilter').value;
-            const sourceF = document.getElementById('leadSourceFilter').value;
-            let filtered = allLeads;
-            if (q) filtered = filtered.filter(l => (l.name || '').toLowerCase().includes(q) || (l.email || '').toLowerCase().includes(q));
-            if (welcomeF === 'sent') filtered = filtered.filter(l => l.welcome_sent);
-            if (welcomeF === 'pending') filtered = filtered.filter(l => !l.welcome_sent);
-            if (sourceF) filtered = filtered.filter(l => l.source === sourceF);
-            renderLeads(filtered);
-        };
-
         async function loadUsers() {
             const snap = await getDocs(query(collection(db, 'users'), orderBy('createdAt', 'desc')));
             allUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1556,19 +1399,6 @@
         }
 
         // ─── Renderers ─────────────────────────────────────
-        // XSS-safe HTML escape — use on ALL user-controlled values flowing into innerHTML.
-        // Covers <, >, &, ", ', and / (slash escape defends against script-tag breakouts in attribute context).
-        function safe(v) {
-            if (v === null || v === undefined) return '';
-            return String(v)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;')
-                .replace(/\//g, '&#x2F;');
-        }
-
         function initials(u) {
             return ((u.firstName || '?')[0] + (u.lastName || '?')[0]).toUpperCase();
         }
@@ -1607,10 +1437,10 @@
                 <tr>
                     <td>
                         <div class="user-cell">
-                            <div class="avatar">${safe(initials(u))}</div>
+                            <div class="avatar">${initials(u)}</div>
                             <div>
-                                <div style="color: var(--white); font-weight: 500;">${safe(u.firstName || '')} ${safe(u.lastName || '')}</div>
-                                <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(u.email || '')}</div>
+                                <div style="color: var(--white); font-weight: 500;">${u.firstName || ''} ${u.lastName || ''}</div>
+                                <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${u.email || ''}</div>
                             </div>
                         </div>
                     </td>
@@ -1660,28 +1490,26 @@
         }
 
         function activityText(item) {
-            const name = `<strong>${safe(item.userName || item.userEmail || 'A member')}</strong>`;
-            const tierLabel = (t) => safe(TIER_LABELS[t] || t || '');
-            const status = safe(item.details?.status || '');
+            const name = `<strong>${item.userName || item.userEmail || 'A member'}</strong>`;
             switch (item.type) {
                 case 'signup':
-                    return `${name} signed up for <span class="accent">${tierLabel(item.details?.tier) || 'a tier'}</span>`;
+                    return `${name} signed up for <span class="accent">${TIER_LABELS[item.details?.tier] || 'a tier'}</span>`;
                 case 'payment_succeeded':
-                    return `${name} was charged <span class="accent">$${item.details?.amount?.toFixed(2) || '—'}</span> for ${tierLabel(item.details?.tier) || 'their tier'}`;
+                    return `${name} was charged <span class="accent">$${item.details?.amount?.toFixed(2) || '—'}</span> for ${TIER_LABELS[item.details?.tier] || 'their tier'}`;
                 case 'payment_failed':
                     return `${name}'s payment failed — <span class="accent">$${item.details?.amount?.toFixed(2) || '—'}</span>`;
                 case 'subscription_update':
-                    return `${name}'s subscription updated to <span class="accent">${status}</span>`;
+                    return `${name}'s subscription updated to <span class="accent">${item.details?.status || ''}</span>`;
                 case 'subscription_canceled':
-                    return `${name} canceled their ${tierLabel(item.details?.tier)} subscription`;
+                    return `${name} canceled their ${TIER_LABELS[item.details?.tier] || ''} subscription`;
                 case 'trial_ending_soon':
                     return `${name}'s trial is ending soon`;
                 case 'match':
-                    return `${name} matched with <strong>${safe(item.details?.matchedWith || 'someone')}</strong>`;
+                    return `${name} matched with <strong>${item.details?.matchedWith || 'someone'}</strong>`;
                 case 'event_attended':
-                    return `${name} attended <span class="accent">${safe(item.details?.eventName || 'an event')}</span>`;
+                    return `${name} attended <span class="accent">${item.details?.eventName || 'an event'}</span>`;
                 default:
-                    return `${name} — ${safe(item.type)}`;
+                    return `${name} — ${item.type}`;
             }
         }
 
@@ -1730,21 +1558,20 @@
             tbody.innerHTML = filtered.map(u => {
                 const interests = (u.interests || []).slice(0, 3).join(', ') || '—';
                 const ltv = (TIER_PRICES[u.tier] || 0) * AVG_LIFETIME_MONTHS;
-                const genderDisp = ({woman:'Woman',man:'Man'})[u.gender] || u.gender || '—';
                 return `
                     <tr>
                         <td>
                             <div class="user-cell">
-                                <div class="avatar">${safe(initials(u))}</div>
+                                <div class="avatar">${initials(u)}</div>
                                 <div>
-                                    <div style="color: var(--white); font-weight: 500;">${safe(u.firstName || '')} ${safe(u.lastName || '')}</div>
-                                    <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(u.email || '')}</div>
+                                    <div style="color: var(--white); font-weight: 500;">${u.firstName || ''} ${u.lastName || ''}</div>
+                                    <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${u.email || ''}</div>
                                 </div>
                             </div>
                         </td>
-                        <td style="color: rgba(245,243,240,0.7); font-size: 13px;">${safe(u.phone || '—')}</td>
-                        <td style="color: rgba(245,243,240,0.7);">${safe(u.age || '—')} · ${safe(genderDisp)}</td>
-                        <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${safe(interests)}</td>
+                        <td style="color: rgba(245,243,240,0.7); font-size: 13px;">${u.phone || '—'}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${u.age || '—'} · ${({woman:'Woman',man:'Man'})[u.gender] || u.gender || '—'}</td>
+                        <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${interests}</td>
                         <td>${tierBadge(u.tier)}</td>
                         <td>${statusBadge(u.subscriptionStatus)}</td>
                         <td style="color: rgba(245,243,240,0.6);">${formatDate(u.createdAt)}</td>
@@ -1780,12 +1607,11 @@
             }
             tbody.innerHTML = allPayments.map(p => {
                 const user = allUsers.find(u => u.id === p.userId);
-                const displayName = p.userName || (user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '—');
                 return `
                     <tr>
                         <td>
-                            <div style="color: var(--white); font-weight: 500;">${safe(displayName)}</div>
-                            <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(p.userEmail || '')}</div>
+                            <div style="color: var(--white); font-weight: 500;">${p.userName || (user ? `${user.firstName} ${user.lastName}` : '—')}</div>
+                            <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${p.userEmail || ''}</div>
                         </td>
                         <td style="color: var(--gold); font-weight: 600;">$${(p.amount / 100).toFixed(2)}</td>
                         <td>${tierBadge(user?.tier || 'free')}</td>
@@ -1801,7 +1627,146 @@
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.getElementById('tab-' + id).classList.add('active');
             btn.classList.add('active');
+            if (id === 'venues') loadVenues();
         };
+
+        // ─── VENUES ────────────────────────────────────────
+        let allVenues = [];
+
+        async function loadVenues() {
+            const tbody = document.getElementById('venuesTable');
+            tbody.innerHTML = '<tr><td colspan="7"><div class="spinner"></div></td></tr>';
+
+            try {
+                const venuesSnap = await getDocs(collection(db, 'venues'));
+                allVenues = venuesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderVenues();
+            } catch (err) {
+                console.error('Error loading venues:', err);
+                tbody.innerHTML = '<tr><td colspan="7" class="empty">Error loading venues.</td></tr>';
+            }
+        }
+
+        function renderVenues() {
+            const tbody = document.getElementById('venuesTable');
+            const filter = document.getElementById('venueStatusFilter').value;
+
+            const filtered = filter ? allVenues.filter(v => v.status === filter) : allVenues;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty">No venues match this filter.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(v => {
+                const contacted = v.contacted_at ? new Date(v.contacted_at).toLocaleDateString() : '—';
+                const statusBadgeClass = {
+                    'not_contacted': 'badge-active',
+                    'contacted': 'badge-pending',
+                    'interested': 'badge-warning',
+                    'booked': 'badge-success',
+                    'event_created': 'badge-success'
+                }[v.status] || 'badge-active';
+
+                const statusLabel = {
+                    'not_contacted': 'Not Contacted',
+                    'contacted': 'Contacted',
+                    'interested': 'Interested',
+                    'booked': 'Booked',
+                    'event_created': 'Event Created'
+                }[v.status] || v.status;
+
+                return `
+                    <tr>
+                        <td style="color: var(--white); font-weight: 500;">${v.name}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${v.city}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${v.type}</td>
+                        <td><span class="badge ${statusBadgeClass}">${statusLabel}</span></td>
+                        <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${contacted}</td>
+                        <td style="color: rgba(245,243,240,0.5); font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${v.notes || '—'}</td>
+                        <td style="font-size: 12px;">
+                            ${v.status === 'not_contacted' ? `<button class="action-btn" onclick="sendVenueOutreach('${v.id}', '${v.name.replace(/'/g, "\\'")}')">Send</button>` : ''}
+                            ${v.status !== 'event_created' ? `<button class="action-btn" onclick="updateVenueStatus('${v.id}')">Update</button>` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        window.sendVenueOutreach = async (venueId, venueName) => {
+            if (!confirm(`Send outreach email to ${venueName}?`)) return;
+
+            try {
+                const response = await fetch('/api/send-venue-outreach', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ venue_id: venueId })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('Email sent! Status updated to "Contacted".');
+                    loadVenues();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Error sending outreach: ' + err.message);
+            }
+        };
+
+        window.sendBulkOutreach = async () => {
+            const notContacted = allVenues.filter(v => v.status === 'not_contacted');
+            if (notContacted.length === 0) {
+                alert('No venues to contact.');
+                return;
+            }
+
+            if (!confirm(`Send outreach to ${notContacted.length} venues?`)) return;
+
+            let sent = 0;
+            for (const v of notContacted) {
+                try {
+                    const response = await fetch('/api/send-venue-outreach', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ venue_id: v.id })
+                    });
+                    if (response.ok) sent++;
+                } catch (err) {
+                    console.error(`Error sending to ${v.name}:`, err);
+                }
+            }
+            alert(`Sent ${sent} emails.`);
+            loadVenues();
+        };
+
+        window.updateVenueStatus = async (venueId) => {
+            const venue = allVenues.find(v => v.id === venueId);
+            const statuses = ['contacted', 'interested', 'booked', 'event_created'];
+            const newStatus = prompt(`Current status: ${venue.status}\n\nNew status: (${statuses.join(', ')})`, 'interested');
+
+            if (!newStatus || !statuses.includes(newStatus)) return;
+
+            try {
+                const venueRef = doc(db, 'venues', venueId);
+                await updateDoc(venueRef, {
+                    status: newStatus,
+                    responded_at: new Date().toISOString()
+                });
+                loadVenues();
+            } catch (err) {
+                alert('Error updating status: ' + err.message);
+            }
+        };
+
+        // Reload venues when tab is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            const venueFilterSelect = document.getElementById('venueStatusFilter');
+            if (venueFilterSelect) {
+                venueFilterSelect.addEventListener('change', renderVenues);
+            }
+        });
 
         // Allow enter to submit login
         document.getElementById('adminPassword').addEventListener('keydown', (e) => {
