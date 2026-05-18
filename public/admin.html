@@ -1646,6 +1646,11 @@
         };
 
         // ─── VENUES ────────────────────────────────────────
+        // XSS helper — escapes text before inserting into innerHTML.
+        function safe(str) {
+            return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
         let allVenues = [];
 
         async function loadVenues() {
