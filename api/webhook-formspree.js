@@ -2,22 +2,22 @@
 // CommonJS — Vercel serverless function
 // Receives Formspree POST → saves to Firestore → sends Welcome email via Resend
 
-const { initializeApp, getApps } = require('firebase/app');
-const { getFirestore, collection, addDoc, updateDoc, doc, serverTimestamp } = require('firebase/firestore');
+const admin = require('firebase-admin');
 const { Resend } = require('resend');
 
-// Firebase init (singleton)
-const firebaseConfig = {
-  apiKey:            process.env.FIREBASE_API_KEY,
-  authDomain:        'sparkdate-philly.firebaseapp.com',
-  projectId:         'sparkdate-philly',
-  storageBucket:     'sparkdate-philly.firebasestorage.app',
-  messagingSenderId: '330206052938',
-  appId:             '1:330206052938:web:18762191153f4037b75cb3'
-};
+// Firebase Admin SDK init (singleton)
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId:      process.env.FIREBASE_PROJECT_ID,
+      clientEmail:    process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey:     process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    }),
+    projectId: process.env.FIREBASE_PROJECT_ID,
+  });
+}
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const db  = getFirestore(app);
+const db = admin.firestore();
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ── Welcome email (01_welcome.html with first_name substituted) ──────────────
@@ -101,12 +101,12 @@ module.exports = async function handler(req, res) {
     const firstName = name ? name.split(' ')[0] : 'there';
 
     // 1 — Store in Firestore
-    const docRef = await addDoc(collection(db, 'leads'), {
+    const docRef = await db.collection('leads').add({
       name,
       email,
       phone:           phone || null,
       source:          'founding_form',
-      createdAt:       serverTimestamp(),
+      createdAt:       admin.firestore.FieldValue.serverTimestamp(),
       welcome_sent:    false,
       welcome_sent_at: null,
       day2_sent:       false,
@@ -134,7 +134,7 @@ module.exports = async function handler(req, res) {
 
     // 3 — Update Firestore with send status
     const sent = !result.error;
-    await updateDoc(doc(db, 'leads', docRef.id), {
+    await db.collection('leads').doc(docRef.id).update({
       welcome_sent:    sent,
       welcome_sent_at: sent ? new Date().toISOString() : null,
       resend_id:       result.data?.id || null,
