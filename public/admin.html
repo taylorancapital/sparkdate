@@ -1029,7 +1029,10 @@
         };
 
         // Whitelist of admin emails (only these can access)
-        const ADMIN_EMAILS = ['taylor@sparkdate.date', 'pennsylvaniacabinetmaker@comcast.net'];
+        // NOTE: the client-side allowlist is cosmetic only — the real
+        // gate is the `admin: true` custom claim checked by Firestore rules.
+        // Set/revoke claims via scripts/set-admin-claim.js.
+        const ADMIN_EMAILS = ['taylor.ancapital@gmail.com', 'pennsylvaniacabinetmaker@comcast.net'];
         window.ADMIN_EMAILS = ADMIN_EMAILS;
 
         const app = initializeApp(firebaseConfig);
