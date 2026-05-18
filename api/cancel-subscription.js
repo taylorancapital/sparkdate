@@ -1,17 +1,7 @@
 const Stripe = require('stripe');
-const admin = require('firebase-admin');
+const { admin, requireAuth } = require('./_auth');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
-}
 const db = admin.firestore();
 
 function applyCors(req, res) {
@@ -31,8 +21,16 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { firebaseUid } = req.body;
-    if (!firebaseUid) return res.status(400).json({ error: 'Missing firebaseUid' });
+    // Verify Firebase ID token — use the authenticated UID, NOT a body field.
+    // This closes a critical hole where anyone could cancel anyone's subscription
+    // by submitting their UID.
+    let decoded;
+    try {
+      decoded = await requireAuth(req);
+    } catch (e) {
+      return res.status(e.statusCode || 401).json({ error: e.message });
+    }
+    const firebaseUid = decoded.uid;
 
     const userDoc = await db.collection('users').doc(firebaseUid).get();
     if (!userDoc.exists) return res.status(404).json({ error: 'User not found' });

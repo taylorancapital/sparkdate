@@ -1127,20 +1127,31 @@
                 const spots = ev.spotsTotal || ((ev.spotsMen || 0) + (ev.spotsWomen || 0));
                 const regCount = allRegistrations.filter(r => r.eventId === ev.id).length;
                 const statusClass = ev.status === 'open' ? 'badge-active' : ev.status === 'almost' ? 'badge-pending' : 'badge-canceled';
+                const venueLine = (ev.venue || '—') + (ev.neighborhood ? ' · ' + ev.neighborhood : '');
                 return `
                     <tr>
-                        <td style="color: var(--white); font-weight: 500;">${ev.title}</td>
-                        <td style="color: rgba(245,243,240,0.7);">${dateStr}${timeStr ? ' · ' + timeStr : ''}</td>
-                        <td style="color: rgba(245,243,240,0.7);">${ev.venue || '—'}${ev.neighborhood ? ' · ' + ev.neighborhood : ''}</td>
+                        <td style="color: var(--white); font-weight: 500;">${safe(ev.title)}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${safe(dateStr)}${timeStr ? ' · ' + safe(timeStr) : ''}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${safe(venueLine)}</td>
                         <td style="color: rgba(245,243,240,0.7);">${spots}</td>
                         <td style="color: var(--gold); font-weight: 600;">${regCount}</td>
-                        <td><span class="badge ${statusClass}">${ev.status || 'open'}</span></td>
+                        <td><span class="badge ${statusClass}">${safe(ev.status || 'open')}</span></td>
                         <td style="display:flex;gap:6px;">
-                            <button class="action-btn" onclick="openCandidates('${ev.id}')">Score Candidates</button>
-                            <button class="action-btn" style="background:rgba(248,113,113,0.12);color:var(--danger);border-color:rgba(248,113,113,0.3);" onclick="deleteEvent('${ev.id}', ${JSON.stringify(ev.title)})">Delete</button>
+                            <button class="action-btn" data-act="score" data-id="${safe(ev.id)}">Score Candidates</button>
+                            <button class="action-btn" style="background:rgba(248,113,113,0.12);color:var(--danger);border-color:rgba(248,113,113,0.3);" data-act="delete" data-id="${safe(ev.id)}" data-title="${safe(ev.title)}">Delete</button>
                         </td>
                     </tr>`;
             }).join('');
+
+            // Event delegation — safer than inline onclick with user-controlled titles
+            tbody.querySelectorAll('button[data-act]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const act = btn.dataset.act;
+                    const id = btn.dataset.id;
+                    if (act === 'score') window.openCandidates(id);
+                    else if (act === 'delete') window.deleteEvent(id, btn.dataset.title || '');
+                });
+            });
         }
 
         // ────────────────────────────────────────────────────────────────
@@ -1241,19 +1252,21 @@
                     const interests = (user.interests || []).slice(0, 3).join(', ') || '—';
                     const vibes = (user.vibes || []).slice(0, 3).join(', ') || '—';
                     const genderDisp = ({woman:'Woman',man:'Man'})[user.gender] || '—';
+                    const tierLabel = ({free:'Spark',mid:'Kindling',premium:'Fire'})[user.tier] || user.tier || '';
+                    const intentLabel = INTENT_LABELS[user.intent] || '—';
                     return `
                         <tr>
                             <td><span class="score-cell ${scoreClass}">${score}</span></td>
                             <td>
-                                <div style="color: var(--white); font-weight: 500;">${user.firstName || ''} ${user.lastName || ''}</div>
-                                <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${user.email || ''}</div>
+                                <div style="color: var(--white); font-weight: 500;">${safe(user.firstName || '')} ${safe(user.lastName || '')}</div>
+                                <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(user.email || '')}</div>
                             </td>
-                            <td><span class="badge badge-${user.tier || 'free'}">${({free:'Spark',mid:'Kindling',premium:'Fire'})[user.tier] || user.tier}</span></td>
-                            <td style="color: rgba(245,243,240,0.7);">${user.age || '—'} · ${genderDisp}</td>
-                            <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${INTENT_LABELS[user.intent] || '—'}</td>
-                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${interests}</td>
-                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${vibes}</td>
-                            <td style="color: rgba(245,243,240,0.5); font-size: 11px;">${reasons.slice(0,2).join(' · ')}</td>
+                            <td><span class="badge badge-${safe(user.tier || 'free')}">${safe(tierLabel)}</span></td>
+                            <td style="color: rgba(245,243,240,0.7);">${safe(user.age || '—')} · ${safe(genderDisp)}</td>
+                            <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${safe(intentLabel)}</td>
+                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(interests)}</td>
+                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(vibes)}</td>
+                            <td style="color: rgba(245,243,240,0.5); font-size: 11px;">${safe(reasons.slice(0,2).join(' · '))}</td>
                         </tr>`;
                 }).join('');
             }
@@ -1418,11 +1431,11 @@
                 }).join('');
 
                 return `<tr>
-                    <td style="color:var(--white);font-weight:500;">${l.name || '—'}</td>
-                    <td style="color:rgba(245,243,240,0.7);font-size:12px;">${l.email || '—'}</td>
-                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${l.phone || '—'}</td>
-                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${source}</td>
-                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${createdStr}</td>
+                    <td style="color:var(--white);font-weight:500;">${safe(l.name || '—')}</td>
+                    <td style="color:rgba(245,243,240,0.7);font-size:12px;">${safe(l.email || '—')}</td>
+                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(l.phone || '—')}</td>
+                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(source)}</td>
+                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(createdStr)}</td>
                     <td>${welcomeStatus}</td>
                     <td title="Day 2 / Day 5 / Day 14 / Day 25">${seqDots}</td>
                 </tr>`;
@@ -1498,6 +1511,19 @@
         }
 
         // ─── Renderers ─────────────────────────────────────
+        // XSS-safe HTML escape — use on ALL user-controlled values flowing into innerHTML.
+        // Covers <, >, &, ", ', / (slash defends against </script> breakouts inside attribute context).
+        function safe(v) {
+            if (v === null || v === undefined) return '';
+            return String(v)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/\//g, '&#x2F;');
+        }
+
         function initials(u) {
             return ((u.firstName || '?')[0] + (u.lastName || '?')[0]).toUpperCase();
         }
@@ -1536,10 +1562,10 @@
                 <tr>
                     <td>
                         <div class="user-cell">
-                            <div class="avatar">${initials(u)}</div>
+                            <div class="avatar">${safe(initials(u))}</div>
                             <div>
-                                <div style="color: var(--white); font-weight: 500;">${u.firstName || ''} ${u.lastName || ''}</div>
-                                <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${u.email || ''}</div>
+                                <div style="color: var(--white); font-weight: 500;">${safe(u.firstName || '')} ${safe(u.lastName || '')}</div>
+                                <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(u.email || '')}</div>
                             </div>
                         </div>
                     </td>
@@ -1589,26 +1615,28 @@
         }
 
         function activityText(item) {
-            const name = `<strong>${item.userName || item.userEmail || 'A member'}</strong>`;
+            const name = `<strong>${safe(item.userName || item.userEmail || 'A member')}</strong>`;
+            const tierLabel = (t) => safe(TIER_LABELS[t] || t || '');
+            const status = safe(item.details?.status || '');
             switch (item.type) {
                 case 'signup':
-                    return `${name} signed up for <span class="accent">${TIER_LABELS[item.details?.tier] || 'a tier'}</span>`;
+                    return `${name} signed up for <span class="accent">${tierLabel(item.details?.tier) || 'a tier'}</span>`;
                 case 'payment_succeeded':
-                    return `${name} was charged <span class="accent">$${item.details?.amount?.toFixed(2) || '—'}</span> for ${TIER_LABELS[item.details?.tier] || 'their tier'}`;
+                    return `${name} was charged <span class="accent">$${item.details?.amount?.toFixed(2) || '—'}</span> for ${tierLabel(item.details?.tier) || 'their tier'}`;
                 case 'payment_failed':
                     return `${name}'s payment failed — <span class="accent">$${item.details?.amount?.toFixed(2) || '—'}</span>`;
                 case 'subscription_update':
-                    return `${name}'s subscription updated to <span class="accent">${item.details?.status || ''}</span>`;
+                    return `${name}'s subscription updated to <span class="accent">${status}</span>`;
                 case 'subscription_canceled':
-                    return `${name} canceled their ${TIER_LABELS[item.details?.tier] || ''} subscription`;
+                    return `${name} canceled their ${tierLabel(item.details?.tier)} subscription`;
                 case 'trial_ending_soon':
                     return `${name}'s trial is ending soon`;
                 case 'match':
-                    return `${name} matched with <strong>${item.details?.matchedWith || 'someone'}</strong>`;
+                    return `${name} matched with <strong>${safe(item.details?.matchedWith || 'someone')}</strong>`;
                 case 'event_attended':
-                    return `${name} attended <span class="accent">${item.details?.eventName || 'an event'}</span>`;
+                    return `${name} attended <span class="accent">${safe(item.details?.eventName || 'an event')}</span>`;
                 default:
-                    return `${name} — ${item.type}`;
+                    return `${name} — ${safe(item.type)}`;
             }
         }
 
@@ -1657,20 +1685,21 @@
             tbody.innerHTML = filtered.map(u => {
                 const interests = (u.interests || []).slice(0, 3).join(', ') || '—';
                 const ltv = (TIER_PRICES[u.tier] || 0) * AVG_LIFETIME_MONTHS;
+                const genderDisp = ({woman:'Woman',man:'Man'})[u.gender] || u.gender || '—';
                 return `
                     <tr>
                         <td>
                             <div class="user-cell">
-                                <div class="avatar">${initials(u)}</div>
+                                <div class="avatar">${safe(initials(u))}</div>
                                 <div>
-                                    <div style="color: var(--white); font-weight: 500;">${u.firstName || ''} ${u.lastName || ''}</div>
-                                    <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${u.email || ''}</div>
+                                    <div style="color: var(--white); font-weight: 500;">${safe(u.firstName || '')} ${safe(u.lastName || '')}</div>
+                                    <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(u.email || '')}</div>
                                 </div>
                             </div>
                         </td>
-                        <td style="color: rgba(245,243,240,0.7); font-size: 13px;">${u.phone || '—'}</td>
-                        <td style="color: rgba(245,243,240,0.7);">${u.age || '—'} · ${({woman:'Woman',man:'Man'})[u.gender] || u.gender || '—'}</td>
-                        <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${interests}</td>
+                        <td style="color: rgba(245,243,240,0.7); font-size: 13px;">${safe(u.phone || '—')}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${safe(u.age || '—')} · ${safe(genderDisp)}</td>
+                        <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${safe(interests)}</td>
                         <td>${tierBadge(u.tier)}</td>
                         <td>${statusBadge(u.subscriptionStatus)}</td>
                         <td style="color: rgba(245,243,240,0.6);">${formatDate(u.createdAt)}</td>
@@ -1706,11 +1735,12 @@
             }
             tbody.innerHTML = allPayments.map(p => {
                 const user = allUsers.find(u => u.id === p.userId);
+                const displayName = p.userName || (user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '—');
                 return `
                     <tr>
                         <td>
-                            <div style="color: var(--white); font-weight: 500;">${p.userName || (user ? `${user.firstName} ${user.lastName}` : '—')}</div>
-                            <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${p.userEmail || ''}</div>
+                            <div style="color: var(--white); font-weight: 500;">${safe(displayName)}</div>
+                            <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(p.userEmail || '')}</div>
                         </td>
                         <td style="color: var(--gold); font-weight: 600;">$${(p.amount / 100).toFixed(2)}</td>
                         <td>${tierBadge(user?.tier || 'free')}</td>

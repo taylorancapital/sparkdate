@@ -682,13 +682,14 @@
             try {
                 if (!currentUser) throw new Error('Not signed in');
 
+                const idToken = await currentUser.getIdToken();
                 const response = await fetch('/api/upgrade-subscription', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userId: currentUser.uid,
-                        newTier: newTier,
-                    }),
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({ newTier }),
                 });
 
                 const data = await response.json();
@@ -787,10 +788,14 @@
             document.getElementById('cancelStep4').classList.add('active');
 
             try {
+                const idToken = await currentUser.getIdToken();
                 const res = await fetch('/api/cancel-subscription', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ firebaseUid: currentUser.uid })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({})
                 });
                 const result = await res.json();
                 if (!res.ok) throw new Error(result.error);
@@ -815,7 +820,18 @@
             setTimeout(() => { el.style.display = 'none'; }, 6000);
         }
 
-        function badge(text, type) { return `<span class="badge badge-${type}">${text}</span>`; }
+        // XSS-safe HTML escape — apply to any user-controlled value flowing into innerHTML.
+        function safe(v) {
+            if (v === null || v === undefined) return '';
+            return String(v)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/\//g, '&#x2F;');
+        }
+        function badge(text, type) { return `<span class="badge badge-${safe(type)}">${safe(text)}</span>`; }
 
         // ========= LOAD PROFILE =========
         async function loadProfile() {
@@ -894,13 +910,14 @@
                         const d = eventDate(e);
                         const dateStr = d ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
                         const timeStr = e.time || (d ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '');
+                        const venueLine = (e.venue || '') + (e.neighborhood ? ' · ' + e.neighborhood : '');
                         return `
                             <div class="field">
                                 <div>
-                                    <div class="field-value" style="margin-bottom: 2px;">${e.title}</div>
-                                    <div style="font-size: 12px; color: rgba(245,243,240,0.5);">${e.venue || ''}${e.neighborhood ? ' · ' + e.neighborhood : ''}</div>
+                                    <div class="field-value" style="margin-bottom: 2px;">${safe(e.title)}</div>
+                                    <div style="font-size: 12px; color: rgba(245,243,240,0.5);">${safe(venueLine)}</div>
                                 </div>
-                                <div style="font-size: 12px; color: var(--gold); text-align: right;">${dateStr}${timeStr ? '<br>' + timeStr : ''}</div>
+                                <div style="font-size: 12px; color: var(--gold); text-align: right;">${safe(dateStr)}${timeStr ? '<br>' + safe(timeStr) : ''}</div>
                             </div>`;
                     }).join('');
 
@@ -950,7 +967,7 @@
                     const top = allUpcomingEvents.slice(0, 3).map(e => {
                         const d = eventDate(e);
                         const dateStr = d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-                        return `<li>· <a href="/event?id=${e.id}">${e.title}</a> — ${dateStr}${e.venue ? ' · ' + e.venue : ''}</li>`;
+                        return `<li>· <a href="/event?id=${encodeURIComponent(e.id)}">${safe(e.title)}</a> — ${safe(dateStr)}${e.venue ? ' · ' + safe(e.venue) : ''}</li>`;
                     }).join('');
                     return `
                         <div class="suggested-events">
@@ -970,6 +987,7 @@
                     const intentLabels = { long_term: 'Long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
                     const intentDisp = intentLabels[u.intent] || '';
                     const meta = [u.age, genderDisp, intentDisp].filter(Boolean).join(' · ');
+                    const displayName = (u.firstName || 'Member') + ' ' + (u.lastName || '').charAt(0) + (u.lastName ? '.' : '');
 
                     let action, extra = '';
                     if (matched) {
@@ -979,16 +997,16 @@
                         action = `<div class="connect-state sent">Saved</div>`;
                         extra = renderSuggestions();
                     } else if (received) {
-                        action = `<button class="connect-btn" onclick="markConnection('${otherUid}','${event.id}')" style="border-color: var(--info); color: var(--info);">They picked you · Stay in touch</button>`;
+                        action = `<button class="connect-btn" data-uid="${safe(otherUid)}" data-event="${safe(event.id)}" style="border-color: var(--info); color: var(--info);">They picked you · Stay in touch</button>`;
                     } else {
-                        action = `<button class="connect-btn" onclick="markConnection('${otherUid}','${event.id}')">Stay in touch</button>`;
+                        action = `<button class="connect-btn" data-uid="${safe(otherUid)}" data-event="${safe(event.id)}">Stay in touch</button>`;
                     }
 
                     return `
                         <div class="attendee-row">
                             <div class="attendee-info">
-                                <div class="attendee-name">${u.firstName || 'Member'} ${(u.lastName || '').charAt(0)}${u.lastName ? '.' : ''}</div>
-                                <div class="attendee-meta">${meta}</div>
+                                <div class="attendee-name">${safe(displayName)}</div>
+                                <div class="attendee-meta">${safe(meta)}</div>
                                 ${extra}
                             </div>
                             ${action}
@@ -1007,14 +1025,22 @@
                     return `
                         <div class="event-group">
                             <div class="event-group-header">
-                                <div class="event-group-title">${event.title}</div>
-                                <div class="event-group-date">${dateStr}</div>
+                                <div class="event-group-title">${safe(event.title)}</div>
+                                <div class="event-group-date">${safe(dateStr)}</div>
                             </div>
                             ${others.length === 0
                                 ? '<div style="color: rgba(245,243,240,0.4); font-size: 12px; padding: 8px 0;">No other attendees registered.</div>'
                                 : others.map(uid => renderAttendee(uid, event)).join('')}
                         </div>`;
                 }).join('');
+
+                // Wire up "Stay in touch" buttons via event delegation
+                // (replaces inline onclick which would break on user-controlled IDs)
+                connectionsEl.querySelectorAll('button.connect-btn[data-uid]').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        window.markConnection(btn.dataset.uid, btn.dataset.event);
+                    });
+                });
             } catch (e) {
                 console.error('[connections] load error', e);
                 upcomingEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">Could not load events.</div>`;
@@ -1046,10 +1072,14 @@
             status.textContent = 'Charging your card on file and switching your plan to Fire…';
 
             try {
+                const idToken = await currentUser.getIdToken();
                 const response = await fetch('/api/upgrade-subscription', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: currentUser.uid, newTier: 'premium' }),
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({ newTier: 'premium' }),
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.message || data.error || 'Upgrade failed');

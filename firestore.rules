@@ -1,0 +1,134 @@
+// firestore.rules — SparkDate Firestore Security Rules (DRAFT)
+//
+// ⚠️  DRAFT — DO NOT DEPLOY until you've:
+//      1. Set a custom claim `{ admin: true }` on your admin Firebase user(s),
+//         e.g. via Admin SDK:
+//           await admin.auth().setCustomUserClaims(uid, { admin: true })
+//      2. Verified the collection list below matches what's in production.
+//      3. Tested with the Firebase emulator suite (`firebase emulators:start`)
+//         against the real client app.
+//
+// Deploy via: `firebase deploy --only firestore:rules`
+//
+// Threat model assumed:
+//   - Any signed-in user can read/write only their own data
+//   - Tickets / event_registrations / activity / payments / leads are
+//     written ONLY by the Vercel API (which uses Firebase Admin SDK and
+//     bypasses these rules entirely)
+//   - Admins (custom claim) can read everything in the dashboard
+//   - Unauthenticated traffic can read only public event listings
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+    // Restrict an update to only the listed top-level keys.
+    function diffOnly(allowed) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
+    }
+
+    // ── users/{uid} ──────────────────────────────────────────────
+    // User profile, tier, subscription metadata.
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+
+      // Initial doc is created during signup by the client right after
+      // createUserWithEmailAndPassword — so the user must own it.
+      allow create: if isOwner(uid)
+        && request.resource.data.email == request.auth.token.email;
+
+      // Profile self-edits are limited to a safe whitelist.
+      // tier / subscriptionStatus / stripeCustomerId / subscriptionId
+      // are mutated by the server (Stripe webhook + signup endpoint)
+      // running with Admin SDK — those bypass these rules.
+      allow update: if isOwner(uid)
+        && diffOnly([
+            'firstName', 'lastName', 'phone', 'age', 'gender',
+            'interests', 'vibes', 'intent', 'bio', 'photoUrl',
+            'preferences', 'profileCompleted', 'lastActive'
+          ]);
+
+      // Account deletion: owner or admin.
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
+    // ── events/{eventId} ─────────────────────────────────────────
+    // Public listings.
+    match /events/{eventId} {
+      // Anyone can browse upcoming events (no auth required).
+      allow read: if true;
+      // Only admins create / mutate / delete via the dashboard.
+      allow write: if isAdmin();
+    }
+
+    // ── tickets/{ticketId} ───────────────────────────────────────
+    // Written by /api/purchase-ticket using Admin SDK (bypasses rules).
+    // From the browser: users may read their own tickets only.
+    match /tickets/{ticketId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.firebaseUid == request.auth.uid);
+      allow write: if false; // server-only
+    }
+
+    // ── event_registrations/{regId} ──────────────────────────────
+    // SHOULD be server-written only (audit item: move write into
+    // purchase-ticket.js). For now we lock writes; the existing
+    // client-side write in event.html will fail until that's moved.
+    match /event_registrations/{regId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false; // server-only
+    }
+
+    // ── activity/{actId} ─────────────────────────────────────────
+    // Append-only log written by API endpoints + Stripe webhook.
+    match /activity/{actId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ── payments/{payId} ─────────────────────────────────────────
+    // Stripe-webhook-written. Sensitive — admin-only read.
+    match /payments/{payId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ── leads/{leadId} ───────────────────────────────────────────
+    // Email-marketing signups from Formspree webhook. Server-only.
+    match /leads/{leadId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ── connection_intents/{intentId} ────────────────────────────
+    // A Fire member declares interest in another past-event attendee.
+    // Must be created by the declarer themselves; cannot spoof.
+    match /connection_intents/{intentId} {
+      allow read: if isSignedIn() && (
+        resource.data.fromUserId == request.auth.uid ||
+        resource.data.toUserId   == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isSignedIn()
+        && request.resource.data.fromUserId == request.auth.uid;
+      allow update, delete: if isAdmin()
+        || (isSignedIn() && resource.data.fromUserId == request.auth.uid);
+    }
+
+    // ── Default deny ─────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

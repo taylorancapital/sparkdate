@@ -578,18 +578,22 @@
                     }
                 }
 
-                // Build request payload: prefer card on file for logged-in members
+                // Build request payload: prefer card on file for logged-in members.
+                // NOTE: `amount` is no longer sent — the server recomputes price from
+                // the event doc to prevent client-side price tampering.
                 const useCardOnFile = currentUser && userProfile?.stripeCustomerId;
                 let payload;
+                let idToken = null;
 
                 if (useCardOnFile) {
+                    // Member path: requires ID token. Server uses decoded.uid,
+                    // ignores any UID we send in the body.
+                    idToken = await currentUser.getIdToken();
                     payload = {
-                        firebaseUid: currentUser.uid,
+                        firebaseUid: currentUser.uid, // kept for backwards-compat / clarity; server overwrites with decoded.uid
                         email,
                         gender,
-                        amount: total,
                         eventId: evId,
-                        eventName: evName,
                     };
                 } else {
                     // Guest checkout — collect new card via Stripe Elements
@@ -604,15 +608,16 @@
                         paymentMethodId: paymentMethod.id,
                         email,
                         gender,
-                        amount: total,
                         eventId: evId,
-                        eventName: evName,
                     };
                 }
 
+                const headers = { 'Content-Type': 'application/json' };
+                if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+
                 const res = await fetch('/api/purchase-ticket', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers,
                     body: JSON.stringify(payload)
                 });
 

@@ -3,20 +3,9 @@
 // Uses Stripe Subscription update with proration - they're billed/credited for the difference immediately.
 
 const Stripe = require('stripe');
-const admin = require('firebase-admin');
+const { admin, requireAuth } = require('./_auth');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
-}
-
 const db = admin.firestore();
 
 // ===================================================================
@@ -50,10 +39,19 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { userId, newTier } = req.body;
+    // Verify ID token — the authenticated UID is the only trusted identity.
+    // Body-supplied `userId` is ignored to prevent cross-account upgrades.
+    let decoded;
+    try {
+      decoded = await requireAuth(req);
+    } catch (e) {
+      return res.status(e.statusCode || 401).json({ error: e.message });
+    }
+    const userId = decoded.uid;
+    const { newTier } = req.body || {};
 
-    if (!userId || !newTier) {
-      return res.status(400).json({ error: 'Missing userId or newTier' });
+    if (!newTier) {
+      return res.status(400).json({ error: 'Missing newTier' });
     }
 
     if (!TIER_PRICES[newTier]) {

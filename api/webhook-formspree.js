@@ -17,10 +17,12 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+// Hash email for logging — lets us correlate a lead in logs without storing PII.
+const crypto = require('crypto');
+const hashEmail = (e) => crypto.createHash('sha256').update(String(e || '').toLowerCase()).digest('hex').slice(0, 12);
+
 module.exports = async function handler(req, res) {
-  console.log('🔔 WEBHOOK HIT:', new Date().toISOString());
-  console.log('Method:', req.method);
-  console.log('Body:', JSON.stringify(req.body).substring(0, 200));
+  console.log('🔔 WEBHOOK HIT:', new Date().toISOString(), 'method=', req.method);
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'POST only' });
@@ -28,7 +30,12 @@ module.exports = async function handler(req, res) {
 
   try {
     const { name, email, phone } = req.body || {};
-    console.log('📥 Parsed:', { name, email, phone });
+    // Log only non-PII: presence flags and a one-way email hash for correlation.
+    console.log('📥 Parsed:', {
+      hasName: !!name,
+      emailHash: hashEmail(email),
+      hasPhone: !!phone,
+    });
 
     if (!email) {
       return res.status(400).json({ error: 'Email required' });

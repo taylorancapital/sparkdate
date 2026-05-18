@@ -372,12 +372,13 @@ async function sendBucket(dayNum, emailKey) {
           [`${emailKey}_resend_id`]: result.data?.id || null
         });
         sent++;
-        console.log(`✅ ${emailKey} → ${lead.email}`);
+        // Log doc id only, not email — avoids PII in Vercel logs.
+        console.log(`✅ ${emailKey} → lead/${leadDoc.id}`);
       } else {
-        errors.push(`${lead.email}: ${result.error.message}`);
+        errors.push(`lead/${leadDoc.id}: ${result.error.message}`);
       }
     } catch (e) {
-      errors.push(`${lead.email}: ${e.message}`);
+      errors.push(`lead/${leadDoc.id}: ${e.message}`);
     }
   }
 

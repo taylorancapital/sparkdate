@@ -495,6 +495,18 @@
 
         const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+        // XSS-safe HTML escape
+        function safe(v) {
+            if (v === null || v === undefined) return '';
+            return String(v)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/\//g, '&#x2F;');
+        }
+
         function currentMonthKey() {
             const now = new Date();
             return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -595,36 +607,38 @@
                 } else if (currentUser && atLimit) {
                     reserveBtn = `<span class="btn limit-reached">Limit Reached</span>`;
                 } else {
-                    reserveBtn = `<a href="/event?id=${ev.id}" class="btn">Reserve</a>`;
+                    reserveBtn = `<a href="/event?id=${encodeURIComponent(ev.id)}" class="btn">Reserve</a>`;
                 }
+
+                const venueLine = (ev.venue || '') + (ev.neighborhood ? ' · ' + ev.neighborhood : '');
 
                 return `
                     <div class="event-card${currentUser && atLimit ? ' at-limit' : ''}">
                         <div class="event-image ${gradientClass}">
                             <div class="date-badge">
-                                <span class="month">${month}</span>
+                                <span class="month">${safe(month)}</span>
                                 <span class="day">${day}</span>
                             </div>
-                            <div class="event-status ${ev.status === 'full' ? 'full' : ev.status === 'almost' ? 'almost' : ''}">${statusLabel}</div>
-                            ${ev.emoji ? `<span class="event-emoji">${ev.emoji}</span>` : ''}
+                            <div class="event-status ${ev.status === 'full' ? 'full' : ev.status === 'almost' ? 'almost' : ''}">${safe(statusLabel)}</div>
+                            ${ev.emoji ? `<span class="event-emoji">${safe(ev.emoji)}</span>` : ''}
                         </div>
                         <div class="event-content">
-                            <div class="event-date-label">${dateLabel}</div>
-                            <h3>${ev.title}</h3>
+                            <div class="event-date-label">${safe(dateLabel)}</div>
+                            <h3>${safe(ev.title)}</h3>
                             <div class="event-meta">
                                 <div class="event-meta-row">
                                     <span class="meta-label">📍</span>
-                                    <span>${ev.venue}${ev.neighborhood ? ' · ' + ev.neighborhood : ''}</span>
+                                    <span>${safe(venueLine)}</span>
                                 </div>
                                 <div class="event-meta-row">
                                     <span class="meta-label">👥</span>
-                                    <span>${capacity}</span>
+                                    <span>${safe(capacity)}</span>
                                 </div>
-                                ${ev.amenities ? `<div class="event-meta-row"><span class="meta-label">✓</span><span>${ev.amenities}</span></div>` : ''}
+                                ${ev.amenities ? `<div class="event-meta-row"><span class="meta-label">✓</span><span>${safe(ev.amenities)}</span></div>` : ''}
                             </div>
-                            ${ev.blurb ? `<div class="event-description">${ev.blurb}</div>` : ''}
+                            ${ev.blurb ? `<div class="event-description">${safe(ev.blurb)}</div>` : ''}
                             <div class="event-footer">
-                                <div class="event-price">${priceLabel} <small>by tier</small></div>
+                                <div class="event-price">${safe(priceLabel)} <small>by tier</small></div>
                                 ${reserveBtn}
                             </div>
                         </div>

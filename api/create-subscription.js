@@ -1,4 +1,5 @@
 const Stripe = require('stripe');
+const { requireAuth } = require('./_auth');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -47,10 +48,22 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { paymentMethodId, email, name, tier, firebaseUid } = req.body;
+    // Verify the freshly created Firebase user. The client creates the user
+    // via createUserWithEmailAndPassword and immediately calls this endpoint
+    // with a valid ID token — so the auth header MUST be present here too.
+    let decoded;
+    try {
+      decoded = await requireAuth(req);
+    } catch (e) {
+      return res.status(e.statusCode || 401).json({ error: e.message });
+    }
+
+    const { paymentMethodId, email, name, tier } = req.body || {};
+    // Always use the verified UID. Body-supplied `firebaseUid` is ignored.
+    const firebaseUid = decoded.uid;
 
     // Validate inputs
-    if (!paymentMethodId || !email || !name || !tier || !firebaseUid) {
+    if (!paymentMethodId || !email || !name || !tier) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     if (!TIER_CONFIG[tier]) {

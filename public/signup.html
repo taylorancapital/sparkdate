@@ -858,15 +858,20 @@
                 });
 
                 // ── Step 4: Call serverless function to create subscription ────
+                // Get a fresh ID token from the just-created user so the server
+                // can verify them. Without this header the API now 401s.
+                const idToken = await firebaseUser.getIdToken();
                 const res = await fetch('/api/create-subscription', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
                     body: JSON.stringify({
                         paymentMethodId: paymentMethod.id,
                         email,
                         name: `${firstName} ${lastName}`,
                         tier,
-                        firebaseUid: firebaseUser.uid,
                     })
                 });
 

@@ -1,4 +1,48 @@
-sparkdate_strike_keys.txt 
-sparkdate_firebase_config.txt 
-sparkdate_strike_keys.txt 
-sparkdate_firebase_config.txt 
+# ── Secrets and credentials (NEVER commit these) ──────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+serviceAccount*.json
+firebase-adminsdk-*.json
+sparkdate_strike_keys.txt
+sparkdate_firebase_config.txt
+*service-account*
+
+# ── Local databases and dumps ─────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+
+# ── Archives (usually accidental commits of attachments) ──────────
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# ── Node / Vercel build artifacts ─────────────────────────────────
+node_modules/
+.vercel/
+.next/
+dist/
+build/
+
+# ── Logs / temp ───────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+.tools/audit-output.txt
+
+# ── Editor / OS ───────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*~
+
+# ── Claude Code internal state ────────────────────────────────────
+.claude/worktrees/
