@@ -1,23 +1,12 @@
 const Stripe = require('stripe');
 const { admin, requireAuth } = require('./_auth');
+const { applyCors } = require('./_cors');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const db = admin.firestore();
 
-function applyCors(req, res) {
-  const origin = req.headers.origin || '';
-  const allowed = /^https:\/\/(www\.)?sparkdate\.date$|^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
-  if (allowed.test(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Vary', 'Origin');
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-}
-
 module.exports = async function handler(req, res) {
-  applyCors(req, res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (applyCors(req, res)) return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {

@@ -1,106 +1,82 @@
+// api/create-subscription.js
+// Creates a Stripe customer + subscription for a freshly-signed-up user.
+//
+// Auth model:
+//   - Caller must present a Firebase ID token (Bearer) for the user that
+//     was just created via createUserWithEmailAndPassword.
+//   - The body's `firebaseUid` is ignored; the verified uid wins.
+//
+// Idempotency:
+//   - Stripe Idempotency-Key tied to the user uid prevents double-charging
+//     if the request is retried after a network blip.
+
 const Stripe = require('stripe');
 const { requireAuth } = require('./_auth');
+const { applyCors } = require('./_cors');
+const { TIERS, getOrCreatePrice } = require('./_tiers');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Tier config — prices auto-created in Stripe on first run
-const TIER_CONFIG = {
-  free:    { amount: 999,  name: 'SparkDate Spark',    lookupKey: 'sparkdate_spark',    trialDays: 30 },
-  mid:     { amount: 1999, name: 'SparkDate Kindling',  lookupKey: 'sparkdate_kindling', trialDays: 0  },
-  premium: { amount: 3999, name: 'SparkDate Fire',      lookupKey: 'sparkdate_fire',     trialDays: 0  },
-};
-
-async function getOrCreatePrice(tier) {
-  const config = TIER_CONFIG[tier];
-
-  // Try to find existing price by lookup key
-  const existing = await stripe.prices.list({ lookup_keys: [config.lookupKey], limit: 1 });
-  if (existing.data.length > 0) return existing.data[0].id;
-
-  // First time: create product + price
-  const product = await stripe.products.create({ name: config.name });
-  const price = await stripe.prices.create({
-    product: product.id,
-    unit_amount: config.amount,
-    currency: 'usd',
-    recurring: { interval: 'month' },
-    lookup_key: config.lookupKey,
-  });
-
-  return price.id;
-}
-
-function applyCors(req, res) {
-  const origin = req.headers.origin || '';
-  const allowed = /^https:\/\/(www\.)?sparkdate\.date$|^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
-  if (allowed.test(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Vary', 'Origin');
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-}
-
 module.exports = async function handler(req, res) {
-  applyCors(req, res);
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (applyCors(req, res)) return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // Verify the freshly created Firebase user. The client creates the user
-    // via createUserWithEmailAndPassword and immediately calls this endpoint
-    // with a valid ID token — so the auth header MUST be present here too.
+    // 1. Verify Firebase ID token.
     let decoded;
     try {
       decoded = await requireAuth(req);
     } catch (e) {
       return res.status(e.statusCode || 401).json({ error: e.message });
     }
-
-    const { paymentMethodId, email, name, tier } = req.body || {};
-    // Always use the verified UID. Body-supplied `firebaseUid` is ignored.
     const firebaseUid = decoded.uid;
 
-    // Validate inputs
+    // 2. Validate inputs.
+    const { paymentMethodId, email, name, tier } = req.body || {};
     if (!paymentMethodId || !email || !name || !tier) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
-    if (!TIER_CONFIG[tier]) {
+    if (!TIERS[tier]) {
       return res.status(400).json({ error: 'Invalid tier' });
     }
 
-    // Get or create Stripe price
+    // 3. Resolve Stripe price (shared module — no drift with upgrade-subscription).
     const priceId = await getOrCreatePrice(tier);
 
-    // Create Stripe customer with card attached
-    const customer = await stripe.customers.create({
-      email,
-      name,
-      payment_method: paymentMethodId,
-      invoice_settings: { default_payment_method: paymentMethodId },
-      metadata: { firebaseUid, tier },
-    });
+    // 4. Create Stripe customer. Idempotency key prevents duplicate
+    // customer creation on retry of the same signup.
+    const customer = await stripe.customers.create(
+      {
+        email,
+        name,
+        payment_method: paymentMethodId,
+        invoice_settings: { default_payment_method: paymentMethodId },
+        metadata: { firebaseUid, tier },
+      },
+      { idempotencyKey: `customer:${firebaseUid}` }
+    );
 
-    // Build subscription
+    // 5. Create subscription. Idempotency key tied to uid + tier — if the
+    // user signs up twice for the same tier (network retry), Stripe returns
+    // the existing subscription instead of creating a second one.
     const subParams = {
       customer: customer.id,
       items: [{ price: priceId }],
       expand: ['latest_invoice.payment_intent'],
       metadata: { firebaseUid, tier },
     };
-
-    // Free trial: don't charge today
-    if (TIER_CONFIG[tier].trialDays > 0) {
-      subParams.trial_period_days = TIER_CONFIG[tier].trialDays;
+    if (TIERS[tier].trialDays > 0) {
+      subParams.trial_period_days = TIERS[tier].trialDays;
     } else {
-      // Paid tiers: charge immediately
       subParams.payment_settings = { payment_method_types: ['card'], save_default_payment_method: 'on_subscription' };
     }
 
-    const subscription = await stripe.subscriptions.create(subParams);
+    const subscription = await stripe.subscriptions.create(
+      subParams,
+      { idempotencyKey: `sub:${firebaseUid}:${tier}` }
+    );
 
-    // Handle 3D Secure (rare but required for compliance)
+    // 6. 3-D Secure handling.
     const invoice = subscription.latest_invoice;
     if (invoice?.payment_intent) {
       const { status, client_secret } = invoice.payment_intent;
@@ -113,13 +89,12 @@ module.exports = async function handler(req, res) {
         });
       }
       if (status === 'requires_payment_method') {
-        // Payment failed — clean up customer
-        await stripe.customers.del(customer.id);
+        // Payment failed cleanly — clean up the orphan customer.
+        await stripe.customers.del(customer.id).catch(() => {});
         return res.status(400).json({ error: 'Payment failed. Please check your card details and try again.' });
       }
     }
 
-    // Success
     return res.status(200).json({
       success: true,
       customerId: customer.id,
@@ -140,12 +115,6 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({
         error: 'Invalid request',
         message: 'Something is wrong with the payment details. Please try again.',
-      });
-    }
-    if (err.code === 'auth/email-already-in-use') {
-      return res.status(409).json({
-        error: 'Account exists',
-        message: 'This email is already registered. Please sign in.',
       });
     }
 

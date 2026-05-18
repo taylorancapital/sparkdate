@@ -1362,14 +1362,56 @@
             }
         };
 
-        // ─── Delete Event ─────────────────────────────────
+        // ─── Delete Event (with cascade) ───────────────────
+        // Removes the event doc AND its dependent registrations, tickets,
+        // and connection_intents — otherwise these dangle and break
+        // queries on the admin and account pages.
+        //
+        // NOTE: this does NOT refund Stripe charges. If a paid event is
+        // deleted, you must refund customers manually in the Stripe
+        // dashboard. The confirm() text warns about this.
         window.deleteEvent = async (id, title) => {
-            if (!confirm(`Delete "${title}"?\n\nThis cannot be undone. Existing ticket purchases are not affected.`)) return;
+            const ok = confirm(
+                `Delete "${title}"?\n\n` +
+                `This will permanently delete:\n` +
+                `  • the event\n` +
+                `  • all registrations for it\n` +
+                `  • all ticket records for it\n` +
+                `  • any connection intents tied to it\n\n` +
+                `Stripe charges are NOT refunded — issue any refunds in the Stripe dashboard.\n\n` +
+                `Continue?`
+            );
+            if (!ok) return;
+
             try {
+                // Collect dependent docs first. Firestore caps batch writes
+                // at 500 ops, so we chunk if needed.
+                const [regSnap, ticketSnap, intentSnap] = await Promise.all([
+                    getDocs(query(collection(db, 'event_registrations'), where('eventId', '==', id))),
+                    getDocs(query(collection(db, 'tickets'),             where('eventId', '==', id))),
+                    getDocs(query(collection(db, 'connection_intents'),  where('eventId', '==', id))),
+                ]);
+
+                const allRefs = [
+                    ...regSnap.docs.map(d => d.ref),
+                    ...ticketSnap.docs.map(d => d.ref),
+                    ...intentSnap.docs.map(d => d.ref),
+                ];
+
+                // Delete dependents in 400-doc chunks (safe under the 500 limit).
+                while (allRefs.length) {
+                    const chunk = allRefs.splice(0, 400);
+                    await Promise.all(chunk.map(r => deleteDoc(r)));
+                }
+
+                // Finally remove the event itself.
                 await deleteDoc(doc(db, 'events', id));
+
                 await loadAdminEvents();
                 renderAdminEvents();
+                alert(`Deleted "${title}" and ${regSnap.size + ticketSnap.size + intentSnap.size} dependent records.`);
             } catch (err) {
+                console.error('[admin] deleteEvent failed', err);
                 alert('Delete failed: ' + err.message);
             }
         };

@@ -142,6 +142,55 @@ module.exports = async function handler(req, res) {
         break;
       }
 
+      // ── Ticket purchases (only relevant when 3-D Secure was required). ──
+      // purchase-ticket.js writes the ticket as `pending_3ds` and the
+      // client confirms the PaymentIntent. Stripe sends us this event
+      // when confirmation succeeds — we promote the ticket to confirmed.
+      case 'payment_intent.succeeded': {
+        const pi = event.data.object;
+        if (pi.metadata?.type !== 'ticket') break;
+        const ticketSnap = await db.collection('tickets')
+          .where('paymentIntentId', '==', pi.id).limit(1).get();
+        if (!ticketSnap.empty) {
+          await ticketSnap.docs[0].ref.update({ status: 'confirmed' });
+        }
+        const regSnap = await db.collection('event_registrations')
+          .where('paymentIntentId', '==', pi.id).limit(1).get();
+        if (!regSnap.empty) {
+          await regSnap.docs[0].ref.update({ status: 'confirmed' });
+        }
+        console.log(`[webhook] ticket confirmed via 3DS: ${pi.id}`);
+        break;
+      }
+
+      // 3DS failed (user closed the popup, bank denied, etc.). Release
+      // the reserved seat by decrementing the event counter, and mark
+      // the ticket as failed.
+      case 'payment_intent.payment_failed': {
+        const pi = event.data.object;
+        if (pi.metadata?.type !== 'ticket') break;
+        const ticketSnap = await db.collection('tickets')
+          .where('paymentIntentId', '==', pi.id).limit(1).get();
+        if (!ticketSnap.empty) {
+          const t = ticketSnap.docs[0].data();
+          // Only refund the counter once — if already failed, skip.
+          if (t.status !== 'failed') {
+            const counterField = t.gender === 'woman' ? 'confirmedWomen' : 'confirmedMen';
+            await db.collection('events').doc(t.eventId)
+              .update({ [counterField]: admin.firestore.FieldValue.increment(-1) })
+              .catch(() => {});
+            await ticketSnap.docs[0].ref.update({ status: 'failed' });
+          }
+        }
+        const regSnap = await db.collection('event_registrations')
+          .where('paymentIntentId', '==', pi.id).limit(1).get();
+        if (!regSnap.empty) {
+          await regSnap.docs[0].ref.update({ status: 'failed' });
+        }
+        console.log(`[webhook] ticket failed: ${pi.id}`);
+        break;
+      }
+
       default:
         console.log(`[webhook] unhandled event: ${event.type}`);
     }

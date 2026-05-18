@@ -697,7 +697,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         // Firebase config
         const firebaseConfig = {
@@ -915,8 +915,12 @@
                     return;
                 }
 
-                // If Firebase user was created but Stripe failed, delete the orphan user
+                // If Firebase user was created but Stripe failed, clean up
+                // BOTH the Firestore users/{uid} doc (created in Step 3) AND
+                // the Firebase Auth user. Previously only Auth was deleted,
+                // leaving an orphan users doc that broke /account on retry.
                 if (firebaseUser) {
+                    try { await deleteDoc(doc(db, 'users', firebaseUser.uid)); } catch (_) {}
                     try { await firebaseUser.delete(); } catch (_) {}
                 }
                 errorMsg.textContent = friendlyError(err);

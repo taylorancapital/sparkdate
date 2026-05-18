@@ -434,9 +434,17 @@
         const cardElement = elements.create('card');
         cardElement.mount('#card-element');
 
-        // Resolve event ID from URL or fall back to hardcoded
+        // Resolve event ID from URL. If missing, redirect to /events —
+        // the page-wide hardcoded fallback was a foot-gun (audit #8: it
+        // silently bypassed server capacity checks).
         const urlParams = new URLSearchParams(window.location.search);
-        const eventId = urlParams.get('id') || 'founders-mixer-001';
+        const eventId = urlParams.get('id');
+        if (!eventId) {
+            window.location.replace('/events');
+            // Stop further script execution by throwing; the page will
+            // immediately navigate away anyway.
+            throw new Error('Redirecting to /events — no event id in URL');
+        }
 
         let eventData = null;
         let currentUser = null;
@@ -448,16 +456,19 @@
             return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         }
 
-        // Load event from Firestore
+        // Load event from Firestore. If the doc is missing, redirect away.
         async function loadEvent() {
             try {
                 const snap = await getDoc(doc(db, 'events', eventId));
                 if (snap.exists()) {
                     eventData = { id: snap.id, ...snap.data() };
                     applyEventData(eventData);
+                } else {
+                    // Event id in URL doesn't match any real event.
+                    window.location.replace('/events');
                 }
             } catch (e) {
-                // Fall through — page retains its hardcoded defaults
+                console.error('[event] load error', e);
             }
         }
 
@@ -624,17 +635,24 @@
                 const result = await res.json();
                 if (!res.ok) throw new Error(result.error || 'Payment failed');
 
-                // Record registration for quota tracking
-                if (currentUser) {
-                    await addDoc(collection(db, 'event_registrations'), {
-                        userId: currentUser.uid,
-                        eventId: evId,
-                        eventTitle: evName,
-                        month: currentMonthKey(),
-                        registeredAt: Timestamp.now(),
-                    });
+                // 3-D Secure: bank requires extra auth. We must confirm
+                // the PaymentIntent client-side; the Stripe webhook will
+                // promote the server-written ticket from `pending_3ds`
+                // to `confirmed` once Stripe sees success.
+                if (result.requiresAction) {
+                    const { error: confirmError, paymentIntent } =
+                        await stripe.confirmCardPayment(result.clientSecret);
+                    if (confirmError) {
+                        throw new Error(confirmError.message || 'Payment authentication failed.');
+                    }
+                    if (paymentIntent && paymentIntent.status !== 'succeeded') {
+                        throw new Error('Payment did not complete. Please try again.');
+                    }
                 }
 
+                // Ticket + event_registrations rows are written server-side
+                // inside /api/purchase-ticket. We no longer write either
+                // collection from the browser (audit #13).
                 successMsg.textContent = "You're confirmed. Check your email for event details.";
                 successMsg.style.display = 'block';
                 document.getElementById('checkoutForm').reset();

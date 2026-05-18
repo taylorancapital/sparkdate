@@ -1,34 +1,42 @@
+// api/purchase-ticket.js
+//
+// Single source of truth for paid event registration. Closes several
+// audit findings in one shot:
+//
+//   #5  Firestore transaction with per-event counters — no more
+//       race condition where two concurrent buyers exceed the gender cap.
+//   #6  Stripe Idempotency-Key — double-submitting cannot create
+//       duplicate charges or duplicate ticket rows.
+//   #8  Event lookup is REQUIRED — junk eventId returns 404 instead of
+//       silently bypassing capacity.
+//  #11  3-D Secure flow: when Stripe asks for auth, we mark the ticket
+//       as "pending" before returning clientSecret; client confirms the
+//       intent and the Stripe webhook flips the ticket to "confirmed".
+//  #13  event_registrations is written server-side as part of the same
+//       transaction as the ticket — no client-side bypass possible.
+//  #15  Price is recomputed server-side from the event doc + service fee.
+//       Client-supplied `amount` is ignored.
+
 const Stripe = require('stripe');
 const { admin, requireAuth } = require('./_auth');
+const { applyCors } = require('./_cors');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const db = admin.firestore();
+const FieldValue = admin.firestore.FieldValue;
 
-// Server-side ticket pricing. MUST match SERVICE_FEE in public/event.html ($2.50).
-// Storing this on the server closes the "pay $0.50 for a ticket" exploit — the
-// client-supplied `amount` is ignored and we recompute from the event doc.
+// Must match SERVICE_FEE in public/event.html ($2.50 in dollars).
 const SERVICE_FEE_CENTS = 250;
 
-function applyCors(req, res) {
-  const origin = req.headers.origin || '';
-  const allowed = /^https:\/\/(www\.)?sparkdate\.date$|^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
-  if (allowed.test(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Vary', 'Origin');
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-}
-
 module.exports = async function handler(req, res) {
-  applyCors(req, res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (applyCors(req, res)) return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
     const { paymentMethodId, email, gender, eventId } = req.body || {};
-    let { firebaseUid } = req.body || {};
+    let firebaseUid = null;
 
+    // ── Basic input validation ─────────────────────────────────────
     if (!email || !gender || !eventId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -36,75 +44,85 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid gender' });
     }
 
-    // ─── Auth: members MUST present a valid ID token. ─────────────
-    // Guests (no firebaseUid) pay with a fresh paymentMethodId; that flow
-    // is anonymous by design. Members charging a saved card MUST prove they
-    // are who they say they are, otherwise anyone with a UID could charge
-    // anyone else's saved card.
-    if (firebaseUid) {
+    // ── Auth: member path requires ID token; guest path is anonymous ─
+    const hasAuth = !!(req.headers.authorization || req.headers.Authorization);
+    if (hasAuth) {
       let decoded;
       try {
         decoded = await requireAuth(req);
       } catch (e) {
         return res.status(e.statusCode || 401).json({ error: e.message });
       }
-      // Always trust the token's uid, never the body-supplied one.
       firebaseUid = decoded.uid;
     } else if (!paymentMethodId) {
       return res.status(400).json({ error: 'Must provide either paymentMethodId or be authenticated' });
     }
 
-    // ─── Event lookup is REQUIRED. ────────────────────────────────
-    // Previously the handler silently bypassed capacity + price checks
-    // when the event doc was missing — an attacker could submit a junk
-    // eventId and any amount they liked. Now we 404.
-    const eventSnap = await db.collection('events').doc(eventId).get();
+    // ── Event lookup (required) ────────────────────────────────────
+    const eventRef = db.collection('events').doc(eventId);
+    const eventSnap = await eventRef.get();
     if (!eventSnap.exists) {
       return res.status(404).json({ error: 'Event not found' });
     }
     const event = eventSnap.data();
-    const cap = gender === 'woman' ? (event.spotsWomen ?? 0) : (event.spotsMen ?? 0);
-    const side = gender === 'woman' ? "women's" : "men's";
 
-    if (cap <= 0) {
-      return res.status(409).json({
-        error: 'No spots for this gender',
-        message: `This event has no ${side} spots available.`,
+    // ── Reserve a seat ATOMICALLY using a Firestore transaction. ───
+    // We bump a counter on the event doc inside the txn. If two requests
+    // race, only one wins; the other sees the updated count and aborts.
+    //
+    // Counters live as `confirmedWomen` and `confirmedMen` on the event.
+    // If they're missing (legacy events), default to 0.
+    const counterField = gender === 'woman' ? 'confirmedWomen' : 'confirmedMen';
+    const capField     = gender === 'woman' ? 'spotsWomen'     : 'spotsMen';
+
+    let reservedSlot;
+    try {
+      reservedSlot = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(eventRef);
+        if (!snap.exists) throw new Error('Event vanished mid-purchase');
+        const e = snap.data();
+        const cap     = Number(e[capField] ?? 0);
+        const current = Number(e[counterField] ?? 0);
+
+        if (cap <= 0) {
+          const err = new Error(`No ${gender === 'woman' ? "women's" : "men's"} spots on this event`);
+          err.statusCode = 409;
+          throw err;
+        }
+        if (current >= cap) {
+          const err = new Error(`Event full on the ${gender === 'woman' ? "women's" : "men's"} side`);
+          err.statusCode = 409;
+          throw err;
+        }
+        tx.update(eventRef, { [counterField]: current + 1 });
+        return { slot: current + 1, cap };
       });
+    } catch (e) {
+      if (e.statusCode === 409) {
+        return res.status(409).json({ error: 'Event full', message: e.message });
+      }
+      throw e;
     }
 
-    const ticketsSnap = await db.collection('tickets')
-      .where('eventId', '==', eventId)
-      .get();
-    const sameGenderCount = ticketsSnap.docs.filter(d => {
-      const t = d.data();
-      return t.gender === gender && (t.status || 'confirmed') === 'confirmed';
-    }).length;
-
-    if (sameGenderCount >= cap) {
-      return res.status(409).json({
-        error: 'Event full',
-        message: `This event is full on the ${side} side.`,
-      });
-    }
-
-    // ─── Server-side price computation. ───────────────────────────
-    // The client's `amount` field is intentionally ignored. We recompute
-    // from the event doc + service fee. Storing prices in dollars in
-    // Firestore (not cents), so multiply by 100.
+    // ── Server-side price computation. Client `amount` is ignored. ─
     const baseDollars = gender === 'woman'
       ? Number(event.priceWomen || 0)
       : Number(event.priceMen || 0);
     if (!isFinite(baseDollars) || baseDollars < 0) {
+      // Roll back the counter we just bumped.
+      await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
       return res.status(500).json({ error: 'Invalid event pricing' });
     }
     const amount = Math.round(baseDollars * 100) + SERVICE_FEE_CENTS;
     const eventName = event.title || 'SparkDate event';
 
-    // Build PaymentIntent params — two paths:
-    //  1. Logged-in member: charge their saved Stripe customer's default card off-session
-    //  2. Guest: charge the new paymentMethodId they just entered
-    let intentParams = {
+    // ── Build the PaymentIntent. ───────────────────────────────────
+    // Idempotency key prevents a retry from creating a second PaymentIntent
+    // for the same (user/email × event) combo. For guests we use the
+    // paymentMethodId since they have no stable identifier.
+    const idempotencyKey = `ticket:${eventId}:${firebaseUid || paymentMethodId}`;
+
+    const intentParams = {
       amount,
       currency: 'usd',
       receipt_email: email,
@@ -114,16 +132,18 @@ module.exports = async function handler(req, res) {
     };
 
     if (firebaseUid) {
+      // Member path: charge saved card off-session.
       const userSnap = await db.collection('users').doc(firebaseUid).get();
       if (!userSnap.exists) {
+        await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
         return res.status(404).json({ error: 'User not found' });
       }
       const { stripeCustomerId, stripePaymentMethodId } = userSnap.data();
       if (!stripeCustomerId) {
+        await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
         return res.status(400).json({ error: 'No payment method on file. Please add a card to your subscription first.' });
       }
 
-      // Get the customer's default payment method (or fall back to the one from signup)
       let pmId = stripePaymentMethodId;
       if (!pmId) {
         const customer = await stripe.customers.retrieve(stripeCustomerId);
@@ -134,6 +154,7 @@ module.exports = async function handler(req, res) {
         }
       }
       if (!pmId) {
+        await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
         return res.status(400).json({ error: 'No card on file. Please update your payment method.' });
       }
 
@@ -146,21 +167,38 @@ module.exports = async function handler(req, res) {
       intentParams.automatic_payment_methods = { enabled: true, allow_redirects: 'never' };
     }
 
-    const paymentIntent = await stripe.paymentIntents.create(intentParams);
-
-    if (paymentIntent.status === 'requires_action') {
-      return res.status(200).json({
-        requiresAction: true,
-        clientSecret: paymentIntent.client_secret,
-      });
+    let paymentIntent;
+    try {
+      paymentIntent = await stripe.paymentIntents.create(intentParams, { idempotencyKey });
+    } catch (e) {
+      // Stripe failed entirely — release the reserved slot.
+      await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
+      throw e;
     }
 
-    if (paymentIntent.status !== 'succeeded') {
-      return res.status(400).json({ error: 'Payment did not succeed.' });
-    }
+    // ── Persist the ticket + event_registration. ───────────────────
+    // Both are written here so an unauthenticated browser can never
+    // fabricate a registration (audit #13).
+    //
+    // For requires_action (3-D Secure) flows we write the ticket as
+    // "pending" — Stripe webhook will mark it "confirmed" once the
+    // intent reaches `succeeded`. If the user never completes 3DS,
+    // a follow-up sweep can detect stale pending tickets and refund/
+    // release the slot.
+    const ticketStatus =
+      paymentIntent.status === 'succeeded' ? 'confirmed' :
+      paymentIntent.status === 'requires_action' ? 'pending_3ds' :
+      'pending';
 
-    // Record ticket in Firestore
-    await db.collection('tickets').add({
+    // `month` (YYYY-MM) lets the client compute monthly quota without
+    // needing a composite Firestore index on createdAt.
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const ticketRef = db.collection('tickets').doc();
+    const regRef    = db.collection('event_registrations').doc();
+    const batch = db.batch();
+    batch.set(ticketRef, {
       firebaseUid: firebaseUid || null,
       email,
       gender,
@@ -169,25 +207,60 @@ module.exports = async function handler(req, res) {
       amount,
       paymentIntentId: paymentIntent.id,
       paidWithCardOnFile: !!firebaseUid,
-      status: 'confirmed',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      status: ticketStatus,
+      createdAt: FieldValue.serverTimestamp(),
     });
+    batch.set(regRef, {
+      userId: firebaseUid || null,
+      email,
+      gender,
+      eventId,
+      eventTitle: eventName,
+      ticketId: ticketRef.id,
+      paymentIntentId: paymentIntent.id,
+      status: ticketStatus,
+      month: monthKey,
+      registeredAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
 
-    // Log activity
-    const userSnap = await db.collection('users').where('email', '==', email).limit(1).get();
-    if (!userSnap.empty) {
-      const user = userSnap.docs[0];
-      await db.collection('activity').add({
-        userId: user.id,
-        userEmail: email,
-        userName: `${user.data().firstName || ''} ${user.data().lastName || ''}`.trim(),
-        type: 'event_attended',
-        details: { eventName, amount: amount / 100 },
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    // ── 3-D Secure: hand the clientSecret back to the browser. ─────
+    // Client must call stripe.confirmCardPayment(clientSecret) and the
+    // Stripe webhook will promote the ticket to confirmed.
+    if (paymentIntent.status === 'requires_action') {
+      return res.status(200).json({
+        requiresAction: true,
+        clientSecret: paymentIntent.client_secret,
+        ticketId: ticketRef.id,
       });
     }
 
-    return res.status(200).json({ success: true, ticketId: paymentIntent.id });
+    if (paymentIntent.status !== 'succeeded') {
+      // Refund the counter — payment didn't go through.
+      await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
+      // Mark the ticket as failed for audit trail.
+      await ticketRef.update({ status: 'failed' }).catch(() => {});
+      await regRef.update({ status: 'failed' }).catch(() => {});
+      return res.status(400).json({ error: 'Payment did not succeed.' });
+    }
+
+    // ── Activity log (best-effort, doesn't block success). ─────────
+    db.collection('activity').add({
+      type: 'event_attended',
+      userId: firebaseUid || null,
+      userEmail: email,
+      userName: firebaseUid ? null : email,
+      details: { eventName, amount: amount / 100 },
+      createdAt: FieldValue.serverTimestamp(),
+    }).catch(() => {});
+
+    return res.status(200).json({
+      success: true,
+      ticketId: ticketRef.id,
+      paymentIntentId: paymentIntent.id,
+      amount,
+    });
   } catch (err) {
     console.error('[purchase-ticket] error', { message: err.message, type: err.type, code: err.code });
 

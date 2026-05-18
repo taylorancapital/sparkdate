@@ -1138,19 +1138,28 @@
             }
         };
 
-        // Mark a connection: A wants to stay in touch with B from a specific past event
+        // Mark a connection: A wants to stay in touch with B from a specific past event.
+        // Goes through /api/declare-connection so the server can validate
+        // (a) the requester is actually who they claim to be, (b) they're
+        // on Fire tier, and (c) both parties really attended the event.
         window.markConnection = async (toUserId, eventId) => {
             try {
-                await addDoc(collection(db, 'connection_intents'), {
-                    fromUserId: currentUser.uid,
-                    toUserId,
-                    eventId,
-                    createdAt: Timestamp.now(),
+                if (!currentUser) throw new Error('Not signed in');
+                const idToken = await currentUser.getIdToken();
+                const res = await fetch('/api/declare-connection', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({ toUserId, eventId }),
                 });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || data.error || 'Failed to save');
                 loadEventsAndConnections();
             } catch (e) {
                 console.error('[connections] markConnection error', e);
-                showMessage('error', 'Could not save. Please try again.');
+                showMessage('error', e.message || 'Could not save. Please try again.');
             }
         };
 

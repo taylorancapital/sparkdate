@@ -4,36 +4,14 @@
 
 const Stripe = require('stripe');
 const { admin, requireAuth } = require('./_auth');
+const { applyCors } = require('./_cors');
+const { TIERS, getOrCreatePrice } = require('./_tiers');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const db = admin.firestore();
 
-// ===================================================================
-// TIER → STRIPE PRICE ID MAPPING
-// ===================================================================
-// Keys MUST match the Firestore "tier" field: free / mid / premium
-// Replace with your real Stripe Price IDs (start with "price_1...")
-// ===================================================================
-const TIER_PRICES = {
-  free:    { priceId: 'price_1TVOO0RsTCYDr2LLEhJTQy7E', name: 'Spark',    amount: 999 },
-  mid:     { priceId: 'price_1TWmZ3RsTCYDr2LLxGgh7772', name: 'Kindling', amount: 1999 },
-  premium: { priceId: 'price_1TWmZsRsTCYDr2LLXeUVg95N', name: 'Fire',     amount: 3999 },
-};
-
-function applyCors(req, res) {
-  const origin = req.headers.origin || '';
-  const allowed = /^https:\/\/(www\.)?sparkdate\.date$|^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
-  if (allowed.test(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Vary', 'Origin');
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-}
-
 module.exports = async function handler(req, res) {
-  applyCors(req, res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (applyCors(req, res)) return res.status(204).end();
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -54,7 +32,7 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Missing newTier' });
     }
 
-    if (!TIER_PRICES[newTier]) {
+    if (!TIERS[newTier]) {
       return res.status(400).json({ error: 'Invalid tier', message: `Tier "${newTier}" not found. Expected: free, mid, or premium.` });
     }
 
@@ -79,10 +57,12 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Already on this tier' });
     }
 
-    // 2. Get the current Stripe subscription
+    // 2. Get the current Stripe subscription + resolve target price.
+    // getOrCreatePrice reads from the SAME source create-subscription uses,
+    // so the tier→price mapping can never drift between endpoints.
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
     const currentItemId = subscription.items.data[0].id;
-    const newPriceId = TIER_PRICES[newTier].priceId;
+    const newPriceId = await getOrCreatePrice(newTier);
 
     // 3. Build update params — handle trial-active subs differently
     const updateParams = {
@@ -115,11 +95,11 @@ module.exports = async function handler(req, res) {
     await db.collection('users').doc(userId).update({
       tier: newTier,
       tierUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      monthlyPrice: TIER_PRICES[newTier].amount / 100,
+      monthlyPrice: TIERS[newTier].amount / 100,
     });
 
     // 5. Log to activity feed
-    const isUpgrade = TIER_PRICES[newTier].amount > (TIER_PRICES[currentTier]?.amount || 0);
+    const isUpgrade = TIERS[newTier].amount > (TIERS[currentTier]?.amount || 0);
     await db.collection('activity').add({
       type: 'subscription_tier_changed',
       userId: userId,
@@ -128,7 +108,7 @@ module.exports = async function handler(req, res) {
       fromTier: currentTier,
       toTier: newTier,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      message: `${userData.firstName || userData.email} ${isUpgrade ? 'upgraded' : 'downgraded'} from ${TIER_PRICES[currentTier]?.name || currentTier} to ${TIER_PRICES[newTier].name}`,
+      message: `${userData.firstName || userData.email} ${isUpgrade ? 'upgraded' : 'downgraded'} from ${TIERS[currentTier]?.displayName || currentTier} to ${TIERS[newTier].displayName}`,
     });
 
     return res.status(200).json({
@@ -139,7 +119,7 @@ module.exports = async function handler(req, res) {
         currentPeriodEnd: updatedSubscription.current_period_end,
       },
       newTier: newTier,
-      message: `Successfully changed to ${TIER_PRICES[newTier].name} tier.`,
+      message: `Successfully changed to ${TIERS[newTier].displayName} tier.`,
     });
   } catch (error) {
     console.error('[upgrade-subscription] error', {

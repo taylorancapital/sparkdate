@@ -81,9 +81,7 @@ service cloud.firestore {
     }
 
     // ── event_registrations/{regId} ──────────────────────────────
-    // SHOULD be server-written only (audit item: move write into
-    // purchase-ticket.js). For now we lock writes; the existing
-    // client-side write in event.html will fail until that's moved.
+    // Written exclusively by /api/purchase-ticket (Admin SDK bypasses these rules).
     match /event_registrations/{regId} {
       allow read: if isAdmin()
         || (isSignedIn() && resource.data.userId == request.auth.uid);
@@ -112,18 +110,15 @@ service cloud.firestore {
     }
 
     // ── connection_intents/{intentId} ────────────────────────────
-    // A Fire member declares interest in another past-event attendee.
-    // Must be created by the declarer themselves; cannot spoof.
+    // Written exclusively by /api/declare-connection (Admin SDK bypasses these rules).
+    // Reads: both parties to the intent + admins.
     match /connection_intents/{intentId} {
       allow read: if isSignedIn() && (
         resource.data.fromUserId == request.auth.uid ||
         resource.data.toUserId   == request.auth.uid ||
         isAdmin()
       );
-      allow create: if isSignedIn()
-        && request.resource.data.fromUserId == request.auth.uid;
-      allow update, delete: if isAdmin()
-        || (isSignedIn() && resource.data.fromUserId == request.auth.uid);
+      allow write: if false; // server-only
     }
 
     // ── Default deny ─────────────────────────────────────────────
