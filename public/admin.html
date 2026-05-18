@@ -1075,8 +1075,11 @@
             }
         };
 
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (user && ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+                // Force-refresh the ID token so any custom claims (admin: true)
+                // set after the last sign-in are present before Firestore queries run.
+                try { await user.getIdToken(true); } catch (_) {}
                 document.getElementById('loginOverlay').style.display = 'none';
                 loadDashboard();
                 setInterval(loadDashboard, 30000);
@@ -1650,6 +1653,10 @@
             tbody.innerHTML = '<tr><td colspan="7"><div class="spinner"></div></td></tr>';
 
             try {
+                // Ensure the token has the admin custom claim before Firestore reads.
+                const currentUser = auth.currentUser;
+                if (currentUser) await currentUser.getIdToken(true);
+
                 const venuesSnap = await getDocs(collection(db, 'venues'));
                 allVenues = venuesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderVenues();
