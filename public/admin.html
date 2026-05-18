@@ -1557,7 +1557,7 @@
 
         // ─── Renderers ─────────────────────────────────────
         // XSS-safe HTML escape — use on ALL user-controlled values flowing into innerHTML.
-        // Covers <, >, &, ", ', / (slash defends against </script> breakouts inside attribute context).
+        // Covers <, >, &, ", ', and / (slash escape defends against script-tag breakouts in attribute context).
         function safe(v) {
             if (v === null || v === undefined) return '';
             return String(v)
