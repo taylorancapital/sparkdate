@@ -5,12 +5,7 @@
   "dependencies": {
     "firebase": "^12.13.0",
     "firebase-admin": "^12.0.0",
-    "stripe": "^14.0.0"
-  }
-  {
-    "dependencies": {
-      "firebase": "latest",
-      "resend": "latest"
-    }
+    "stripe": "^14.0.0",
+    "resend": "latest"
   }
 }
