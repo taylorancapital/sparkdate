@@ -55,6 +55,24 @@ const venues = [
   { name: "Barren Hill Tavern", address: "646 Germantown Pike, Lafayette Hill, PA 19444", city: "Lafayette Hill", type: "Historic Tavern" },
 ];
 
+// Normalize a single venue object from any source (hardcoded list, CSV
+// upload, JSON paste). Returns null if invalid (no name) so the caller
+// can skip rather than write garbage.
+function normalizeVenue(raw) {
+  const name = String(raw.name || '').trim();
+  if (!name) return null;
+  return {
+    name,
+    address: String(raw.address || '').trim(),
+    city: String(raw.city || '').trim(),
+    type: String(raw.type || '').trim(),
+    contact_email: raw.contact_email ? String(raw.contact_email).trim() : null,
+    contact_name:  raw.contact_name  ? String(raw.contact_name).trim()  : null,
+    contact_phone: raw.contact_phone ? String(raw.contact_phone).trim() : null,
+    notes: raw.notes ? String(raw.notes).trim() : '',
+  };
+}
+
 module.exports = async function handler(req, res) {
   if (applyCors(req, res)) return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
@@ -67,8 +85,26 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    // Pick the source list:
+    //   - If the caller passed a `venues` array in the body, use that (CSV
+    //     upload from the admin UI). Cap at 1000 to prevent abuse.
+    //   - Otherwise, fall back to the hardcoded curated Philly list.
+    let source;
+    const bodyVenues = req.body?.venues;
+    if (Array.isArray(bodyVenues)) {
+      if (bodyVenues.length > 1000) {
+        return res.status(413).json({ error: 'Too many venues in one request (max 1000)' });
+      }
+      source = bodyVenues.map(normalizeVenue).filter(Boolean);
+      if (source.length === 0) {
+        return res.status(400).json({ error: 'No valid venues in payload (each row needs at least a name)' });
+      }
+    } else {
+      source = venues;
+    }
+
     // De-dup against existing docs by case-insensitive name. Safe to call
-    // repeatedly — only NEW venues from the hardcoded list get added.
+    // repeatedly — only NEW venues get added.
     const existingSnap = await db.collection('venues').get();
     const existingNames = new Set(
       existingSnap.docs.map(d => (d.data().name || '').toLowerCase().trim())
@@ -77,36 +113,31 @@ module.exports = async function handler(req, res) {
     let added = 0;
     let skipped = 0;
 
-    for (const venue of venues) {
+    for (const venue of source) {
       const key = venue.name.toLowerCase().trim();
       if (existingNames.has(key)) { skipped++; continue; }
 
       await db.collection('venues').add({
-        name: venue.name,
-        address: venue.address,
-        city: venue.city,
-        type: venue.type,
+        ...venue,
         status: 'not_contacted',
-        contact_email: null,
-        contact_name: null,
-        contact_phone: null,
-        notes: '',
         contacted_at: null,
         responded_at: null,
         booked_at: null,
         event_id: null,
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
       existingNames.add(key);
       added++;
     }
 
-    console.log(`🎉 Seeded venues: ${added} added, ${skipped} skipped (duplicates)`);
+    const sourceLabel = Array.isArray(bodyVenues) ? 'uploaded list' : 'default Philly list';
+    console.log(`🎉 Seeded from ${sourceLabel}: ${added} added, ${skipped} skipped`);
 
     return res.status(200).json({
       success: true,
       venues_added: added,
       venues_skipped: skipped,
+      source: sourceLabel,
       message: `${added} new venues seeded; ${skipped} already existed.`,
     });
 

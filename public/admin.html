@@ -979,7 +979,7 @@
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">Venue Outreach Pipeline</h2>
-                    <div style="display: flex; gap: 12px; align-items: center;">
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                         <select id="venueStatusFilter" class="form-input" style="width: 150px; height: 36px; font-size: 13px;">
                             <option value="">All Statuses</option>
                             <option value="not_contacted">Not Contacted</option>
@@ -988,9 +988,21 @@
                             <option value="booked">Booked</option>
                             <option value="event_created">Event Created</option>
                         </select>
+                        <button class="action-btn" id="seedDefaultBtn" onclick="seedDefaultVenues()">Seed Default Philly List</button>
+                        <label class="action-btn" for="csvUploadInput" style="cursor: pointer;">Upload CSV</label>
+                        <input type="file" id="csvUploadInput" accept=".csv,text/csv" style="display: none;" onchange="handleVenueCsvUpload(event)">
                         <button class="action-btn" onclick="sendBulkOutreach()" style="background: var(--coral);">Send Outreach to All</button>
                     </div>
                 </div>
+                <div id="venueImportStatus" style="margin: 0 0 16px; font-size: 12px; color: rgba(245,243,240,0.6); display: none;"></div>
+                <details style="margin: 0 0 16px; font-size: 12px; color: rgba(245,243,240,0.5);">
+                    <summary style="cursor: pointer; padding: 4px 0;">CSV format help</summary>
+                    <div style="padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 4px; margin-top: 4px;">
+                        First row must be a header. Recognized columns (any order; extras ignored):
+                        <code style="display: block; margin: 8px 0; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 3px;">name, address, city, type, contact_name, contact_email, contact_phone, notes</code>
+                        Only <code>name</code> is required. Duplicates (by name, case-insensitive) are skipped. Quoted fields are supported, e.g. <code>"Smith, Jr.","123 Main St"</code>.
+                    </div>
+                </details>
                 <table>
                     <thead>
                         <tr>
@@ -1703,6 +1715,120 @@
                 });
             });
         }
+
+        // ─── Seed Default Philly List ──────────────────────
+        window.seedDefaultVenues = async () => {
+            const btn = document.getElementById('seedDefaultBtn');
+            const statusEl = document.getElementById('venueImportStatus');
+            if (!confirm('Seed the default 30-venue Philadelphia list?\n\nDuplicates (by name) are automatically skipped.')) return;
+            try {
+                btn.disabled = true;
+                btn.textContent = 'Seeding…';
+                const idToken = await auth.currentUser.getIdToken();
+                const res = await fetch('/api/seed-venues', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({})  // no venues array = use hardcoded list
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || data.error || 'Seed failed');
+                statusEl.style.display = 'block';
+                statusEl.style.color = 'var(--success)';
+                statusEl.textContent = `✓ ${data.message}`;
+                loadVenues();
+            } catch (err) {
+                statusEl.style.display = 'block';
+                statusEl.style.color = 'var(--danger)';
+                statusEl.textContent = '✗ ' + err.message;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Seed Default Philly List';
+            }
+        };
+
+        // ─── CSV Upload ────────────────────────────────────
+        // Minimal RFC-4180-ish parser: handles quoted fields with commas
+        // and escaped double-quotes. Not bulletproof but enough for the
+        // CSV exports Google Sheets / Excel produce.
+        function parseCSV(text) {
+            const rows = [];
+            let cur = '';
+            let row = [];
+            let inQuotes = false;
+            for (let i = 0; i < text.length; i++) {
+                const c = text[i];
+                if (inQuotes) {
+                    if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; }
+                    else if (c === '"') { inQuotes = false; }
+                    else { cur += c; }
+                } else {
+                    if (c === '"') { inQuotes = true; }
+                    else if (c === ',') { row.push(cur); cur = ''; }
+                    else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+                    else if (c === '\r') { /* swallow */ }
+                    else { cur += c; }
+                }
+            }
+            // Flush last field/row
+            if (cur.length > 0 || row.length > 0) { row.push(cur); rows.push(row); }
+            return rows.filter(r => r.some(cell => cell.trim() !== ''));
+        }
+
+        window.handleVenueCsvUpload = async (event) => {
+            const file = event.target.files?.[0];
+            event.target.value = ''; // reset so re-uploading same file fires change
+            if (!file) return;
+
+            const statusEl = document.getElementById('venueImportStatus');
+            statusEl.style.display = 'block';
+            statusEl.style.color = 'rgba(245,243,240,0.6)';
+            statusEl.textContent = `Parsing ${file.name}…`;
+
+            try {
+                const text = await file.text();
+                const rows = parseCSV(text);
+                if (rows.length < 2) throw new Error('CSV has no data rows. First row must be a header.');
+
+                const headers = rows[0].map(h => h.trim().toLowerCase().replace(/\s+/g, '_'));
+                const venues = rows.slice(1).map(row => {
+                    const obj = {};
+                    headers.forEach((h, i) => { obj[h] = (row[i] || '').trim(); });
+                    return obj;
+                }).filter(v => v.name); // drop rows with no name
+
+                if (venues.length === 0) {
+                    throw new Error('No rows had a name column with a value.');
+                }
+
+                if (!confirm(`Import ${venues.length} venues from ${file.name}?\n\nDuplicates (by name) will be skipped.`)) {
+                    statusEl.textContent = 'Cancelled.';
+                    return;
+                }
+
+                statusEl.textContent = `Uploading ${venues.length} venues…`;
+                const idToken = await auth.currentUser.getIdToken();
+                const res = await fetch('/api/seed-venues', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({ venues })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || data.error || 'Upload failed');
+
+                statusEl.style.color = 'var(--success)';
+                statusEl.textContent = `✓ ${data.message}`;
+                loadVenues();
+            } catch (err) {
+                statusEl.style.color = 'var(--danger)';
+                statusEl.textContent = '✗ ' + err.message;
+            }
+        };
 
         window.sendVenueOutreach = async (venueId, venueName) => {
             if (!confirm(`Send outreach email to ${venueName}?`)) return;
