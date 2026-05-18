@@ -1,5 +1,5 @@
 // api/send-venue-outreach.js
-// Sends outreach emails to venues and tracks status
+// Sends personal cold email to venues
 
 const admin = require('firebase-admin');
 const { Resend } = require('resend');
@@ -22,47 +22,25 @@ const venueOutreachHTML = (venueName, contactName) => `
 <html><head><meta charset="UTF-8"><style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0}
 .container{max-width:600px;margin:0 auto;background:#fff}
-.header{background:#0a0e27;padding:30px;text-align:center;color:#fff}
-.logo{font-family:Georgia,serif;font-size:28px;font-weight:900}
-.logo span{color:#ff6b6b}
-.content{padding:40px 30px;color:#0a0e27}
-h1{font-family:Georgia,serif;font-size:24px;margin:0 0 20px}
-p{font-size:15px;line-height:1.7;margin:0 0 16px;color:#1a1f3a}
-.highlight{color:#ff6b6b;font-weight:600}
-.button{display:inline-block;background:#ff6b6b;color:#fff !important;padding:12px 28px;text-decoration:none;border-radius:4px;font-weight:700;font-size:13px}
-.proposal{background:#f5f3f0;padding:20px;border-left:3px solid #ff6b6b;margin:20px 0}
-.footer{background:#0a0e27;color:#888;padding:30px;text-align:center;font-size:12px}
-.footer a{color:#ff6b6b;text-decoration:none}
+.content{padding:40px 30px;color:#0a0e27;font-size:15px;line-height:1.6}
+p{margin:0 0 16px}
+.sign-off{margin-top:30px}
+.footer{padding:20px 30px;background:#f5f3f0;color:#666;font-size:13px;border-top:1px solid #e8e4df}
+a{color:#ff6b6b;text-decoration:none}
 </style></head><body>
 <div class="container">
-  <div class="header">
-    <div class="logo">Spark<span>Date</span></div>
-    <p style="margin:10px 0 0;font-size:14px">Premium IRL Singles Events</p>
-  </div>
   <div class="content">
-    <h1>Host a SparkDate Event at ${venueName}</h1>
     <p>Hi ${contactName},</p>
-    <p>We're Taylor Chambers, founder of SparkDate — a new IRL dating platform launching in Philadelphia. We're looking for premium venues to host curated singles mixers, and ${venueName} is exactly the vibe we're building around.</p>
-    <div class="proposal">
-      <strong>What we do:</strong><br>
-      • Pre-screened singles (25-35 per event)<br>
-      • Revenue share: 40% to venue or $500+ minimum guarantee<br>
-      • Professional hostess + structured introductions<br>
-      • High-engagement members who actually show up<br>
-      • Recurring monthly bookings
+    <p>I'm launching a dating thing in Philly (called SparkDate — stop swiping, start living type vibe) and I looked at like 50 bars in Center City. ${venueName} keeps coming up as the place where people actually *want* to be.</p>
+    <p>I'm thinking about hosting a singles mixer here in early June. 25-30 people, pre-screened, actual vibes. You'd make $500-1000 off a few hours, we'd move bodies through, everyone wins.</p>
+    <p>Two questions:<br>1. Do you have private space or a section we could use one evening?<br>2. Who's the right person to talk to about this?</p>
+    <p>No pressure — just curious if it's something you'd consider.</p>
+    <div class="sign-off">
+      <p>Taylor<br>(215) 555-0123<br><a href="https://sparkdate.date">sparkdate.date</a></p>
     </div>
-    <p><span class="highlight">Why ${venueName}?</span> Your space is perfect for creating that moment where singles feel welcome, not pressured. It's elegant enough to feel special, comfortable enough to be real.</p>
-    <p>We're starting with a founding cohort event in early June, then running monthly after that. This is how we're getting members off the app and into real venues — venues like yours.</p>
-    <p style="text-align:center;margin:30px 0">
-      <a href="https://sparkdate.date" class="button">Learn More</a>
-    </p>
-    <p>Are you interested in hosting? I'd love to grab a coffee and talk through details — no pressure, just a conversation about whether this makes sense for you.</p>
-    <p>Reply to this email or call (215) 555-0123.</p>
-    <p>Thanks,<br><span class="highlight">Taylor Chambers</span><br>Founder, SparkDate</p>
   </div>
   <div class="footer">
     <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
-    <p><a href="https://sparkdate.date">sparkdate.date</a></p>
   </div>
 </div>
 </body></html>`;
@@ -79,7 +57,6 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // Get venue details
     const venueSnap = await db.collection('venues').doc(venue_id).get();
     if (!venueSnap.exists) {
       return res.status(404).json({ error: 'Venue not found' });
@@ -95,11 +72,10 @@ module.exports = async function handler(req, res) {
 
     console.log(`📧 Sending outreach to ${venue.name} (${contactEmail})`);
 
-    // Send email via Resend
     const emailResult = await resend.emails.send({
       from: 'Taylor Chambers <taylor@sparkdate.date>',
       to: contactEmail,
-      subject: `Host a SparkDate Event at ${venue.name}`,
+      subject: `Quick question about ${venue.name}`,
       html: venueOutreachHTML(venue.name, contactName)
     });
 
@@ -107,14 +83,13 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: emailResult.error.message });
     }
 
-    // Update venue status in Firestore
     await db.collection('venues').doc(venue_id).update({
       status: 'contacted',
       contacted_at: new Date().toISOString(),
       resend_message_id: emailResult.data?.id || null
     });
 
-    console.log(`✅ Outreach sent and tracked for ${venue.name}`);
+    console.log(`✅ Outreach sent to ${venue.name}`);
 
     return res.status(200).json({
       success: true,
