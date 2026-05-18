@@ -1,28 +1,28 @@
 // api/webhook-formspree.js
-// CommonJS version — works with Vercel serverless
-// Receives Formspree submissions → stores in Firestore → sends Welcome email via Resend
+// CommonJS — Vercel serverless function
+// Receives Formspree POST → saves to Firestore → sends Welcome email via Resend
 
 const { initializeApp, getApps } = require('firebase/app');
 const { getFirestore, collection, addDoc, updateDoc, doc, serverTimestamp } = require('firebase/firestore');
 const { Resend } = require('resend');
 
-// Init Firebase (only once)
+// Firebase init (singleton)
 const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY,
-  authDomain: "sparkdate-philly.firebaseapp.com",
-  projectId: "sparkdate-philly",
-  storageBucket: "sparkdate-philly.firebasestorage.app",
-  messagingSenderId: "330206052938",
-  appId: "1:330206052938:web:18762191153f4037b75cb3"
+  apiKey:            process.env.FIREBASE_API_KEY,
+  authDomain:        'sparkdate-philly.firebaseapp.com',
+  projectId:         'sparkdate-philly',
+  storageBucket:     'sparkdate-philly.firebasestorage.app',
+  messagingSenderId: '330206052938',
+  appId:             '1:330206052938:web:18762191153f4037b75cb3'
 };
 
-const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const db = getFirestore(firebaseApp);
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const db  = getFirestore(app);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Welcome email HTML
-const welcomeEmailHtml = (firstName) => `
-<!DOCTYPE html>
+// ── Welcome email (01_welcome.html with first_name substituted) ──────────────
+function welcomeHtml(firstName) {
+  return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -48,112 +48,107 @@ const welcomeEmailHtml = (firstName) => `
     </div>
     <div class="content">
       <h1>Welcome to SparkDate, ${firstName}.</h1>
+
       <p>You just did something most people won't — you stopped swiping and started showing up.</p>
+
       <p>Here's what happens next:</p>
+
       <p>
         <strong>1. We curate.</strong> Our team reviews every member to keep events high-quality.<br>
         <strong>2. We invite.</strong> You'll get your first event invitation within 7 days.<br>
         <strong>3. You show up.</strong> No swiping. No pen pals. Real people, real conversations.
       </p>
-      <p>Your first event is coming up soon. Keep an eye on your inbox.</p>
+
+      <p>Your first event is coming up soon. Keep an eye on your inbox — and follow us on Instagram for behind-the-scenes:</p>
+
+      <p style="text-align: center;">
+        <a href="https://instagram.com/sparkdate" class="button">Follow @sparkdate</a>
+      </p>
+
+      <p>One last thing: dating apps have trained us to wait for likes, swipes, and validation. SparkDate is different. You don't need permission to show up. You're already in.</p>
+
       <p>See you soon,<br>
       <span class="highlight">The SparkDate Team</span></p>
     </div>
     <div class="footer">
       <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
-      <p><a href="https://sparkdate.date">sparkdate.date</a></p>
+      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="#">Unsubscribe</a></p>
     </div>
   </div>
 </body>
-</html>
-`;
+</html>`;
+}
 
+// ── Main handler ─────────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
-  // Allow POST only
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // Formspree sends data in req.body
-    // Handle both direct POST and Formspree webhook payload formats
-    const body = req.body || {};
-    const name  = body.name  || body.data?.name  || '';
-    const email = body.email || body.data?.email || '';
-    const phone = body.phone || body.data?.phone || '';
+    // Formspree sends payload as: { name, email, phone } at top level
+    const body      = req.body || {};
+    const name      = (body.name  || '').trim();
+    const email     = (body.email || '').trim();
+    const phone     = (body.phone || '').trim();
 
     console.log('📥 Webhook received:', { name, email, phone });
 
     if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
+      return res.status(400).json({ error: 'Email required' });
     }
 
     const firstName = name ? name.split(' ')[0] : 'there';
 
-    // 1. Store lead in Firestore
+    // 1 — Store in Firestore
     const docRef = await addDoc(collection(db, 'leads'), {
-      name:           name,
-      email:          email,
-      phone:          phone || null,
-      source:         'founding_form',
-      createdAt:      serverTimestamp(),
-      welcome_sent:   false,
+      name,
+      email,
+      phone:           phone || null,
+      source:          'founding_form',
+      createdAt:       serverTimestamp(),
+      welcome_sent:    false,
       welcome_sent_at: null,
-      day2_sent:      false,
-      day2_sent_at:   null,
-      day5_sent:      false,
-      day5_sent_at:   null,
-      day14_sent:     false,
-      day14_sent_at:  null,
-      day25_sent:     false,
-      day25_sent_at:  null,
-      subscribed:     true
+      day2_sent:       false,
+      day2_sent_at:    null,
+      day5_sent:       false,
+      day5_sent_at:    null,
+      day14_sent:      false,
+      day14_sent_at:   null,
+      day25_sent:      false,
+      day25_sent_at:   null,
+      subscribed:      true
     });
 
-    console.log('✅ Lead stored in Firestore:', docRef.id);
+    console.log('✅ Lead saved to Firestore:', docRef.id);
 
-    // 2. Send Welcome email via Resend
-    const emailResult = await resend.emails.send({
+    // 2 — Send Welcome email via Resend
+    const result = await resend.emails.send({
       from:    'SparkDate <hello@mail.sparkdate.date>',
       to:      email,
-      subject: "You're in. Welcome to SparkDate.",
-      html:    welcomeEmailHtml(firstName)
+      subject: "You\'re in. Welcome to SparkDate.",
+      html:    welcomeHtml(firstName)
     });
 
-    console.log('📧 Resend result:', JSON.stringify(emailResult));
+    console.log('📧 Resend result:', JSON.stringify(result));
 
-    if (emailResult.error) {
-      console.error('❌ Resend error:', emailResult.error);
-      // Still return success — lead is stored even if email fails
-      return res.status(200).json({
-        success: true,
-        lead_id: docRef.id,
-        email_sent: false,
-        email_error: emailResult.error.message
-      });
-    }
-
-    // 3. Update Firestore — mark welcome email sent
+    // 3 — Update Firestore with send status
+    const sent = !result.error;
     await updateDoc(doc(db, 'leads', docRef.id), {
-      welcome_sent:    true,
-      welcome_sent_at: new Date().toISOString(),
-      resend_id:       emailResult.data?.id || null
+      welcome_sent:    sent,
+      welcome_sent_at: sent ? new Date().toISOString() : null,
+      resend_id:       result.data?.id || null,
+      resend_error:    result.error?.message || null
     });
-
-    console.log('✅ Welcome email sent to:', email);
 
     return res.status(200).json({
       success:    true,
       lead_id:    docRef.id,
-      email_sent: true,
-      message_id: emailResult.data?.id
+      email_sent: sent
     });
 
-  } catch (error) {
-    console.error('❌ Webhook error:', error.message);
-    return res.status(500).json({
-      error:   'Webhook failed',
-      details: error.message
-    });
+  } catch (err) {
+    console.error('❌ Webhook error:', err.message, err.stack);
+    return res.status(500).json({ error: err.message });
   }
 };
