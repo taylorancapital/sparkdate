@@ -1,21 +1,21 @@
 // api/send-venue-outreach.js
-// Sends personal cold email to venues
+// Sends a personal cold outreach email to a venue.
+// Admin-only — caller must present a Firebase ID token with the
+// `admin: true` custom claim. Refuses to re-send if the venue is
+// already in any post-`not_contacted` state (so a double-click in the
+// admin UI can't accidentally spam the venue twice).
 
-const admin = require('firebase-admin');
+const { admin, requireAdmin } = require('../lib/auth');
+const { applyCors } = require('../lib/cors');
 const { Resend } = require('resend');
-
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId:   'sparkdate-philly',
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey:  (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n')
-    })
-  });
-}
 
 const db = admin.firestore();
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Outreach copy. Phone number is read from env so we never ship a
+// placeholder to real venues. Set OUTREACH_PHONE in Vercel.
+const OUTREACH_PHONE = process.env.OUTREACH_PHONE || '';
+const OUTREACH_FROM  = process.env.OUTREACH_FROM  || 'Taylor Chambers <taylor@sparkdate.date>';
 
 const venueOutreachHTML = (venueName, contactName) => `
 <!DOCTYPE html>
@@ -36,7 +36,7 @@ a{color:#ff6b6b;text-decoration:none}
     <p>Two questions:<br>1. Do you have private space or a section we could use one evening?<br>2. Who's the right person to talk to about this?</p>
     <p>No pressure — just curious if it's something you'd consider.</p>
     <div class="sign-off">
-      <p>Taylor<br>(215) 555-0123<br><a href="https://sparkdate.date">sparkdate.date</a></p>
+      <p>Taylor${OUTREACH_PHONE ? '<br>' + OUTREACH_PHONE : ''}<br><a href="https://sparkdate.date">sparkdate.date</a></p>
     </div>
   </div>
   <div class="footer">
@@ -45,62 +45,76 @@ a{color:#ff6b6b;text-decoration:none}
 </div>
 </body></html>`;
 
+// Hash email for non-PII logging.
+const crypto = require('crypto');
+const hashEmail = (e) => crypto.createHash('sha256').update(String(e || '').toLowerCase()).digest('hex').slice(0, 12);
+
 module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'POST only' });
+  if (applyCors(req, res)) return res.status(204).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+
+  // Admin-only.
+  try {
+    await requireAdmin(req);
+  } catch (e) {
+    return res.status(e.statusCode || 401).json({ error: e.message });
   }
 
-  const { venue_id } = req.body || {};
-
-  if (!venue_id) {
-    return res.status(400).json({ error: 'venue_id required' });
-  }
+  const { venue_id, force } = req.body || {};
+  if (!venue_id) return res.status(400).json({ error: 'venue_id required' });
 
   try {
-    const venueSnap = await db.collection('venues').doc(venue_id).get();
-    if (!venueSnap.exists) {
-      return res.status(404).json({ error: 'Venue not found' });
-    }
+    const venueRef = db.collection('venues').doc(venue_id);
+    const venueSnap = await venueRef.get();
+    if (!venueSnap.exists) return res.status(404).json({ error: 'Venue not found' });
 
     const venue = venueSnap.data();
-    const contactName = venue.contact_name || 'there';
-    const contactEmail = venue.contact_email;
 
-    if (!contactEmail) {
+    // Guard: refuse to re-send unless caller explicitly passes force=true.
+    // Prevents accidental spam from double-clicks or stale UI state.
+    if (venue.status && venue.status !== 'not_contacted' && !force) {
+      return res.status(409).json({
+        error: 'Already contacted',
+        message: `Venue is in status "${venue.status}". Pass force=true to send anyway.`,
+      });
+    }
+
+    if (!venue.contact_email) {
       return res.status(400).json({ error: 'No contact email on file' });
     }
 
-    console.log(`📧 Sending outreach to ${venue.name} (${contactEmail})`);
+    const contactName = venue.contact_name || 'there';
+    console.log(`📧 Outreach to venue/${venue_id} (emailHash=${hashEmail(venue.contact_email)})`);
 
     const emailResult = await resend.emails.send({
-      from: 'Taylor Chambers <taylor@sparkdate.date>',
-      to: contactEmail,
+      from: OUTREACH_FROM,
+      to: venue.contact_email,
       subject: `Quick question about ${venue.name}`,
-      html: venueOutreachHTML(venue.name, contactName)
+      html: venueOutreachHTML(venue.name, contactName),
     });
 
     if (emailResult.error) {
       return res.status(500).json({ error: emailResult.error.message });
     }
 
-    await db.collection('venues').doc(venue_id).update({
+    await venueRef.update({
       status: 'contacted',
       contacted_at: new Date().toISOString(),
-      resend_message_id: emailResult.data?.id || null
+      resend_message_id: emailResult.data?.id || null,
     });
 
-    console.log(`✅ Outreach sent to ${venue.name}`);
+    console.log(`✅ Outreach sent: venue/${venue_id}`);
 
     return res.status(200).json({
       success: true,
       venue_id,
       venue_name: venue.name,
       email_sent: true,
-      message_id: emailResult.data?.id
+      message_id: emailResult.data?.id,
     });
 
   } catch (err) {
-    console.error('❌ Error:', err.message);
+    console.error('[send-venue-outreach] error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 };

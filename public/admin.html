@@ -1014,7 +1014,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getFirestore, collection, query, orderBy, limit, getDocs, where, addDoc, Timestamp, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, collection, query, orderBy, limit, getDocs, where, addDoc, Timestamp, doc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
@@ -1678,28 +1678,43 @@
 
                 return `
                     <tr>
-                        <td style="color: var(--white); font-weight: 500;">${v.name}</td>
-                        <td style="color: rgba(245,243,240,0.7);">${v.city}</td>
-                        <td style="color: rgba(245,243,240,0.7);">${v.type}</td>
-                        <td><span class="badge ${statusBadgeClass}">${statusLabel}</span></td>
-                        <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${contacted}</td>
-                        <td style="color: rgba(245,243,240,0.5); font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${v.notes || '—'}</td>
+                        <td style="color: var(--white); font-weight: 500;">${safe(v.name)}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${safe(v.city)}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${safe(v.type)}</td>
+                        <td><span class="badge ${statusBadgeClass}">${safe(statusLabel)}</span></td>
+                        <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(contacted)}</td>
+                        <td style="color: rgba(245,243,240,0.5); font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${safe(v.notes || '—')}</td>
                         <td style="font-size: 12px;">
-                            ${v.status === 'not_contacted' ? `<button class="action-btn" onclick="sendVenueOutreach('${v.id}', '${v.name.replace(/'/g, "\\'")}')">Send</button>` : ''}
-                            ${v.status !== 'event_created' ? `<button class="action-btn" onclick="updateVenueStatus('${v.id}')">Update</button>` : ''}
+                            ${v.status === 'not_contacted' ? `<button class="action-btn" data-act="venue-send" data-id="${safe(v.id)}" data-name="${safe(v.name)}">Send</button>` : ''}
+                            ${v.status !== 'event_created' ? `<button class="action-btn" data-act="venue-update" data-id="${safe(v.id)}">Update</button>` : ''}
                         </td>
                     </tr>
                 `;
             }).join('');
+
+            // Event delegation — replaces inline onclick="sendVenueOutreach('${v.id}',...)"
+            // which broke when venue names contained quotes or script-closing tags.
+            tbody.querySelectorAll('button[data-act]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const act = btn.dataset.act;
+                    const id  = btn.dataset.id;
+                    if (act === 'venue-send')   window.sendVenueOutreach(id, btn.dataset.name || '');
+                    if (act === 'venue-update') window.updateVenueStatus(id);
+                });
+            });
         }
 
         window.sendVenueOutreach = async (venueId, venueName) => {
             if (!confirm(`Send outreach email to ${venueName}?`)) return;
 
             try {
+                const idToken = await auth.currentUser.getIdToken();
                 const response = await fetch('/api/send-venue-outreach', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
                     body: JSON.stringify({ venue_id: venueId })
                 });
 
@@ -1708,7 +1723,7 @@
                     alert('Email sent! Status updated to "Contacted".');
                     loadVenues();
                 } else {
-                    alert('Error: ' + result.error);
+                    alert('Error: ' + (result.message || result.error));
                 }
             } catch (err) {
                 alert('Error sending outreach: ' + err.message);

@@ -109,6 +109,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── venues/{venueId} ─────────────────────────────────────────
+    // Bar / restaurant outreach pipeline. Written by /api/seed-venues
+    // and /api/send-venue-outreach (Admin SDK bypasses these rules).
+    // Admins also update notes/status from the Venues tab in the
+    // admin dashboard, so client UPDATE is allowed for admins.
+    match /venues/{venueId} {
+      allow read: if isAdmin();
+      allow update: if isAdmin();
+      allow create, delete: if false; // server-only for creates/deletes
+    }
+
     // ── connection_intents/{intentId} ────────────────────────────
     // Written exclusively by /api/declare-connection (Admin SDK bypasses these rules).
     // Reads: both parties to the intent + admins.

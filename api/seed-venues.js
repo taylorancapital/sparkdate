@@ -1,17 +1,11 @@
 // api/seed-venues.js
-// POST to seed all 65 venues to Firestore
+// One-shot seeder: pushes the hardcoded venue list into Firestore.
+// Admin-only — caller must present a Firebase ID token with the
+// `admin: true` custom claim. Skips venues that already exist (by
+// case-insensitive name) so it's safe to call repeatedly.
 
-const admin = require('firebase-admin');
-
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId:   'sparkdate-philly',
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey:  (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n')
-    })
-  });
-}
+const { admin, requireAdmin } = require('../lib/auth');
+const { applyCors } = require('../lib/cors');
 
 const db = admin.firestore();
 
@@ -92,16 +86,31 @@ const venues = [
 ];
 
 module.exports = async function handler(req, res) {
-  console.log('🌱 Seed venues called');
+  if (applyCors(req, res)) return res.status(204).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'POST only' });
+  // Admin-only — no anonymous bulk-seed.
+  try {
+    await requireAdmin(req);
+  } catch (e) {
+    return res.status(e.statusCode || 401).json({ error: e.message });
   }
 
   try {
+    // De-dup against existing docs by case-insensitive name. Safe to call
+    // repeatedly — only NEW venues from the hardcoded list get added.
+    const existingSnap = await db.collection('venues').get();
+    const existingNames = new Set(
+      existingSnap.docs.map(d => (d.data().name || '').toLowerCase().trim())
+    );
+
     let added = 0;
+    let skipped = 0;
 
     for (const venue of venues) {
+      const key = venue.name.toLowerCase().trim();
+      if (existingNames.has(key)) { skipped++; continue; }
+
       await db.collection('venues').add({
         name: venue.name,
         address: venue.address,
@@ -118,19 +127,21 @@ module.exports = async function handler(req, res) {
         event_id: null,
         createdAt: admin.firestore.FieldValue.serverTimestamp()
       });
+      existingNames.add(key);
       added++;
     }
 
-    console.log(`🎉 Seeded ${added} venues`);
+    console.log(`🎉 Seeded venues: ${added} added, ${skipped} skipped (duplicates)`);
 
     return res.status(200).json({
       success: true,
       venues_added: added,
-      message: `${added} venues seeded to Firestore`
+      venues_skipped: skipped,
+      message: `${added} new venues seeded; ${skipped} already existed.`,
     });
 
   } catch (err) {
-    console.error('❌ Error:', err.message);
+    console.error('[seed-venues] error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 };
