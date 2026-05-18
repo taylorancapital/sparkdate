@@ -2,21 +2,22 @@
 // CommonJS — Vercel Cron (runs daily at 9 AM ET)
 // Sends Day 2 / 5 / 14 / 25 emails to leads in Firestore
 
-const { initializeApp, getApps } = require('firebase/app');
-const { getFirestore, collection, getDocs, query, where, updateDoc, doc } = require('firebase/firestore');
+const admin = require('firebase-admin');
 const { Resend } = require('resend');
 
-const firebaseConfig = {
-  apiKey:            process.env.FIREBASE_API_KEY,
-  authDomain:        'sparkdate-philly.firebaseapp.com',
-  projectId:         'sparkdate-philly',
-  storageBucket:     'sparkdate-philly.firebasestorage.app',
-  messagingSenderId: '330206052938',
-  appId:             '1:330206052938:web:18762191153f4037b75cb3'
-};
+// Firebase Admin SDK init (singleton)
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId:      process.env.FIREBASE_PROJECT_ID,
+      clientEmail:    process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey:     process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    }),
+    projectId: process.env.FIREBASE_PROJECT_ID,
+  });
+}
 
-const app    = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const db     = getFirestore(app);
+const db = admin.firestore();
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ── Email templates (your actual HTML files) ─────────────────────────────────
@@ -64,7 +65,7 @@ const EMAILS = {
 
       <div class="step">
         <strong>2. You attend.</strong><br>
-        No swiping, no profiles to optimize. Show up, drink something good, meet people face-to-face. Our hostess handles the introductions.
+        No swiping, no profiles to optimize. Show up, meet people face-to-face. Our hostess handles the introductions.
       </div>
 
       <div class="step">
@@ -144,7 +145,7 @@ const EMAILS = {
       <p>
         ✓ Arrive any time after 7:00 PM<br>
         ✓ Our hostess will greet you, introduce you to people<br>
-        ✓ Drinks, light bites, and structured intros<br>
+        ✓ Structured intros and real conversations<br>
         ✓ Leave with a few real connections (or numbers — your call)
       </p>
 
@@ -338,11 +339,10 @@ async function sendBucket(dayNum, emailKey) {
   const cutoff  = new Date(now); cutoff.setDate(cutoff.getDate() - dayNum);
   const cutoff1 = new Date(now); cutoff1.setDate(cutoff1.getDate() - (dayNum + 1));
 
-  const snap = await getDocs(
-    query(collection(db, 'leads'),
-      where(`${emailKey}_sent`, '==', false),
-      where('subscribed', '==', true))
-  );
+  const snap = await db.collection('leads')
+    .where(`${emailKey}_sent`, '==', false)
+    .where('subscribed', '==', true)
+    .get();
 
   let sent = 0;
   const errors = [];
@@ -366,7 +366,7 @@ async function sendBucket(dayNum, emailKey) {
       });
 
       if (!result.error) {
-        await updateDoc(doc(db, 'leads', leadDoc.id), {
+        await db.collection('leads').doc(leadDoc.id).update({
           [`${emailKey}_sent`]:      true,
           [`${emailKey}_sent_at`]:   new Date().toISOString(),
           [`${emailKey}_resend_id`]: result.data?.id || null
