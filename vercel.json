@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/cron-send-emails",
+      "schedule": "0 9 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/",
@@ -9,32 +15,32 @@
       "destination": "/founding.html"
     },
     {
-      "source": "/about",
-      "destination": "/about.html"
-    },
-    {
-      "source": "/events",
-      "destination": "/events.html"
-    },
-    {
-      "source": "/event",
-      "destination": "/event.html"
-    },
-    {
-      "source": "/admin",
-      "destination": "/admin.html"
-    },
-    {
-      "source": "/participant",
-      "destination": "/participant.html"
-    },
-    {
       "source": "/signup",
       "destination": "/signup.html"
     },
     {
       "source": "/account",
       "destination": "/account.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/events",
+      "destination": "/events.html"
+    },
+    {
+      "source": "/event/:id",
+      "destination": "/event.html"
+    },
+    {
+      "source": "/participant",
+      "destination": "/participant.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/about.html"
     },
     {
       "source": "/terms",

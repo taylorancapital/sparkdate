@@ -770,6 +770,7 @@
                     <thead>
                         <tr>
                             <th>Member</th>
+                            <th>Phone</th>
                             <th>Age / Gender</th>
                             <th>Interests</th>
                             <th>Tier</th>
@@ -779,7 +780,7 @@
                         </tr>
                     </thead>
                     <tbody id="allMembers">
-                        <tr><td colspan="7"><div class="spinner"></div></td></tr>
+                        <tr><td colspan="8"><div class="spinner"></div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1512,7 +1513,7 @@
             document.getElementById('memberCount').textContent = `${filtered.length} of ${allUsers.length}`;
 
             if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty">No members match your filters.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="empty">No members match your filters.</td></tr>';
                 return;
             }
 
@@ -1530,6 +1531,7 @@
                                 </div>
                             </div>
                         </td>
+                        <td style="color: rgba(245,243,240,0.7); font-size: 13px;">${u.phone || '—'}</td>
                         <td style="color: rgba(245,243,240,0.7);">${u.age || '—'} · ${({woman:'Woman',man:'Man'})[u.gender] || u.gender || '—'}</td>
                         <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${interests}</td>
                         <td>${tierBadge(u.tier)}</td>
