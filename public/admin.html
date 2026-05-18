@@ -675,6 +675,7 @@
         <div class="tabs">
             <button class="tab active" onclick="switchTab('overview', this)">Overview</button>
             <button class="tab" onclick="switchTab('members', this)">Members</button>
+            <button class="tab" onclick="switchTab('leads', this)">Leads</button>
             <button class="tab" onclick="switchTab('activity', this)">Activity</button>
             <button class="tab" onclick="switchTab('revenue', this)">Revenue</button>
             <button class="tab" onclick="switchTab('events', this)">Events</button>
@@ -781,6 +782,46 @@
                     </thead>
                     <tbody id="allMembers">
                         <tr><td colspan="8"><div class="spinner"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Leads Tab -->
+        <div class="tab-content" id="tab-leads">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Email Marketing Leads</h2>
+                    <span style="font-size: 12px; color: rgba(245,243,240,0.5);" id="leadCount">—</span>
+                </div>
+                <div class="search-bar">
+                    <input type="text" class="search-input" id="leadSearch" placeholder="Search by name or email…" oninput="filterLeads()">
+                    <select class="filter-select" id="leadWelcomeFilter" onchange="filterLeads()">
+                        <option value="">All statuses</option>
+                        <option value="sent">Welcome sent</option>
+                        <option value="pending">Welcome pending</option>
+                    </select>
+                    <select class="filter-select" id="leadSourceFilter" onchange="filterLeads()">
+                        <option value="">All sources</option>
+                        <option value="founding_form">Founding form</option>
+                        <option value="direct">Direct</option>
+                    </select>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;" id="leadKPIs"></div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Source</th>
+                            <th>Signed Up</th>
+                            <th>Welcome Email</th>
+                            <th>Sequence</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leadsTable">
+                        <tr><td colspan="7"><div class="spinner"></div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -976,7 +1017,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getFirestore, collection, query, orderBy, limit, getDocs, where, addDoc, Timestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, collection, query, orderBy, limit, getDocs, where, addDoc, Timestamp, doc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
@@ -1039,7 +1080,7 @@
 
         async function loadDashboard() {
             try {
-                await Promise.all([loadUsers(), loadActivity(), loadPayments(), loadAdminEvents()]);
+                await Promise.all([loadUsers(), loadActivity(), loadPayments(), loadAdminEvents(), loadLeads()]);
                 renderKPIs();
                 renderRecentSignups();
                 renderTierBreakdown();
@@ -1047,6 +1088,7 @@
                 renderAllMembers();
                 renderPaymentHistory();
                 renderAdminEvents();
+                renderLeads();
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
             } catch (err) {
                 console.error('[dashboard] load error:', err);
@@ -1093,7 +1135,10 @@
                         <td style="color: rgba(245,243,240,0.7);">${spots}</td>
                         <td style="color: var(--gold); font-weight: 600;">${regCount}</td>
                         <td><span class="badge ${statusClass}">${ev.status || 'open'}</span></td>
-                        <td><button class="action-btn" onclick="openCandidates('${ev.id}')">Score Candidates</button></td>
+                        <td style="display:flex;gap:6px;">
+                            <button class="action-btn" onclick="openCandidates('${ev.id}')">Score Candidates</button>
+                            <button class="action-btn" style="background:rgba(248,113,113,0.12);color:var(--danger);border-color:rgba(248,113,113,0.3);" onclick="deleteEvent('${ev.id}', ${JSON.stringify(ev.title)})">Delete</button>
+                        </td>
                     </tr>`;
             }).join('');
         }
@@ -1302,6 +1347,98 @@
                 btn.disabled = false;
                 btn.textContent = 'Create Event';
             }
+        };
+
+        // ─── Delete Event ─────────────────────────────────
+        window.deleteEvent = async (id, title) => {
+            if (!confirm(`Delete "${title}"?\n\nThis cannot be undone. Existing ticket purchases are not affected.`)) return;
+            try {
+                await deleteDoc(doc(db, 'events', id));
+                await loadAdminEvents();
+                renderAdminEvents();
+            } catch (err) {
+                alert('Delete failed: ' + err.message);
+            }
+        };
+
+        // ─── Leads ────────────────────────────────────────
+        let allLeads = [];
+
+        async function loadLeads() {
+            try {
+                const snap = await getDocs(query(collection(db, 'leads'), orderBy('createdAt', 'desc')));
+                allLeads = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            } catch (e) {
+                allLeads = [];
+            }
+        }
+
+        function renderLeads(data) {
+            const leads = data || allLeads;
+            const tbody = document.getElementById('leadsTable');
+            const countEl = document.getElementById('leadCount');
+            const kpiEl = document.getElementById('leadKPIs');
+            if (!tbody) return;
+
+            countEl.textContent = `${leads.length} lead${leads.length !== 1 ? 's' : ''}`;
+
+            // KPIs
+            const welcomed = leads.filter(l => l.welcome_sent).length;
+            const pct = leads.length > 0 ? Math.round(welcomed / leads.length * 100) : 0;
+            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            const newThisWeek = leads.filter(l => {
+                const d = l.createdAt?.toDate ? l.createdAt.toDate() : new Date(l.createdAt);
+                return d > weekAgo;
+            }).length;
+
+            kpiEl.innerHTML = `
+                <div class="kpi-card"><div class="kpi-label">Total Leads</div><div class="kpi-value coral">${leads.length}</div><div class="kpi-trend up">+${newThisWeek} this week</div></div>
+                <div class="kpi-card"><div class="kpi-label">Welcome Sent</div><div class="kpi-value">${welcomed}</div><div class="kpi-trend">${pct}% of leads</div></div>
+                <div class="kpi-card"><div class="kpi-label">Pending Welcome</div><div class="kpi-value">${leads.length - welcomed}</div><div class="kpi-trend">awaiting send</div></div>
+            `;
+
+            if (leads.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty">No leads yet. Form submissions will appear here.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = leads.map(l => {
+                const created = l.createdAt?.toDate ? l.createdAt.toDate() : (l.createdAt ? new Date(l.createdAt) : null);
+                const createdStr = created ? created.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + created.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—';
+                const welcomeStatus = l.welcome_sent
+                    ? `<span class="badge badge-active">✓ Sent</span>`
+                    : `<span class="badge badge-pending">Pending</span>`;
+                const source = l.source === 'founding_form' ? 'Founding form' : (l.source || '—');
+
+                // Sequence progress dots
+                const seq = ['day2','day5','day14','day25'];
+                const seqDots = seq.map(k => {
+                    const sent = l[`${k}_sent`];
+                    return `<span title="${k}" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${sent ? 'var(--success)' : 'rgba(245,243,240,0.2)'};margin:0 2px;"></span>`;
+                }).join('');
+
+                return `<tr>
+                    <td style="color:var(--white);font-weight:500;">${l.name || '—'}</td>
+                    <td style="color:rgba(245,243,240,0.7);font-size:12px;">${l.email || '—'}</td>
+                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${l.phone || '—'}</td>
+                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${source}</td>
+                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${createdStr}</td>
+                    <td>${welcomeStatus}</td>
+                    <td title="Day 2 / Day 5 / Day 14 / Day 25">${seqDots}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        window.filterLeads = () => {
+            const q = document.getElementById('leadSearch').value.toLowerCase();
+            const welcomeF = document.getElementById('leadWelcomeFilter').value;
+            const sourceF = document.getElementById('leadSourceFilter').value;
+            let filtered = allLeads;
+            if (q) filtered = filtered.filter(l => (l.name || '').toLowerCase().includes(q) || (l.email || '').toLowerCase().includes(q));
+            if (welcomeF === 'sent') filtered = filtered.filter(l => l.welcome_sent);
+            if (welcomeF === 'pending') filtered = filtered.filter(l => !l.welcome_sent);
+            if (sourceF) filtered = filtered.filter(l => l.source === sourceF);
+            renderLeads(filtered);
         };
 
         async function loadUsers() {
