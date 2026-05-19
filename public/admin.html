@@ -845,7 +845,7 @@
                                 </tr>
                             </thead>
                             <tbody id="eventsTable">
-                                <tr><td colspan="7"><div class="spinner"></div></td></tr>
+                                <tr><td colspan="8"><div class="spinner"></div></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -991,6 +991,10 @@
                         <button class="action-btn" id="seedDefaultBtn" onclick="seedDefaultVenues()">Seed Default Philly List</button>
                         <label class="action-btn" for="csvUploadInput" style="cursor: pointer;">Upload CSV</label>
                         <input type="file" id="csvUploadInput" accept=".csv,text/csv" style="display: none;" onchange="handleVenueCsvUpload(event)">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: rgba(245,243,240,0.7); cursor: pointer; user-select: none;" title="When ON, a CSV row whose name matches an existing venue MERGES new email/phone/stars into that venue instead of skipping it. Empty cells never blow away existing data.">
+                            <input type="checkbox" id="csvUpsertToggle" checked style="accent-color: var(--coral); cursor: pointer;">
+                            Overwrite existing
+                        </label>
                         <button class="action-btn" onclick="sendBulkOutreach()" style="background: var(--coral);">Send Outreach to All</button>
                     </div>
                 </div>
@@ -999,8 +1003,10 @@
                     <summary style="cursor: pointer; padding: 4px 0;">CSV format help</summary>
                     <div style="padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 4px; margin-top: 4px;">
                         First row must be a header. Recognized columns (any order; extras ignored):
-                        <code style="display: block; margin: 8px 0; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 3px;">name, address, city, type, contact_name, contact_email, contact_phone, notes</code>
-                        Only <code>name</code> is required. Duplicates (by name, case-insensitive) are skipped. Quoted fields are supported, e.g. <code>"Smith, Jr.","123 Main St"</code>.
+                        <code style="display: block; margin: 8px 0; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 3px;">name, address, city, type, contact_name, contact_email, contact_phone, notes, stars</code>
+                        Only <code>name</code> is required. <code>stars</code> is a 0–5 Google rating (e.g. <code>4.7</code>). Quoted fields are supported, e.g. <code>"Smith, Jr.","123 Main St"</code>.
+                        <br><br>
+                        With <strong>Overwrite existing</strong> ON, rows whose names already exist will <em>merge</em> new fields (email, phone, stars, etc) into the existing venue — preserving pipeline state (status, contacted_at). Blank cells never overwrite. Turn OFF to skip duplicates entirely.
                     </div>
                 </details>
                 <table>
@@ -1009,6 +1015,7 @@
                             <th>Venue</th>
                             <th>City</th>
                             <th>Type</th>
+                            <th>★</th>
                             <th>Status</th>
                             <th>Contacted</th>
                             <th>Notes</th>
@@ -1016,7 +1023,7 @@
                         </tr>
                     </thead>
                     <tbody id="venuesTable">
-                        <tr><td colspan="7"><div class="spinner"></div></td></tr>
+                        <tr><td colspan="8"><div class="spinner"></div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1150,7 +1157,7 @@
             countEl.textContent = `${allEvents.length} event${allEvents.length !== 1 ? 's' : ''}`;
 
             if (allEvents.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty">No events yet. Create one using the form.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="empty">No events yet. Create one using the form.</td></tr>';
                 return;
             }
 
@@ -1702,7 +1709,7 @@
 
         async function loadVenues() {
             const tbody = document.getElementById('venuesTable');
-            tbody.innerHTML = '<tr><td colspan="7"><div class="spinner"></div></td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8"><div class="spinner"></div></td></tr>';
 
             try {
                 // Token is already force-refreshed by isAdminUser() in the
@@ -1712,7 +1719,7 @@
                 renderVenues();
             } catch (err) {
                 console.error('Error loading venues:', err);
-                tbody.innerHTML = '<tr><td colspan="7" class="empty">Error loading venues.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="empty">Error loading venues.</td></tr>';
             }
         }
 
@@ -1723,7 +1730,7 @@
             const filtered = filter ? allVenues.filter(v => v.status === filter) : allVenues;
 
             if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty">No venues match this filter.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="empty">No venues match this filter.</td></tr>';
                 return;
             }
 
@@ -1745,11 +1752,22 @@
                     'event_created': 'Event Created'
                 }[v.status] || v.status;
 
+                // Stars: stored as a 0–5 number. Render as one-decimal text +
+                // a tooltip with the full value. Color-code higher tiers so
+                // 4.5+ pops, 4.0–4.4 reads as normal, <4 looks subdued.
+                let starsCell = '—';
+                if (typeof v.stars === 'number' && isFinite(v.stars)) {
+                    const s = v.stars;
+                    const color = s >= 4.5 ? 'var(--gold)' : s >= 4 ? 'var(--white)' : 'rgba(245,243,240,0.55)';
+                    starsCell = `<span title="${s} / 5" style="color: ${color}; font-weight: 600; font-variant-numeric: tabular-nums;">${s.toFixed(1)}★</span>`;
+                }
+
                 return `
                     <tr>
                         <td style="color: var(--white); font-weight: 500;">${safe(v.name)}</td>
                         <td style="color: rgba(245,243,240,0.7);">${safe(v.city)}</td>
                         <td style="color: rgba(245,243,240,0.7);">${safe(v.type)}</td>
+                        <td style="font-size: 13px;">${starsCell}</td>
                         <td><span class="badge ${statusBadgeClass}">${safe(statusLabel)}</span></td>
                         <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(contacted)}</td>
                         <td style="color: rgba(245,243,240,0.5); font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${safe(v.notes || '—')}</td>
@@ -1860,7 +1878,15 @@
                     throw new Error('No rows had a name column with a value.');
                 }
 
-                if (!confirm(`Import ${venues.length} venues from ${file.name}?\n\nDuplicates (by name) will be skipped.`)) {
+                // Honor the "Overwrite existing" toggle. When ON, rows
+                // matching existing venues by name merge new fields in
+                // (email/phone/stars/etc) without touching pipeline state.
+                const upsert = !!document.getElementById('csvUpsertToggle')?.checked;
+
+                const action = upsert
+                    ? `Import ${venues.length} rows from ${file.name}?\n\nMatching venues will be UPDATED with new fields (blank cells preserved).\nNew venues will be created.`
+                    : `Import ${venues.length} rows from ${file.name}?\n\nDuplicates (by name) will be skipped.`;
+                if (!confirm(action)) {
                     statusEl.textContent = 'Cancelled.';
                     return;
                 }
@@ -1873,7 +1899,7 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${idToken}`,
                     },
-                    body: JSON.stringify({ venues })
+                    body: JSON.stringify({ venues, upsert })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.message || data.error || 'Upload failed');

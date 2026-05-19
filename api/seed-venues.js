@@ -55,6 +55,16 @@ const venues = [
   { name: "Barren Hill Tavern", address: "646 Germantown Pike, Lafayette Hill, PA 19444", city: "Lafayette Hill", type: "Historic Tavern" },
 ];
 
+// Parse a stars value (Google reviews rating). Accepts strings like
+// "4.7", "4,7" (Euro locale), or numbers. Returns null for empty/junk so
+// upsert can tell "user did not provide a value" from "user said 0".
+function parseStars(raw) {
+  if (raw === undefined || raw === null || raw === '') return null;
+  const n = parseFloat(String(raw).replace(',', '.'));
+  if (!isFinite(n)) return null;
+  return Math.max(0, Math.min(5, n));
+}
+
 // Normalize a single venue object from any source (hardcoded list, CSV
 // upload, JSON paste). Returns null if invalid (no name) so the caller
 // can skip rather than write garbage.
@@ -70,7 +80,31 @@ function normalizeVenue(raw) {
     contact_name:  raw.contact_name  ? String(raw.contact_name).trim()  : null,
     contact_phone: raw.contact_phone ? String(raw.contact_phone).trim() : null,
     notes: raw.notes ? String(raw.notes).trim() : '',
+    stars: parseStars(raw.stars),
   };
+}
+
+// Build the patch for upsert: only include keys where the new row has
+// non-empty data. Critically: pipeline state (status, contacted_at,
+// responded_at, booked_at, event_id, createdAt) is NEVER touched —
+// otherwise re-uploading a CSV would wipe out the work you've done.
+//
+// Returns null if the row has nothing to merge, so the caller can count
+// it as "skipped" rather than firing a no-op write.
+function buildUpdatePatch(venue) {
+  const patch = {};
+  // Strings — only overwrite if non-empty.
+  for (const key of ['address', 'city', 'type', 'contact_email', 'contact_name', 'contact_phone', 'notes']) {
+    const v = venue[key];
+    if (v !== null && v !== undefined && String(v).trim() !== '') {
+      patch[key] = v;
+    }
+  }
+  // Stars — only overwrite if a parseable value was provided.
+  if (venue.stars !== null && venue.stars !== undefined) {
+    patch.stars = venue.stars;
+  }
+  return Object.keys(patch).length > 0 ? patch : null;
 }
 
 module.exports = async function handler(req, res) {
@@ -91,6 +125,12 @@ module.exports = async function handler(req, res) {
     //   - Otherwise, fall back to the hardcoded curated Philly list.
     let source;
     const bodyVenues = req.body?.venues;
+    // Upsert mode: when true, rows that match an existing venue by name
+    // get their non-empty fields merged into the existing doc instead of
+    // being skipped. Used by the admin CSV upload to backfill emails on
+    // venues that were seeded without contact info.
+    const upsert = req.body?.upsert === true;
+
     if (Array.isArray(bodyVenues)) {
       if (bodyVenues.length > 1000) {
         return res.status(413).json({ error: 'Too many venues in one request (max 1000)' });
@@ -103,21 +143,35 @@ module.exports = async function handler(req, res) {
       source = venues;
     }
 
-    // De-dup against existing docs by case-insensitive name. Safe to call
-    // repeatedly — only NEW venues get added.
+    // Build a name → docRef map of existing venues once so we don't
+    // round-trip Firestore on every loop iteration.
     const existingSnap = await db.collection('venues').get();
-    const existingNames = new Set(
-      existingSnap.docs.map(d => (d.data().name || '').toLowerCase().trim())
-    );
+    const existingByName = new Map(); // lowercase-name → { ref, data }
+    for (const d of existingSnap.docs) {
+      const key = (d.data().name || '').toLowerCase().trim();
+      if (key) existingByName.set(key, { ref: d.ref, data: d.data() });
+    }
 
     let added = 0;
+    let updated = 0;
     let skipped = 0;
 
     for (const venue of source) {
       const key = venue.name.toLowerCase().trim();
-      if (existingNames.has(key)) { skipped++; continue; }
+      const existing = existingByName.get(key);
 
-      await db.collection('venues').add({
+      if (existing) {
+        // Match found.
+        if (!upsert) { skipped++; continue; }
+        const patch = buildUpdatePatch(venue);
+        if (!patch) { skipped++; continue; } // upload row had no new info
+        await existing.ref.update(patch);
+        updated++;
+        continue;
+      }
+
+      // New venue: full insert with default pipeline state.
+      const newDoc = await db.collection('venues').add({
         ...venue,
         status: 'not_contacted',
         contacted_at: null,
@@ -126,19 +180,23 @@ module.exports = async function handler(req, res) {
         event_id: null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      existingNames.add(key);
+      // Keep the in-memory map up to date so duplicate rows inside the
+      // same upload upsert against the just-created row.
+      existingByName.set(key, { ref: newDoc, data: venue });
       added++;
     }
 
     const sourceLabel = Array.isArray(bodyVenues) ? 'uploaded list' : 'default Philly list';
-    console.log(`🎉 Seeded from ${sourceLabel}: ${added} added, ${skipped} skipped`);
+    console.log(`🎉 Seeded from ${sourceLabel} (upsert=${upsert}): ${added} added, ${updated} updated, ${skipped} skipped`);
 
     return res.status(200).json({
       success: true,
       venues_added: added,
+      venues_updated: updated,
       venues_skipped: skipped,
       source: sourceLabel,
-      message: `${added} new venues seeded; ${skipped} already existed.`,
+      upsert,
+      message: `${added} added · ${updated} updated · ${skipped} skipped`,
     });
 
   } catch (err) {
