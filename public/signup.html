@@ -892,17 +892,23 @@
                 });
 
                 // ── Step 7: Success ────────────────────────────────────────────
+                // Land users on /account so they immediately see their new
+                // profile + a way to upgrade/cancel. The success banner
+                // flashes briefly first so they get visible confirmation
+                // their payment actually went through.
                 const msgs = {
-                    free:    'Welcome to SparkDate! Your 30-day free trial is active. No charge today.',
-                    mid:     'Welcome to SparkDate Kindling! You\'re in. See you at the next event.',
-                    premium: 'Welcome to SparkDate Fire! VIP access confirmed. See you Thursday.',
+                    free:    'Welcome to SparkDate! Your 30-day free trial is active. No charge today. Redirecting to your account…',
+                    mid:     'Welcome to SparkDate Kindling! You\'re in. Redirecting to your account…',
+                    premium: 'Welcome to SparkDate Fire! VIP access confirmed. Redirecting to your account…',
                 };
                 successMsg.textContent = msgs[tier];
                 successMsg.style.display = 'block';
                 document.getElementById('signupForm').reset();
                 cardElement.clear();
-                document.getElementById('tier-free').classList.add('selected');
-                submitBtn.textContent = 'Start Free Trial';
+                // Wait long enough for the user to read the success banner,
+                // then drop them into the funnel.
+                setTimeout(() => { window.location.href = '/account'; }, 1800);
+                return; // skip the finally re-enable — we're navigating away
 
             } catch (err) {
                 // If account already exists, redirect to /account login page

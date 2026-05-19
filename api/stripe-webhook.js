@@ -1,19 +1,8 @@
 const Stripe = require('stripe');
-const admin = require('firebase-admin');
+const { admin } = require('../lib/auth');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-// Initialize Firebase Admin (singleton)
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
-}
 const db = admin.firestore();
 
 // Disable Vercel's body parsing — Stripe needs raw body for signature verification
@@ -60,6 +49,30 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     console.error('[webhook] signature verification failed:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // ── Idempotency: Stripe delivers events at-least-once, so a slow
+  // handler (or a 5xx) can trigger redelivery. Without this guard the
+  // same `invoice.paid` would log a duplicate row in /payments, and the
+  // same `payment_intent.payment_failed` would double-decrement the
+  // event counter. We use Firestore's `create` as a uniqueness lock:
+  // the first delivery creates `stripe_events/{event.id}`, subsequent
+  // deliveries fail the create with ALREADY_EXISTS and we 200 quickly
+  // so Stripe stops retrying.
+  try {
+    await db.collection('stripe_events').doc(event.id).create({
+      type: event.type,
+      receivedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    if (e.code === 6 || /already exists/i.test(e.message || '')) {
+      console.log(`[webhook] duplicate ${event.type} (${event.id}) — skipping`);
+      return res.status(200).json({ received: true, duplicate: true });
+    }
+    // Any other error means we couldn't even record the lock — log and
+    // return 500 so Stripe retries.
+    console.error('[webhook] idempotency lock failed:', e.message);
+    return res.status(500).json({ error: 'lock failed' });
   }
 
   try {

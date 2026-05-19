@@ -120,6 +120,15 @@ service cloud.firestore {
       allow create, delete: if false; // server-only for creates/deletes
     }
 
+    // ── stripe_events/{eventId} ──────────────────────────────────
+    // Idempotency lock for the Stripe webhook. Written exclusively by
+    // /api/stripe-webhook via the Admin SDK (bypasses rules). Client
+    // reads are for the admin dashboard only.
+    match /stripe_events/{eventId} {
+      allow read: if isAdmin();
+      allow write: if false; // server-only
+    }
+
     // ── connection_intents/{intentId} ────────────────────────────
     // Written exclusively by /api/declare-connection (Admin SDK bypasses these rules).
     // Reads: both parties to the intent + admins.

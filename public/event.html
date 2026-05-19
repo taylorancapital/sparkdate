@@ -400,7 +400,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getFirestore, collection, doc, getDoc, addDoc, query, where, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, getDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
@@ -567,25 +567,19 @@
                 const evName = eventData?.title || 'Founders Mixer';
                 const evId = eventData?.id || eventId;
 
-                // Enforce per-gender capacity. Server also re-checks for safety.
+                // Cheap pre-flight: if event already advertises 0 spots on this
+                // side, fail fast without burning a server roundtrip. The real
+                // capacity check is enforced atomically by /api/purchase-ticket
+                // inside a Firestore transaction — so we DO NOT query the
+                // tickets collection from the browser. Firestore rules block
+                // non-owner reads on tickets anyway; doing it client-side just
+                // produced a "permission denied" that broke purchase for every
+                // non-admin user.
                 if (eventData) {
-                    const cap = gender === 'woman' ? (eventData.spotsWomen ?? 0) : (eventData.spotsMen ?? 0);
+                    const cap  = gender === 'woman' ? (eventData.spotsWomen ?? 0) : (eventData.spotsMen ?? 0);
                     const side = gender === 'woman' ? "women's" : "men's";
-
                     if (cap <= 0) {
                         throw new Error(`This event has no ${side} spots available.`);
-                    }
-
-                    const ticketsSnap = await getDocs(
-                        query(collection(db, 'tickets'), where('eventId', '==', evId))
-                    );
-                    const confirmedSameGender = ticketsSnap.docs
-                        .map(d => d.data())
-                        .filter(t => (t.status || 'confirmed') === 'confirmed' && t.gender === gender)
-                        .length;
-
-                    if (confirmedSameGender >= cap) {
-                        throw new Error(`This event is full on the ${side} side. Try a different upcoming event.`);
                     }
                 }
 

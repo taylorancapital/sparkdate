@@ -1025,7 +1025,7 @@
     <!-- Firebase + App Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
         import { getFirestore, collection, query, orderBy, limit, getDocs, where, addDoc, Timestamp, doc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -1037,9 +1037,12 @@
             appId: "1:330206052938:web:18762191153f4037b75cb3"
         };
 
-        // Whitelist of admin emails (only these can access)
-        const ADMIN_EMAILS = ['taylor.ancapital@gmail.com', 'pennsylvaniacabinetmaker@comcast.net'];
-        window.ADMIN_EMAILS = ADMIN_EMAILS;
+        // Admin access is gated on the Firebase Auth custom claim
+        // `admin: true` (set via scripts/set-admin-claim.js), NOT a
+        // hardcoded email list. That way the source of truth for who's
+        // an admin lives in exactly one place (Firebase Auth), and
+        // adding/revoking admins doesn't require a redeploy or a code
+        // change drifting from production.
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -1056,19 +1059,34 @@
         let allPayments = [];
 
         // ─── Auth Gate ─────────────────────────────────────
+        // We sign the user in first, then check whether their ID token
+        // carries the `admin: true` custom claim. Anyone can attempt the
+        // login form — but only users that the server has explicitly
+        // marked as admins (via scripts/set-admin-claim.js) get past the
+        // gate. The Firestore rules enforce the same claim server-side,
+        // so even if this client check were bypassed the data isn't.
+
+        async function isAdminUser(user) {
+            if (!user) return false;
+            try {
+                // Force-refresh so a freshly-granted claim shows up
+                // without a manual sign-out/sign-in cycle.
+                const token = await user.getIdTokenResult(true);
+                return token.claims?.admin === true;
+            } catch (_) {
+                return false;
+            }
+        }
+
         window.adminLogin = async () => {
             const email = document.getElementById('adminEmail').value.trim();
             const password = document.getElementById('adminPassword').value;
             const errorEl = document.getElementById('loginError');
-
-            if (!ADMIN_EMAILS.includes(email.toLowerCase())) {
-                errorEl.textContent = 'Email not authorized for admin access.';
-                errorEl.style.display = 'block';
-                return;
-            }
+            errorEl.style.display = 'none';
 
             try {
                 await signInWithEmailAndPassword(auth, email, password);
+                // onAuthStateChanged handler below will check the admin claim.
             } catch (err) {
                 errorEl.textContent = err.message;
                 errorEl.style.display = 'block';
@@ -1076,14 +1094,19 @@
         };
 
         onAuthStateChanged(auth, async (user) => {
-            if (user && ADMIN_EMAILS.includes(user.email.toLowerCase())) {
-                // Force-refresh the ID token so any custom claims (admin: true)
-                // set after the last sign-in are present before Firestore queries run.
-                try { await user.getIdToken(true); } catch (_) {}
-                document.getElementById('loginOverlay').style.display = 'none';
-                loadDashboard();
-                setInterval(loadDashboard, 30000);
+            if (!user) return;
+            const ok = await isAdminUser(user);
+            if (!ok) {
+                const errorEl = document.getElementById('loginError');
+                errorEl.textContent = 'This account is not an admin. Contact the project owner if you think this is a mistake.';
+                errorEl.style.display = 'block';
+                // Sign out so the next attempt starts cleanly.
+                try { await auth.signOut(); } catch (_) {}
+                return;
             }
+            document.getElementById('loginOverlay').style.display = 'none';
+            loadDashboard();
+            setInterval(loadDashboard, 30000);
         });
 
         // ─── Data Loaders ──────────────────────────────────
@@ -1138,17 +1161,24 @@
                 const spots = ev.spotsTotal || ((ev.spotsMen || 0) + (ev.spotsWomen || 0));
                 const regCount = allRegistrations.filter(r => r.eventId === ev.id).length;
                 const statusClass = ev.status === 'open' ? 'badge-active' : ev.status === 'almost' ? 'badge-pending' : 'badge-canceled';
+                const venueLine = (ev.venue || '—') + (ev.neighborhood ? ' · ' + ev.neighborhood : '');
                 return `
                     <tr>
-                        <td style="color: var(--white); font-weight: 500;">${ev.title}</td>
-                        <td style="color: rgba(245,243,240,0.7);">${dateStr}${timeStr ? ' · ' + timeStr : ''}</td>
-                        <td style="color: rgba(245,243,240,0.7);">${ev.venue || '—'}${ev.neighborhood ? ' · ' + ev.neighborhood : ''}</td>
+                        <td style="color: var(--white); font-weight: 500;">${safe(ev.title)}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${safe(dateStr)}${timeStr ? ' · ' + safe(timeStr) : ''}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${safe(venueLine)}</td>
                         <td style="color: rgba(245,243,240,0.7);">${spots}</td>
                         <td style="color: var(--gold); font-weight: 600;">${regCount}</td>
-                        <td><span class="badge ${statusClass}">${ev.status || 'open'}</span></td>
-                        <td><button class="action-btn" onclick="openCandidates('${ev.id}')">Score Candidates</button></td>
+                        <td><span class="badge ${safe(statusClass)}">${safe(ev.status || 'open')}</span></td>
+                        <td><button class="action-btn" data-act="score-candidates" data-id="${safe(ev.id)}">Score Candidates</button></td>
                     </tr>`;
             }).join('');
+
+            // Event delegation for "Score Candidates" — replaces the inline
+            // onclick which would break if an event ID ever contained a quote.
+            tbody.querySelectorAll('button[data-act="score-candidates"]').forEach(btn => {
+                btn.addEventListener('click', () => window.openCandidates(btn.dataset.id));
+            });
         }
 
         // ────────────────────────────────────────────────────────────────
@@ -1206,6 +1236,7 @@
             const event = allEvents.find(e => e.id === eventId);
             if (!event) return;
 
+            // .textContent is safe by construction — DOM sets it as plain text.
             document.getElementById('candidateModalTitle').textContent = `Candidates · ${event.title}`;
             const date = event.date?.toDate ? event.date.toDate() : new Date(event.date);
             document.getElementById('candidateModalSub').textContent =
@@ -1249,19 +1280,20 @@
                     const interests = (user.interests || []).slice(0, 3).join(', ') || '—';
                     const vibes = (user.vibes || []).slice(0, 3).join(', ') || '—';
                     const genderDisp = ({woman:'Woman',man:'Man'})[user.gender] || '—';
+                    const tierLbl = ({free:'Spark',mid:'Kindling',premium:'Fire'})[user.tier] || user.tier || 'free';
                     return `
                         <tr>
                             <td><span class="score-cell ${scoreClass}">${score}</span></td>
                             <td>
-                                <div style="color: var(--white); font-weight: 500;">${user.firstName || ''} ${user.lastName || ''}</div>
-                                <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${user.email || ''}</div>
+                                <div style="color: var(--white); font-weight: 500;">${safe(user.firstName || '')} ${safe(user.lastName || '')}</div>
+                                <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(user.email || '')}</div>
                             </td>
-                            <td><span class="badge badge-${user.tier || 'free'}">${({free:'Spark',mid:'Kindling',premium:'Fire'})[user.tier] || user.tier}</span></td>
-                            <td style="color: rgba(245,243,240,0.7);">${user.age || '—'} · ${genderDisp}</td>
-                            <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${INTENT_LABELS[user.intent] || '—'}</td>
-                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${interests}</td>
-                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${vibes}</td>
-                            <td style="color: rgba(245,243,240,0.5); font-size: 11px;">${reasons.slice(0,2).join(' · ')}</td>
+                            <td><span class="badge badge-${safe(user.tier || 'free')}">${safe(tierLbl)}</span></td>
+                            <td style="color: rgba(245,243,240,0.7);">${safe(user.age || '—')} · ${safe(genderDisp)}</td>
+                            <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${safe(INTENT_LABELS[user.intent] || '—')}</td>
+                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(interests)}</td>
+                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(vibes)}</td>
+                            <td style="color: rgba(245,243,240,0.5); font-size: 11px;">${safe(reasons.slice(0,2).join(' · '))}</td>
                         </tr>`;
                 }).join('');
             }
@@ -1414,6 +1446,16 @@
         }
 
         // ─── Renderers ─────────────────────────────────────
+
+        // XSS helper — escapes user-controlled data before insertion into
+        // innerHTML. Anything that came from a Firestore doc (member name,
+        // event title, payment user-email, etc.) MUST pass through this.
+        // A signup form with firstName=<script> would otherwise execute on
+        // the admin dashboard the next time the table re-renders.
+        function safe(str) {
+            return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
         function initials(u) {
             return ((u.firstName || '?')[0] + (u.lastName || '?')[0]).toUpperCase();
         }
@@ -1435,11 +1477,12 @@
         }
 
         function statusBadge(status) {
-            return `<span class="badge badge-${status || 'pending'}">${status || 'pending'}</span>`;
+            const s = status || 'pending';
+            return `<span class="badge badge-${safe(s)}">${safe(s)}</span>`;
         }
 
         function tierBadge(tier) {
-            return `<span class="badge badge-${tier}">${TIER_LABELS[tier] || tier}</span>`;
+            return `<span class="badge badge-${safe(tier)}">${safe(TIER_LABELS[tier] || tier)}</span>`;
         }
 
         function renderRecentSignups() {
@@ -1452,10 +1495,10 @@
                 <tr>
                     <td>
                         <div class="user-cell">
-                            <div class="avatar">${initials(u)}</div>
+                            <div class="avatar">${safe(initials(u))}</div>
                             <div>
-                                <div style="color: var(--white); font-weight: 500;">${u.firstName || ''} ${u.lastName || ''}</div>
-                                <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${u.email || ''}</div>
+                                <div style="color: var(--white); font-weight: 500;">${safe(u.firstName || '')} ${safe(u.lastName || '')}</div>
+                                <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(u.email || '')}</div>
                             </div>
                         </div>
                     </td>
@@ -1505,26 +1548,32 @@
         }
 
         function activityText(item) {
-            const name = `<strong>${item.userName || item.userEmail || 'A member'}</strong>`;
+            // Everything in `item.*` came from Firestore — assume hostile.
+            // safe() the user-controlled fields before splicing into HTML.
+            const name = `<strong>${safe(item.userName || item.userEmail || 'A member')}</strong>`;
+            const tierLabel = safe(TIER_LABELS[item.details?.tier] || 'a tier');
+            const amount = typeof item.details?.amount === 'number'
+                ? `$${item.details.amount.toFixed(2)}`
+                : '—';
             switch (item.type) {
                 case 'signup':
-                    return `${name} signed up for <span class="accent">${TIER_LABELS[item.details?.tier] || 'a tier'}</span>`;
+                    return `${name} signed up for <span class="accent">${tierLabel}</span>`;
                 case 'payment_succeeded':
-                    return `${name} was charged <span class="accent">$${item.details?.amount?.toFixed(2) || '—'}</span> for ${TIER_LABELS[item.details?.tier] || 'their tier'}`;
+                    return `${name} was charged <span class="accent">${safe(amount)}</span> for ${tierLabel}`;
                 case 'payment_failed':
-                    return `${name}'s payment failed — <span class="accent">$${item.details?.amount?.toFixed(2) || '—'}</span>`;
+                    return `${name}'s payment failed — <span class="accent">${safe(amount)}</span>`;
                 case 'subscription_update':
-                    return `${name}'s subscription updated to <span class="accent">${item.details?.status || ''}</span>`;
+                    return `${name}'s subscription updated to <span class="accent">${safe(item.details?.status || '')}</span>`;
                 case 'subscription_canceled':
-                    return `${name} canceled their ${TIER_LABELS[item.details?.tier] || ''} subscription`;
+                    return `${name} canceled their ${tierLabel} subscription`;
                 case 'trial_ending_soon':
                     return `${name}'s trial is ending soon`;
                 case 'match':
-                    return `${name} matched with <strong>${item.details?.matchedWith || 'someone'}</strong>`;
+                    return `${name} matched with <strong>${safe(item.details?.matchedWith || 'someone')}</strong>`;
                 case 'event_attended':
-                    return `${name} attended <span class="accent">${item.details?.eventName || 'an event'}</span>`;
+                    return `${name} attended <span class="accent">${safe(item.details?.eventName || 'an event')}</span>`;
                 default:
-                    return `${name} — ${item.type}`;
+                    return `${name} — ${safe(item.type)}`;
             }
         }
 
@@ -1573,20 +1622,21 @@
             tbody.innerHTML = filtered.map(u => {
                 const interests = (u.interests || []).slice(0, 3).join(', ') || '—';
                 const ltv = (TIER_PRICES[u.tier] || 0) * AVG_LIFETIME_MONTHS;
+                const gender = ({woman:'Woman',man:'Man'})[u.gender] || u.gender || '—';
                 return `
                     <tr>
                         <td>
                             <div class="user-cell">
-                                <div class="avatar">${initials(u)}</div>
+                                <div class="avatar">${safe(initials(u))}</div>
                                 <div>
-                                    <div style="color: var(--white); font-weight: 500;">${u.firstName || ''} ${u.lastName || ''}</div>
-                                    <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${u.email || ''}</div>
+                                    <div style="color: var(--white); font-weight: 500;">${safe(u.firstName || '')} ${safe(u.lastName || '')}</div>
+                                    <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(u.email || '')}</div>
                                 </div>
                             </div>
                         </td>
-                        <td style="color: rgba(245,243,240,0.7); font-size: 13px;">${u.phone || '—'}</td>
-                        <td style="color: rgba(245,243,240,0.7);">${u.age || '—'} · ${({woman:'Woman',man:'Man'})[u.gender] || u.gender || '—'}</td>
-                        <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${interests}</td>
+                        <td style="color: rgba(245,243,240,0.7); font-size: 13px;">${safe(u.phone || '—')}</td>
+                        <td style="color: rgba(245,243,240,0.7);">${safe(u.age || '—')} · ${safe(gender)}</td>
+                        <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${safe(interests)}</td>
                         <td>${tierBadge(u.tier)}</td>
                         <td>${statusBadge(u.subscriptionStatus)}</td>
                         <td style="color: rgba(245,243,240,0.6);">${formatDate(u.createdAt)}</td>
@@ -1622,13 +1672,15 @@
             }
             tbody.innerHTML = allPayments.map(p => {
                 const user = allUsers.find(u => u.id === p.userId);
+                const displayName = p.userName || (user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '—');
+                const amount = Number(p.amount) || 0;
                 return `
                     <tr>
                         <td>
-                            <div style="color: var(--white); font-weight: 500;">${p.userName || (user ? `${user.firstName} ${user.lastName}` : '—')}</div>
-                            <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${p.userEmail || ''}</div>
+                            <div style="color: var(--white); font-weight: 500;">${safe(displayName)}</div>
+                            <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(p.userEmail || '')}</div>
                         </td>
-                        <td style="color: var(--gold); font-weight: 600;">$${(p.amount / 100).toFixed(2)}</td>
+                        <td style="color: var(--gold); font-weight: 600;">$${(amount / 100).toFixed(2)}</td>
                         <td>${tierBadge(user?.tier || 'free')}</td>
                         <td style="color: rgba(245,243,240,0.6);">${formatDate(p.paidAt)}</td>
                     </tr>
@@ -1646,11 +1698,6 @@
         };
 
         // ─── VENUES ────────────────────────────────────────
-        // XSS helper — escapes text before inserting into innerHTML.
-        function safe(str) {
-            return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        }
-
         let allVenues = [];
 
         async function loadVenues() {
@@ -1658,10 +1705,8 @@
             tbody.innerHTML = '<tr><td colspan="7"><div class="spinner"></div></td></tr>';
 
             try {
-                // Ensure the token has the admin custom claim before Firestore reads.
-                const currentUser = auth.currentUser;
-                if (currentUser) await currentUser.getIdToken(true);
-
+                // Token is already force-refreshed by isAdminUser() in the
+                // auth handler, so the admin claim is present for this read.
                 const venuesSnap = await getDocs(collection(db, 'venues'));
                 allVenues = venuesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderVenues();
@@ -1869,28 +1914,39 @@
         };
 
         window.sendBulkOutreach = async () => {
-            const notContacted = allVenues.filter(v => v.status === 'not_contacted');
+            const notContacted = allVenues.filter(v => v.status === 'not_contacted' && v.contact_email);
             if (notContacted.length === 0) {
-                alert('No venues to contact.');
+                alert('No venues with a contact email to reach out to.');
                 return;
             }
 
             if (!confirm(`Send outreach to ${notContacted.length} venues?`)) return;
 
+            // Fetch the ID token ONCE so the loop doesn't hit Firebase token
+            // refresh on every iteration. Tokens are valid for ~1h which is
+            // plenty for a bulk send of a few hundred venues.
+            const idToken = await auth.currentUser.getIdToken();
+
             let sent = 0;
+            let failed = 0;
             for (const v of notContacted) {
                 try {
                     const response = await fetch('/api/send-venue-outreach', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${idToken}`,
+                        },
                         body: JSON.stringify({ venue_id: v.id })
                     });
                     if (response.ok) sent++;
+                    else failed++;
                 } catch (err) {
+                    failed++;
                     console.error(`Error sending to ${v.name}:`, err);
                 }
             }
-            alert(`Sent ${sent} emails.`);
+            alert(`Sent ${sent} emails. ${failed ? failed + ' failed — see console.' : ''}`);
             loadVenues();
         };
 

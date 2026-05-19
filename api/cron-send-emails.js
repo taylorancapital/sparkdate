@@ -2,20 +2,9 @@
 // CommonJS — Vercel Cron (runs daily at 9 AM ET)
 // Sends Day 2 / 5 / 14 / 25 emails to leads in Firestore
 
-const admin = require('firebase-admin');
 const { Resend } = require('resend');
-
-// Firebase Admin SDK init (singleton)
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId:      process.env.FIREBASE_PROJECT_ID,
-      clientEmail:    process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey:     process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-    projectId: process.env.FIREBASE_PROJECT_ID,
-  });
-}
+const { admin } = require('../lib/auth');
+const { makeUnsubscribeUrl } = require('../lib/unsubscribe');
 
 const db = admin.firestore();
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -89,7 +78,7 @@ const EMAILS = {
     </div>
     <div class="footer">
       <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
-      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="#">Unsubscribe</a></p>
+      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="__UNSUB__">Unsubscribe</a></p>
     </div>
   </div>
 </body>
@@ -164,7 +153,7 @@ const EMAILS = {
     </div>
     <div class="footer">
       <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
-      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="#">Unsubscribe</a></p>
+      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="__UNSUB__">Unsubscribe</a></p>
     </div>
   </div>
 </body>
@@ -242,7 +231,7 @@ const EMAILS = {
     </div>
     <div class="footer">
       <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
-      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="#">Unsubscribe</a></p>
+      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="__UNSUB__">Unsubscribe</a></p>
     </div>
   </div>
 </body>
@@ -325,7 +314,7 @@ const EMAILS = {
     </div>
     <div class="footer">
       <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
-      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="#">Unsubscribe</a> · <a href="https://sparkdate.date/account">Manage subscription</a></p>
+      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="__UNSUB__">Unsubscribe</a> · <a href="https://sparkdate.date/account">Manage subscription</a></p>
     </div>
   </div>
 </body>
@@ -356,13 +345,25 @@ async function sendBucket(dayNum, emailKey) {
 
     const firstName = lead.name ? lead.name.split(' ')[0] : 'there';
     const tmpl      = EMAILS[emailKey];
+    const unsubUrl  = makeUnsubscribeUrl(leadDoc.id, lead.email);
 
     try {
       const result = await resend.emails.send({
         from:    'SparkDate <hello@mail.sparkdate.date>',
         to:      lead.email,
         subject: tmpl.subject,
-        html:    tmpl.html(firstName)
+        // Per-lead unsubscribe URL is interpolated AFTER template render —
+        // each Resend send gets its own signed token so a recipient can
+        // unsubscribe themselves but can't unsubscribe anyone else.
+        html:    tmpl.html(firstName).replace(/__UNSUB__/g, unsubUrl),
+        // RFC 8058: gives Gmail / iOS Mail / Outlook a native one-click
+        // unsubscribe button at the top of the message. Required by Gmail
+        // for senders over 5k/day, and a strong deliverability signal at
+        // any volume.
+        headers: {
+          'List-Unsubscribe':      `<${unsubUrl}>, <mailto:hello@sparkdate.date?subject=Unsubscribe>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
       });
 
       if (!result.error) {
