@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Canonical-domain guard. See admin.html for full explanation —
-         apex redirect to www breaks fetch() with custom Authorization
-         headers, so we bounce the user to the canonical host before
-         any other code runs. -->
+         canonical host is the apex (sparkdate.date); bounce away from
+         www so fetch() never crosses origins on a redirect. -->
     <script>
-      if (location.host === 'sparkdate.date') {
-        location.replace('https://www.sparkdate.date' + location.pathname + location.search + location.hash);
+      if (location.host === 'www.sparkdate.date') {
+        location.replace('https://sparkdate.date' + location.pathname + location.search + location.hash);
       }
     </script>
     <title>Join SparkDate - Start Dating IRL</title>

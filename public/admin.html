@@ -4,15 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Canonical-domain guard — must run BEFORE anything else.
-         sparkdate.date 307-redirects to www.sparkdate.date at the edge.
-         If a user lands on the apex, every fetch() to /api/* will hit
-         that redirect; the browser strips the Authorization header on
-         the cross-origin hop and the response comes back as an HTML
-         error page that breaks `response.json()`. Forcing the canonical
-         host up front avoids the entire redirect chain. -->
+         Canonical host is the apex sparkdate.date. Vercel redirects
+         www → apex at the edge, but this catches the (rare) case where
+         a cached page or service worker loads from www: any fetch()
+         to /api/* would then hit a cross-origin redirect and the
+         browser would strip the Authorization header, returning an
+         HTML error page that breaks response.json(). Forcing the
+         canonical host up front avoids the redirect chain entirely. -->
     <script>
-      if (location.host === 'sparkdate.date') {
-        location.replace('https://www.sparkdate.date' + location.pathname + location.search + location.hash);
+      if (location.host === 'www.sparkdate.date') {
+        location.replace('https://sparkdate.date' + location.pathname + location.search + location.hash);
       }
     </script>
     <title>Admin Dashboard - SparkDate</title>
