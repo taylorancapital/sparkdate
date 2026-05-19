@@ -3,6 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Canonical-domain guard — must run BEFORE anything else.
+         sparkdate.date 307-redirects to www.sparkdate.date at the edge.
+         If a user lands on the apex, every fetch() to /api/* will hit
+         that redirect; the browser strips the Authorization header on
+         the cross-origin hop and the response comes back as an HTML
+         error page that breaks `response.json()`. Forcing the canonical
+         host up front avoids the entire redirect chain. -->
+    <script>
+      if (location.host === 'sparkdate.date') {
+        location.replace('https://www.sparkdate.date' + location.pathname + location.search + location.hash);
+      }
+    </script>
     <title>Admin Dashboard - SparkDate</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Fraunces:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1914,7 +1926,16 @@
         };
 
         window.sendVenueOutreach = async (venueId, venueName) => {
-            if (!confirm(`Send outreach email to ${venueName}?`)) return;
+            // Local preflight — if there's no email on file we can't send.
+            // Failing fast here means we never even hit the API for these
+            // (and the user gets a clear "add an email" message instead of
+            // a generic JSON / network error).
+            const venue = allVenues.find(v => v.id === venueId);
+            if (!venue?.contact_email) {
+                alert(`No contact email on file for "${venueName}".\n\nAdd one via CSV upload (with "Overwrite existing" ON) or by clicking Update.`);
+                return;
+            }
+            if (!confirm(`Send outreach email to ${venueName} (${venue.contact_email})?`)) return;
 
             try {
                 const idToken = await auth.currentUser.getIdToken();
@@ -1927,12 +1948,26 @@
                     body: JSON.stringify({ venue_id: venueId })
                 });
 
-                const result = await response.json();
-                if (result.success) {
+                // Read the response as TEXT first so we can surface a helpful
+                // message if the body isn't JSON. Bare response.json() throws
+                // an opaque "Unexpected token '<'" if Vercel/Cloudflare ever
+                // returns an HTML error page (e.g. on a cross-origin redirect
+                // or a function crash). Now we tell the user what happened.
+                const rawText = await response.text();
+                let result;
+                try {
+                    result = rawText ? JSON.parse(rawText) : {};
+                } catch (_) {
+                    console.error('[outreach] non-JSON response:', response.status, rawText.slice(0, 300));
+                    alert(`The server returned an unexpected response (HTTP ${response.status}). Check the console for details and try reloading the page.`);
+                    return;
+                }
+
+                if (response.ok && result.success) {
                     alert('Email sent! Status updated to "Contacted".');
                     loadVenues();
                 } else {
-                    alert('Error: ' + (result.message || result.error));
+                    alert('Error: ' + (result.message || result.error || `HTTP ${response.status}`));
                 }
             } catch (err) {
                 alert('Error sending outreach: ' + err.message);

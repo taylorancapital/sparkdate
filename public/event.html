@@ -3,6 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Canonical-domain guard. See admin.html for full explanation —
+         apex redirect to www breaks fetch() with custom Authorization
+         headers, so we bounce the user to the canonical host before
+         any other code runs. -->
+    <script>
+      if (location.host === 'sparkdate.date') {
+        location.replace('https://www.sparkdate.date' + location.pathname + location.search + location.hash);
+      }
+    </script>
     <title>Event Tickets - SparkDate</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Fraunces:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
