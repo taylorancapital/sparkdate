@@ -15,7 +15,15 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Outreach copy. Phone number is read from env so we never ship a
 // placeholder to real venues. Set OUTREACH_PHONE in Vercel.
 const OUTREACH_PHONE = process.env.OUTREACH_PHONE || '';
-const OUTREACH_FROM  = process.env.OUTREACH_FROM  || 'Taylor Chambers <taylor@sparkdate.date>';
+// IMPORTANT: must be a sender on a Resend-verified domain. The verified
+// domain for this project is mail.sparkdate.date (same one used by the
+// welcome email + 4-touch nurture sequence), so default to a sender on
+// that domain. If you want it to read "Taylor" in the inbox, set
+// OUTREACH_FROM in Vercel env to e.g. "Taylor Chambers <taylor@mail.sparkdate.date>".
+// Sending from an unverified domain (e.g. taylor@sparkdate.date — note
+// no `mail.` subdomain) makes Resend reject the message which used to
+// surface as a generic 502 to the admin UI.
+const OUTREACH_FROM  = process.env.OUTREACH_FROM  || 'SparkDate Outreach <hello@mail.sparkdate.date>';
 
 // HTML-escape strings before they hit the email body. Without this an
 // admin who uploads a CSV row with `<script>` in the name field would
@@ -99,22 +107,52 @@ module.exports = async function handler(req, res) {
     const contactName = venue.contact_name || 'there';
     console.log(`📧 Outreach to venue/${venue_id} (emailHash=${hashEmail(venue.contact_email)})`);
 
+    // Hard precondition: RESEND_API_KEY must be set. The Resend SDK
+    // accepts an undefined key at construction but throws on send, which
+    // used to bubble up as a generic 502.
+    if (!process.env.RESEND_API_KEY) {
+      console.error('[send-venue-outreach] RESEND_API_KEY missing in env');
+      return res.status(500).json({
+        error: 'Email provider not configured',
+        message: 'Set RESEND_API_KEY in Vercel env vars.',
+      });
+    }
+
     // Strip CR/LF from subject — basic SMTP header-injection defense in
     // case venue.name was uploaded with control chars. Cap length too.
     const safeSubjectName = String(venue.name || '')
       .replace(/[\r\n]+/g, ' ')
       .slice(0, 120);
 
-    const emailResult = await resend.emails.send({
-      from: OUTREACH_FROM,
-      to: venue.contact_email,
-      subject: `Quick question about ${safeSubjectName}`,
-      html: venueOutreachHTML(venue.name, contactName),
-    });
+    // Wrap the Resend call so an SDK throw doesn't bubble up as a
+    // generic 502 with an HTML body. We want every failure path to
+    // return JSON the admin UI can render.
+    let emailResult;
+    try {
+      emailResult = await resend.emails.send({
+        from: OUTREACH_FROM,
+        to: venue.contact_email,
+        subject: `Quick question about ${safeSubjectName}`,
+        html: venueOutreachHTML(venue.name, contactName),
+      });
+    } catch (sendErr) {
+      console.error('[send-venue-outreach] resend SDK threw:', sendErr.message, sendErr.stack);
+      return res.status(502).json({
+        error: 'Email provider error',
+        message: `Resend threw: ${sendErr.message}. Common cause: OUTREACH_FROM uses a domain that isn't verified at Resend. Verify your sending domain in the Resend dashboard.`,
+      });
+    }
 
     if (emailResult.error) {
-      console.error('[send-venue-outreach] resend error:', emailResult.error.message);
-      return res.status(502).json({ error: 'Email provider rejected the message. Check the address and try again.' });
+      const detail = emailResult.error.message || JSON.stringify(emailResult.error);
+      console.error('[send-venue-outreach] resend error:', detail);
+      // Surface the actual Resend message so admin sees WHY it failed
+      // (common ones: "from address is not verified", "Domain not found",
+      // "rate limit"). This is admin-only output so it's safe to expose.
+      return res.status(502).json({
+        error: 'Email provider rejected the message',
+        message: detail,
+      });
     }
 
     await venueRef.update({
