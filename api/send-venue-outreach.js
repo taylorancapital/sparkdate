@@ -93,7 +93,7 @@ module.exports = async function handler(req, res) {
     return res.status(e.statusCode || 401).json({ error: e.message });
   }
 
-  const { venue_id, force } = req.body || {};
+  const { venue_id, force, preview } = req.body || {};
   if (!venue_id) return res.status(400).json({ error: 'venue_id required' });
 
   try {
@@ -102,6 +102,25 @@ module.exports = async function handler(req, res) {
     if (!venueSnap.exists) return res.status(404).json({ error: 'Venue not found' });
 
     const venue = venueSnap.data();
+
+    // Preview short-circuit: render the email body + headers, return JSON,
+    // do NOT call Resend and do NOT mutate the venue doc. Same template
+    // path as the real send so previews can't drift from what's actually
+    // delivered. Skips the "already contacted" guard so admins can also
+    // preview what was sent earlier.
+    if (preview) {
+      const contactName = venue.contact_name || 'there';
+      const safeSubjectName = String(venue.name || '').replace(/[\r\n]+/g, ' ').slice(0, 120);
+      return res.status(200).json({
+        preview: true,
+        venue_id,
+        venue_name: venue.name,
+        to:      venue.contact_email || null,
+        from:    OUTREACH_FROM,
+        subject: `Quick question about ${safeSubjectName}`,
+        html:    venueOutreachHTML(venue.name, contactName),
+      });
+    }
 
     // Guard: refuse to re-send unless caller explicitly passes force=true.
     // Prevents accidental spam from double-clicks or stale UI state.

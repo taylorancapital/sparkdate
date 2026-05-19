@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Not Found - SparkDate</title>
+    <meta name="robots" content="noindex">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary-navy: #0a0e27;
+            --coral: #ff6b6b;
+            --gold: #d4af37;
+            --cream: #f5f3f0;
+            --white: #ffffff;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color: var(--cream);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        nav {
+            padding: 20px 40px;
+            border-bottom: 1px solid rgba(255, 107, 107, 0.1);
+        }
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 24px;
+            font-weight: 900;
+            color: var(--white);
+            letter-spacing: -1px;
+            text-decoration: none;
+        }
+        .logo span { color: var(--coral); }
+        .nav-menu {
+            display: flex;
+            gap: 40px;
+            list-style: none;
+        }
+        .nav-menu a {
+            color: var(--cream);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: color 0.3s;
+        }
+        .nav-menu a:hover { color: var(--coral); }
+
+        main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 40px;
+        }
+        .content {
+            text-align: center;
+            max-width: 640px;
+        }
+        .code {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(96px, 22vw, 180px);
+            font-weight: 900;
+            line-height: 1;
+            color: var(--coral);
+            letter-spacing: -6px;
+            margin-bottom: 12px;
+        }
+        .code span {
+            color: var(--white);
+        }
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(28px, 5vw, 40px);
+            font-weight: 900;
+            color: var(--white);
+            margin-bottom: 16px;
+            letter-spacing: -1px;
+        }
+        p {
+            font-size: 16px;
+            color: rgba(245, 243, 240, 0.7);
+            line-height: 1.7;
+            margin-bottom: 32px;
+        }
+        .actions {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            display: inline-block;
+            padding: 14px 28px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            border: 2px solid var(--coral);
+        }
+        .btn-primary {
+            background: var(--coral);
+            color: var(--white);
+        }
+        .btn-primary:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: transparent;
+            color: var(--coral);
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 107, 107, 0.1);
+        }
+        footer {
+            padding: 30px 40px;
+            text-align: center;
+            color: rgba(245, 243, 240, 0.4);
+            font-size: 12px;
+            border-top: 1px solid rgba(255, 107, 107, 0.1);
+        }
+        @media (max-width: 640px) {
+            nav { padding: 16px 20px; }
+            .nav-menu { display: none; }
+            main { padding: 40px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo">Spark<span>Date</span></a>
+            <ul class="nav-menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/about">About</a></li>
+                <li><a href="/events">Events</a></li>
+                <li><a href="/signup">Join</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main>
+        <div class="content">
+            <div class="code">4<span>0</span>4</div>
+            <h1>This page got ghosted.</h1>
+            <p>The page you're looking for doesn't exist — or it's hiding from you, which honestly tracks for the dating apps you came from.</p>
+            <div class="actions">
+                <a href="/" class="btn btn-primary">Back home</a>
+                <a href="/events" class="btn btn-secondary">Browse events</a>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 SparkDate. Philadelphia. Stop swiping. Start living.</p>
+    </footer>
+</body>
+</html>

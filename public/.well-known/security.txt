@@ -1,0 +1,20 @@
+# SparkDate — security disclosure policy (RFC 9116)
+# https://sparkdate.date/.well-known/security.txt
+
+Contact: mailto:security@sparkdate.date
+Expires: 2027-05-19T00:00:00Z
+Preferred-Languages: en
+Canonical: https://sparkdate.date/.well-known/security.txt
+Policy: https://sparkdate.date/privacy
+
+# If you've found a security issue, please email the address above with:
+#   - Affected URL or endpoint
+#   - Reproduction steps
+#   - Your name/handle if you'd like credit
+#
+# We respond to all reports within 5 business days. Please give us a
+# reasonable window to fix issues before public disclosure.
+#
+# We do not currently run a paid bounty program, but serious findings
+# are acknowledged publicly (with your consent) and we offer free
+# lifetime SparkDate Fire-tier membership as a thank-you.

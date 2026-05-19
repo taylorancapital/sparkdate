@@ -1924,6 +1924,7 @@
                         <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(contacted)}</td>
                         <td style="color: rgba(245,243,240,0.5); font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${safe(v.notes || '—')}</td>
                         <td style="font-size: 12px;">
+                            <button class="action-btn" data-act="venue-preview" data-id="${safe(v.id)}" data-name="${safe(v.name)}" title="Preview the email without sending">Preview</button>
                             ${v.status === 'not_contacted' ? `<button class="action-btn" data-act="venue-send" data-id="${safe(v.id)}" data-name="${safe(v.name)}">Send</button>` : ''}
                             ${v.status !== 'event_created' ? `<button class="action-btn" data-act="venue-update" data-id="${safe(v.id)}">Update</button>` : ''}
                         </td>
@@ -1937,11 +1938,66 @@
                 btn.addEventListener('click', () => {
                     const act = btn.dataset.act;
                     const id  = btn.dataset.id;
-                    if (act === 'venue-send')   window.sendVenueOutreach(id, btn.dataset.name || '');
-                    if (act === 'venue-update') window.updateVenueStatus(id);
+                    if (act === 'venue-send')    window.sendVenueOutreach(id, btn.dataset.name || '');
+                    if (act === 'venue-preview') window.previewVenueOutreach(id, btn.dataset.name || '');
+                    if (act === 'venue-update')  window.updateVenueStatus(id);
                 });
             });
         }
+
+        // Renders the venue outreach email in a modal so admin can review
+        // before clicking Send. Calls the same endpoint with preview:true,
+        // which short-circuits before Resend + before the venue doc is
+        // mutated — same template path, no risk of accidental send.
+        window.previewVenueOutreach = async (venueId, venueName) => {
+            try {
+                const idToken = await auth.currentUser.getIdToken();
+                const res = await fetch('/api/send-venue-outreach', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({ venue_id: venueId, preview: true })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || data.error || 'Preview failed');
+
+                // Build the modal lazily so the page payload stays light.
+                let modal = document.getElementById('emailPreviewModal');
+                if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'emailPreviewModal';
+                    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+                    modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+                    document.body.appendChild(modal);
+                }
+                // Render headers as text + body in a sandboxed iframe so any
+                // inline CSS/HTML in the email template can't break the admin
+                // page layout, and so what you see is what the recipient sees.
+                modal.innerHTML = `
+                    <div style="background:#0a0e27;border:1px solid rgba(255,107,107,0.3);border-radius:8px;max-width:720px;width:100%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
+                        <div style="padding:16px 24px;border-bottom:1px solid rgba(255,107,107,0.2);display:flex;justify-content:space-between;align-items:center;gap:16px;">
+                            <h3 style="margin:0;font-family:'Playfair Display',serif;font-size:18px;color:var(--white);">Email Preview</h3>
+                            <button onclick="document.getElementById('emailPreviewModal').style.display='none'" style="background:transparent;border:1px solid rgba(255,107,107,0.4);color:var(--coral);padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Close</button>
+                        </div>
+                        <div style="padding:14px 24px;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,107,107,0.1);font-size:12px;color:rgba(245,243,240,0.7);line-height:1.7;">
+                            <div><strong style="color:rgba(245,243,240,0.5);width:60px;display:inline-block;">From:</strong> ${safe(data.from)}</div>
+                            <div><strong style="color:rgba(245,243,240,0.5);width:60px;display:inline-block;">To:</strong> ${safe(data.to || '(no email on file — will fail at Send)')}</div>
+                            <div><strong style="color:rgba(245,243,240,0.5);width:60px;display:inline-block;">Subject:</strong> ${safe(data.subject)}</div>
+                        </div>
+                        <iframe id="emailPreviewBody" sandbox="" style="flex:1;width:100%;border:0;background:#fff;min-height:400px;"></iframe>
+                    </div>
+                `;
+                modal.style.display = 'flex';
+                // srcdoc keeps the body inline (no fetch) and `sandbox=""`
+                // strips all permissions so nothing the email contains can
+                // run, navigate, or interact with the parent admin page.
+                document.getElementById('emailPreviewBody').srcdoc = data.html;
+            } catch (err) {
+                alert('Could not preview: ' + err.message);
+            }
+        };
 
         // ─── Seed Default Philly List ──────────────────────
         window.seedDefaultVenues = async () => {
