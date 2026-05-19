@@ -1,4 +1,62 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "event_registrations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",  "order": "ASCENDING" },
+        { "fieldPath": "month",   "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "event_registrations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",  "order": "ASCENDING" },
+        { "fieldPath": "eventId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "connection_intents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fromUserId", "order": "ASCENDING" },
+        { "fieldPath": "toUserId",   "order": "ASCENDING" },
+        { "fieldPath": "eventId",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "day2_sent",  "order": "ASCENDING" },
+        { "fieldPath": "subscribed", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "day5_sent",  "order": "ASCENDING" },
+        { "fieldPath": "subscribed", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "day14_sent", "order": "ASCENDING" },
+        { "fieldPath": "subscribed", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "day25_sent", "order": "ASCENDING" },
+        { "fieldPath": "subscribed", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

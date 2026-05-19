@@ -692,6 +692,7 @@
             <button class="tab" onclick="switchTab('revenue', this)">Revenue</button>
             <button class="tab" onclick="switchTab('events', this)">Events</button>
             <button class="tab" onclick="switchTab('venues', this)">Venues</button>
+            <button class="tab" onclick="switchTab('leads', this)">Leads</button>
         </div>
 
         <!-- Overview Tab -->
@@ -1042,6 +1043,39 @@
             </div>
         </div>
 
+        <!-- Leads Tab -->
+        <div class="tab-content" id="tab-leads">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Email-Marketing Leads</h2>
+                    <span style="font-size: 12px; color: rgba(245,243,240,0.5);" id="leadCount">—</span>
+                </div>
+                <p style="font-size: 13px; color: rgba(245,243,240,0.55); margin: -6px 0 16px; line-height: 1.6;">
+                    Signups from the founding form (<code>/founding</code>). Welcome email + the 4-touch nurture sequence (day 2, 5, 14, 25) auto-fire from <code>/api/cron-send-emails</code>. Unsubscribes flip the row to red.
+                </p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Source</th>
+                            <th>Signed Up</th>
+                            <th>Welcome</th>
+                            <th>D2</th>
+                            <th>D5</th>
+                            <th>D14</th>
+                            <th>D25</th>
+                            <th>Subscribed</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leadsTable">
+                        <tr><td colspan="11"><div class="spinner"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     <!-- Firebase + App Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
@@ -1190,16 +1224,56 @@
                         <td style="color: rgba(245,243,240,0.7);">${spots}</td>
                         <td style="color: var(--gold); font-weight: 600;">${regCount}</td>
                         <td><span class="badge ${safe(statusClass)}">${safe(ev.status || 'open')}</span></td>
-                        <td><button class="action-btn" data-act="score-candidates" data-id="${safe(ev.id)}">Score Candidates</button></td>
+                        <td style="font-size: 12px;">
+                            <button class="action-btn" data-act="score-candidates" data-id="${safe(ev.id)}">Score</button>
+                            <button class="action-btn" data-act="delete-event" data-id="${safe(ev.id)}" data-title="${safe(ev.title)}" data-regs="${regCount}" style="border-color: rgba(231,76,60,0.5); color: #e74c3c;">Delete</button>
+                        </td>
                     </tr>`;
             }).join('');
 
-            // Event delegation for "Score Candidates" — replaces the inline
-            // onclick which would break if an event ID ever contained a quote.
+            // Event delegation — replaces inline onclick which would break if
+            // an event ID/title ever contained a quote.
             tbody.querySelectorAll('button[data-act="score-candidates"]').forEach(btn => {
                 btn.addEventListener('click', () => window.openCandidates(btn.dataset.id));
             });
+            tbody.querySelectorAll('button[data-act="delete-event"]').forEach(btn => {
+                btn.addEventListener('click', () => window.deleteEvent(
+                    btn.dataset.id,
+                    btn.dataset.title || 'this event',
+                    parseInt(btn.dataset.regs || '0', 10)
+                ));
+            });
         }
+
+        // Delete event with two-tier confirmation:
+        //   - 0 registrations: single confirm
+        //   - any registrations: confirm + typed-title check, because the
+        //     tickets that were sold ARE NOT auto-refunded and the
+        //     registered users get no notification. Used mostly for
+        //     cleaning up test events during dev.
+        window.deleteEvent = async (eventId, eventTitle, regCount) => {
+            if (regCount > 0) {
+                const msg = `"${eventTitle}" has ${regCount} registration${regCount === 1 ? '' : 's'}. ` +
+                            `Deleting will NOT refund tickets or notify members. ` +
+                            `Type the event title to confirm:`;
+                const typed = prompt(msg, '');
+                if (typed !== eventTitle) {
+                    if (typed !== null) alert('Title did not match. Cancelled.');
+                    return;
+                }
+            } else {
+                if (!confirm(`Delete "${eventTitle}"?\n\nThis cannot be undone.`)) return;
+            }
+
+            try {
+                await deleteDoc(doc(db, 'events', eventId));
+                allEvents = allEvents.filter(e => e.id !== eventId);
+                renderAdminEvents();
+            } catch (err) {
+                console.error('[deleteEvent]', err);
+                alert('Could not delete event: ' + err.message);
+            }
+        };
 
         // ────────────────────────────────────────────────────────────────
         // CANDIDATE SCORING — algorithmic guest-list curation MVP
@@ -1380,6 +1454,12 @@
                     amenities,
                     emoji,
                     status: evStatus,
+                    // Initialize the counters that /api/purchase-ticket bumps
+                    // inside its capacity transaction. Without these fields,
+                    // the first concurrent ticket purchase races against the
+                    // counter's implicit-zero default, which could miscount.
+                    confirmedWomen: 0,
+                    confirmedMen:   0,
                     createdAt: Timestamp.now(),
                 });
 
@@ -1715,7 +1795,66 @@
             document.getElementById('tab-' + id).classList.add('active');
             btn.classList.add('active');
             if (id === 'venues') loadVenues();
+            if (id === 'leads')  loadLeads();
         };
+
+        // ─── LEADS ─────────────────────────────────────────
+        // Email-marketing pipeline: founding-form signups + nurture-sequence status.
+        let allLeads = [];
+
+        async function loadLeads() {
+            const tbody = document.getElementById('leadsTable');
+            tbody.innerHTML = '<tr><td colspan="11"><div class="spinner"></div></td></tr>';
+            try {
+                // Newest first — leads are written with a serverTimestamp createdAt.
+                const snap = await getDocs(query(collection(db, 'leads'), orderBy('createdAt', 'desc')));
+                allLeads = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderLeads();
+            } catch (err) {
+                console.error('Error loading leads:', err);
+                tbody.innerHTML = '<tr><td colspan="11" class="empty">Error loading leads. Check Firestore rules.</td></tr>';
+            }
+        }
+
+        function renderLeads() {
+            const tbody = document.getElementById('leadsTable');
+            const countEl = document.getElementById('leadCount');
+            countEl.textContent = `${allLeads.length} lead${allLeads.length !== 1 ? 's' : ''}`;
+
+            if (allLeads.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="11" class="empty">No leads yet. Founding-form signups will appear here.</td></tr>';
+                return;
+            }
+
+            // Lightweight tri-state pill renderer: green checkmark if the bucket
+            // has been sent, gold dash if not yet, red ✕ if unsubscribed before
+            // the send window. Keeps the table scannable.
+            const pill = (sent, subscribed) => {
+                if (!subscribed) return `<span style="color: rgba(245,243,240,0.3);">—</span>`;
+                if (sent)      return `<span style="color: var(--success); font-weight: 600;">✓</span>`;
+                return            `<span style="color: rgba(245,243,240,0.4);">·</span>`;
+            };
+
+            tbody.innerHTML = allLeads.map(l => {
+                const created = l.createdAt?.toDate ? l.createdAt.toDate() : (l.createdAt ? new Date(l.createdAt) : null);
+                const dateStr = created ? created.toLocaleDateString() + ' ' + created.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—';
+                const subColor = l.subscribed ? 'var(--success)' : '#f87171';
+                return `
+                    <tr style="${l.subscribed ? '' : 'opacity: 0.6;'}">
+                        <td style="color: var(--white); font-weight: 500;">${safe(l.name || '—')}</td>
+                        <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${safe(l.email || '—')}</td>
+                        <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(l.phone || '—')}</td>
+                        <td style="color: rgba(245,243,240,0.5); font-size: 11px;">${safe(l.source || '—')}</td>
+                        <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(dateStr)}</td>
+                        <td style="text-align: center;">${pill(l.welcome_sent, l.subscribed)}</td>
+                        <td style="text-align: center;">${pill(l.day2_sent,  l.subscribed)}</td>
+                        <td style="text-align: center;">${pill(l.day5_sent,  l.subscribed)}</td>
+                        <td style="text-align: center;">${pill(l.day14_sent, l.subscribed)}</td>
+                        <td style="text-align: center;">${pill(l.day25_sent, l.subscribed)}</td>
+                        <td style="color: ${subColor}; font-weight: 600; font-size: 12px;">${l.subscribed ? 'Yes' : 'Unsubscribed'}</td>
+                    </tr>`;
+            }).join('');
+        }
 
         // ─── VENUES ────────────────────────────────────────
         let allVenues = [];

@@ -1,0 +1,10 @@
+# SparkDate — robots.txt
+# Public landing pages are indexable. Auth-gated and conversion pages are not.
+
+User-agent: *
+Allow: /
+Disallow: /account
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://sparkdate.date/sitemap.xml

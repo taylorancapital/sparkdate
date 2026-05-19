@@ -35,10 +35,6 @@
       "destination": "/event.html"
     },
     {
-      "source": "/participant",
-      "destination": "/participant.html"
-    },
-    {
       "source": "/about",
       "destination": "/about.html"
     },

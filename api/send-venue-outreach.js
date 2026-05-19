@@ -38,6 +38,13 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
+// Physical mailing address — required by CAN-SPAM in every commercial
+// email, including B2B cold outreach. Defaults to the corporate address
+// from the privacy policy; override OUTREACH_POSTAL_ADDRESS in env if
+// you need to swap to a P.O. box later.
+const OUTREACH_POSTAL_ADDRESS = process.env.OUTREACH_POSTAL_ADDRESS
+  || 'Ancapital Group LLC · SparkDate · Philadelphia, PA';
+
 const venueOutreachHTML = (venueName, contactName) => `
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"><style>
@@ -46,7 +53,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .content{padding:40px 30px;color:#0a0e27;font-size:15px;line-height:1.6}
 p{margin:0 0 16px}
 .sign-off{margin-top:30px}
-.footer{padding:20px 30px;background:#f5f3f0;color:#666;font-size:13px;border-top:1px solid #e8e4df}
+.footer{padding:20px 30px;background:#f5f3f0;color:#666;font-size:12px;border-top:1px solid #e8e4df;line-height:1.6}
+.footer .addr{display:block;margin-top:6px;color:#888}
 a{color:#ff6b6b;text-decoration:none}
 </style></head><body>
 <div class="container">
@@ -55,13 +63,17 @@ a{color:#ff6b6b;text-decoration:none}
     <p>I'm launching a dating thing in Philly (called SparkDate — stop swiping, start living type vibe) and I looked at like 50 bars in Center City. ${esc(venueName)} keeps coming up as the place where people actually *want* to be.</p>
     <p>I'm thinking about hosting a singles mixer here in early June. 25-30 people, pre-screened, actual vibes. You'd make $500-1000 off a few hours, we'd move bodies through, everyone wins.</p>
     <p>Two questions:<br>1. Do you have private space or a section we could use one evening?<br>2. Who's the right person to talk to about this?</p>
-    <p>No pressure — just curious if it's something you'd consider.</p>
+    <p>No pressure — just curious if it's something you'd consider. If you'd rather not hear from us again, just reply with "NO" and I'll take you off the list.</p>
     <div class="sign-off">
       <p>Taylor${OUTREACH_PHONE ? '<br>' + esc(OUTREACH_PHONE) : ''}<br><a href="https://sparkdate.date">sparkdate.date</a></p>
     </div>
   </div>
   <div class="footer">
     <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
+    <p style="margin:6px 0 0;font-size:11px;color:#999;">
+      This is a one-time business outreach email. Reply "NO" to opt out and you won't hear from us again.
+      <span class="addr">${esc(OUTREACH_POSTAL_ADDRESS)}</span>
+    </p>
   </div>
 </div>
 </body></html>`;

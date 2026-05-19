@@ -13,6 +13,14 @@
     </script>
     <title>Join SparkDate - Start Dating IRL</title>
     <meta name="description" content="Sign up for SparkDate. Choose your tier and start meeting real people at curated events.">
+    <link rel="canonical" href="https://sparkdate.date/signup">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Join SparkDate">
+    <meta property="og:description" content="Stop swiping. Start living. Choose your tier and meet real people at curated Philly events.">
+    <meta property="og:image" content="https://sparkdate.date/og-image.svg">
+    <meta property="og:url" content="https://sparkdate.date/signup">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="robots" content="noindex">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Fraunces:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         * {
@@ -636,7 +644,7 @@
                     </div>
                     <div class="form-group">
                         <label for="age">Age *</label>
-                        <input type="text" id="age" name="age" placeholder="28" required>
+                        <input type="number" id="age" name="age" placeholder="28" min="21" max="99" required inputmode="numeric">
                     </div>
                 </div>
 
@@ -772,7 +780,9 @@
             if (!password || password.length < 8) return 'Password must be at least 8 characters.';
             if (gender !== 'woman' && gender !== 'man') return 'Please select a gender.';
             const ageNum = parseInt(age, 10);
-            if (!ageNum || ageNum < 18) return 'You must be at least 18 to join.';
+            // Match Terms of Service §1 — events serve alcohol, so 21+ only.
+            // Loosening this back to 18 requires updating Terms first.
+            if (!ageNum || ageNum < 21) return 'You must be at least 21 to join (our events serve alcohol).';
             if (ageNum > 120) return 'Please enter a valid age.';
             if (!['long_term', 'dating_around', 'friends_first'].includes(intent)) return 'Please tell us what you\'re here for.';
             if (!['free', 'mid', 'premium'].includes(tier)) return 'Please select a membership tier.';
