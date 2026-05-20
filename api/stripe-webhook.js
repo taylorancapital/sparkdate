@@ -5,9 +5,6 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const db = admin.firestore();
 
-// Disable Vercel's body parsing — Stripe needs raw body for signature verification
-module.exports.config = { api: { bodyParser: false } };
-
 // Read raw body from request stream
 function getRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -214,3 +211,12 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: err.message });
   }
 };
+
+// Disable Vercel's body parser — Stripe signature verification needs the
+// EXACT raw request body. This MUST come after the `module.exports = handler`
+// assignment above: assigning to `module.exports` replaces the whole object,
+// so setting `.config` beforehand would be silently wiped. With the parser
+// left enabled, Vercel consumes the request stream before getRawBody() runs,
+// constructEvent() receives an empty buffer, and EVERY webhook 400s with
+// "No signatures found matching the expected signature for payload".
+module.exports.config = { api: { bodyParser: false } };
