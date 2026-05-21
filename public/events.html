@@ -219,6 +219,24 @@
             color: var(--gold);
             border-color: var(--gold);
         }
+        /* Venue star rating — bottom-right of the card image. Signals
+           venue quality (and justifies the tiered ticket price). */
+        .venue-rating {
+            position: absolute;
+            bottom: 14px;
+            right: 16px;
+            background: rgba(10, 14, 39, 0.82);
+            color: var(--gold);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            border: 1px solid rgba(212, 175, 55, 0.45);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
 
         .event-content {
             padding: 30px;
@@ -619,6 +637,14 @@
 
                 const venueLine = (ev.venue || '') + (ev.neighborhood ? ' · ' + ev.neighborhood : '');
 
+                // Venue star rating — only events created via the admin
+                // venue picker carry venueStars. Older / manually-entered
+                // events simply omit the badge (no empty placeholder).
+                const hasStars = typeof ev.venueStars === 'number' && isFinite(ev.venueStars) && ev.venueStars > 0;
+                const ratingBadge = hasStars
+                    ? `<div class="venue-rating" title="Venue rating, Google reviews">★ ${ev.venueStars.toFixed(1)}</div>`
+                    : '';
+
                 return `
                     <div class="event-card${currentUser && atLimit ? ' at-limit' : ''}">
                         <div class="event-image ${gradientClass}">
@@ -628,6 +654,7 @@
                             </div>
                             <div class="event-status ${ev.status === 'full' ? 'full' : ev.status === 'almost' ? 'almost' : ''}">${safe(statusLabel)}</div>
                             ${ev.emoji ? `<span class="event-emoji">${safe(ev.emoji)}</span>` : ''}
+                            ${ratingBadge}
                         </div>
                         <div class="event-content">
                             <div class="event-date-label">${safe(dateLabel)}</div>

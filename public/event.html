@@ -316,6 +316,11 @@
                         <div class="label">Capacity</div>
                         <div class="value" id="eventCapacity">30 guests</div>
                     </div>
+                    <!-- Shown only when the event carries a venueStars snapshot -->
+                    <div class="meta-item" id="venueRatingItem" style="display: none;">
+                        <div class="label">Venue Rating</div>
+                        <div class="value" id="eventVenueRating" style="color: var(--gold);">—</div>
+                    </div>
                 </div>
 
                 <div class="event-description">
@@ -491,6 +496,14 @@
             if (ev.venue) document.getElementById('eventVenue').textContent = `${ev.venue}${ev.neighborhood ? ' · ' + ev.neighborhood : ''}`;
             const total = ev.spotsTotal || ((ev.spotsMen || 0) + (ev.spotsWomen || 0));
             if (total) document.getElementById('eventCapacity').textContent = `${total} guests`;
+
+            // Venue rating — only events created via the admin venue picker
+            // carry a venueStars snapshot. When present, reveal the meta tile;
+            // otherwise it stays hidden (no empty placeholder).
+            if (typeof ev.venueStars === 'number' && isFinite(ev.venueStars) && ev.venueStars > 0) {
+                document.getElementById('eventVenueRating').textContent = `★ ${ev.venueStars.toFixed(1)}`;
+                document.getElementById('venueRatingItem').style.display = '';
+            }
         }
 
         // Check if logged-in user is over their monthly limit
