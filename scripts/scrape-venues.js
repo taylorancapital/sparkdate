@@ -14,16 +14,28 @@
  * with "Overwrite existing" ON merges it in (blank cells never clobber).
  *
  * ── Setup ────────────────────────────────────────────────────────────
- * Needs a Google Places API key (the "Places API (New)" must be enabled
- * on the project, and billing turned on — there's a $200/mo free credit;
- * 250 venues costs roughly $8, well inside it).
+ * Nothing is required for --offline (descriptions only). For live data,
+ * set one or both keys:
  *
- *   1. https://console.cloud.google.com/  →  create/pick a project
- *   2. APIs & Services ▸ Library ▸ enable "Places API (New)"
- *   3. APIs & Services ▸ Credentials ▸ Create API key
- *   4. Put it in your shell:
- *        Windows PowerShell:  $env:GOOGLE_PLACES_API_KEY = "AIza..."
- *        macOS/Linux:         export GOOGLE_PLACES_API_KEY="AIza..."
+ * GOOGLE_PLACES_API_KEY — refreshes stars/phone, and gives venue website
+ *   URLs for --emails. "Places API (New)" must be enabled + billing on
+ *   ($200/mo free credit; ~250 venues ≈ $8).
+ *     1. https://console.cloud.google.com/  → create/pick a project
+ *     2. APIs & Services ▸ Library ▸ enable "Places API (New)"
+ *     3. APIs & Services ▸ Credentials ▸ Create API key
+ *     4. PowerShell:  $env:GOOGLE_PLACES_API_KEY = "AIza..."
+ *        bash/zsh:    export GOOGLE_PLACES_API_KEY="AIza..."
+ *
+ * BRAVE_API_KEY — search backend for --emails when running --offline (no
+ *   Google key). Free tier: 2,000 queries/month, 1 query/sec, and it does
+ *   NOT IP-block the way DuckDuckGo does. This is the recommended way to
+ *   run --emails for free.
+ *     1. https://brave.com/search/api/  → sign up
+ *     2. Subscribe to the "Free" plan (Brave may ask for a card to
+ *        verify; the Free plan itself bills $0)
+ *     3. Copy the key from the dashboard
+ *     4. PowerShell:  $env:BRAVE_API_KEY = "BSA..."
+ *        bash/zsh:    export BRAVE_API_KEY="BSA..."
  *
  * ── Usage ────────────────────────────────────────────────────────────
  *   node scripts/scrape-venues.js <input.csv> [output.csv] [flags]
@@ -39,27 +51,28 @@
  *                       Default: only fill empty description cells.
  *     --emails          Also try to find a contact email per venue:
  *                       (1) reuse an email already in the `notes`, else
- *                       (2) find the venue website — Google Places when
- *                           online, a DuckDuckGo search when offline —
+ *                       (2) find the venue's own website, else
  *                       (3) scrape its homepage + contact pages.
  *
- *                       REALITY CHECK: there is no free way to bulk-find
- *                       emails. Step 1 is free + reliable but only helps
- *                       the few rows that mention an email. Step 2's free
- *                       path (DuckDuckGo) gets IP-blocked after ~10-15
- *                       lookups — fine for a small --limit run, useless
- *                       for all 247. For real coverage, run online with
- *                       GOOGLE_PLACES_API_KEY set: Places hands back the
- *                       website with no blocking, then step 3 scrapes it.
- *                       Even then, many small bars publish no email at
- *                       all — expect a modest hit rate either way.
+ *                       The step-2 website finder picks a backend:
+ *                         • online (Google key)  → Places website field
+ *                         • BRAVE_API_KEY set    → Brave Search API
+ *                                                  (free, won't block)
+ *                         • neither              → DuckDuckGo scrape
+ *                                                  (free, IP-blocks after
+ *                                                  ~12 — small runs only)
+ *
+ *                       So for a free bulk run, set BRAVE_API_KEY and use
+ *                       --offline --emails. Note: many small bars publish
+ *                       no email anywhere — expect a modest hit rate
+ *                       regardless of backend.
  *     --dry-run         Look everything up and print a report, but don't
  *                       write the output file.
  *
  *   Examples:
- *     node scripts/scrape-venues.js sepa_bars.csv --offline           (free desc)
- *     node scripts/scrape-venues.js sepa_bars.csv --offline --emails  (free desc+email)
- *     node scripts/scrape-venues.js sepa_bars.csv                     (Places)
+ *     node scripts/scrape-venues.js sepa_bars.csv --offline               (free desc)
+ *     node scripts/scrape-venues.js sepa_bars.csv --offline --emails      (BRAVE_API_KEY → free email)
+ *     node scripts/scrape-venues.js sepa_bars.csv                         (Places)
  *     node scripts/scrape-venues.js sepa_bars.csv out.csv --limit 10
  *
  * Output defaults to "<input>.enriched.csv" next to the input file.
@@ -75,6 +88,12 @@ const path = require('path');
 // ── Config ───────────────────────────────────────────────────────────
 const API_KEY = process.env.GOOGLE_PLACES_API_KEY || '';
 const PLACES_URL = 'https://places.googleapis.com/v1/places:searchText';
+// Brave Search API — used by --emails to find venue websites. Free tier
+// is 2,000 queries/month at 1 query/sec and, unlike DuckDuckGo scraping,
+// it does not IP-block. Get a key at https://brave.com/search/api/ →
+// subscribe to the "Free" plan. Set it as BRAVE_API_KEY.
+const BRAVE_API_KEY = process.env.BRAVE_API_KEY || '';
+const BRAVE_URL = 'https://api.search.brave.com/res/v1/web/search';
 // Field mask — controls which fields come back AND the billing SKU.
 const FIELD_MASK = [
   'places.id',
@@ -231,15 +250,79 @@ function emailFromNotes(notes) {
   return found[0] || '';
 }
 
-// DuckDuckGo blocks scraped traffic aggressively — after ~10-15 requests
-// from one IP it serves an HTTP 202 "anomaly" anti-bot page instead of
-// results. Once we see that, this flag stops us pointlessly hammering a
-// blocked endpoint for the rest of the run.
+// Given a list of candidate result URLs, pick the one most likely to be
+// the venue's OWN website: skip aggregator/directory domains, and require
+// the domain to contain a distinctive word from the venue name. Search
+// results are dominated by directory sites we can't fully blocklist, and
+// scraping the wrong site yields the wrong email — so precision beats
+// coverage: no name match → return nothing.
+function pickVenueWebsite(urls, name) {
+  const keywords = venueKeywords(name);
+  for (const href of urls) {
+    if (!href || !/^https?:\/\//i.test(href)) continue;
+    let host = '';
+    try { host = new URL(href).host.toLowerCase(); } catch (_) { continue; }
+    if (AGGREGATORS.test(host)) continue;
+    const domainFlat = host.replace(/^www\./, '').replace(/[^a-z0-9]/g, '');
+    if (keywords.some(k => domainFlat.includes(k))) return href;
+  }
+  return '';
+}
+
+// ── Brave Search API (the recommended search backend for --emails) ────
+// Free tier: 2,000 queries/month, 1 query/sec, and — unlike scraping
+// DuckDuckGo — it does NOT IP-block. Used automatically when
+// BRAVE_API_KEY is set. One-time flag so a bad key only warns once.
+let braveKeyBad = false;
+
+async function findWebsiteBrave(name, city) {
+  if (!name || !BRAVE_API_KEY || braveKeyBad) return '';
+  const q = encodeURIComponent(`${name} ${city || ''} PA`);
+  const url = `${BRAVE_URL}?q=${q}&count=10&country=us`;
+  // Up to 2 attempts — one retry if we hit a transient 429.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 10000);
+      const res = await fetch(url, {
+        signal: ctrl.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Accept-Encoding': 'gzip',
+          'X-Subscription-Token': BRAVE_API_KEY,
+        },
+      });
+      clearTimeout(t);
+      if (res.status === 429) { await sleep(1500); continue; } // rate limit
+      if (!res.ok) {
+        // A bad/expired key is an auth failure. Brave uses HTTP 422
+        // (SUBSCRIPTION_TOKEN_INVALID) for an invalid key; some setups
+        // return 401/403. Confirm via the error body so a one-off 4xx
+        // on a single venue isn't mistaken for a dead key.
+        if ([401, 403, 422].includes(res.status)) {
+          const body = await res.text().catch(() => '');
+          if (/token|subscription|authentic|unauthor/i.test(body)) {
+            braveKeyBad = true;
+            console.log(`  ⚠ Brave Search API rejected the key (HTTP ${res.status}).`);
+            console.log('    Email website-lookups disabled — check BRAVE_API_KEY.');
+          }
+        }
+        return '';
+      }
+      const json = await res.json();
+      const urls = ((json.web && json.web.results) || []).map(r => r.url);
+      return pickVenueWebsite(urls, name);
+    } catch (_) { return ''; }
+  }
+  return '';
+}
+
+// ── DuckDuckGo (free fallback when there's no Brave key) ──────────────
+// DDG blocks scraped traffic aggressively — after ~10-15 requests from
+// one IP it serves an HTTP 202 "anomaly" page instead of results. This
+// flag stops us pointlessly hammering a blocked endpoint after that.
 let ddgBlocked = false;
 
-// Step 2 (free, no key): find a venue's website via DuckDuckGo's HTML
-// endpoint. Best-effort — DDG rate-limits HARD (see above), and not
-// every bar has a site. Returns '' on any failure.
 async function findWebsiteDDG(name, city) {
   if (!name || ddgBlocked) return '';
   const q = encodeURIComponent(`${name} ${city || ''} PA`);
@@ -258,32 +341,21 @@ async function findWebsiteDDG(name, city) {
     if (res.status !== 200 || /anomaly|unusual traffic/i.test(html.slice(0, 2000))) {
       ddgBlocked = true;
       console.log('  ⚠ DuckDuckGo is now rate-limiting this IP — website lookups');
-      console.log('    are disabled for the rest of this run. Emails already in the');
-      console.log('    CSV notes still get picked up. See --help for the bulk path.');
+      console.log('    are disabled for the rest of this run. Set BRAVE_API_KEY for');
+      console.log('    a search backend that does not block (see --help).');
       return '';
     }
   } catch (_) { return ''; }
 
   // DDG result anchors: <a class="result__a" href="...">. The href is
   // usually a redirect wrapper: /l/?uddg=<url-encoded-target>.
-  const keywords = venueKeywords(name);
-  const links = [...html.matchAll(/class="result__a"[^>]*href="([^"]+)"/g)].map(m => m[1]);
-  for (let href of links) {
+  const urls = [...html.matchAll(/class="result__a"[^>]*href="([^"]+)"/g)].map(m => {
+    let href = m[1];
     const uddg = /[?&]uddg=([^&]+)/.exec(href);
     if (uddg) { try { href = decodeURIComponent(uddg[1]); } catch (_) {} }
-    if (!/^https?:\/\//i.test(href)) continue;
-    let host = '';
-    try { host = new URL(href).host.toLowerCase(); } catch (_) { continue; }
-    if (AGGREGATORS.test(host)) continue;
-    // Only trust a result whose domain actually contains a distinctive
-    // word from the venue name — that's almost certainly the venue's OWN
-    // site. Search results are dominated by directory sites we'll never
-    // fully blocklist, and scraping the wrong site yields the wrong
-    // email, so precision beats coverage here: no name match → skip.
-    const domainFlat = host.replace(/^www\./, '').replace(/[^a-z0-9]/g, '');
-    if (keywords.some(k => domainFlat.includes(k))) return href;
-  }
-  return '';
+    return href;
+  });
+  return pickVenueWebsite(urls, name);
 }
 
 // Step 3: fetch a venue website (homepage + likely contact pages) and
@@ -321,20 +393,25 @@ async function scrapeEmail(websiteUri) {
   return '';
 }
 
-// Orchestrates the three steps. `place` may be null (offline mode) — in
-// that case the website comes from DuckDuckGo instead of Google Places.
+// Orchestrates the three steps. `place` may be null (offline mode).
+// Website-finder cascade: Google Places (if online) → Brave Search
+// (if BRAVE_API_KEY set) → DuckDuckGo (free fallback, blocks fast).
 async function findEmail(row, place) {
   // 1. Already mentioned in the notes.
   const fromNotes = emailFromNotes(row.notes);
   if (fromNotes) return { email: fromNotes, source: 'notes' };
 
-  // 2. Locate the venue website — Places gives it for free online;
-  //    offline we ask DuckDuckGo.
+  // 2. Locate the venue's own website.
   let site = (place && place.websiteUri) || '';
   let source = 'places';
   if (!site) {
-    site = await findWebsiteDDG(row.name, row.city);
-    source = 'ddg';
+    if (BRAVE_API_KEY) {
+      site = await findWebsiteBrave(row.name, row.city);
+      source = 'brave';
+    } else {
+      site = await findWebsiteDDG(row.name, row.city);
+      source = 'ddg';
+    }
   }
   if (!site) return null;
 
@@ -412,6 +489,12 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   console.log(`Input:  ${inputPath}  (${records.length} venues)`);
   console.log(`Output: ${dryRun ? '(dry run — nothing written)' : outputPath}`);
   console.log(`Flags:  overwrite-desc=${overwriteDesc}  emails=${doEmails}  limit=${limit === Infinity ? 'none' : limit}`);
+  if (doEmails) {
+    const finder = !offline
+      ? 'Google Places (website field)'
+      : (BRAVE_API_KEY ? 'Brave Search API' : 'DuckDuckGo — free but IP-blocks after ~12 lookups');
+    console.log(`Emails: ON  ·  website lookup via ${finder}`);
+  }
   console.log('');
 
   const stats = { found: 0, notFound: 0, descFilled: 0, starsUpdated: 0,
@@ -510,11 +593,13 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
     console.log(`${tag} — ${bits.length ? bits.join(', ') : 'no new data'}`);
 
-    // Pace network calls. --emails hits DuckDuckGo + venue sites, so it
-    // needs a generous gap — but once DDG has blocked us there are no
-    // more web calls (notes lookup is instant), so don't waste the wait.
-    if (doEmails && !ddgBlocked) await sleep(2000);
-    else if (!offline)          await sleep(THROTTLE_MS);
+    // Pace network calls. --emails hits a search API + venue sites, so
+    // it needs a generous gap (also keeps us under Brave's 1 query/sec
+    // free-tier limit) — but once the search backend is dead (DDG
+    // blocked / Brave key rejected) there are no more web calls, so
+    // don't waste the wait.
+    if (doEmails && !ddgBlocked && !braveKeyBad) await sleep(2000);
+    else if (!offline)                          await sleep(THROTTLE_MS);
 
     // Incremental save — a --emails run can take 10-15 min; checkpoint
     // every 25 rows so a crash or Ctrl+C doesn't lose progress. Re-running
