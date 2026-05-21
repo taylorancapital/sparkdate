@@ -29,16 +29,23 @@
  *   node scripts/scrape-venues.js <input.csv> [output.csv] [flags]
  *
  *   Flags:
+ *     --offline         FREE, no API key, no internet. Builds the
+ *                       `description` column from the venue type, city,
+ *                       and the existing `notes` already in the CSV.
+ *                       Skips stars/phone/email (those need the API).
+ *                       Use this if you don't want a Google key.
  *     --limit N         Only process the first N data rows (for testing).
  *     --overwrite-desc  Replace descriptions that already have text.
  *                       Default: only fill empty description cells.
  *     --emails          Also scrape a contact email from each venue's
  *                       website (slower — one extra fetch per venue).
+ *                       Online mode only.
  *     --dry-run         Look everything up and print a report, but don't
  *                       write the output file.
  *
  *   Examples:
- *     node scripts/scrape-venues.js sepa_bars.csv
+ *     node scripts/scrape-venues.js sepa_bars.csv --offline       (free)
+ *     node scripts/scrape-venues.js sepa_bars.csv                 (Places)
  *     node scripts/scrape-venues.js sepa_bars.csv out.csv --limit 10
  *     node scripts/scrape-venues.js sepa_bars.csv --emails
  *
@@ -118,7 +125,10 @@ function writeCSV(headers, objects) {
 // the venue type, city, and the most descriptive clauses of `notes`.
 // Deliberately NOT in SparkDate brand voice — keep it factual here and
 // polish the voice afterward (e.g. hand the enriched CSV to Claude).
-const NOTE_NOISE = /(contact form only|no public contact|corp officers|^est\.|^\d+\s*yrs|hours?|AM-|PM-|\d(AM|PM)|FOR SALE|CLOSED|permanently|treasurer|president|owner d\.)/i;
+// Clauses that are operational/contact noise, not customer-facing copy:
+// "contact form only", corp-officer lines, hours, an email address (@),
+// closure flags, etc. Anything matching gets dropped from the blurb.
+const NOTE_NOISE = /(contact form only|no public contact|corp officers|^est\.|^\d+\s*yrs|hours?|AM-|PM-|\d(AM|PM)|FOR SALE|CLOSED|permanently|treasurer|president|owner d\.|@|http)/i;
 
 function notesToBlurb(notes) {
   if (!notes) return '';
@@ -209,7 +219,8 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 (async () => {
   const args = process.argv.slice(2);
   if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
-    console.log('Usage: node scripts/scrape-venues.js <input.csv> [output.csv] [--limit N] [--overwrite-desc] [--emails] [--dry-run]');
+    console.log('Usage: node scripts/scrape-venues.js <input.csv> [output.csv] [--offline] [--limit N] [--overwrite-desc] [--emails] [--dry-run]');
+    console.log('  --offline  builds descriptions from the CSV itself — free, no API key.');
     console.log('See the comment block at the top of this file for full setup + docs.');
     process.exit(args.length === 0 ? 1 : 0);
   }
@@ -219,15 +230,25 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   const inputPath = positional[0];
   const limitIdx = flags.findIndex(f => f === '--limit');
   const limit = limitIdx >= 0 ? parseInt(args[args.indexOf('--limit') + 1], 10) : Infinity;
+  const offline = flags.includes('--offline');
   const overwriteDesc = flags.includes('--overwrite-desc');
   const doEmails = flags.includes('--emails');
   const dryRun = flags.includes('--dry-run');
 
-  if (!API_KEY) {
+  // Online mode needs a Places key. Offline mode needs nothing — it
+  // builds descriptions from the CSV's own type/city/notes columns.
+  if (!offline && !API_KEY) {
     console.error('✗ GOOGLE_PLACES_API_KEY is not set.');
-    console.error('  PowerShell:  $env:GOOGLE_PLACES_API_KEY = "AIza..."');
-    console.error('  bash/zsh:    export GOOGLE_PLACES_API_KEY="AIza..."');
-    console.error('  See the top of this file for how to get a key.');
+    console.error('');
+    console.error('  Easiest fix — run FREE with no key:');
+    console.error('    node scripts/scrape-venues.js <input.csv> --offline');
+    console.error('  This builds the description column from the notes already in');
+    console.error('  your CSV. No internet, no billing.');
+    console.error('');
+    console.error('  Or, for live Google data (stars/phone refresh), set a key:');
+    console.error('    PowerShell:  $env:GOOGLE_PLACES_API_KEY = "AIza..."');
+    console.error('    bash/zsh:    export GOOGLE_PLACES_API_KEY="AIza..."');
+    console.error('    See the top of this file for how to get one.');
     process.exit(2);
   }
   if (!inputPath || !fs.existsSync(inputPath)) {
@@ -257,9 +278,10 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   });
 
   console.log(`── Venue scraper ──`);
+  console.log(`Mode:   ${offline ? 'OFFLINE (no API — descriptions from CSV notes)' : 'ONLINE (Google Places)'}`);
   console.log(`Input:  ${inputPath}  (${records.length} venues)`);
   console.log(`Output: ${dryRun ? '(dry run — nothing written)' : outputPath}`);
-  console.log(`Flags:  overwrite-desc=${overwriteDesc}  emails=${doEmails}  limit=${limit === Infinity ? 'none' : limit}`);
+  console.log(`Flags:  overwrite-desc=${overwriteDesc}  emails=${doEmails && !offline}  limit=${limit === Infinity ? 'none' : limit}`);
   console.log('');
 
   const stats = { found: 0, notFound: 0, descFilled: 0, starsUpdated: 0,
@@ -272,35 +294,39 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     const query = [row.name, row.address, row.city, 'PA'].filter(Boolean).join(', ');
     const tag = `[${i + 1}/${toProcess}] ${name}`;
 
+    // place stays null in offline mode — buildDescription() and every
+    // field block below tolerate a null place and just skip API-only data.
     let place = null;
-    try {
-      // One retry on rate-limit.
+    if (!offline) {
       try {
-        place = await placesSearch(query);
+        // One retry on rate-limit.
+        try {
+          place = await placesSearch(query);
+        } catch (e) {
+          if (e.retryable) { await sleep(2000); place = await placesSearch(query); }
+          else throw e;
+        }
       } catch (e) {
-        if (e.retryable) { await sleep(2000); place = await placesSearch(query); }
-        else throw e;
+        if (/^FATAL/.test(e.message)) { console.error('\n' + e.message); process.exit(3); }
+        console.log(`${tag} — ✗ ${e.message}`);
+        stats.errors++;
+        await sleep(THROTTLE_MS);
+        continue;
       }
-    } catch (e) {
-      if (/^FATAL/.test(e.message)) { console.error('\n' + e.message); process.exit(3); }
-      console.log(`${tag} — ✗ ${e.message}`);
-      stats.errors++;
-      await sleep(THROTTLE_MS);
-      continue;
-    }
 
-    if (!place) {
-      console.log(`${tag} — not found on Google`);
-      stats.notFound++;
-      await sleep(THROTTLE_MS);
-      continue;
+      if (!place) {
+        console.log(`${tag} — not found on Google`);
+        stats.notFound++;
+        await sleep(THROTTLE_MS);
+        continue;
+      }
+      stats.found++;
     }
-    stats.found++;
 
     const bits = [];
 
     // stars — refresh from Google's current rating when it has one.
-    if (typeof place.rating === 'number') {
+    if (place && typeof place.rating === 'number') {
       const newStars = String(place.rating);
       if (newStars !== row.stars) stats.starsUpdated++;
       row.stars = newStars;
@@ -313,19 +339,19 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
       if (desc && desc !== row.description) {
         row.description = desc;
         stats.descFilled++;
-        bits.push(place.editorialSummary ? 'desc:google' : 'desc:built');
+        bits.push(place && place.editorialSummary ? 'desc:google' : 'desc:built');
       }
     }
 
     // contact_phone — fill only if missing (don't clobber a direct line).
-    if (!row.contact_phone && place.nationalPhoneNumber) {
+    if (place && !row.contact_phone && place.nationalPhoneNumber) {
       row.contact_phone = place.nationalPhoneNumber;
       stats.phonesFilled++;
       bits.push('phone');
     }
 
     // businessStatus — flag closed venues in notes so they're obvious.
-    if (place.businessStatus && place.businessStatus !== 'OPERATIONAL') {
+    if (place && place.businessStatus && place.businessStatus !== 'OPERATIONAL') {
       stats.closed++;
       const flag = `[${place.businessStatus}]`;
       if (!String(row.notes || '').includes(flag)) {
@@ -334,26 +360,29 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
       bits.push(place.businessStatus);
     }
 
-    // email — best-effort website scrape, opt-in.
-    if (doEmails && !row.contact_email && place.websiteUri) {
+    // email — best-effort website scrape, opt-in. Online mode only
+    // (offline has no website URL to fetch).
+    if (!offline && doEmails && !row.contact_email && place && place.websiteUri) {
       const email = await scrapeEmail(place.websiteUri);
       if (email) { row.contact_email = email; stats.emailsFound++; bits.push('email'); }
     }
 
     console.log(`${tag} — ${bits.length ? bits.join(', ') : 'no new data'}`);
-    await sleep(THROTTLE_MS);
+    if (!offline) await sleep(THROTTLE_MS); // no API call to pace in offline mode
   }
 
   console.log('');
   console.log('── Summary ──');
-  console.log(`  Found on Google:     ${stats.found}`);
-  console.log(`  Not found:           ${stats.notFound}`);
   console.log(`  Descriptions filled: ${stats.descFilled}`);
-  console.log(`  Stars updated:       ${stats.starsUpdated}`);
-  console.log(`  Phones filled:       ${stats.phonesFilled}`);
-  if (doEmails) console.log(`  Emails found:        ${stats.emailsFound}`);
-  console.log(`  Closed venues flagged: ${stats.closed}`);
-  console.log(`  Errors:              ${stats.errors}`);
+  if (!offline) {
+    console.log(`  Found on Google:     ${stats.found}`);
+    console.log(`  Not found:           ${stats.notFound}`);
+    console.log(`  Stars updated:       ${stats.starsUpdated}`);
+    console.log(`  Phones filled:       ${stats.phonesFilled}`);
+    if (doEmails) console.log(`  Emails found:        ${stats.emailsFound}`);
+    console.log(`  Closed venues flagged: ${stats.closed}`);
+    console.log(`  Errors:              ${stats.errors}`);
+  }
   console.log('');
 
   if (dryRun) {
