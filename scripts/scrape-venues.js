@@ -37,17 +37,30 @@
  *     --limit N         Only process the first N data rows (for testing).
  *     --overwrite-desc  Replace descriptions that already have text.
  *                       Default: only fill empty description cells.
- *     --emails          Also scrape a contact email from each venue's
- *                       website (slower — one extra fetch per venue).
- *                       Online mode only.
+ *     --emails          Also try to find a contact email per venue:
+ *                       (1) reuse an email already in the `notes`, else
+ *                       (2) find the venue website — Google Places when
+ *                           online, a DuckDuckGo search when offline —
+ *                       (3) scrape its homepage + contact pages.
+ *
+ *                       REALITY CHECK: there is no free way to bulk-find
+ *                       emails. Step 1 is free + reliable but only helps
+ *                       the few rows that mention an email. Step 2's free
+ *                       path (DuckDuckGo) gets IP-blocked after ~10-15
+ *                       lookups — fine for a small --limit run, useless
+ *                       for all 247. For real coverage, run online with
+ *                       GOOGLE_PLACES_API_KEY set: Places hands back the
+ *                       website with no blocking, then step 3 scrapes it.
+ *                       Even then, many small bars publish no email at
+ *                       all — expect a modest hit rate either way.
  *     --dry-run         Look everything up and print a report, but don't
  *                       write the output file.
  *
  *   Examples:
- *     node scripts/scrape-venues.js sepa_bars.csv --offline       (free)
- *     node scripts/scrape-venues.js sepa_bars.csv                 (Places)
+ *     node scripts/scrape-venues.js sepa_bars.csv --offline           (free desc)
+ *     node scripts/scrape-venues.js sepa_bars.csv --offline --emails  (free desc+email)
+ *     node scripts/scrape-venues.js sepa_bars.csv                     (Places)
  *     node scripts/scrape-venues.js sepa_bars.csv out.csv --limit 10
- *     node scripts/scrape-venues.js sepa_bars.csv --emails
  *
  * Output defaults to "<input>.enriched.csv" next to the input file.
  *
@@ -181,13 +194,103 @@ async function placesSearch(query) {
   return (json.places && json.places[0]) || null;
 }
 
-// ── Best-effort email scrape from a venue website ────────────────────
+// ── Email discovery (all free — no API key) ──────────────────────────
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-const EMAIL_JUNK = /(sentry|wixpress|\.png|\.jpg|\.gif|example\.com|godaddy|cloudflare|@2x|yourdomain)/i;
+const EMAIL_JUNK = /(sentry|wixpress|\.png|\.jpg|\.gif|\.svg|example\.com|godaddy|cloudflare|@2x|yourdomain|@sentry|placeholder)/i;
 
+// A normal browser UA — many sites + DuckDuckGo reject UA-less requests.
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36';
+
+// Aggregator / directory / review domains — never the venue's OWN site.
+// This list can't be exhaustive (there are hundreds), so it's a coarse
+// pre-filter; the real signal is the name-match check in findWebsiteDDG.
+const AGGREGATORS = /(yelp|tripadvisor|facebook|instagram|foursquare|opentable|mapquest|yellowpages|zomato|doordash|ubereats|grubhub|untappd|google\.|bing\.|duckduckgo|wikipedia|allmenus|restaurantji|nextdoor|linkedin|twitter|x\.com|tiktok|booking\.com|wanderlog|beeradvocate|findglocal|menupix|cityseeker|tripexpert|10best|thrillist|eater\.|phillymag|visitphilly|uphilly|chamberofcommerce|loc8nearme|bizapedia|opencorporates|manta\.|buzzfile|dnb\.com|nicelocal|cylex|hotfrog|brownpapertickets|eventbrite|ezcater|toasttab|clover\.com|squareup|getbento|popmenu)/i;
+
+// Generic words that don't identify a specific venue — ignored when
+// matching a search-result domain back to the venue name.
+const GENERIC_WORDS = new Set(['the', 'bar', 'pub', 'tavern', 'grill', 'grille',
+  'lounge', 'restaurant', 'inc', 'llc', 'company', 'brewing', 'brewery', 'house',
+  'club', 'cafe', 'kitchen', 'public', 'craft', 'beer', 'wine', 'sports', 'social',
+  'room', 'hotel', 'inn', 'and', 'philadelphia', 'philly']);
+
+// Distinctive (4+ char, non-generic) words from a venue name.
+function venueKeywords(name) {
+  return String(name || '').toLowerCase()
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 4 && !GENERIC_WORDS.has(w));
+}
+
+// Step 1 (free, instant, no network): an email may already be sitting in
+// the row's own `notes` — several CSV rows say "also events@venue.com".
+function emailFromNotes(notes) {
+  if (!notes) return '';
+  const found = (String(notes).match(EMAIL_RE) || [])
+    .map(e => e.toLowerCase())
+    .filter(e => !EMAIL_JUNK.test(e));
+  return found[0] || '';
+}
+
+// DuckDuckGo blocks scraped traffic aggressively — after ~10-15 requests
+// from one IP it serves an HTTP 202 "anomaly" anti-bot page instead of
+// results. Once we see that, this flag stops us pointlessly hammering a
+// blocked endpoint for the rest of the run.
+let ddgBlocked = false;
+
+// Step 2 (free, no key): find a venue's website via DuckDuckGo's HTML
+// endpoint. Best-effort — DDG rate-limits HARD (see above), and not
+// every bar has a site. Returns '' on any failure.
+async function findWebsiteDDG(name, city) {
+  if (!name || ddgBlocked) return '';
+  const q = encodeURIComponent(`${name} ${city || ''} PA`);
+  let html = '';
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 10000);
+    const res = await fetch(`https://html.duckduckgo.com/html/?q=${q}`, {
+      signal: ctrl.signal,
+      headers: { 'User-Agent': BROWSER_UA },
+    });
+    clearTimeout(t);
+    html = await res.text();
+    // 200 = real results. 202 (or any non-200) = the anomaly/anti-bot
+    // page — DDG has flagged this IP. Stop trying for the rest of the run.
+    if (res.status !== 200 || /anomaly|unusual traffic/i.test(html.slice(0, 2000))) {
+      ddgBlocked = true;
+      console.log('  ⚠ DuckDuckGo is now rate-limiting this IP — website lookups');
+      console.log('    are disabled for the rest of this run. Emails already in the');
+      console.log('    CSV notes still get picked up. See --help for the bulk path.');
+      return '';
+    }
+  } catch (_) { return ''; }
+
+  // DDG result anchors: <a class="result__a" href="...">. The href is
+  // usually a redirect wrapper: /l/?uddg=<url-encoded-target>.
+  const keywords = venueKeywords(name);
+  const links = [...html.matchAll(/class="result__a"[^>]*href="([^"]+)"/g)].map(m => m[1]);
+  for (let href of links) {
+    const uddg = /[?&]uddg=([^&]+)/.exec(href);
+    if (uddg) { try { href = decodeURIComponent(uddg[1]); } catch (_) {} }
+    if (!/^https?:\/\//i.test(href)) continue;
+    let host = '';
+    try { host = new URL(href).host.toLowerCase(); } catch (_) { continue; }
+    if (AGGREGATORS.test(host)) continue;
+    // Only trust a result whose domain actually contains a distinctive
+    // word from the venue name — that's almost certainly the venue's OWN
+    // site. Search results are dominated by directory sites we'll never
+    // fully blocklist, and scraping the wrong site yields the wrong
+    // email, so precision beats coverage here: no name match → skip.
+    const domainFlat = host.replace(/^www\./, '').replace(/[^a-z0-9]/g, '');
+    if (keywords.some(k => domainFlat.includes(k))) return href;
+  }
+  return '';
+}
+
+// Step 3: fetch a venue website (homepage + likely contact pages) and
+// regex out a contact email. Prefers an address on the venue's own domain.
 async function scrapeEmail(websiteUri) {
   if (!websiteUri) return '';
-  const tryPaths = ['', '/contact', '/contact-us', '/about'];
+  const tryPaths = ['', '/contact', '/contact-us', '/about', '/connect', '/info'];
   let host = '';
   try { host = new URL(websiteUri).host.replace(/^www\./, ''); } catch (_) { return ''; }
 
@@ -197,13 +300,18 @@ async function scrapeEmail(websiteUri) {
     try {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 8000);
-      const res = await fetch(url, { signal: ctrl.signal, redirect: 'follow' });
+      const res = await fetch(url, {
+        signal: ctrl.signal, redirect: 'follow',
+        headers: { 'User-Agent': BROWSER_UA },
+      });
       clearTimeout(t);
       if (!res.ok) continue;
       const html = await res.text();
-      const found = (html.match(EMAIL_RE) || [])
-        .map(e => e.toLowerCase())
-        .filter(e => !EMAIL_JUNK.test(e));
+      // Also catch mailto: links, which decode cleanly.
+      const mailtos = [...html.matchAll(/mailto:([^"'?>\s]+)/gi)].map(m => m[1]);
+      const found = [...mailtos, ...(html.match(EMAIL_RE) || [])]
+        .map(e => decodeURIComponent(e).toLowerCase())
+        .filter(e => EMAIL_RE.test(e) && !EMAIL_JUNK.test(e));
       if (found.length === 0) continue;
       // Prefer an address on the venue's own domain.
       const onDomain = found.find(e => host && e.endsWith('@' + host));
@@ -211,6 +319,28 @@ async function scrapeEmail(websiteUri) {
     } catch (_) { /* timeout / network — try next path */ }
   }
   return '';
+}
+
+// Orchestrates the three steps. `place` may be null (offline mode) — in
+// that case the website comes from DuckDuckGo instead of Google Places.
+async function findEmail(row, place) {
+  // 1. Already mentioned in the notes.
+  const fromNotes = emailFromNotes(row.notes);
+  if (fromNotes) return { email: fromNotes, source: 'notes' };
+
+  // 2. Locate the venue website — Places gives it for free online;
+  //    offline we ask DuckDuckGo.
+  let site = (place && place.websiteUri) || '';
+  let source = 'places';
+  if (!site) {
+    site = await findWebsiteDDG(row.name, row.city);
+    source = 'ddg';
+  }
+  if (!site) return null;
+
+  // 3. Scrape the site for an address.
+  const email = await scrapeEmail(site);
+  return email ? { email, source } : null;
 }
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -281,11 +411,11 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   console.log(`Mode:   ${offline ? 'OFFLINE (no API — descriptions from CSV notes)' : 'ONLINE (Google Places)'}`);
   console.log(`Input:  ${inputPath}  (${records.length} venues)`);
   console.log(`Output: ${dryRun ? '(dry run — nothing written)' : outputPath}`);
-  console.log(`Flags:  overwrite-desc=${overwriteDesc}  emails=${doEmails && !offline}  limit=${limit === Infinity ? 'none' : limit}`);
+  console.log(`Flags:  overwrite-desc=${overwriteDesc}  emails=${doEmails}  limit=${limit === Infinity ? 'none' : limit}`);
   console.log('');
 
   const stats = { found: 0, notFound: 0, descFilled: 0, starsUpdated: 0,
-                  phonesFilled: 0, emailsFound: 0, closed: 0, errors: 0 };
+                  phonesFilled: 0, emailsFound: 0, emailsTried: 0, closed: 0, errors: 0 };
 
   const toProcess = Math.min(records.length, limit);
   for (let i = 0; i < toProcess; i++) {
@@ -360,26 +490,53 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
       bits.push(place.businessStatus);
     }
 
-    // email — best-effort website scrape, opt-in. Online mode only
-    // (offline has no website URL to fetch).
-    if (!offline && doEmails && !row.contact_email && place && place.websiteUri) {
-      const email = await scrapeEmail(place.websiteUri);
-      if (email) { row.contact_email = email; stats.emailsFound++; bits.push('email'); }
+    // email — opt-in (--emails). Free, and works in BOTH modes:
+    //   notes → venue website (Places online / DuckDuckGo offline) → scrape.
+    if (doEmails && !row.contact_email) {
+      stats.emailsTried++;
+      try {
+        const hit = await findEmail(row, place);
+        if (hit) {
+          row.contact_email = hit.email;
+          stats.emailsFound++;
+          bits.push(`email:${hit.source}`);
+        } else {
+          bits.push('email:none');
+        }
+      } catch (_) {
+        bits.push('email:err');
+      }
     }
 
     console.log(`${tag} — ${bits.length ? bits.join(', ') : 'no new data'}`);
-    if (!offline) await sleep(THROTTLE_MS); // no API call to pace in offline mode
+
+    // Pace network calls. --emails hits DuckDuckGo + venue sites, so it
+    // needs a generous gap — but once DDG has blocked us there are no
+    // more web calls (notes lookup is instant), so don't waste the wait.
+    if (doEmails && !ddgBlocked) await sleep(2000);
+    else if (!offline)          await sleep(THROTTLE_MS);
+
+    // Incremental save — a --emails run can take 10-15 min; checkpoint
+    // every 25 rows so a crash or Ctrl+C doesn't lose progress. Re-running
+    // on the output CSV resumes (rows that already have an email/desc
+    // are skipped).
+    if (!dryRun && (i + 1) % 25 === 0 && i + 1 < toProcess) {
+      fs.writeFileSync(outputPath, writeCSV(headers, records), 'utf8');
+      console.log(`  … checkpoint saved (${i + 1}/${toProcess})`);
+    }
   }
 
   console.log('');
   console.log('── Summary ──');
   console.log(`  Descriptions filled: ${stats.descFilled}`);
+  if (doEmails) {
+    console.log(`  Emails found:        ${stats.emailsFound}  (of ${stats.emailsTried} venues missing one)`);
+  }
   if (!offline) {
     console.log(`  Found on Google:     ${stats.found}`);
     console.log(`  Not found:           ${stats.notFound}`);
     console.log(`  Stars updated:       ${stats.starsUpdated}`);
     console.log(`  Phones filled:       ${stats.phonesFilled}`);
-    if (doEmails) console.log(`  Emails found:        ${stats.emailsFound}`);
     console.log(`  Closed venues flagged: ${stats.closed}`);
     console.log(`  Errors:              ${stats.errors}`);
   }
