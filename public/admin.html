@@ -1038,8 +1038,8 @@
                     <summary style="cursor: pointer; padding: 4px 0;">CSV format help</summary>
                     <div style="padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 4px; margin-top: 4px;">
                         First row must be a header. Recognized columns (any order; extras ignored):
-                        <code style="display: block; margin: 8px 0; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 3px;">name, address, city, type, contact_name, contact_email, contact_phone, notes, stars</code>
-                        Only <code>name</code> is required. <code>stars</code> is a 0–5 Google rating (e.g. <code>4.7</code>). Quoted fields are supported, e.g. <code>"Smith, Jr.","123 Main St"</code>.
+                        <code style="display: block; margin: 8px 0; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 3px;">name, address, city, type, contact_name, contact_email, contact_phone, notes, stars, description</code>
+                        Only <code>name</code> is required. <code>stars</code> is a 0–5 Google rating (e.g. <code>4.7</code>). <code>description</code> is the customer-facing blurb — it gets pulled into event descriptions. <code>notes</code> stays internal (admin-only). Quoted fields are supported, e.g. <code>"Smith, Jr.","123 Main St"</code>.
                         <br><br>
                         With <strong>Overwrite existing</strong> ON, rows whose names already exist will <em>merge</em> new fields (email, phone, stars, etc) into the existing venue — preserving pipeline state (status, contacted_at). Blank cells never overwrite. Turn OFF to skip duplicates entirely.
                     </div>
@@ -1050,6 +1050,7 @@
                             <th>Venue</th>
                             <th>City</th>
                             <th>Type</th>
+                            <th>Description</th>
                             <th>★</th>
                             <th>Status</th>
                             <th>Contacted</th>
@@ -1058,7 +1059,7 @@
                         </tr>
                     </thead>
                     <tbody id="venuesTable">
-                        <tr><td colspan="8"><div class="spinner"></div></td></tr>
+                        <tr><td colspan="9"><div class="spinner"></div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1971,7 +1972,7 @@
                 renderVenues();
             } catch (err) {
                 console.error('Error loading venues:', err);
-                tbody.innerHTML = '<tr><td colspan="8" class="empty">Error loading venues.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="empty">Error loading venues.</td></tr>';
             }
         }
 
@@ -1982,7 +1983,7 @@
             const filtered = filter ? allVenues.filter(v => v.status === filter) : allVenues;
 
             if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="empty">No venues match this filter.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="empty">No venues match this filter.</td></tr>';
                 return;
             }
 
@@ -2014,11 +2015,19 @@
                     starsCell = `<span title="${s} / 5" style="color: ${color}; font-weight: 600; font-variant-numeric: tabular-nums;">${s.toFixed(1)}★</span>`;
                 }
 
+                // Description is the customer-facing blurb. Truncate in the
+                // table with a tooltip showing the full text.
+                const descText = v.description || '';
+                const descCell = descText
+                    ? `<span title="${safe(descText)}">${safe(descText)}</span>`
+                    : '<span style="color: rgba(245,243,240,0.3);">—</span>';
+
                 return `
                     <tr>
                         <td style="color: var(--white); font-weight: 500;">${safe(v.name)}</td>
                         <td style="color: rgba(245,243,240,0.7);">${safe(v.city)}</td>
                         <td style="color: rgba(245,243,240,0.7);">${safe(v.type)}</td>
+                        <td style="color: rgba(245,243,240,0.6); font-size: 12px; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${descCell}</td>
                         <td style="font-size: 13px;">${starsCell}</td>
                         <td><span class="badge ${statusBadgeClass}">${safe(statusLabel)}</span></td>
                         <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(contacted)}</td>
@@ -2351,10 +2360,19 @@
                     document.getElementById('evPricingTier').value = tier;
                     applyTierPricing(tier);
 
+                    // Pull the venue's customer-facing description into the
+                    // event blurb — but only if the blurb is still empty, so
+                    // a description already typed/edited isn't clobbered.
+                    const blurbEl = document.getElementById('evBlurb');
+                    if (v.description && blurbEl && !blurbEl.value.trim()) {
+                        blurbEl.value = v.description;
+                    }
+
                     if (hint) {
                         const starTxt = (typeof v.stars === 'number' && isFinite(v.stars))
                             ? `${v.stars.toFixed(1)}★` : 'unrated';
-                        hint.textContent = `${v.name || 'Venue'} · ${starTxt} → ${PRICING_TIERS[tier].label} pricing`;
+                        const descNote = v.description ? ' · blurb pre-filled from venue' : '';
+                        hint.textContent = `${v.name || 'Venue'} · ${starTxt} → ${PRICING_TIERS[tier].label} pricing${descNote}`;
                     }
                 });
             }

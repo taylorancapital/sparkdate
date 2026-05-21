@@ -80,6 +80,9 @@ function normalizeVenue(raw) {
     contact_name:  raw.contact_name  ? String(raw.contact_name).trim()  : null,
     contact_phone: raw.contact_phone ? String(raw.contact_phone).trim() : null,
     notes: raw.notes ? String(raw.notes).trim() : '',
+    // `description` is the customer-facing blurb (shown to members,
+    // pulled into event descriptions). `notes` stays internal/operational.
+    description: raw.description ? String(raw.description).trim() : '',
     stars: parseStars(raw.stars),
   };
 }
@@ -94,7 +97,7 @@ function normalizeVenue(raw) {
 function buildUpdatePatch(venue) {
   const patch = {};
   // Strings — only overwrite if non-empty.
-  for (const key of ['address', 'city', 'type', 'contact_email', 'contact_name', 'contact_phone', 'notes']) {
+  for (const key of ['address', 'city', 'type', 'contact_email', 'contact_name', 'contact_phone', 'notes', 'description']) {
     const v = venue[key];
     if (v !== null && v !== undefined && String(v).trim() !== '') {
       patch[key] = v;
