@@ -853,6 +853,7 @@
                                     <th>Date</th>
                                     <th>Venue</th>
                                     <th>Spots</th>
+                                    <th>Price (M / W)</th>
                                     <th>Registrations</th>
                                     <th>Status</th>
                                     <th></th>
@@ -900,6 +901,15 @@
                         </div>
 
                         <div class="form-section-title">Date & Venue</div>
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Pick a venue from the pipeline — auto-fills name + pricing tier</label>
+                                <select class="form-input" id="evVenuePicker">
+                                    <option value="">— Manual entry (type venue below) —</option>
+                                </select>
+                                <div id="evVenueHint" style="font-size: 12px; color: rgba(245,243,240,0.5); margin-top: 6px;"></div>
+                            </div>
+                        </div>
                         <div class="form-grid">
                             <div class="form-group">
                                 <label class="form-label">Date</label>
@@ -920,6 +930,17 @@
                         </div>
 
                         <div class="form-section-title">Capacity & Pricing</div>
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Pricing Tier — set automatically by the venue's star rating</label>
+                                <select class="form-input" id="evPricingTier">
+                                    <option value="premium">Premium · 5★ venue (4.5★+) — $49.99 men / $24.99 women</option>
+                                    <option value="standard" selected>Standard · 4★ venue (3.5–4.4★) — $39.99 men / $19.99 women</option>
+                                    <option value="core">Core · 3★ venue (under 3.5★) — $29.99 men / $14.99 women</option>
+                                    <option value="custom">Custom — enter prices manually below</option>
+                                </select>
+                            </div>
+                        </div>
                         <div class="form-grid">
                             <div class="form-group">
                                 <label class="form-label">Spots — Women</label>
@@ -931,11 +952,11 @@
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Ticket Price — Women ($)</label>
-                                <input type="number" class="form-input" id="evPriceWomen" value="20" min="0">
+                                <input type="number" class="form-input" id="evPriceWomen" value="19.99" min="0" step="0.01">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Ticket Price — Men ($)</label>
-                                <input type="number" class="form-input" id="evPriceMen" value="40" min="0">
+                                <input type="number" class="form-input" id="evPriceMen" value="39.99" min="0" step="0.01">
                             </div>
                         </div>
 
@@ -1216,12 +1237,19 @@
                 const regCount = allRegistrations.filter(r => r.eventId === ev.id).length;
                 const statusClass = ev.status === 'open' ? 'badge-active' : ev.status === 'almost' ? 'badge-pending' : 'badge-canceled';
                 const venueLine = (ev.venue || '—') + (ev.neighborhood ? ' · ' + ev.neighborhood : '');
+                // Price cell: "$39.99 / $19.99" with a small tier label
+                // underneath when the event was created with a known tier.
+                const fmtPrice = (n) => (typeof n === 'number' && isFinite(n)) ? '$' + n.toFixed(2) : '—';
+                const tierLabel = ev.priceTier && ev.priceTier !== 'custom'
+                    ? `<div style="font-size: 10px; color: rgba(245,243,240,0.4); text-transform: capitalize;">${safe(ev.priceTier)}</div>`
+                    : (ev.priceTier === 'custom' ? `<div style="font-size: 10px; color: rgba(245,243,240,0.4);">custom</div>` : '');
                 return `
                     <tr>
                         <td style="color: var(--white); font-weight: 500;">${safe(ev.title)}</td>
                         <td style="color: rgba(245,243,240,0.7);">${safe(dateStr)}${timeStr ? ' · ' + safe(timeStr) : ''}</td>
                         <td style="color: rgba(245,243,240,0.7);">${safe(venueLine)}</td>
                         <td style="color: rgba(245,243,240,0.7);">${spots}</td>
+                        <td style="color: rgba(245,243,240,0.85); font-size: 12px;">${fmtPrice(ev.priceMen)} / ${fmtPrice(ev.priceWomen)}${tierLabel}</td>
                         <td style="color: var(--gold); font-weight: 600;">${regCount}</td>
                         <td><span class="badge ${safe(statusClass)}">${safe(ev.status || 'open')}</span></td>
                         <td style="font-size: 12px;">
@@ -1404,6 +1432,63 @@
             if (e.target.id === 'candidateModal') closeCandidates();
         });
 
+        // ─── STAR-BASED TIERED PRICING ─────────────────────
+        // The venue's Google star rating sets the ticket price tier. The
+        // resolved price is BAKED INTO the event doc at creation time —
+        // existing events never re-price, so a venue's rating changing
+        // later only affects FUTURE events booked there. /api/purchase-ticket
+        // charges whatever priceWomen/priceMen are stored on the event, so
+        // there are no server-side changes needed for this feature.
+        const PRICING_TIERS = {
+            premium:  { label: 'Premium (5★)',  women: 24.99, men: 49.99 },
+            standard: { label: 'Standard (4★)', women: 19.99, men: 39.99 },
+            core:     { label: 'Core (3★)',     women: 14.99, men: 29.99 },
+        };
+
+        // Map a venue star rating to a tier key. Unrated venues (no stars
+        // on file) default to 'standard' — the neutral base price.
+        function tierForStars(stars) {
+            const s = Number(stars);
+            if (!isFinite(s) || s <= 0) return 'standard';
+            if (s >= 4.5) return 'premium';
+            if (s >= 3.5) return 'standard';
+            return 'core';
+        }
+
+        // Write a tier's prices into the two price inputs. No-op for the
+        // 'custom' tier so a manual override is preserved. Setting .value
+        // programmatically does NOT fire the inputs' 'input' listener, so
+        // this won't bounce the tier select back to 'custom'.
+        function applyTierPricing(tier) {
+            const t = PRICING_TIERS[tier];
+            if (!t) return; // 'custom' or unknown — leave inputs alone
+            document.getElementById('evPriceWomen').value = t.women;
+            document.getElementById('evPriceMen').value   = t.men;
+        }
+
+        // Fill the venue-picker <select> from the venues collection. Reuses
+        // allVenues if the Venues tab already loaded it; otherwise fetches.
+        async function populateVenuePicker() {
+            const sel = document.getElementById('evVenuePicker');
+            if (!sel) return;
+            try {
+                if (allVenues.length === 0) {
+                    const snap = await getDocs(collection(db, 'venues'));
+                    allVenues = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                }
+                const sorted = [...allVenues].sort((a, b) =>
+                    (a.name || '').localeCompare(b.name || ''));
+                sel.innerHTML = '<option value="">— Manual entry (type venue below) —</option>' +
+                    sorted.map(v => {
+                        const starTxt = (typeof v.stars === 'number' && isFinite(v.stars))
+                            ? ` · ${v.stars.toFixed(1)}★` : ' · unrated';
+                        return `<option value="${safe(v.id)}">${safe(v.name || '(unnamed)')}${starTxt}</option>`;
+                    }).join('');
+            } catch (e) {
+                console.error('[venue picker] load failed:', e);
+            }
+        }
+
         window.addEvent = async () => {
             const btn = document.getElementById('createEventBtn');
             const status = document.getElementById('eventFormStatus');
@@ -1416,6 +1501,14 @@
             const spotsMen = parseInt(document.getElementById('evSpotsMen').value) || 0;
             const priceWomen = parseFloat(document.getElementById('evPriceWomen').value) || 0;
             const priceMen = parseFloat(document.getElementById('evPriceMen').value) || 0;
+            const priceTier = document.getElementById('evPricingTier').value;
+            // Link the event to the picked venue (if any) and snapshot its
+            // star rating, so the events table / future tooling can show
+            // why this event got the price it did.
+            const venueId = document.getElementById('evVenuePicker').value || null;
+            const pickedVenue = venueId ? allVenues.find(v => v.id === venueId) : null;
+            const venueStars = (pickedVenue && typeof pickedVenue.stars === 'number')
+                ? pickedVenue.stars : null;
             const blurb = document.getElementById('evBlurb').value.trim();
             const amenities = document.getElementById('evAmenities').value.trim();
             const evStatus = document.getElementById('evStatus').value;
@@ -1450,6 +1543,9 @@
                     spotsTotal: spotsWomen + spotsMen,
                     priceWomen,
                     priceMen,
+                    priceTier,
+                    venueId,
+                    venueStars,
                     blurb,
                     amenities,
                     emoji,
@@ -1473,9 +1569,12 @@
                 });
                 document.getElementById('evSpotsWomen').value = '15';
                 document.getElementById('evSpotsMen').value = '15';
-                document.getElementById('evPriceWomen').value = '20';
-                document.getElementById('evPriceMen').value = '40';
                 document.getElementById('evStatus').value = 'open';
+                // Reset pricing back to the Standard tier baseline.
+                document.getElementById('evVenuePicker').value = '';
+                document.getElementById('evVenueHint').textContent = '';
+                document.getElementById('evPricingTier').value = 'standard';
+                applyTierPricing('standard');
 
                 await loadAdminEvents();
                 renderAdminEvents();
@@ -1796,6 +1895,7 @@
             btn.classList.add('active');
             if (id === 'venues') loadVenues();
             if (id === 'leads')  loadLeads();
+            if (id === 'events') populateVenuePicker();
         };
 
         // ─── LEADS ─────────────────────────────────────────
@@ -2232,6 +2332,47 @@
             if (venueFilterSelect) {
                 venueFilterSelect.addEventListener('change', renderVenues);
             }
+
+            // ─── Event-form pricing wiring ─────────────────
+            // Picking a venue auto-fills its name, neighborhood, and the
+            // pricing tier derived from its star rating.
+            const venuePicker = document.getElementById('evVenuePicker');
+            if (venuePicker) {
+                venuePicker.addEventListener('change', () => {
+                    const hint = document.getElementById('evVenueHint');
+                    const v = allVenues.find(x => x.id === venuePicker.value);
+                    if (!v) { if (hint) hint.textContent = ''; return; } // "Manual entry"
+
+                    document.getElementById('evVenue').value = v.name || '';
+                    const nb = document.getElementById('evNeighborhood');
+                    if (v.city && !nb.value.trim()) nb.value = v.city;
+
+                    const tier = tierForStars(v.stars);
+                    document.getElementById('evPricingTier').value = tier;
+                    applyTierPricing(tier);
+
+                    if (hint) {
+                        const starTxt = (typeof v.stars === 'number' && isFinite(v.stars))
+                            ? `${v.stars.toFixed(1)}★` : 'unrated';
+                        hint.textContent = `${v.name || 'Venue'} · ${starTxt} → ${PRICING_TIERS[tier].label} pricing`;
+                    }
+                });
+            }
+
+            // Changing the tier select applies that tier's prices.
+            const tierSelect = document.getElementById('evPricingTier');
+            if (tierSelect) {
+                tierSelect.addEventListener('change', () => applyTierPricing(tierSelect.value));
+            }
+
+            // Manually editing either price flips the tier to "Custom" so
+            // the dropdown never lies about what's actually being charged.
+            ['evPriceWomen', 'evPriceMen'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', () => {
+                    document.getElementById('evPricingTier').value = 'custom';
+                });
+            });
         });
 
         // Allow enter to submit login
