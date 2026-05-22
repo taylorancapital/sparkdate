@@ -50,6 +50,10 @@ module.exports = async function handler(req, res) {
     const firstName = name ? name.split(' ')[0] : 'there';
 
     // 1. Save to Firestore (AWAIT)
+    // The four dayN_sent flags MUST be written explicitly. The nurture
+    // cron treats a missing flag as "not sent", so it would still work
+    // without them — but initializing them keeps the data model honest
+    // and makes the admin Leads tab's progress pills accurate from day 1.
     const docRef = await db.collection('leads').add({
       name,
       email,
@@ -57,7 +61,11 @@ module.exports = async function handler(req, res) {
       source: 'founding_form',
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       welcome_sent: false,
-      subscribed: true
+      subscribed: true,
+      day2_sent: false,
+      day5_sent: false,
+      day14_sent: false,
+      day25_sent: false,
     });
     console.log('✅ Firestore lead saved:', docRef.id);
     const unsubUrl = makeUnsubscribeUrl(docRef.id, email);

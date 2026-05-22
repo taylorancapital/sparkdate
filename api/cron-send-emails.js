@@ -322,26 +322,38 @@ const EMAILS = {
   }
 };
 
-// ── Send emails for one day bucket ───────────────────────────────────────────
-async function sendBucket(dayNum, emailKey) {
-  const now     = new Date();
-  const cutoff  = new Date(now); cutoff.setDate(cutoff.getDate() - dayNum);
-  const cutoff1 = new Date(now); cutoff1.setDate(cutoff1.getDate() - (dayNum + 1));
+// Max days an email may go out past its target day. Wide enough to ride
+// out a missed cron run / a backlog; tight enough that the day25 "trial
+// ending" mail never reaches someone who signed up months ago.
+const MAX_LATE_DAYS = 21;
 
-  const snap = await db.collection('leads')
-    .where(`${emailKey}_sent`, '==', false)
-    .where('subscribed', '==', true)
-    .get();
-
+// ── Send one day-bucket's email to every eligible lead ───────────────
+async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun) {
   let sent = 0;
+  let skipped = 0;
   const errors = [];
 
-  for (const leadDoc of snap.docs) {
-    const lead    = leadDoc.data();
-    const created = lead.createdAt?.toDate ? lead.createdAt.toDate() : new Date(lead.createdAt);
+  for (const leadDoc of leads) {
+    // One nurture email per lead per run — a backlogged lead gets day2
+    // today, day5 tomorrow, etc., instead of all four at once.
+    if (emailedThisRun.has(leadDoc.id)) { skipped++; continue; }
 
-    // Only process leads created ~dayNum days ago
-    if (created > cutoff || created < cutoff1) continue;
+    const lead = leadDoc.data();
+
+    // Already sent? A MISSING `${emailKey}_sent` field reads as falsy
+    // here, so leads created before those fields existed are now picked
+    // up. The original `where(${emailKey}_sent == false)` query skipped
+    // them entirely — Firestore equality filters ignore documents that
+    // lack the field — which is why Day 2/5/14/25 mail never went out.
+    if (lead[`${emailKey}_sent`]) { skipped++; continue; }
+
+    const created = lead.createdAt?.toDate ? lead.createdAt.toDate()
+                  : (lead.createdAt ? new Date(lead.createdAt) : null);
+    if (!created || isNaN(created.getTime())) { skipped++; continue; }
+
+    // Eligible from dayNum days old, up to dayNum + MAX_LATE_DAYS.
+    const ageDays = (nowMs - created.getTime()) / 86400000;
+    if (ageDays < dayNum || ageDays > dayNum + MAX_LATE_DAYS) { skipped++; continue; }
 
     const firstName = lead.name ? lead.name.split(' ')[0] : 'there';
     const tmpl      = EMAILS[emailKey];
@@ -367,11 +379,12 @@ async function sendBucket(dayNum, emailKey) {
       });
 
       if (!result.error) {
-        await db.collection('leads').doc(leadDoc.id).update({
+        await leadDoc.ref.update({
           [`${emailKey}_sent`]:      true,
           [`${emailKey}_sent_at`]:   new Date().toISOString(),
           [`${emailKey}_resend_id`]: result.data?.id || null
         });
+        emailedThisRun.add(leadDoc.id);
         sent++;
         // Log doc id only, not email — avoids PII in Vercel logs.
         console.log(`✅ ${emailKey} → lead/${leadDoc.id}`);
@@ -383,7 +396,7 @@ async function sendBucket(dayNum, emailKey) {
     }
   }
 
-  return { emailKey, sent, errors };
+  return { emailKey, sent, skipped, errors };
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -393,15 +406,26 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const results = await Promise.all([
-      sendBucket(2,  'day2'),
-      sendBucket(5,  'day5'),
-      sendBucket(14, 'day14'),
-      sendBucket(25, 'day25')
-    ]);
+    // Fetch every subscribed lead ONCE, then evaluate each day-bucket in
+    // code. The query intentionally filters ONLY on `subscribed` — never
+    // on `dayN_sent` — because a Firestore equality filter skips
+    // documents that lack the field, which is exactly how the nurture
+    // sequence went silently dead (leads are created without those
+    // fields). Filtering in code treats a missing field as "not sent".
+    const snap = await db.collection('leads').where('subscribed', '==', true).get();
+    const leads = snap.docs;
+    const nowMs = Date.now();
 
-    console.log('✅ Cron complete:', JSON.stringify(results));
-    return res.status(200).json({ success: true, results, ts: new Date().toISOString() });
+    // Buckets evaluated in order, sharing one `emailedThisRun` set so a
+    // single lead never gets more than one nurture email per run.
+    const emailedThisRun = new Set();
+    const results = [];
+    for (const [dayNum, key] of [[2, 'day2'], [5, 'day5'], [14, 'day14'], [25, 'day25']]) {
+      results.push(await sendBucket(leads, dayNum, key, nowMs, emailedThisRun));
+    }
+
+    console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results));
+    return res.status(200).json({ success: true, leads: leads.length, results, ts: new Date().toISOString() });
 
   } catch (err) {
     console.error('❌ Cron error:', err.message);
