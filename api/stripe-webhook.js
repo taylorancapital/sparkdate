@@ -183,8 +183,15 @@ module.exports = async function handler(req, res) {
           .where('paymentIntentId', '==', pi.id).limit(1).get();
         if (!ticketSnap.empty) {
           const t = ticketSnap.docs[0].data();
-          // Only refund the counter once — if already failed, skip.
-          if (t.status !== 'failed') {
+          // Decrement the seat counter ONLY while the ticket is still in
+          // a pending state. A terminal status (failed / expired /
+          // confirmed) means the seat was already released or kept by
+          // some other path — decrementing again would double-count.
+          // In particular `expired` is set by the abandoned-3DS sweep in
+          // purchase-ticket.js, which already releases the seat; a
+          // late-arriving payment_failed for that same intent must not
+          // release it a second time.
+          if (t.status === 'pending_3ds' || t.status === 'pending') {
             const counterField = t.gender === 'woman' ? 'confirmedWomen' : 'confirmedMen';
             await db.collection('events').doc(t.eventId)
               .update({ [counterField]: admin.firestore.FieldValue.increment(-1) })

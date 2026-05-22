@@ -28,6 +28,131 @@ const FieldValue = admin.firestore.FieldValue;
 // Must match SERVICE_FEE in public/event.html ($2.50 in dollars).
 const SERVICE_FEE_CENTS = 250;
 
+// ── Abandoned-3DS seat reclaim ─────────────────────────────────────
+//
+// When a purchase needs 3-D Secure, this endpoint bumps the event's
+// seat counter, writes the ticket as `pending_3ds`, and hands the
+// browser a clientSecret. Normally the Stripe webhook then confirms the
+// ticket (3DS passed) or releases the seat (3DS failed). But if the
+// buyer just CLOSES THE TAB, Stripe fires neither event — the
+// PaymentIntent sits in `requires_action` and the seat stays counted
+// forever, a phantom "sold" seat that blocks real buyers.
+//
+// sweepStale3ds() runs opportunistically at the top of every purchase:
+// the moment a seat is contended is exactly when a leaked one needs
+// freeing. It's fully best-effort — every failure path is caught and
+// logged so it can never block a real purchase.
+
+// How long a PaymentIntent may sit in `requires_action` before the
+// purchase is treated as abandoned. Genuine 3DS auth takes seconds to a
+// couple of minutes; 20 minutes is comfortably past any real flow.
+const STALE_3DS_MS = 20 * 60 * 1000;
+
+// Cap Stripe round-trips per sweep so a pathological backlog can't blow
+// the function's time budget. Anything beyond this is cleaned up by the
+// next purchase attempt.
+const SWEEP_MAX_PER_RUN = 5;
+
+// Mirror a resolved status onto the matching event_registration row.
+async function syncRegistration(paymentIntentId, status) {
+  try {
+    const rs = await db.collection('event_registrations')
+      .where('paymentIntentId', '==', paymentIntentId).limit(1).get();
+    if (!rs.empty) await rs.docs[0].ref.update({ status });
+  } catch (e) {
+    console.error('[3ds-sweep] registration sync failed:', e.message);
+  }
+}
+
+// A stale ticket whose PaymentIntent actually succeeded — the webhook
+// missed it. Promote to confirmed; the seat was already counted.
+async function promote3ds(ticketDoc, ticket) {
+  try {
+    await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(ticketDoc.ref);
+      if (!fresh.exists || fresh.data().status !== 'pending_3ds') return;
+      tx.update(ticketDoc.ref, { status: 'confirmed' });
+    });
+    await syncRegistration(ticket.paymentIntentId, 'confirmed');
+    console.log(`[3ds-sweep] promoted stale-but-paid ticket ${ticketDoc.id}`);
+  } catch (e) {
+    console.error('[3ds-sweep] promote failed:', e.message);
+  }
+}
+
+// An abandoned ticket whose PaymentIntent has been canceled — release
+// the seat. The transaction only decrements if it finds the ticket
+// still `pending_3ds`, so two concurrent sweeps can't double-release.
+async function expire3ds(ticketDoc, ticket, eventRef) {
+  const counterField = ticket.gender === 'woman' ? 'confirmedWomen' : 'confirmedMen';
+  let released = false;
+  try {
+    await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(ticketDoc.ref);
+      if (!fresh.exists || fresh.data().status !== 'pending_3ds') return;
+      tx.update(ticketDoc.ref, { status: 'expired' });
+      tx.update(eventRef, { [counterField]: FieldValue.increment(-1) });
+      released = true;
+    });
+  } catch (e) {
+    console.error('[3ds-sweep] expire failed:', e.message);
+    return;
+  }
+  if (released) {
+    await syncRegistration(ticket.paymentIntentId, 'expired');
+    console.log(`[3ds-sweep] expired abandoned ticket ${ticketDoc.id}, released ${counterField}`);
+  }
+}
+
+// Reclaim seats held by abandoned 3-D Secure purchases for one event.
+async function sweepStale3ds(eventRef, eventId) {
+  // Single-field query — eventId is auto-indexed, no composite needed.
+  const snap = await db.collection('tickets').where('eventId', '==', eventId).get();
+  const now = Date.now();
+  let processed = 0;
+
+  for (const ticketDoc of snap.docs) {
+    if (processed >= SWEEP_MAX_PER_RUN) break;
+    const ticket = ticketDoc.data();
+    if (ticket.status !== 'pending_3ds' || !ticket.paymentIntentId) continue;
+
+    const createdMs = ticket.createdAt?.toDate ? ticket.createdAt.toDate().getTime() : 0;
+    if (!createdMs || now - createdMs < STALE_3DS_MS) continue; // still within a valid 3DS window
+
+    processed++;
+
+    let pi;
+    try {
+      pi = await stripe.paymentIntents.retrieve(ticket.paymentIntentId);
+    } catch (e) {
+      console.error(`[3ds-sweep] retrieve ${ticket.paymentIntentId} failed:`, e.message);
+      continue;
+    }
+
+    if (pi.status === 'succeeded') {
+      await promote3ds(ticketDoc, ticket);
+      continue;
+    }
+
+    // Not succeeded. Unless it's already canceled, cancel it now — a
+    // successful cancel is atomic proof the purchase is dead and the
+    // seat is safe to release. It also prevents a very-late 3DS
+    // completion from charging the card after we've given the seat away.
+    // If cancel fails, the intent may have just succeeded — leave it for
+    // the webhook / next sweep rather than risk releasing a paid seat.
+    if (pi.status !== 'canceled') {
+      try {
+        await stripe.paymentIntents.cancel(pi.id);
+      } catch (e) {
+        console.error(`[3ds-sweep] cancel ${pi.id} (status ${pi.status}) failed:`, e.message);
+        continue;
+      }
+    }
+
+    await expire3ds(ticketDoc, ticket, eventRef);
+  }
+}
+
 module.exports = async function handler(req, res) {
   if (applyCors(req, res)) return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -65,6 +190,13 @@ module.exports = async function handler(req, res) {
       return res.status(404).json({ error: 'Event not found' });
     }
     const event = eventSnap.data();
+
+    // ── Reclaim seats from abandoned 3-D Secure purchases ──────────
+    // Runs before the reservation so any freed seat is available to
+    // THIS buyer. Best-effort: a sweep failure must never block a sale.
+    await sweepStale3ds(eventRef, eventId).catch((e) => {
+      console.error('[purchase-ticket] 3ds sweep failed:', e.message);
+    });
 
     // ── Reserve a seat ATOMICALLY using a Firestore transaction. ───
     // We bump a counter on the event doc inside the txn. If two requests
