@@ -1,4 +1,12 @@
-// api/healthcheck.js
+// legacy/api-healthcheck.js  (formerly api/healthcheck.js)
+//
+// Parked here because Vercel's Hobby plan caps at 12 serverless
+// functions per deployment and `api/next-event.js` (used by the
+// landing-page Get-Tickets block) needed the slot more.
+//
+// To restore: move this file back to `api/healthcheck.js`. You'll need
+// to either upgrade to Vercel Pro (no function cap) or relocate a
+// different endpoint to legacy/ to stay under the limit.
 //
 // Operational visibility endpoint. Lets you verify a fresh deploy is
 // wired up correctly without poking at the actual product.
