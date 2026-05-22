@@ -19,6 +19,16 @@ const { parseToken, verifySignature } = require('../lib/unsubscribe');
 
 const db = admin.firestore();
 
+// HTML-escape — the success page interpolates a (masked) email derived
+// from the lead's stored address, which the public founding form set.
+// The unsubscribe token is HMAC-gated so this isn't practically
+// reachable, but escaping it is correct defense-in-depth.
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 async function unsubscribeLead(leadId, sig) {
   const ref = db.collection('leads').doc(leadId);
   const snap = await ref.get();
@@ -109,7 +119,7 @@ module.exports = async function handler(req, res) {
     // Mask email for the landing page: show first char + domain.
     const e = result.email || '';
     const maskedEmail = e && e.includes('@')
-      ? e[0] + '***@' + e.split('@')[1]
+      ? esc(e[0] + '***@' + e.split('@')[1])
       : '';
     if (req.method === 'GET') {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');

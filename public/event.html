@@ -523,12 +523,16 @@
             return regSnap.size < limit;
         }
 
-        // Pricing — use event data if available, else fall back
+        // Pricing — must mirror /api/purchase-ticket exactly, which charges
+        // `Number(event.priceWomen|priceMen || 0)`. The old `|| 20 / || 40`
+        // fallback meant a $0 (or unset) price DISPLAYED as $20/$40 while
+        // the server charged $0 — the page lied about the total. Treat
+        // missing / non-positive / non-numeric as 0, same as the server.
         function ticketPrice(gender) {
-            if (eventData) {
-                return gender === 'woman' ? (eventData.priceWomen || 20) : (eventData.priceMen || 40);
-            }
-            return gender === 'woman' ? 20 : 40;
+            if (!eventData) return 0;
+            const raw = gender === 'woman' ? eventData.priceWomen : eventData.priceMen;
+            const n = Number(raw);
+            return (isFinite(n) && n > 0) ? n : 0;
         }
 
         function updatePricing() {
