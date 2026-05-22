@@ -429,6 +429,50 @@
                 display: none;
             }
         }
+
+        /* ── Event-first "Get Tickets" block (populated by /api/next-event) ── */
+        .event-cta {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%);
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .event-cta-inner { max-width: 760px; margin: 0 auto; }
+        .event-cta-eyebrow {
+            font-size: 12px; font-weight: 700; letter-spacing: 2px;
+            text-transform: uppercase; color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 10px;
+        }
+        .event-cta-title {
+            font-family: 'Playfair Display', serif; font-weight: 900;
+            font-size: clamp(26px, 5vw, 40px); color: #ffffff;
+            line-height: 1.15; margin-bottom: 12px;
+        }
+        .event-cta-meta {
+            display: flex; flex-wrap: wrap; gap: 6px 22px;
+            justify-content: center; font-size: 15px; font-weight: 500;
+            color: #ffffff; margin-bottom: 14px;
+        }
+        .event-cta-blurb {
+            font-size: 14px; line-height: 1.6; color: rgba(255, 255, 255, 0.92);
+            max-width: 560px; margin: 0 auto 20px;
+        }
+        .event-cta-button {
+            display: inline-block; background: #0a0e27; color: #ffffff;
+            font-weight: 800; font-size: 17px; padding: 16px 42px;
+            border-radius: 6px; text-decoration: none; letter-spacing: 0.3px;
+            box-shadow: 0 10px 26px rgba(10, 14, 39, 0.35);
+            transition: transform 0.15s ease;
+        }
+        .event-cta-button:hover { transform: translateY(-2px); }
+        .event-cta-sub {
+            font-size: 12px; color: rgba(255, 255, 255, 0.85); margin-top: 12px;
+        }
+        .event-cta-soon { font-size: 16px; color: #ffffff; margin-bottom: 16px; }
+        .event-cta-loading { font-size: 14px; color: rgba(255, 255, 255, 0.85); }
+        @media (max-width: 600px) {
+            .event-cta { padding: 24px 16px; }
+            .event-cta-button { display: block; padding: 16px 20px; }
+        }
     </style>
 </head>
 <body>
@@ -442,6 +486,62 @@
             </div>
         </div>
     </header>
+
+    <!-- Event-first "Get Tickets" block — the first thing a visitor sees.
+         Populated from /api/next-event; this is the conversion path for
+         all non-Eventbrite traffic (social + organic). -->
+    <section class="event-cta" id="eventCta">
+        <div class="event-cta-inner">
+            <div class="event-cta-loading">Loading the next event…</div>
+        </div>
+    </section>
+    <script>
+      // Fill the event-first block from /api/next-event. Self-contained,
+      // fail-soft: a network error just hides the block (never a broken state).
+      (function () {
+        var el = document.getElementById('eventCta');
+        if (!el) return;
+        var inner = el.querySelector('.event-cta-inner');
+        function esc(s) {
+          return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        fetch('/api/next-event')
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var ev = data && data.event;
+            if (!ev) {
+              inner.innerHTML =
+                '<div class="event-cta-eyebrow">Next SparkDate Event</div>' +
+                '<p class="event-cta-soon">Announced soon — join the founding cohort to get first access.</p>' +
+                '<a href="/founding#signup" class="event-cta-button">Join the list</a>';
+              return;
+            }
+            var d = new Date(ev.date);
+            var dateStr = isNaN(d.getTime()) ? ''
+              : d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            var when = [dateStr, ev.time].filter(Boolean).join(' · ');
+            var where = [ev.venue, ev.neighborhood].filter(Boolean).join(' · ');
+            var prices = [ev.priceWomen, ev.priceMen]
+              .map(Number).filter(function (p) { return p > 0; });
+            var min = prices.length ? Math.min.apply(null, prices) : 0;
+            var btnLabel = min > 0 ? 'Get Tickets — from $' + min.toFixed(2) : 'Get Tickets';
+            inner.innerHTML =
+              '<div class="event-cta-eyebrow">Upcoming Event · Limited Spots</div>' +
+              '<h2 class="event-cta-title">' + esc(ev.title) + '</h2>' +
+              '<div class="event-cta-meta">' +
+                (when ? '<span>📅 ' + esc(when) + '</span>' : '') +
+                (where ? '<span>📍 ' + esc(where) + '</span>' : '') +
+              '</div>' +
+              (ev.blurb ? '<p class="event-cta-blurb">' + esc(ev.blurb) + '</p>' : '') +
+              '<a class="event-cta-button" href="/event?id=' + encodeURIComponent(ev.id) + '">' +
+                esc(btnLabel) + '</a>' +
+              '<div class="event-cta-sub">Secure checkout · no account needed</div>';
+          })
+          .catch(function () { el.style.display = 'none'; });
+      })();
+    </script>
 
     <!-- Hero -->
     <section class="hero">
@@ -511,11 +611,11 @@
 
         <div class="faq-item">
             <div class="faq-question" onclick="toggleFaq(this)">
-                <span>When's the first event?</span>
+                <span>When's the next event?</span>
                 <span>+</span>
             </div>
             <div class="faq-answer">
-                We're launching in Q3 2026 (early July). Founding members get first access—we'll email you the exact date and venue in June. You'll know before anyone else.
+                Our next event is at the top of this page — grab a ticket while spots last. New events drop regularly, and founding members get first access to every one, plus the perks listed above.
             </div>
         </div>
 
