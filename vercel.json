@@ -35,6 +35,10 @@
       "destination": "/events.html"
     },
     {
+      "source": "/event",
+      "destination": "/event.html"
+    },
+    {
       "source": "/event/:id",
       "destination": "/event.html"
     },
