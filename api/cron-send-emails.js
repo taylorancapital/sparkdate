@@ -1,6 +1,11 @@
 // api/cron-send-emails.js
-// CommonJS — Vercel Cron (runs daily at 9 AM ET)
-// Sends Day 2 / 5 / 14 / 25 emails to leads in Firestore
+// CommonJS — Vercel Cron. Sends the Day 2 / 5 / 14 / 25 nurture emails.
+//
+// Scheduling note: Vercel crons are UTC-only and can't follow daylight
+// saving. To land at 9:00 AM America/New_York all year, vercel.json
+// registers TWO daily schedules — 13:00 UTC (= 9 AM EDT) and 14:00 UTC
+// (= 9 AM EST). Whichever one is actually 9 AM Eastern today runs; the
+// other no-ops via the hour guard in the handler below.
 
 const { Resend } = require('resend');
 const { admin } = require('../lib/auth');
@@ -403,6 +408,25 @@ async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun) {
 module.exports = async function handler(req, res) {
   if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  // ── 9 AM Eastern guard ───────────────────────────────────────────
+  // vercel.json fires this at both 13:00 and 14:00 UTC so one of them is
+  // always 9 AM in New York (EDT or EST). The off-hour invocation lands
+  // here, sees it's not 9, and no-ops. Returns 200 — a non-200 would
+  // make Vercel treat the cron as failed and retry.
+  // `?force=1` skips the guard, for manual admin triggers at any hour.
+  const force = req.query?.force === '1' || req.query?.force === 'true'
+    || req.body?.force === true;
+  if (!force) {
+    const easternHour = parseInt(
+      new Date().toLocaleString('en-US', {
+        timeZone: 'America/New_York', hour: '2-digit', hour12: false,
+      }), 10);
+    if (easternHour !== 9) {
+      console.log(`⏰ cron skipped — ${easternHour}:00 America/New_York, not 9 (other UTC schedule covers today)`);
+      return res.status(200).json({ skipped: true, reason: `not 9 AM Eastern (hour=${easternHour})` });
+    }
   }
 
   try {
