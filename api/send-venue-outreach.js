@@ -45,7 +45,18 @@ function esc(s) {
 const OUTREACH_POSTAL_ADDRESS = process.env.OUTREACH_POSTAL_ADDRESS
   || 'Ancapital Group LLC · SparkDate · Philadelphia, PA';
 
-const venueOutreachHTML = (venueName, contactName) => `
+// The outreach copy is localized to the venue's own city so it doesn't
+// read as a mass-blast — a West Chester or Lancaster bar owner getting
+// an email about scouting "Center City" would bin it instantly. `city`
+// comes from the venue doc; when it's blank we fall back to neutral
+// phrasing rather than naming the wrong place.
+const venueOutreachHTML = (venueName, contactName, city) => {
+  const cityClean   = String(city || '').trim();
+  // Body: "...looking at bars around West Chester." / generic if no city.
+  const scoutPhrase = cityClean ? `around ${esc(cityClean)}` : 'in the area';
+  // Footer brand line: the venue's city, or the company HQ as the default.
+  const footerCity  = esc(cityClean || 'Philadelphia');
+  return `
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"><style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0}
@@ -60,7 +71,7 @@ a{color:#ff6b6b;text-decoration:none}
 <div class="container">
   <div class="content">
     <p>Hi ${esc(contactName)},</p>
-    <p>I'm launching a dating thing in Philly (called SparkDate — stop swiping, start living type vibe) and I looked at like 50 bars in Center City. ${esc(venueName)} keeps coming up as the place where people actually *want* to be.</p>
+    <p>I'm launching a dating thing (called SparkDate — stop swiping, start living type vibe) and I've been looking at bars ${scoutPhrase}. ${esc(venueName)} keeps coming up as the place where people actually *want* to be.</p>
     <p>I'm thinking about hosting a singles mixer here in early June. 25-30 people, pre-screened, actual vibes. You'd make $500-1000 off a few hours, we'd move bodies through, everyone wins.</p>
     <p>Two questions:<br>1. Do you have private space or a section we could use one evening?<br>2. Who's the right person to talk to about this?</p>
     <p>No pressure — just curious if it's something you'd consider. If you'd rather not hear from us again, just reply with "NO" and I'll take you off the list.</p>
@@ -69,7 +80,7 @@ a{color:#ff6b6b;text-decoration:none}
     </div>
   </div>
   <div class="footer">
-    <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
+    <p>SparkDate · ${footerCity} · Stop swiping. Start living.</p>
     <p style="margin:6px 0 0;font-size:11px;color:#999;">
       This is a one-time business outreach email. Reply "NO" to opt out and you won't hear from us again.
       <span class="addr">${esc(OUTREACH_POSTAL_ADDRESS)}</span>
@@ -77,6 +88,7 @@ a{color:#ff6b6b;text-decoration:none}
   </div>
 </div>
 </body></html>`;
+};
 
 // Hash email for non-PII logging.
 const crypto = require('crypto');
@@ -118,7 +130,7 @@ module.exports = async function handler(req, res) {
         to:      venue.contact_email || null,
         from:    OUTREACH_FROM,
         subject: `Quick question about ${safeSubjectName}`,
-        html:    venueOutreachHTML(venue.name, contactName),
+        html:    venueOutreachHTML(venue.name, contactName, venue.city),
       });
     }
 
@@ -164,7 +176,7 @@ module.exports = async function handler(req, res) {
         from: OUTREACH_FROM,
         to: venue.contact_email,
         subject: `Quick question about ${safeSubjectName}`,
-        html: venueOutreachHTML(venue.name, contactName),
+        html: venueOutreachHTML(venue.name, contactName, venue.city),
       });
     } catch (sendErr) {
       console.error('[send-venue-outreach] resend SDK threw:', sendErr.message, sendErr.stack);
