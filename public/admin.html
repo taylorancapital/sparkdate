@@ -991,17 +991,15 @@
                     <thead>
                         <tr>
                             <th>Score</th>
-                            <th>Member</th>
-                            <th>Tier</th>
-                            <th>Age / Gender</th>
-                            <th>Looking for</th>
-                            <th>Interests</th>
-                            <th>Vibes</th>
-                            <th>Why</th>
+                            <th>Pair</th>
+                            <th>Ages</th>
+                            <th>Shared interests</th>
+                            <th>Shared vibes</th>
+                            <th>Intent</th>
                         </tr>
                     </thead>
                     <tbody id="candidateTable">
-                        <tr><td colspan="8" class="empty">Loading…</td></tr>
+                        <tr><td colspan="6" class="empty">Loading…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1254,7 +1252,7 @@
                         <td style="color: var(--gold); font-weight: 600;">${regCount}</td>
                         <td><span class="badge ${safe(statusClass)}">${safe(ev.status || 'open')}</span></td>
                         <td style="font-size: 12px;">
-                            <button class="action-btn" data-act="score-candidates" data-id="${safe(ev.id)}">Score</button>
+                            <button class="action-btn" data-act="score-candidates" data-id="${safe(ev.id)}" title="Chemistry score between every pair of registered attendees">Chemistry</button>
                             <button class="action-btn" data-act="delete-event" data-id="${safe(ev.id)}" data-title="${safe(ev.title)}" data-regs="${regCount}" style="border-color: rgba(231,76,60,0.5); color: #e74c3c;">Delete</button>
                         </td>
                     </tr>`;
@@ -1305,54 +1303,81 @@
         };
 
         // ────────────────────────────────────────────────────────────────
-        // CANDIDATE SCORING — algorithmic guest-list curation MVP
+        // CHEMISTRY SCORING — pairwise score for two attendees of one event
         // ────────────────────────────────────────────────────────────────
         const INTENT_LABELS = { long_term: 'Long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
 
-        function scoreCandidate(member, event, regUsersByGender, regUsersByIntent) {
-            let score = 50;
-            const reasons = [];
+        // Tunable weights in one place. Re-calibrating later is a one-file change.
+        const PAIR_SCORE = {
+            BASE:           50,
+            INTEREST_PER:   10, INTEREST_CAP: 30,
+            VIBE_PER:       10, VIBE_CAP:     25,
+            INTENT_SAME:    12, INTENT_NEAR:   6, INTENT_FAR: -8,
+            AGE_NEAR_3:      8, AGE_OK_7:      3, AGE_FAR_18:  -5, AGE_VERY_FAR: -15,
+        };
 
-            // Gender balance — boost the underrepresented side
-            const wRegistered = regUsersByGender.woman || 0;
-            const mRegistered = regUsersByGender.man || 0;
-            const wNeeded = Math.max(0, (event.spotsWomen || 0) - wRegistered);
-            const mNeeded = Math.max(0, (event.spotsMen || 0) - mRegistered);
+        // Normalise an interest/vibe array: lowercase, trim, dedupe, drop blanks.
+        function normTags(arr) {
+            return Array.from(new Set(
+                (Array.isArray(arr) ? arr : [])
+                    .map(t => String(t == null ? '' : t).trim().toLowerCase())
+                    .filter(Boolean)
+            ));
+        }
 
-            if (member.gender === 'woman') {
-                if (wNeeded === 0) { score -= 40; reasons.push('Women full'); }
-                else if (wNeeded > mNeeded) { score += 25; reasons.push('Women slot needed'); }
-                else { score += 10; reasons.push('Eligible'); }
-            } else if (member.gender === 'man') {
-                if (mNeeded === 0) { score -= 40; reasons.push('Men full'); }
-                else if (mNeeded > wNeeded) { score += 25; reasons.push('Men slot needed'); }
-                else { score += 10; reasons.push('Eligible'); }
-            }
+        // Score the intent alignment between two attendees.
+        function intentDelta(ai, bi) {
+            if (!ai || !bi) return { delta: 0, label: '' };
+            if (ai === bi) return { delta: PAIR_SCORE.INTENT_SAME, label: 'Same intent' };
+            const both = new Set([ai, bi]);
+            if (both.has('long_term') && both.has('dating_around')) return { delta: PAIR_SCORE.INTENT_NEAR, label: 'Near intent' };
+            if (both.has('friends_first')) return { delta: PAIR_SCORE.INTENT_FAR, label: 'Friends-first mix' };
+            return { delta: 0, label: '' };
+        }
 
-            // Intent diversity — avoid letting one intent dominate the room
-            const totalRegs = Object.values(regUsersByIntent).reduce((a,b) => a+b, 0);
-            const sameIntent = regUsersByIntent[member.intent] || 0;
-            if (totalRegs >= 6 && sameIntent / totalRegs > 0.6) {
-                score -= 8;
-                reasons.push('Intent over-represented');
-            } else if (totalRegs > 0 && sameIntent === 0) {
-                score += 6;
-                reasons.push('Adds intent diversity');
-            }
+        // Score age proximity. Returns delta and the absolute gap (or null if unknown).
+        function ageDeltaScore(a, b) {
+            const ai = Number(a), bi = Number(b);
+            if (!isFinite(ai) || !isFinite(bi) || ai <= 0 || bi <= 0) return { delta: 0, gap: null };
+            const gap = Math.abs(ai - bi);
+            let d = 0;
+            if (gap <= 3) d = PAIR_SCORE.AGE_NEAR_3;
+            else if (gap <= 7) d = PAIR_SCORE.AGE_OK_7;
+            else if (gap <= 12) d = 0;
+            else if (gap <= 18) d = PAIR_SCORE.AGE_FAR_18;
+            else d = PAIR_SCORE.AGE_VERY_FAR;
+            return { delta: d, gap };
+        }
 
-            // Active subscription
-            if (member.subscriptionStatus === 'active' || member.subscriptionStatus === 'trialing') {
-                score += 8;
-            } else {
-                score -= 15;
-                reasons.push('Inactive sub');
-            }
+        // Pairwise chemistry score for two registered attendees.
+        function scorePair(a, b) {
+            let score = PAIR_SCORE.BASE;
 
-            // Premium tier slight priority (engaged members)
-            if (member.tier === 'premium') { score += 5; reasons.push('Fire tier'); }
-            else if (member.tier === 'mid') { score += 2; }
+            const aInt = normTags(a.interests), bInt = normTags(b.interests);
+            const aVib = normTags(a.vibes),     bVib = normTags(b.vibes);
+            const sharedInterests = aInt.filter(t => bInt.includes(t));
+            const sharedVibes     = aVib.filter(t => bVib.includes(t));
 
-            return { score: Math.max(0, Math.min(100, Math.round(score))), reasons };
+            score += Math.min(sharedInterests.length * PAIR_SCORE.INTEREST_PER, PAIR_SCORE.INTEREST_CAP);
+            score += Math.min(sharedVibes.length     * PAIR_SCORE.VIBE_PER,     PAIR_SCORE.VIBE_CAP);
+
+            const it  = intentDelta(a.intent, b.intent);
+            const age = ageDeltaScore(a.age, b.age);
+            score += it.delta + age.delta;
+
+            // If either side has neither interests nor vibes filled, flag it so
+            // the hostess knows the number is built mostly on intent + age.
+            const limitedProfile =
+                (aInt.length === 0 && aVib.length === 0) ||
+                (bInt.length === 0 && bVib.length === 0);
+
+            return {
+                score: Math.max(0, Math.min(100, Math.round(score))),
+                sharedInterests, sharedVibes,
+                intentLabel: it.label,
+                ageGap: age.gap,
+                limitedProfile,
+            };
         }
 
         window.openCandidates = (eventId) => {
@@ -1360,66 +1385,85 @@
             if (!event) return;
 
             // .textContent is safe by construction — DOM sets it as plain text.
-            document.getElementById('candidateModalTitle').textContent = `Candidates · ${event.title}`;
+            document.getElementById('candidateModalTitle').textContent = `Chemistry · ${event.title}`;
             const date = event.date?.toDate ? event.date.toDate() : new Date(event.date);
             document.getElementById('candidateModalSub').textContent =
-                `${date.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})} · ${event.venue || ''} — ranked by gender balance, intent diversity, and engagement`;
+                `${date.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})} · ${event.venue || ''} — pairs ranked by shared interests + vibes, intent alignment, age proximity. Hetero-only until a "looking to meet" field exists at signup.`;
 
-            // Build registration counts by gender + intent for THIS event
+            // Resolve registered attendees to full user profiles.
             const eventRegs = allRegistrations.filter(r => r.eventId === eventId);
-            const registeredUserIds = new Set(eventRegs.map(r => r.userId));
-            const registeredUsers = allUsers.filter(u => registeredUserIds.has(u.id));
+            const registeredUserIds = new Set(eventRegs.map(r => r.userId).filter(Boolean));
+            const attendees = allUsers.filter(u => registeredUserIds.has(u.id));
 
-            const regUsersByGender = {};
-            const regUsersByIntent = {};
-            registeredUsers.forEach(u => {
-                if (u.gender) regUsersByGender[u.gender] = (regUsersByGender[u.gender] || 0) + 1;
-                if (u.intent) regUsersByIntent[u.intent] = (regUsersByIntent[u.intent] || 0) + 1;
-            });
+            // Enumerate opposite-gender pairs only (see the note above).
+            const women = attendees.filter(u => u.gender === 'woman');
+            const men   = attendees.filter(u => u.gender === 'man');
+            const pairs = [];
+            for (const w of women) for (const m of men) {
+                pairs.push({ a: w, b: m, ...scorePair(w, m) });
+            }
+            pairs.sort((p, q) => q.score - p.score);
+            const top       = pairs.slice(0, 50);
+            const topScore  = pairs.length ? pairs[0].score : 0;
+            const highCount = pairs.filter(p => p.score >= 70).length;
 
-            // Stat cards
-            const wNeeded = Math.max(0, (event.spotsWomen || 0) - (regUsersByGender.woman || 0));
-            const mNeeded = Math.max(0, (event.spotsMen || 0) - (regUsersByGender.man || 0));
             document.getElementById('candidateStats').innerHTML = `
-                <div class="candidate-stat"><strong>${registeredUsers.length}</strong>Registered</div>
-                <div class="candidate-stat"><strong>${wNeeded}</strong>Women slots open</div>
-                <div class="candidate-stat"><strong>${mNeeded}</strong>Men slots open</div>
-                <div class="candidate-stat"><strong>${allUsers.length - registeredUsers.length}</strong>Eligible pool</div>
+                <div class="candidate-stat"><strong>${attendees.length}</strong>Attendees</div>
+                <div class="candidate-stat"><strong>${pairs.length}</strong>Pairs scored</div>
+                <div class="candidate-stat"><strong>${topScore}</strong>Top score</div>
+                <div class="candidate-stat"><strong>${highCount}</strong>Pairs ≥ 70</div>
             `;
 
-            // Score every non-registered user
-            const candidates = allUsers
-                .filter(u => !registeredUserIds.has(u.id))
-                .map(u => ({ user: u, ...scoreCandidate(u, event, regUsersByGender, regUsersByIntent) }))
-                .sort((a, b) => b.score - a.score)
-                .slice(0, 50); // top 50
-
             const tbody = document.getElementById('candidateTable');
-            if (candidates.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="empty">No eligible candidates.</td></tr>';
-            } else {
-                tbody.innerHTML = candidates.map(({ user, score, reasons }) => {
-                    const scoreClass = score >= 70 ? 'high' : score >= 40 ? '' : 'low';
-                    const interests = (user.interests || []).slice(0, 3).join(', ') || '—';
-                    const vibes = (user.vibes || []).slice(0, 3).join(', ') || '—';
-                    const genderDisp = ({woman:'Woman',man:'Man'})[user.gender] || '—';
-                    const tierLbl = ({free:'Spark',mid:'Kindling',premium:'Fire'})[user.tier] || user.tier || 'free';
-                    return `
-                        <tr>
-                            <td><span class="score-cell ${scoreClass}">${score}</span></td>
-                            <td>
-                                <div style="color: var(--white); font-weight: 500;">${safe(user.firstName || '')} ${safe(user.lastName || '')}</div>
-                                <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(user.email || '')}</div>
-                            </td>
-                            <td><span class="badge badge-${safe(user.tier || 'free')}">${safe(tierLbl)}</span></td>
-                            <td style="color: rgba(245,243,240,0.7);">${safe(user.age || '—')} · ${safe(genderDisp)}</td>
-                            <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${safe(INTENT_LABELS[user.intent] || '—')}</td>
-                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(interests)}</td>
-                            <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(vibes)}</td>
-                            <td style="color: rgba(245,243,240,0.5); font-size: 11px;">${safe(reasons.slice(0,2).join(' · '))}</td>
-                        </tr>`;
-                }).join('');
+            if (top.length === 0) {
+                tbody.innerHTML =
+                    '<tr><td colspan="6" class="empty">No opposite-gender pairs yet — add attendees on both sides.</td></tr>';
+                document.getElementById('candidateModal').classList.add('show');
+                return;
             }
+
+            // Privacy: render "Sarah C." rather than full last names (matches
+            // the public Connections list's display style).
+            const shortName = (u) => {
+                const fn = u.firstName || '';
+                const li = (u.lastName || '').charAt(0);
+                const stub = `${fn}${li ? ' ' + li + '.' : ''}`.trim();
+                return stub || u.email || '—';
+            };
+
+            const intentText = (a, b) => {
+                const al = INTENT_LABELS[a.intent] || '';
+                const bl = INTENT_LABELS[b.intent] || '';
+                if (!al && !bl) return '—';
+                if (a.intent && a.intent === b.intent) return `Same · ${al}`;
+                if (al && bl) return `${al} ↔ ${bl}`;
+                return al || bl;
+            };
+
+            tbody.innerHTML = top.map((p) => {
+                const scoreClass = p.score >= 70 ? 'high' : p.score >= 40 ? '' : 'low';
+                const ages = [p.a.age, p.b.age].filter(Boolean).join(' · ') || '—';
+                const gapTag = p.ageGap !== null
+                    ? ` <span style="opacity:0.5;">(Δ${p.ageGap})</span>` : '';
+                const interestsCell = p.sharedInterests.length
+                    ? p.sharedInterests.slice(0, 3).join(', ')
+                    : (p.limitedProfile ? 'limited profile data' : '—');
+                const vibesCell = p.sharedVibes.length
+                    ? p.sharedVibes.slice(0, 3).join(', ')
+                    : '—';
+                return `
+                    <tr>
+                        <td><span class="score-cell ${scoreClass}">${p.score}</span></td>
+                        <td>
+                            <div style="color: var(--white); font-weight: 500;">${safe(shortName(p.a))} ↔ ${safe(shortName(p.b))}</div>
+                            <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(p.a.email || '')} · ${safe(p.b.email || '')}</div>
+                        </td>
+                        <td style="color: rgba(245,243,240,0.7);">${safe(ages)}${gapTag}</td>
+                        <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(interestsCell)}</td>
+                        <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(vibesCell)}</td>
+                        <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(intentText(p.a, p.b))}</td>
+                    </tr>`;
+            }).join('');
 
             document.getElementById('candidateModal').classList.add('show');
         };
