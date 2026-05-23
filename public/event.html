@@ -242,6 +242,22 @@
         .checkout-btn:hover { transform: translateY(-2px); }
         .checkout-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
+        /* Pre-billing trial disclosure — visible BEFORE the buy button for
+           FTC ROSCA compliance (clear & conspicuous material terms,
+           express informed consent via the buy action). */
+        .trial-disclosure {
+            background: rgba(212, 175, 55, 0.08);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 4px;
+            padding: 12px 14px;
+            margin-bottom: 14px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--cream);
+        }
+        .trial-disclosure strong { color: var(--gold); }
+        .trial-disclosure a { color: var(--coral); text-decoration: none; }
+
         .legal {
             font-size: 11px;
             color: rgba(245, 243, 240, 0.5);
@@ -393,10 +409,23 @@
                             </div>
                         </div>
 
+                        <!-- Pre-billing trial disclosure (FTC ROSCA — must be visible
+                             BEFORE the buy button, in normal contrast). Hidden for
+                             logged-in members in applyUserContext() since they already
+                             have a subscription. -->
+                        <div class="trial-disclosure" id="trialDisclosure">
+                            <strong>Includes a 30-day free Spark trial.</strong>
+                            After 30 days, <strong>$9.99/mo</strong>. Cancel anytime at
+                            <a href="/account">/account</a>.
+                        </div>
+
                         <button type="submit" class="checkout-btn" id="checkoutBtn" disabled>Select Gender</button>
 
                         <div class="legal">
-                            By purchasing, you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.<br>
+                            By purchasing, you agree to our <a href="/terms">Terms</a> and
+                            <a href="/privacy">Privacy Policy</a>, and (for non-members) to start
+                            a 30-day free Spark trial that auto-renews at $9.99/month unless
+                            canceled.<br>
                             Must be 21+. Bring valid ID.
                         </div>
                     </form>
@@ -734,12 +763,16 @@
                 emailInput.value = userProfile.email;
             }
 
-            // Use saved card on file
+            // Use saved card on file — and hide the trial disclosure since
+            // members already have a subscription; auto-enrollment only fires
+            // on the guest path in /api/purchase-ticket.
             if (userProfile.stripeCustomerId) {
                 const cardGroup = document.getElementById('cardFormGroup');
                 const cardOnFileNotice = document.getElementById('cardOnFileNotice');
+                const trialDisclosure = document.getElementById('trialDisclosure');
                 if (cardGroup) cardGroup.style.display = 'none';
                 if (cardOnFileNotice) cardOnFileNotice.style.display = 'block';
+                if (trialDisclosure) trialDisclosure.style.display = 'none';
             }
         }
     </script>

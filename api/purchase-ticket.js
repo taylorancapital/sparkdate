@@ -17,11 +17,15 @@
 //  #15  Price is recomputed server-side from the event doc + service fee.
 //       Client-supplied `amount` is ignored.
 
+const crypto = require('crypto');
 const Stripe = require('stripe');
+const { Resend } = require('resend');
 const { admin, requireAuth } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
+const { TIERS, getOrCreatePrice } = require('../lib/tiers');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY);
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
 
@@ -150,6 +154,202 @@ async function sweepStale3ds(eventRef, eventId) {
     }
 
     await expire3ds(ticketDoc, ticket, eventRef);
+  }
+}
+
+// ── Auto-enroll guest ticket buyers in a 30-day Spark trial ─────────
+//
+// When someone buys a ticket as a guest (no Authorization header), we
+// also create a Firebase Auth user + Stripe Customer + Spark-tier
+// subscription with a 30-day trial, then email them a password-set link
+// so they can log in. Members buying tickets skip this entirely — they
+// already have a subscription.
+//
+// FTC ROSCA-compliant: event.html shows clear pre-billing disclosure
+// ("Includes a 30-day free Spark trial — $9.99/mo after, cancel anytime")
+// BEFORE the buy button, and the legal-checkbox line spells out the
+// auto-renew terms. The buy action is the express informed consent.
+//
+// Fully best-effort: any failure inside this helper must NOT roll back
+// the ticket. The caller wraps it in .catch() and the ticket response
+// proceeds regardless. Partial state (Firebase user / Stripe customer /
+// user doc) is cleaned up inline on failure to avoid orphans.
+
+// Tiny HTML-escape for values that flow into the welcome email body.
+function escEmail(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function welcomeHTML({ eventName, resetLink }) {
+  const safeEvent = escEmail(eventName);
+  return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
+.container{max-width:600px;margin:0 auto;background:#fff}
+.header{background:#0a0e27;padding:40px 30px;text-align:center}
+.logo{font-family:Georgia,serif;font-size:32px;font-weight:900;color:#fff;letter-spacing:-1px}
+.logo span{color:#ff6b6b}
+.content{padding:40px 30px}
+h1{font-family:Georgia,serif;font-size:26px;color:#0a0e27;margin:0 0 18px;font-weight:900}
+p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
+.cta{display:inline-block;background:#ff6b6b;color:#fff !important;font-weight:800;font-size:15px;padding:14px 34px;border-radius:4px;text-decoration:none;margin:8px 0 20px}
+.fine{font-size:12px;color:#666;line-height:1.6}
+.footer{background:#0a0e27;padding:24px;text-align:center;color:#888;font-size:12px}
+.footer a{color:#ff6b6b;text-decoration:none}
+</style></head>
+<body><div class="container">
+  <div class="header"><div class="logo">Spark<span>Date</span></div></div>
+  <div class="content">
+    <h1>Your ticket is locked in.</h1>
+    <p>You're on the list for <strong>${safeEvent}</strong>. See you there.</p>
+    <p>While you're here, we also activated your free <strong>30-day Spark trial</strong> — full SparkDate access, no charge for 30 days. After that, it's $9.99/month (cancel anytime at <a href="https://sparkdate.date/account">sparkdate.date/account</a>).</p>
+    <p>Set your password to log in:</p>
+    <p style="text-align:center;"><a class="cta" href="${escEmail(resetLink)}">Set my password</a></p>
+    <p class="fine">If the button doesn't work, paste this into your browser:<br><span style="word-break:break-all;color:#666;">${escEmail(resetLink)}</span></p>
+  </div>
+  <div class="footer">
+    <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
+    <p><a href="https://sparkdate.date">sparkdate.date</a></p>
+  </div>
+</div></body></html>`;
+}
+
+function existingUserHTML({ eventName }) {
+  const safeEvent = escEmail(eventName);
+  return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
+.container{max-width:600px;margin:0 auto;background:#fff}
+.header{background:#0a0e27;padding:40px 30px;text-align:center}
+.logo{font-family:Georgia,serif;font-size:32px;font-weight:900;color:#fff;letter-spacing:-1px}
+.logo span{color:#ff6b6b}
+.content{padding:40px 30px}
+h1{font-family:Georgia,serif;font-size:26px;color:#0a0e27;margin:0 0 18px;font-weight:900}
+p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
+.cta{display:inline-block;background:#ff6b6b;color:#fff !important;font-weight:800;font-size:15px;padding:14px 34px;border-radius:4px;text-decoration:none;margin:8px 0 20px}
+.footer{background:#0a0e27;padding:24px;text-align:center;color:#888;font-size:12px}
+.footer a{color:#ff6b6b;text-decoration:none}
+</style></head>
+<body><div class="container">
+  <div class="header"><div class="logo">Spark<span>Date</span></div></div>
+  <div class="content">
+    <h1>Your ticket is locked in.</h1>
+    <p>You're on the list for <strong>${safeEvent}</strong>. See you there.</p>
+    <p>This email already has a SparkDate account — sign in below to see your tickets and manage your subscription.</p>
+    <p style="text-align:center;"><a class="cta" href="https://sparkdate.date/account">Log in to my account</a></p>
+  </div>
+  <div class="footer">
+    <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
+    <p><a href="https://sparkdate.date">sparkdate.date</a></p>
+  </div>
+</div></body></html>`;
+}
+
+async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName }) {
+  const norm = String(email || '').toLowerCase().trim();
+  if (!norm) return;
+
+  // 1. Email already on SparkDate? Skip enrollment — no surprise sub.
+  let existing = null;
+  try {
+    existing = await admin.auth().getUserByEmail(norm);
+  } catch (e) {
+    if (e.code !== 'auth/user-not-found') {
+      console.error('[auto-enroll] getUserByEmail failed:', e.message);
+      return; // bail safely; the ticket already succeeded
+    }
+  }
+
+  if (existing) {
+    try {
+      if (process.env.RESEND_API_KEY) {
+        await resend.emails.send({
+          from: 'SparkDate <hello@mail.sparkdate.date>',
+          to: norm,
+          subject: 'Your SparkDate ticket — log in to manage it',
+          html: existingUserHTML({ eventName }),
+        });
+      }
+    } catch (e) {
+      console.error('[auto-enroll] existing-user email failed:', e.message);
+    }
+    return;
+  }
+
+  // 2. New email — full enrollment with cleanup-on-failure so we don't
+  //    leak partial state into Firebase Auth / Stripe / Firestore.
+  let userRecord = null;
+  let customer = null;
+  let userDocCreated = false;
+
+  try {
+    userRecord = await admin.auth().createUser({
+      email: norm,
+      // Random throwaway — the user sets a real one via the reset link.
+      password: crypto.randomBytes(32).toString('hex'),
+      emailVerified: false,
+    });
+
+    const priceId = await getOrCreatePrice('free');
+
+    customer = await stripe.customers.create({
+      email: norm,
+      payment_method: paymentMethodId,
+      invoice_settings: { default_payment_method: paymentMethodId },
+      metadata: { firebaseUid: userRecord.uid, tier: 'free', source: 'ticket_purchase' },
+    }, { idempotencyKey: `customer:${userRecord.uid}` });
+
+    // Write user doc BEFORE creating the subscription. The Stripe
+    // webhook (customer.subscription.created) resolves the user by
+    // stripeCustomerId — if the doc doesn't exist yet, that lookup
+    // fails and the user's subscriptionStatus is never set.
+    await db.collection('users').doc(userRecord.uid).set({
+      email: norm,
+      gender: gender || null,
+      tier: 'free',
+      stripeCustomerId: customer.id,
+      subscriptionId: null,
+      subscriptionStatus: 'pending',
+      source: 'ticket_purchase',
+      profileCompleted: false,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    userDocCreated = true;
+
+    const subscription = await stripe.subscriptions.create({
+      customer: customer.id,
+      items: [{ price: priceId }],
+      trial_period_days: TIERS.free.trialDays,
+      metadata: { firebaseUid: userRecord.uid, tier: 'free', source: 'ticket_purchase' },
+    }, { idempotencyKey: `sub:${userRecord.uid}:free` });
+
+    await db.collection('users').doc(userRecord.uid).update({
+      subscriptionId: subscription.id,
+      subscriptionStatus: subscription.status, // typically 'trialing'; 'incomplete' if 3DS setup needed
+    });
+
+    // Password-reset link doubles as the "set initial password" link
+    // (Firebase generates one URL that handles both cases).
+    const resetLink = await admin.auth().generatePasswordResetLink(norm);
+
+    if (process.env.RESEND_API_KEY) {
+      await resend.emails.send({
+        from: 'SparkDate <hello@mail.sparkdate.date>',
+        to: norm,
+        subject: 'Your ticket + free Spark trial — set your password',
+        html: welcomeHTML({ eventName, resetLink }),
+      });
+    }
+
+    console.log(`[auto-enroll] ✓ uid=${userRecord.uid} customer=${customer.id} sub=${subscription.id}`);
+  } catch (err) {
+    console.error('[auto-enroll] failed mid-flow:', err.message);
+    // Best-effort cleanup of any partial state, in reverse order.
+    if (userDocCreated) await db.collection('users').doc(userRecord.uid).delete().catch(() => {});
+    if (customer)        await stripe.customers.del(customer.id).catch(() => {});
+    if (userRecord)      await admin.auth().deleteUser(userRecord.uid).catch(() => {});
   }
 }
 
@@ -375,6 +575,18 @@ module.exports = async function handler(req, res) {
       await ticketRef.update({ status: 'failed' }).catch(() => {});
       await regRef.update({ status: 'failed' }).catch(() => {});
       return res.status(400).json({ error: 'Payment did not succeed.' });
+    }
+
+    // ── Auto-enroll the guest in a 30-day Spark trial ─────────────
+    // Members (firebaseUid set) already have a subscription — skip.
+    // Vercel kills work after the response is sent, so we MUST await
+    // this; the helper itself is best-effort and never throws.
+    if (!firebaseUid) {
+      await enrollGuestAsMember({
+        email, paymentMethodId, gender, eventName,
+      }).catch((err) => {
+        console.error('[purchase-ticket] guest auto-enroll failed:', err.message);
+      });
     }
 
     // ── Activity log (best-effort, doesn't block success). ─────────
