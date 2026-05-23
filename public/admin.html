@@ -1391,7 +1391,14 @@
                 `${date.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})} · ${event.venue || ''} — pairs ranked by shared interests + vibes, intent alignment, age proximity. Hetero-only until a "looking to meet" field exists at signup.`;
 
             // Resolve registered attendees to full user profiles.
-            const eventRegs = allRegistrations.filter(r => r.eventId === eventId);
+            // Only `confirmed` registrations count — failed / expired /
+            // pending_3ds tickets are people who DIDN'T actually pay, and
+            // including them would surface ghost attendees on the night of.
+            // Legacy registrations missing the `status` field are treated as
+            // confirmed (pre-status data is all settled).
+            const eventRegs = allRegistrations.filter(r =>
+                r.eventId === eventId && (r.status === 'confirmed' || !r.status)
+            );
             const registeredUserIds = new Set(eventRegs.map(r => r.userId).filter(Boolean));
             const attendees = allUsers.filter(u => registeredUserIds.has(u.id));
 
