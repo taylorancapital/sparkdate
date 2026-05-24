@@ -2,12 +2,11 @@
 // Upgrades or downgrades a user's subscription tier using their saved payment method.
 // Uses Stripe Subscription update with proration - they're billed/credited for the difference immediately.
 
-const Stripe = require('stripe');
 const { admin, requireAuth } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
 const { TIERS, getOrCreatePrice } = require('../lib/tiers');
+const { stripe } = require('../lib/stripe');
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const db = admin.firestore();
 
 module.exports = async function handler(req, res) {
