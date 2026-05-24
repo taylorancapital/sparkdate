@@ -503,6 +503,10 @@
             </div>
 
             <div class="action-bar-cancel">
+                <!-- Reactivate button is shown by JS when the user has a
+                     pending cancellation that hasn't taken effect yet
+                     (audit M6). Otherwise the cancel button shows. -->
+                <button class="text-link" onclick="reactivateSubscription()" id="reactivateBtn" style="display: none; color: var(--success);">Resume subscription</button>
                 <button class="text-link" onclick="showCancelModal()" id="cancelBtn">Cancel subscription</button>
             </div>
         </div>
@@ -861,6 +865,40 @@
             setTimeout(() => { el.style.display = 'none'; }, 6000);
         }
 
+        // Reverse a pending cancellation — flips cancel_at_period_end
+        // back to false via /api/cancel-subscription (audit M6). The
+        // endpoint is shared with the cancel flow; passing
+        // { reactivate: true } switches behavior.
+        window.reactivateSubscription = async () => {
+            const btn = document.getElementById('reactivateBtn');
+            if (!btn || !currentUser) return;
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Resuming…';
+            try {
+                const idToken = await currentUser.getIdToken();
+                const res = await fetch('/api/cancel-subscription', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({ reactivate: true }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || data.error || 'Failed');
+                showMessage('success', 'Your subscription is active again. Welcome back.');
+                // Reload after a beat so the renewal-date copy + button
+                // visibility re-render from the updated user doc.
+                setTimeout(() => location.reload(), 1500);
+            } catch (err) {
+                console.error('[reactivate] error', err);
+                btn.disabled = false;
+                btn.textContent = originalText;
+                showMessage('error', err.message || 'Could not reactivate. Please try again.');
+            }
+        };
+
         // XSS-safe HTML escape — apply to any user-controlled value flowing into innerHTML.
         function safe(v) {
             if (v === null || v === undefined) return '';
@@ -932,8 +970,24 @@
                 setText('profileVibes',     (userData.vibes || []).join(', '));
 
                 const cancelBtn = document.getElementById('cancelBtn');
-                if (cancelBtn && (userData.subscriptionStatus === 'canceled' || userData.cancelAtPeriodEnd)) {
-                    cancelBtn.style.display = 'none';
+                const reactivateBtn = document.getElementById('reactivateBtn');
+                // Three states:
+                //   - fully canceled (subscriptionStatus === 'canceled'):
+                //     hide both — they have to re-subscribe from scratch.
+                //   - pending cancel (cancelAtPeriodEnd && status !== canceled):
+                //     show Reactivate, hide Cancel (audit M6).
+                //   - active: show Cancel, hide Reactivate.
+                if (cancelBtn && reactivateBtn) {
+                    if (userData.subscriptionStatus === 'canceled') {
+                        cancelBtn.style.display = 'none';
+                        reactivateBtn.style.display = 'none';
+                    } else if (userData.cancelAtPeriodEnd) {
+                        cancelBtn.style.display = 'none';
+                        reactivateBtn.style.display = 'inline-block';
+                    } else {
+                        cancelBtn.style.display = 'inline-block';
+                        reactivateBtn.style.display = 'none';
+                    }
                 }
 
                 // Surface "pending" payment state explicitly — most likely

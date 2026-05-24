@@ -36,6 +36,15 @@ describe('isAllowed', () => {
     expect(isAllowed('https://attacker.com/sparkdate.vercel.app')).toBe(false);
   });
 
+  it('rejects consecutive-dash hostnames (audit L1)', () => {
+    // Vercel never emits these but third parties could register them
+    // adjacent to the legit project name. The tightened regex denies
+    // any label with double dashes.
+    expect(isAllowed('https://sparkdate--evil.vercel.app')).toBe(false);
+    expect(isAllowed('https://sparkdate-git--feature.vercel.app')).toBe(false);
+    expect(isAllowed('https://sparkdate---a.vercel.app')).toBe(false);
+  });
+
   it('rejects http (not https)', () => {
     expect(isAllowed('http://sparkdate.date')).toBe(false);
   });

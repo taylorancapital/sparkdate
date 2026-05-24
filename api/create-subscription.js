@@ -10,12 +10,10 @@
 //   - Stripe Idempotency-Key tied to the user uid prevents double-charging
 //     if the request is retried after a network blip.
 
-const Stripe = require('stripe');
 const { requireAuth } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
 const { TIERS, getOrCreatePrice } = require('../lib/tiers');
-
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const { stripe } = require('../lib/stripe');
 
 module.exports = async function handler(req, res) {
   if (applyCors(req, res)) return res.status(204).end();

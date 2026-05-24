@@ -18,13 +18,12 @@
 //       Client-supplied `amount` is ignored.
 
 const crypto = require('crypto');
-const Stripe = require('stripe');
 const { Resend } = require('resend');
 const { admin, requireAuth } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
 const { TIERS, getOrCreatePrice } = require('../lib/tiers');
+const { stripe } = require('../lib/stripe');
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
@@ -613,14 +612,23 @@ module.exports = async function handler(req, res) {
     }
 
     // ── Activity log (best-effort, doesn't block success). ─────────
-    db.collection('activity').add({
-      type: 'event_attended',
-      userId: firebaseUid || null,
-      userEmail: email,
-      userName: firebaseUid ? cleanName : (cleanName || email),
-      details: { eventName, amount: amount / 100 },
-      createdAt: FieldValue.serverTimestamp(),
-    }).catch(() => {});
+    // AWAITED, not fire-and-forget (audit M3): Vercel kills async work
+    // after res.json() returns, so the prior `.catch(() => {})` form
+    // silently lost activity entries on cold starts / slow Firestore.
+    // The try/catch keeps the response success-only — a Firestore hiccup
+    // on the log write must not fail a real ticket sale.
+    try {
+      await db.collection('activity').add({
+        type: 'event_attended',
+        userId: firebaseUid || null,
+        userEmail: email,
+        userName: firebaseUid ? cleanName : (cleanName || email),
+        details: { eventName, amount: amount / 100 },
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      console.error('[purchase-ticket] activity log failed:', e.message);
+    }
 
     return res.status(200).json({
       success: true,

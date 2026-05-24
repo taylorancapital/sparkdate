@@ -1,18 +1,34 @@
-const Stripe = require('stripe');
+// api/cancel-subscription.js
+//
+// Toggles `cancel_at_period_end` on the user's Stripe subscription.
+//
+//   POST {}                       → cancel (default)
+//   POST { reactivate: true }     → uncancel (audit M6)
+//
+// Both branches live in this single endpoint to stay under Vercel
+// Hobby's 12-function cap.
+//
+// Auth model: Bearer token required; decoded.uid is the only trusted
+// identity. Subscription ID is read from the user's Firestore doc —
+// the client never supplies it.
+
 const { admin, requireAuth } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
+const { stripe } = require('../lib/stripe');
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const db = admin.firestore();
 
 module.exports = async function handler(req, res) {
   if (applyCors(req, res)) return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // Reactivate mode flips `cancel_at_period_end` back to false so the
+  // subscription renews as normal. Only meaningful while the current
+  // period hasn't expired yet — after that, Stripe has already
+  // canceled and the user has to re-subscribe.
+  const reactivate = req.body?.reactivate === true;
+
   try {
-    // Verify Firebase ID token — use the authenticated UID, NOT a body field.
-    // This closes a critical hole where anyone could cancel anyone's subscription
-    // by submitting their UID.
     let decoded;
     try {
       decoded = await requireAuth(req);
@@ -26,10 +42,57 @@ module.exports = async function handler(req, res) {
 
     const userData = userDoc.data();
     if (!userData.subscriptionId) {
-      return res.status(400).json({ error: 'No active subscription to cancel' });
+      return res.status(400).json({
+        error: reactivate ? 'No subscription to reactivate' : 'No active subscription to cancel',
+      });
     }
 
-    // Cancel at period end — user keeps access until their billing cycle ends
+    if (reactivate) {
+      // Idempotent: if it's not currently set to cancel, return success
+      // without bothering Stripe.
+      if (!userData.cancelAtPeriodEnd) {
+        return res.status(200).json({ success: true, alreadyActive: true });
+      }
+
+      let subscription;
+      try {
+        subscription = await stripe.subscriptions.update(userData.subscriptionId, {
+          cancel_at_period_end: false,
+        });
+      } catch (err) {
+        if (err.type === 'StripeInvalidRequestError') {
+          return res.status(400).json({
+            error: 'Cannot reactivate',
+            message: 'Your subscription has already ended. Please subscribe again to continue.',
+          });
+        }
+        throw err;
+      }
+
+      await userDoc.ref.update({
+        cancelAtPeriodEnd: false,
+        // Clear the canceled-at timestamp so the UI doesn't keep showing
+        // "you canceled on X" after the user changed their mind.
+        canceledAt: null,
+      });
+
+      await db.collection('activity').add({
+        userId: firebaseUid,
+        userEmail: userData.email,
+        userName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
+        type: 'subscription_reactivated',
+        details: { tier: userData.tier },
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return res.status(200).json({
+        success: true,
+        reactivated: true,
+        subscriptionStatus: subscription.status,
+      });
+    }
+
+    // Cancel at period end — user keeps access until their billing cycle ends.
     const subscription = await stripe.subscriptions.update(userData.subscriptionId, {
       cancel_at_period_end: true,
     });
@@ -39,7 +102,6 @@ module.exports = async function handler(req, res) {
       canceledAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // Log activity
     await db.collection('activity').add({
       userId: firebaseUid,
       userEmail: userData.email,
@@ -54,7 +116,7 @@ module.exports = async function handler(req, res) {
       accessUntil: subscription.current_period_end,
     });
   } catch (err) {
-    console.error('[cancel-subscription] error', { message: err.message, type: err.type, code: err.code });
+    console.error('[cancel-subscription] error', { reactivate, message: err.message, type: err.type, code: err.code });
 
     if (err.type === 'StripeInvalidRequestError') {
       return res.status(400).json({
@@ -64,8 +126,10 @@ module.exports = async function handler(req, res) {
     }
 
     return res.status(500).json({
-      error: 'Cancellation failed',
-      message: 'Could not cancel your subscription. Please try again or contact support@sparkdate.date.',
+      error: reactivate ? 'Reactivation failed' : 'Cancellation failed',
+      message: reactivate
+        ? 'Could not reactivate your subscription. Please try again or contact support@sparkdate.date.'
+        : 'Could not cancel your subscription. Please try again or contact support@sparkdate.date.',
     });
   }
 };

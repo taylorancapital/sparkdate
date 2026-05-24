@@ -1,6 +1,10 @@
-// api/webhook-formspree.js
-// SYNCHRONOUS — awaits all operations before responding
-// Previous version used fire-and-forget which Vercel kills after res.send()
+// api/lead-signup.js
+// (Formerly api/webhook-formspree.js — renamed in audit L6 because it
+// no longer talks to Formspree. This endpoint receives the founding-
+// cohort signup form and writes the new lead + sends the welcome email.)
+//
+// SYNCHRONOUS — awaits all operations before responding.
+// Previous version used fire-and-forget which Vercel kills after res.send().
 
 const { Resend } = require('resend');
 const { admin } = require('../lib/auth');

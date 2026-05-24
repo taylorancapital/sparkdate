@@ -1,7 +1,6 @@
-const Stripe = require('stripe');
 const { admin } = require('../lib/auth');
+const { stripe } = require('../lib/stripe');
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const db = admin.firestore();
 
@@ -205,6 +204,66 @@ module.exports = async function handler(req, res) {
           await regSnap.docs[0].ref.update({ status: 'failed' });
         }
         console.log(`[webhook] ticket failed: ${pi.id}`);
+        break;
+      }
+
+      // ── Customer deleted in Stripe (manually via dashboard, or via
+      // the future account-deletion flow tracked as audit M7). Clear
+      // the Firestore user's stripeCustomerId so subsequent API calls
+      // don't try to talk to a 404'd customer (audit M8).
+      case 'customer.deleted': {
+        const customer = event.data.object;
+        const userDoc = await findUserByCustomer(customer.id);
+        if (userDoc) {
+          await userDoc.ref.update({
+            stripeCustomerId: null,
+            subscriptionId: null,
+            subscriptionStatus: 'canceled',
+            stripeCustomerDeletedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          await logActivity(userDoc, 'customer_deleted', { customerId: customer.id });
+          console.log(`[webhook] cleared stripeCustomerId for user/${userDoc.id} (customer.deleted)`);
+        }
+        break;
+      }
+
+      // ── Setup intents fire when a subscription is created with 3DS
+      // requirements on the setup (e.g. SCA-region cards on the trial
+      // flow in enrollGuestAsMember). When the user finishes auth, the
+      // SetupIntent succeeds and the linked subscription becomes valid;
+      // we promote subscriptionStatus from 'incomplete' to whatever the
+      // current Stripe state says (audit M8).
+      case 'setup_intent.succeeded': {
+        const si = event.data.object;
+        if (!si.customer) break;
+        const userDoc = await findUserByCustomer(si.customer);
+        if (!userDoc) break;
+        // Re-fetch the subscription to get the current status — the SI
+        // event itself doesn't carry it.
+        const { subscriptionId } = userDoc.data();
+        if (!subscriptionId) break;
+        try {
+          const sub = await stripe.subscriptions.retrieve(subscriptionId);
+          await userDoc.ref.update({ subscriptionStatus: sub.status });
+          console.log(`[webhook] setup_intent.succeeded → user/${userDoc.id} subscriptionStatus=${sub.status}`);
+        } catch (e) {
+          console.error('[webhook] setup_intent.succeeded retrieve failed:', e.message);
+        }
+        break;
+      }
+
+      // ── User abandoned 3DS during signup/upgrade. The subscription
+      // sits in 'incomplete' and Stripe will cancel it after ~23h.
+      // Log to activity so the admin sees the drop-off (audit M8).
+      case 'setup_intent.setup_failed': {
+        const si = event.data.object;
+        if (!si.customer) break;
+        const userDoc = await findUserByCustomer(si.customer);
+        if (userDoc) {
+          await logActivity(userDoc, 'setup_intent_failed', {
+            reason: si.last_setup_error?.message || 'unknown',
+          });
+        }
         break;
       }
 

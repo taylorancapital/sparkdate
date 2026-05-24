@@ -1,59 +1,35 @@
 // api/seed-venues.js
-// One-shot seeder: pushes the hardcoded venue list into Firestore.
+// One-shot seeder: pushes a venue list into Firestore.
 // Admin-only — caller must present a Firebase ID token with the
 // `admin: true` custom claim. Skips venues that already exist (by
 // case-insensitive name) so it's safe to call repeatedly.
 
+const path = require('path');
+const fs = require('fs');
 const { admin, requireAdmin } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
 
 const db = admin.firestore();
 
-// ⚠️ VERIFY addresses before sending outreach. The Philly venues below
-// are real institutions, but a few addresses may be wrong (the seed was
+// Default Philly venue list lives in data/default-venues.json (audit L3:
+// extracted from inline so it can be edited without redeploying code,
+// and so the API file stays small enough to skim).
+//
+// ⚠️ VERIFY addresses before sending outreach. The Philly venues are
+// real institutions, but a few addresses may be wrong (the seed was
 // AI-assisted). Trust the NAMES, double-check the ADDRESSES against
 // Google before contacting.
 //
 // Lancaster section was stripped — it was 30+ obviously AI-generated
-// repeats ("Mojo Social", "Mojo Social Kitchen", "Issei Bar", "Issei
-// Social", "Issei Social Lounge", etc., all sharing addresses on
-// the same two blocks). Add real Lancaster venues manually as you
-// research them.
-const venues = [
-  // ── PHILADELPHIA CENTER CITY (real venues — verify addresses) ──
-  { name: "Tavern on Broad", address: "200 S Broad St, Philadelphia, PA 19102", city: "Philadelphia", type: "Historic Tavern" },
-  { name: "Continental Restaurant & Martini Bar", address: "138 Market St, Philadelphia, PA 19106", city: "Philadelphia", type: "Upscale Martini Bar" },
-  { name: "Dirty Frank's", address: "347 S 13th St, Philadelphia, PA 19107", city: "Philadelphia", type: "Dive Bar" },
-  { name: "Fergie's Pub", address: "1214 Sansom St, Philadelphia, PA 19107", city: "Philadelphia", type: "Irish Pub" },
-  { name: "Lokal", address: "139 N 3rd St, Philadelphia, PA 19106", city: "Philadelphia", type: "Cocktail Bar" },
-  { name: "Vintage Wine Bar", address: "129 S 13th St, Philadelphia, PA 19107", city: "Philadelphia", type: "Wine Bar" },
-  { name: "Rittenhouse Tavern", address: "208 S 13th St, Philadelphia, PA 19107", city: "Philadelphia", type: "Upscale Tavern" },
-  { name: "Parc", address: "227 S 18th St, Philadelphia, PA 19103", city: "Philadelphia", type: "French Bistro" },
-  { name: "Cavanaugh's Rittenhouse", address: "1823 Sansom St, Philadelphia, PA 19103", city: "Philadelphia", type: "Irish Pub" },
-  { name: "Manayunk Brewing Co.", address: "4120 Main St, Philadelphia, PA 19127", city: "Philadelphia", type: "Brewery" },
-  { name: "The Bourse Food Hall", address: "111 S Independence Mall E, Philadelphia, PA 19106", city: "Philadelphia", type: "Food Hall" },
-  { name: "Frankford Hall", address: "1210 Frankford Ave, Philadelphia, PA 19125", city: "Philadelphia", type: "Beer Garden" },
-  { name: "Kung Fu Necktie", address: "1250 N Front St, Philadelphia, PA 19122", city: "Philadelphia", type: "Live Music Venue" },
-  { name: "Barbuzzo", address: "110 S 13th St, Philadelphia, PA 19107", city: "Philadelphia", type: "Mediterranean" },
-  { name: "Lacroix at The Rittenhouse", address: "210 W Rittenhouse Sq, Philadelphia, PA 19103", city: "Philadelphia", type: "Fine Dining" },
-  { name: "Woody's", address: "202 S 13th St, Philadelphia, PA 19107", city: "Philadelphia", type: "Bar" },
-  { name: "Tria Cafe Rittenhouse", address: "123 S 18th St, Philadelphia, PA 19103", city: "Philadelphia", type: "Wine Bar" },
-  { name: "Vesper Boys' Club", address: "223 S Sydenham St, Philadelphia, PA 19102", city: "Philadelphia", type: "Cocktail Lounge" },
-  { name: "Abe Fisher", address: "1623 Sansom St, Philadelphia, PA 19103", city: "Philadelphia", type: "Modern Deli" },
-  { name: "Ristorante Panorama", address: "14 N Front St, Philadelphia, PA 19106", city: "Philadelphia", type: "Italian Restaurant" },
-
-  // ── PHILADELPHIA NEIGHBORHOODS / OUTSKIRTS ──
-  { name: "Opa", address: "1311 Sansom St, Philadelphia, PA 19107", city: "Philadelphia", type: "Greek Restaurant" },
-  { name: "Fogo de Chão", address: "1337 Chestnut St, Philadelphia, PA 19107", city: "Philadelphia", type: "Brazilian Steakhouse" },
-  { name: "The Plough and the Stars", address: "123 Chestnut St, Philadelphia, PA 19106", city: "Philadelphia", type: "Irish Pub" },
-  { name: "Khyber Pass Pub", address: "56 S 2nd St, Philadelphia, PA 19106", city: "Philadelphia", type: "Historic Pub" },
-  { name: "Tattooed Mom", address: "530 South St, Philadelphia, PA 19147", city: "Philadelphia", type: "Bar with Rooftop" },
-  { name: "The Twisted Tail", address: "509 S 2nd St, Philadelphia, PA 19147", city: "Philadelphia", type: "Whiskey Bar" },
-  { name: "Sampan", address: "124 S 13th St, Philadelphia, PA 19107", city: "Philadelphia", type: "Asian Restaurant" },
-  { name: "Osteria", address: "640 N Broad St, Philadelphia, PA 19130", city: "Philadelphia", type: "Italian Restaurant" },
-  { name: "Radnor Hotel", address: "591 E Lancaster Ave, St Davids, PA 19087", city: "Radnor", type: "Historic Hotel Bar" },
-  { name: "Barren Hill Tavern", address: "646 Germantown Pike, Lafayette Hill, PA 19444", city: "Lafayette Hill", type: "Historic Tavern" },
-];
+// repeats ("Mojo Social", "Mojo Social Kitchen", etc.). Add real
+// Lancaster venues manually as you research them.
+let _defaultVenues = null;
+function getDefaultVenues() {
+  if (_defaultVenues) return _defaultVenues;
+  const filePath = path.join(__dirname, '..', 'data', 'default-venues.json');
+  _defaultVenues = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  return _defaultVenues;
+}
 
 // Parse a stars value (Google reviews rating). Accepts strings like
 // "4.7", "4,7" (Euro locale), or numbers. Returns null for empty/junk so
@@ -143,7 +119,7 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'No valid venues in payload (each row needs at least a name)' });
       }
     } else {
-      source = venues;
+      source = getDefaultVenues();
     }
 
     // Build a name → docRef map of existing venues once so we don't
@@ -159,6 +135,20 @@ module.exports = async function handler(req, res) {
     let updated = 0;
     let skipped = 0;
 
+    // Batch all writes (audit L2). Firestore batches commit up to 500
+    // operations in a single round-trip; previously this code did one
+    // round-trip per venue, which for a 1000-row CSV upload meant 1000
+    // sequential RPCs. Flush whenever the batch fills up.
+    const BATCH_LIMIT = 500;
+    let batch = db.batch();
+    let opsInBatch = 0;
+    const flush = async () => {
+      if (opsInBatch === 0) return;
+      await batch.commit();
+      batch = db.batch();
+      opsInBatch = 0;
+    };
+
     for (const venue of source) {
       const key = venue.name.toLowerCase().trim();
       const existing = existingByName.get(key);
@@ -168,26 +158,31 @@ module.exports = async function handler(req, res) {
         if (!upsert) { skipped++; continue; }
         const patch = buildUpdatePatch(venue);
         if (!patch) { skipped++; continue; } // upload row had no new info
-        await existing.ref.update(patch);
+        batch.update(existing.ref, patch);
+        opsInBatch++;
         updated++;
-        continue;
+      } else {
+        // New venue: full insert with default pipeline state. We pre-
+        // allocate the doc ref so we can stash it back into the
+        // existingByName map for in-batch dedup of duplicate rows.
+        const newRef = db.collection('venues').doc();
+        batch.set(newRef, {
+          ...venue,
+          status: 'not_contacted',
+          contacted_at: null,
+          responded_at: null,
+          booked_at: null,
+          event_id: null,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        opsInBatch++;
+        existingByName.set(key, { ref: newRef, data: venue });
+        added++;
       }
 
-      // New venue: full insert with default pipeline state.
-      const newDoc = await db.collection('venues').add({
-        ...venue,
-        status: 'not_contacted',
-        contacted_at: null,
-        responded_at: null,
-        booked_at: null,
-        event_id: null,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-      // Keep the in-memory map up to date so duplicate rows inside the
-      // same upload upsert against the just-created row.
-      existingByName.set(key, { ref: newDoc, data: venue });
-      added++;
+      if (opsInBatch >= BATCH_LIMIT) await flush();
     }
+    await flush();
 
     const sourceLabel = Array.isArray(bodyVenues) ? 'uploaded list' : 'default Philly list';
     console.log(`🎉 Seeded from ${sourceLabel} (upsert=${upsert}): ${added} added, ${updated} updated, ${skipped} skipped`);
