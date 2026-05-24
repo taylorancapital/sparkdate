@@ -30,10 +30,19 @@ module.exports = async function handler(req, res) {
       return res.status(e.statusCode || 401).json({ error: e.message });
     }
     const firebaseUid = decoded.uid;
+    // Pull email from the verified token, NOT the body. Any client-
+    // supplied email is ignored to prevent a caller from creating a
+    // Stripe customer (and welcome email recipient) for an arbitrary
+    // address (audit H4).
+    const email = decoded.email;
+    if (!email) {
+      return res.status(401).json({ error: 'Authenticated user has no email on their token' });
+    }
 
-    // 2. Validate inputs.
-    const { paymentMethodId, email, name, tier } = req.body || {};
-    if (!paymentMethodId || !email || !name || !tier) {
+    // 2. Validate inputs. `email` is read from the token above; any
+    // body-supplied `email` is intentionally ignored.
+    const { paymentMethodId, name, tier } = req.body || {};
+    if (!paymentMethodId || !name || !tier) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     if (!TIERS[tier]) {

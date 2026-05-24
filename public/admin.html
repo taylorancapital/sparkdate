@@ -1212,7 +1212,13 @@
                     getDocs(collection(db, 'event_registrations')),
                 ]);
                 allEvents = evSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-                allRegistrations = regSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                // Only count finalized registrations against the per-event
+                // "Registered" total — failed/expired rows would otherwise
+                // inflate the headline number admins use to decide whether
+                // an event is filling up (audit H1).
+                allRegistrations = regSnap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter(r => r.status === 'confirmed');
             } catch (e) {
                 allEvents = [];
                 allRegistrations = [];

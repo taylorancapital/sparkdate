@@ -64,10 +64,18 @@ module.exports = async function handler(req, res) {
     const currentItemId = subscription.items.data[0].id;
     const newPriceId = await getOrCreatePrice(newTier);
 
-    // 3. Build update params — handle trial-active subs differently
+    // 3. Build update params — handle trial-active subs differently.
+    //
+    // payment_behavior:
+    //   'default_incomplete' lets us catch 3-D Secure requirements and
+    //   hand the clientSecret back to the browser (audit H2). The prior
+    //   'error_if_incomplete' would just bounce the request with no
+    //   recoverable path — the user got a dead-end "authentication
+    //   required" error and was stuck. Mirrors create-subscription.
     const updateParams = {
       items: [{ id: currentItemId, price: newPriceId }],
-      payment_behavior: 'error_if_incomplete',
+      payment_behavior: 'default_incomplete',
+      expand: ['latest_invoice.payment_intent'],
     };
 
     const isTrialing = subscription.status === 'trialing';
@@ -90,6 +98,41 @@ module.exports = async function handler(req, res) {
     });
 
     const updatedSubscription = await stripe.subscriptions.update(subscriptionId, updateParams);
+
+    // 3-D Secure: the prorated charge needs bank authentication. Hand
+    // the clientSecret back to the client and let it confirm via
+    // stripe.confirmCardPayment(). The Stripe webhook then promotes the
+    // subscription state once the PaymentIntent reaches 'succeeded'.
+    const invoice = updatedSubscription.latest_invoice;
+    const pi = invoice?.payment_intent;
+    if (pi?.status === 'requires_action' || pi?.status === 'requires_confirmation') {
+      // We DO NOT roll back the Firestore tier write below — the
+      // subscription on Stripe is already pointed at the new price; the
+      // user just needs to finish 3DS. Firestore is updated to reflect
+      // the new tier so the UI consistently shows the intended state,
+      // and the webhook will flip subscriptionStatus to 'active' once
+      // the charge clears (or 'past_due' if 3DS is abandoned).
+      await db.collection('users').doc(userId).update({
+        tier: newTier,
+        tierUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        monthlyPrice: TIERS[newTier].amount / 100,
+        subscriptionStatus: 'incomplete',
+      });
+      return res.status(200).json({
+        requiresAction: true,
+        clientSecret: pi.client_secret,
+        subscriptionId: updatedSubscription.id,
+        newTier,
+      });
+    }
+
+    // Some payment failure that isn't recoverable on the client.
+    if (pi?.status === 'requires_payment_method') {
+      return res.status(402).json({
+        error: 'Card declined',
+        message: 'Your saved card was declined. Please update your payment method and try again.',
+      });
+    }
 
     // 4. Update Firestore
     await db.collection('users').doc(userId).update({

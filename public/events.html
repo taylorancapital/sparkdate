@@ -542,14 +542,17 @@
             const snap = await getDoc(doc(db, 'users', user.uid));
             userTier = snap.exists() ? (snap.data().tier || 'free') : 'free';
 
-            // Count registrations this month
+            // Count registrations this month. Failed/expired/pending_3ds
+            // rows must not consume monthly quota (audit H1) — filter in
+            // code rather than via where('status'==) to avoid needing a
+            // userId+month+status composite index.
             const monthKey = currentMonthKey();
             const regSnap = await getDocs(
                 query(collection(db, 'event_registrations'),
                       where('userId', '==', user.uid),
                       where('month', '==', monthKey))
             );
-            usedThisMonth = regSnap.size;
+            usedThisMonth = regSnap.docs.filter(d => d.data().status === 'confirmed').length;
         }
 
         function showQuotaBanner() {

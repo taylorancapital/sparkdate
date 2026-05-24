@@ -560,7 +560,10 @@
                       where('userId', '==', user.uid),
                       where('month', '==', monthKey))
             );
-            return regSnap.size < limit;
+            // Failed/expired/pending_3ds rows must NOT consume monthly
+            // quota (audit H1) — filter in code to avoid a 3-field index.
+            const confirmed = regSnap.docs.filter(d => d.data().status === 'confirmed').length;
+            return confirmed < limit;
         }
 
         // Pricing — must mirror /api/purchase-ticket exactly, which charges
