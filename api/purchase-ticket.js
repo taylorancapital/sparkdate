@@ -247,9 +247,18 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 </div></body></html>`;
 }
 
-async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName }) {
+async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, name, phone }) {
   const norm = String(email || '').toLowerCase().trim();
   if (!norm) return;
+
+  // Split the single Name field from the checkout form into the
+  // firstName/lastName shape the rest of the app (signup, admin, emails)
+  // already uses. First whitespace-separated word is firstName; the
+  // remainder is lastName.
+  const nameParts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  const firstName = nameParts[0] || '';
+  const lastName  = nameParts.slice(1).join(' ') || '';
+  const cleanPhone = String(phone || '').trim().slice(0, 50);
 
   // 1. Email already on SparkDate? Skip enrollment — no surprise sub.
   let existing = null;
@@ -307,6 +316,9 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName }
     // fails and the user's subscriptionStatus is never set.
     await db.collection('users').doc(userRecord.uid).set({
       email: norm,
+      firstName,
+      lastName,
+      phone: cleanPhone,
       gender: gender || null,
       tier: 'free',
       stripeCustomerId: customer.id,
@@ -358,16 +370,22 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { paymentMethodId, email, gender, eventId } = req.body || {};
+    const { paymentMethodId, email, name, phone, gender, eventId } = req.body || {};
     let firebaseUid = null;
 
     // ── Basic input validation ─────────────────────────────────────
     if (!email || !gender || !eventId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
     if (gender !== 'woman' && gender !== 'man') {
       return res.status(400).json({ error: 'Invalid gender' });
     }
+
+    const cleanName  = String(name).trim().slice(0, 200);
+    const cleanPhone = String(phone || '').trim().slice(0, 50);
 
     // ── Auth: member path requires ID token; guest path is anonymous ─
     const hasAuth = !!(req.headers.authorization || req.headers.Authorization);
@@ -533,6 +551,8 @@ module.exports = async function handler(req, res) {
     batch.set(ticketRef, {
       firebaseUid: firebaseUid || null,
       email,
+      name: cleanName,
+      phone: cleanPhone,
       gender,
       eventId,
       eventName,
@@ -545,6 +565,8 @@ module.exports = async function handler(req, res) {
     batch.set(regRef, {
       userId: firebaseUid || null,
       email,
+      name: cleanName,
+      phone: cleanPhone,
       gender,
       eventId,
       eventTitle: eventName,
@@ -584,6 +606,7 @@ module.exports = async function handler(req, res) {
     if (!firebaseUid) {
       await enrollGuestAsMember({
         email, paymentMethodId, gender, eventName,
+        name: cleanName, phone: cleanPhone,
       }).catch((err) => {
         console.error('[purchase-ticket] guest auto-enroll failed:', err.message);
       });
@@ -594,7 +617,7 @@ module.exports = async function handler(req, res) {
       type: 'event_attended',
       userId: firebaseUid || null,
       userEmail: email,
-      userName: firebaseUid ? null : email,
+      userName: firebaseUid ? cleanName : (cleanName || email),
       details: { eventName, amount: amount / 100 },
       createdAt: FieldValue.serverTimestamp(),
     }).catch(() => {});

@@ -178,7 +178,7 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        select, input[type="email"] {
+        select, input[type="email"], input[type="text"], input[type="tel"] {
             width: 100%;
             padding: 12px 14px;
             background: rgba(10, 14, 39, 0.5);
@@ -188,7 +188,8 @@
             font-family: inherit;
             font-size: 14px;
         }
-        select:focus, input[type="email"]:focus { outline: none; border-color: var(--coral); }
+        select:focus, input[type="email"]:focus, input[type="text"]:focus, input[type="tel"]:focus { outline: none; border-color: var(--coral); }
+        input:disabled { opacity: 0.7; cursor: not-allowed; }
 
         #card-element {
             padding: 12px 15px;
@@ -377,8 +378,18 @@
                         </div>
 
                         <div class="form-group">
+                            <label for="ticketName">Name</label>
+                            <input type="text" id="ticketName" placeholder="Jane Doe" required>
+                        </div>
+
+                        <div class="form-group">
                             <label for="ticketEmail">Email</label>
                             <input type="email" id="ticketEmail" placeholder="you@example.com" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ticketPhone">Phone</label>
+                            <input type="tel" id="ticketPhone" placeholder="+1 (555) 123-4567">
                         </div>
 
                         <div class="form-group" id="cardFormGroup">
@@ -596,7 +607,9 @@
             e.preventDefault();
 
             const gender = document.getElementById('ticketGender').value;
-            const email = document.getElementById('ticketEmail').value;
+            const name = document.getElementById('ticketName').value.trim();
+            const email = document.getElementById('ticketEmail').value.trim();
+            const phone = document.getElementById('ticketPhone').value.trim();
             const btn = document.getElementById('checkoutBtn');
             const errorMsg = document.getElementById('errorMessage');
             const successMsg = document.getElementById('successMessage');
@@ -651,6 +664,8 @@
                     payload = {
                         firebaseUid: currentUser.uid, // kept for backwards-compat / clarity; server overwrites with decoded.uid
                         email,
+                        name,
+                        phone,
                         gender,
                         eventId: evId,
                     };
@@ -659,13 +674,15 @@
                     const { paymentMethod, error: stripeError } = await stripe.createPaymentMethod({
                         type: 'card',
                         card: cardElement,
-                        billing_details: { email }
+                        billing_details: { name, email, phone: phone || undefined }
                     });
                     if (stripeError) throw new Error(stripeError.message);
 
                     payload = {
                         paymentMethodId: paymentMethod.id,
                         email,
+                        name,
+                        phone,
                         gender,
                         eventId: evId,
                     };
@@ -757,10 +774,24 @@
                 updatePricing();
             }
 
+            // Pre-fill name + lock it (profile is source of truth)
+            const nameInput = document.getElementById('ticketName');
+            const profileName = userProfile.name || userProfile.displayName;
+            if (profileName && nameInput) {
+                nameInput.value = profileName;
+                nameInput.disabled = true;
+            }
+
             // Pre-fill email
             const emailInput = document.getElementById('ticketEmail');
             if (userProfile.email && !emailInput.value) {
                 emailInput.value = userProfile.email;
+            }
+
+            // Pre-fill phone (editable — user may want to use a different one for this event)
+            const phoneInput = document.getElementById('ticketPhone');
+            if (userProfile.phone && phoneInput && !phoneInput.value) {
+                phoneInput.value = userProfile.phone;
             }
 
             // Use saved card on file — and hide the trial disclosure since
