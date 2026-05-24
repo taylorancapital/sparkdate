@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Canonical-domain guard. Canonical host is the apex
          (sparkdate.date); bounce away from www so the founding form
-         POST to /api/webhook-formspree never crosses origins on a
+         POST to /api/lead-signup never crosses origins on a
          redirect. -->
     <script>
       if (location.host === 'www.sparkdate.date') {
@@ -684,7 +684,7 @@
             messageDiv.style.display = 'none';
             
             try {
-                const response = await fetch('/api/webhook-formspree', {
+                const response = await fetch('/api/lead-signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, email, phone })
