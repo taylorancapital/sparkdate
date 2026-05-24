@@ -48,21 +48,24 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Confirm requester actually attended the event.
+    // Confirm requester actually attended the event AND payment confirmed
+    // (audit H1: failed/expired/pending_3ds rows must not count as
+    // "attended"). Drop the .limit(1) so we don't risk picking a failed
+    // row when a later confirmed row also exists for the same user×event.
     const myRegSnap = await db.collection('event_registrations')
       .where('userId', '==', fromUserId)
       .where('eventId', '==', eventId)
-      .limit(1).get();
-    if (myRegSnap.empty) {
+      .get();
+    if (!myRegSnap.docs.some(d => d.data().status === 'confirmed')) {
       return res.status(403).json({ error: 'You did not attend this event' });
     }
 
-    // Confirm target attended the same event.
+    // Confirm target attended the same event (same status check).
     const theirRegSnap = await db.collection('event_registrations')
       .where('userId', '==', toUserId)
       .where('eventId', '==', eventId)
-      .limit(1).get();
-    if (theirRegSnap.empty) {
+      .get();
+    if (!theirRegSnap.docs.some(d => d.data().status === 'confirmed')) {
       return res.status(404).json({ error: 'That person did not attend this event' });
     }
 
