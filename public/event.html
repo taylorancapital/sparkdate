@@ -465,6 +465,13 @@
         };
 
         const MONTHLY_LIMITS = { free: 1, mid: 3, premium: Infinity };
+        // SERVICE_FEE mirrors SERVICE_FEE_CENTS in lib/pricing.js (which is
+        // the server-side source of truth used by api/purchase-ticket.js).
+        // We can't add a /api/public-config endpoint to fetch this — Vercel
+        // Hobby caps us at 12 functions and we're at the ceiling. Instead
+        // tests/pricing.test.js parses this constant out of the page on
+        // every CI run and fails if it drifts from lib/pricing.js. If you
+        // bump the fee, change BOTH locations.
         const SERVICE_FEE = 2.50;
 
         const app = initializeApp(firebaseConfig);
