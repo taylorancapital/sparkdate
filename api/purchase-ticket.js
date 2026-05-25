@@ -23,13 +23,11 @@ const { admin, requireAuth } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
 const { TIERS, getOrCreatePrice } = require('../lib/tiers');
 const { stripe } = require('../lib/stripe');
+const { SERVICE_FEE_CENTS } = require('../lib/pricing');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
-
-// Must match SERVICE_FEE in public/event.html ($2.50 in dollars).
-const SERVICE_FEE_CENTS = 250;
 
 // ── Abandoned-3DS seat reclaim ─────────────────────────────────────
 //
