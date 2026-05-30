@@ -13,6 +13,14 @@
     <meta property="og:url" content="https://sparkdate.date/">
     <meta name="twitter:card" content="summary_large_image">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Fraunces:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Google Analytics 4 — replace G-XXXXXXXXXX with your Measurement ID -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-XXXXXXXXXX');
+    </script>
     <style>
         * {
             margin: 0;
@@ -534,7 +542,7 @@
             <ul class="nav-menu">
                 <li><a href="#how-it-works">How It Works</a></li>
                 <li><a href="#why-sparkdate">Why SparkDate</a></li>
-                <li><a href="/signup" class="cta-nav">Sign Up</a></li>
+                <li><a href="/signup?utm_source=organic&utm_medium=direct&utm_campaign=homepage_nav" class="cta-nav">Sign Up</a></li>
                 <li><a href="/account">Account</a></li>
             </ul>
         </div>
@@ -578,7 +586,8 @@
           .then(function (data) {
             var ev = data && data.event;
             if (ev && ev.id) {
-              btn.href = '/event?id=' + encodeURIComponent(ev.id);
+              btn.href = '/event?id=' + encodeURIComponent(ev.id) +
+                '&utm_source=organic&utm_medium=direct&utm_campaign=early_bird';
             }
             // No event resolved → keep the /events fallback href.
           })
@@ -592,7 +601,7 @@
             <h1>Stop <span class="highlight">swiping.</span><br>Start <span class="highlight">living.</span></h1>
             <p class="hero-subtitle">Curated dating events for urban singles who want real connections in Philadelphia.</p>
             <div class="hero-buttons">
-                <a href="/founding#signup" class="btn btn-primary">Claim Your Spot</a>
+                <a href="/founding?utm_source=organic&utm_medium=direct&utm_campaign=homepage_hero#signup" class="btn btn-primary">Claim Your Spot</a>
                 <a href="#how-it-works" class="btn btn-secondary">How It Works</a>
             </div>
         </div>
@@ -664,7 +673,7 @@
     <section class="cta-section">
         <h2>Ready to Stop Swiping?</h2>
         <p>Join our founding member cohort. Get free first events, lifetime founding status, and a real say in what we build.</p>
-        <a href="/founding#signup" class="btn-cta">Claim Your Spot</a>
+        <a href="/founding?utm_source=organic&utm_medium=direct&utm_campaign=homepage_hero#signup" class="btn-cta">Claim Your Spot</a>
     </section>
 
     <!-- Footer -->

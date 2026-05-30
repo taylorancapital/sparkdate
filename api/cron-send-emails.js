@@ -10,6 +10,7 @@
 const { Resend } = require('resend');
 const { admin } = require('../lib/auth');
 const { makeUnsubscribeUrl } = require('../lib/unsubscribe');
+const { EMAIL_CAMPAIGNS: UTM } = require('../lib/utm');
 
 const db = admin.firestore();
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -148,7 +149,7 @@ const EMAILS = {
       </div>
 
       <p style="text-align: center;">
-        <a href="https://sparkdate.date/events" class="button">Reserve Your Spot</a>
+        <a href="${UTM.day5.events}" class="button">Reserve Your Spot</a>
       </p>
 
       <p>Questions? Just reply to this email — we read every message.</p>
@@ -299,17 +300,17 @@ const EMAILS = {
         <tr>
           <td class="name">Kindling<br><span style="font-size: 12px; color: #666; font-weight: normal;">3 events/month · Advanced matching · Priority access</span></td>
           <td class="price">$19.99/mo</td>
-          <td style="text-align: right;"><a href="https://sparkdate.date/account?tier=mid" style="color: #ff6b6b; font-size: 12px;">Upgrade →</a></td>
+          <td style="text-align: right;"><a href="${UTM.day25.upgradeMid}" style="color: #ff6b6b; font-size: 12px;">Upgrade →</a></td>
         </tr>
         <tr>
           <td class="name">Fire<br><span style="font-size: 12px; color: #666; font-weight: normal;">Unlimited events · VIP matching · Exclusive gatherings</span></td>
           <td class="price">$39.99/mo</td>
-          <td style="text-align: right;"><a href="https://sparkdate.date/account?tier=premium" style="color: #ff6b6b; font-size: 12px;">Upgrade →</a></td>
+          <td style="text-align: right;"><a href="${UTM.day25.upgradePremium}" style="color: #ff6b6b; font-size: 12px;">Upgrade →</a></td>
         </tr>
       </table>
 
       <p style="text-align: center; margin-top: 30px;">
-        <a href="https://sparkdate.date/account" class="button">Manage Subscription</a>
+        <a href="${UTM.day25.account}" class="button">Manage Subscription</a>
       </p>
 
       <p>Loving SparkDate so far? Reply and let us know — we read every message. Not loving it? Reply anyway. We want to make this better.</p>
@@ -319,7 +320,7 @@ const EMAILS = {
     </div>
     <div class="footer">
       <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
-      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="__UNSUB__">Unsubscribe</a> · <a href="https://sparkdate.date/account">Manage subscription</a></p>
+      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="__UNSUB__">Unsubscribe</a> · <a href="${UTM.day25.account}">Manage subscription</a></p>
     </div>
   </div>
 </body>
