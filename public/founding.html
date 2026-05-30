@@ -306,24 +306,27 @@
         }
 
         input[type="text"],
-        input[type="email"] {
+        input[type="email"],
+        input[type="tel"] {
             padding: 14px 16px;
-            background: rgba(10, 14, 39, 0.5);
-            border: 1px solid rgba(255, 107, 107, 0.2);
+            background: #ffffff;
+            border: 2px solid rgba(255, 107, 107, 0.4);
             border-radius: 4px;
-            color: var(--white);
+            color: #000000;
             font-family: 'Inter', sans-serif;
             font-size: 14px;
             transition: all 0.3s;
         }
 
         input[type="text"]::placeholder,
-        input[type="email"]::placeholder {
-            color: rgba(245, 243, 240, 0.4);
+        input[type="email"]::placeholder,
+        input[type="tel"]::placeholder {
+            color: rgba(0, 0, 0, 0.4);
         }
 
         input[type="text"]:focus,
-        input[type="email"]:focus {
+        input[type="email"]:focus,
+        input[type="tel"]:focus {
             outline: none;
             border-color: var(--coral);
             background: rgba(10, 14, 39, 0.7);
