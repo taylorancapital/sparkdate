@@ -549,7 +549,7 @@
                 document.getElementById('eventTime').textContent = ev.time || d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
             }
             if (ev.venue) document.getElementById('eventVenue').textContent = `${ev.venue}${ev.neighborhood ? ' · ' + ev.neighborhood : ''}`;
-            const total = ev.spotsTotal || ((ev.spotsMen || 0) + (ev.spotsWomen || 0));
+            const total = ev.spots || ev.spotsTotal || ((ev.spotsMen || 0) + (ev.spotsWomen || 0));
             if (total) document.getElementById('eventCapacity').textContent = `${total} guests`;
 
             // Venue rating — only events created via the admin venue picker
@@ -582,13 +582,10 @@
         }
 
         // Pricing — must mirror /api/purchase-ticket exactly, which charges
-        // `Number(event.priceWomen|priceMen || 0)`. The old `|| 20 / || 40`
-        // fallback meant a $0 (or unset) price DISPLAYED as $20/$40 while
-        // the server charged $0 — the page lied about the total. Treat
-        // missing / non-positive / non-numeric as 0, same as the server.
-        function ticketPrice(gender) {
+        // `Number(event.price || 0)`. Treat missing / non-positive / non-numeric as 0, same as the server.
+        function ticketPrice() {
             if (!eventData) return 0;
-            const raw = gender === 'woman' ? eventData.priceWomen : eventData.priceMen;
+            const raw = eventData.price || eventData.priceMen || eventData.priceWomen || 0;
             const n = Number(raw);
             return (isFinite(n) && n > 0) ? n : 0;
         }
@@ -607,9 +604,9 @@
                 return;
             }
 
-            const ticket = ticketPrice(gender);
+            const ticket = ticketPrice();
             const total = ticket + SERVICE_FEE;
-            const label = gender === 'woman' ? "Woman's ticket" : "Man's ticket";
+            const label = 'Ticket';
 
             document.getElementById('subtotalLabel').textContent = label;
             document.getElementById('subtotalPrice').textContent = `$${ticket.toFixed(2)}`;
@@ -654,24 +651,19 @@
                     }
                 }
 
-                const ticket = ticketPrice(gender);
+                const ticket = ticketPrice();
                 const total = (ticket + SERVICE_FEE) * 100;
                 const evName = eventData?.title || 'Founders Mixer';
                 const evId = eventData?.id || eventId;
 
-                // Cheap pre-flight: if event already advertises 0 spots on this
-                // side, fail fast without burning a server roundtrip. The real
-                // capacity check is enforced atomically by /api/purchase-ticket
-                // inside a Firestore transaction — so we DO NOT query the
-                // tickets collection from the browser. Firestore rules block
-                // non-owner reads on tickets anyway; doing it client-side just
-                // produced a "permission denied" that broke purchase for every
-                // non-admin user.
+                // Cheap pre-flight: if event already advertises 0 spots, fail fast
+                // without burning a server roundtrip. The real capacity check is
+                // enforced atomically by /api/purchase-ticket inside a Firestore
+                // transaction — so we DO NOT query the tickets collection from the browser.
                 if (eventData) {
-                    const cap  = gender === 'woman' ? (eventData.spotsWomen ?? 0) : (eventData.spotsMen ?? 0);
-                    const side = gender === 'woman' ? "women's" : "men's";
+                    const cap = eventData.spots || eventData.spotsTotal || ((eventData.spotsMen ?? 0) + (eventData.spotsWomen ?? 0));
                     if (cap <= 0) {
-                        throw new Error(`This event has no ${side} spots available.`);
+                        throw new Error('This event has no spots available.');
                     }
                 }
 

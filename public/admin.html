@@ -936,29 +936,21 @@
                             <div class="form-group">
                                 <label class="form-label">Pricing Tier — set automatically by the venue's star rating</label>
                                 <select class="form-input" id="evPricingTier">
-                                    <option value="premium">Premium · 5★ venue (4.5★+) — $49.99 men / $24.99 women</option>
-                                    <option value="standard" selected>Standard · 4★ venue (3.5–4.4★) — $39.99 men / $19.99 women</option>
-                                    <option value="core">Core · 3★ venue (under 3.5★) — $29.99 men / $14.99 women</option>
-                                    <option value="custom">Custom — enter prices manually below</option>
+                                    <option value="premium">Premium · 5★ venue (4.5★+) — $29.99</option>
+                                    <option value="standard" selected>Standard · 4★ venue (3.5–4.4★) — $24.99</option>
+                                    <option value="core">Core · 3★ venue (under 3.5★) — $18.99</option>
+                                    <option value="custom">Custom — enter price manually below</option>
                                 </select>
                             </div>
                         </div>
                         <div class="form-grid">
                             <div class="form-group">
-                                <label class="form-label">Spots — Women</label>
-                                <input type="number" class="form-input" id="evSpotsWomen" value="15" min="1">
+                                <label class="form-label">Total Spots</label>
+                                <input type="number" class="form-input" id="evSpots" value="30" min="1">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Spots — Men</label>
-                                <input type="number" class="form-input" id="evSpotsMen" value="15" min="1">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Ticket Price — Women ($)</label>
-                                <input type="number" class="form-input" id="evPriceWomen" value="19.99" min="0" step="0.01">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Ticket Price — Men ($)</label>
-                                <input type="number" class="form-input" id="evPriceMen" value="39.99" min="0" step="0.01">
+                                <label class="form-label">Ticket Price ($)</label>
+                                <input type="number" class="form-input" id="evPrice" value="24.99" min="0" step="0.01">
                             </div>
                         </div>
 
@@ -1256,7 +1248,7 @@
                         <td style="color: rgba(245,243,240,0.7);">${safe(dateStr)}${timeStr ? ' · ' + safe(timeStr) : ''}</td>
                         <td style="color: rgba(245,243,240,0.7);">${safe(venueLine)}</td>
                         <td style="color: rgba(245,243,240,0.7);">${spots}</td>
-                        <td style="color: rgba(245,243,240,0.85); font-size: 12px;">${fmtPrice(ev.priceMen)} / ${fmtPrice(ev.priceWomen)}${tierLabel}</td>
+                        <td style="color: rgba(245,243,240,0.85); font-size: 12px;">${fmtPrice(ev.price)}${tierLabel}</td>
                         <td style="color: var(--gold); font-weight: 600;">${regCount}</td>
                         <td><span class="badge ${safe(statusClass)}">${safe(ev.status || 'open')}</span></td>
                         <td style="font-size: 12px;">
@@ -1500,9 +1492,9 @@
         // charges whatever priceWomen/priceMen are stored on the event, so
         // there are no server-side changes needed for this feature.
         const PRICING_TIERS = {
-            premium:  { label: 'Premium (5★)',  women: 24.99, men: 49.99 },
-            standard: { label: 'Standard (4★)', women: 19.99, men: 39.99 },
-            core:     { label: 'Core (3★)',     women: 14.99, men: 29.99 },
+            premium:  { label: 'Premium (5★)',  price: 29.99 },
+            standard: { label: 'Standard (4★)', price: 24.99 },
+            core:     { label: 'Core (3★)',     price: 18.99 },
         };
 
         // Map a venue star rating to a tier key. Unrated venues (no stars
@@ -1515,15 +1507,14 @@
             return 'core';
         }
 
-        // Write a tier's prices into the two price inputs. No-op for the
+        // Write a tier's price into the price input. No-op for the
         // 'custom' tier so a manual override is preserved. Setting .value
-        // programmatically does NOT fire the inputs' 'input' listener, so
+        // programmatically does NOT fire the input's 'input' listener, so
         // this won't bounce the tier select back to 'custom'.
         function applyTierPricing(tier) {
             const t = PRICING_TIERS[tier];
-            if (!t) return; // 'custom' or unknown — leave inputs alone
-            document.getElementById('evPriceWomen').value = t.women;
-            document.getElementById('evPriceMen').value   = t.men;
+            if (!t) return; // 'custom' or unknown — leave input alone
+            document.getElementById('evPrice').value = t.price;
         }
 
         // Fill the venue-picker <select> from the venues collection. Reuses
@@ -1557,10 +1548,8 @@
             const timeVal = document.getElementById('evTime').value;
             const venue = document.getElementById('evVenue').value.trim();
             const neighborhood = document.getElementById('evNeighborhood').value.trim();
-            const spotsWomen = parseInt(document.getElementById('evSpotsWomen').value) || 0;
-            const spotsMen = parseInt(document.getElementById('evSpotsMen').value) || 0;
-            const priceWomen = parseFloat(document.getElementById('evPriceWomen').value) || 0;
-            const priceMen = parseFloat(document.getElementById('evPriceMen').value) || 0;
+            const spots = parseInt(document.getElementById('evSpots').value) || 0;
+            const price = parseFloat(document.getElementById('evPrice').value) || 0;
             const priceTier = document.getElementById('evPricingTier').value;
             // Link the event to the picked venue (if any) and snapshot its
             // star rating, so the events table / future tooling can show
@@ -1598,11 +1587,8 @@
                     time: formattedTime,
                     venue,
                     neighborhood,
-                    spotsWomen,
-                    spotsMen,
-                    spotsTotal: spotsWomen + spotsMen,
-                    priceWomen,
-                    priceMen,
+                    spots,
+                    price,
                     priceTier,
                     venueId,
                     venueStars,
@@ -1627,8 +1613,7 @@
                 ['evTitle','evBlurb','evDate','evTime','evVenue','evNeighborhood','evAmenities','evEmoji'].forEach(id => {
                     document.getElementById(id).value = '';
                 });
-                document.getElementById('evSpotsWomen').value = '15';
-                document.getElementById('evSpotsMen').value = '15';
+                document.getElementById('evSpots').value = '30';
                 document.getElementById('evStatus').value = 'open';
                 // Reset pricing back to the Standard tier baseline.
                 document.getElementById('evVenuePicker').value = '';
@@ -2442,13 +2427,11 @@
                 tierSelect.addEventListener('change', () => applyTierPricing(tierSelect.value));
             }
 
-            // Manually editing either price flips the tier to "Custom" so
+            // Manually editing the price flips the tier to "Custom" so
             // the dropdown never lies about what's actually being charged.
-            ['evPriceWomen', 'evPriceMen'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.addEventListener('input', () => {
-                    document.getElementById('evPricingTier').value = 'custom';
-                });
+            const priceInput = document.getElementById('evPrice');
+            if (priceInput) priceInput.addEventListener('input', () => {
+                document.getElementById('evPricingTier').value = 'custom';
             });
         });
 
