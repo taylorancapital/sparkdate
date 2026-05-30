@@ -22,6 +22,14 @@
     <meta property="og:url" content="https://sparkdate.date/founding">
     <meta name="twitter:card" content="summary_large_image">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Fraunces:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Google Analytics 4 — replace G-21YLCC35F1 with your Measurement ID -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-21YLCC35F1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-21YLCC35F1');
+    </script>
     <style>
         * {
             margin: 0;
@@ -541,7 +549,8 @@
           .then(function (data) {
             var ev = data && data.event;
             if (ev && ev.id) {
-              btn.href = '/event?id=' + encodeURIComponent(ev.id);
+              btn.href = '/event?id=' + encodeURIComponent(ev.id) +
+                '&utm_source=organic&utm_medium=direct&utm_campaign=early_bird';
             }
             // No event resolved → keep the /events fallback href.
           })
