@@ -415,6 +415,107 @@
         .upsell-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(255, 107, 107, 0.3); }
         .upsell-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
 
+        /* ===== TIER CARD — BENEFITS LIST + CTA LABEL (enhanced tiles) ===== */
+        .tier-card-benefits {
+            list-style: none;
+            margin: 14px 0 16px;
+            padding: 0;
+            text-align: left;
+        }
+        .tier-card-benefits li {
+            font-size: 12px;
+            color: rgba(245, 243, 240, 0.7);
+            padding: 3px 0;
+        }
+        .tier-card-benefits li::before {
+            content: '✓ ';
+            color: var(--success);
+            font-weight: 700;
+        }
+        .tier-card-trial {
+            font-size: 11px;
+            color: rgba(245, 243, 240, 0.4);
+            margin-bottom: 2px;
+            text-align: center;
+        }
+        .tier-card-cta {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+        .tier-card.current .tier-card-cta { color: var(--gold); }
+        .tier-card:not(.current) .tier-card-cta { color: var(--coral); }
+
+        /* ===== PROFILE EDIT INLINE FORM ===== */
+        .profile-edit-field { margin-bottom: 14px; }
+        .profile-edit-field label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: rgba(245, 243, 240, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+        .profile-edit-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: rgba(10, 14, 39, 0.6);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 4px;
+            color: var(--white);
+            font-family: inherit;
+            font-size: 14px;
+        }
+        .profile-edit-input:focus { outline: none; border-color: var(--coral); }
+        .profile-edit-actions { display: flex; gap: 10px; margin-top: 20px; }
+        .profile-edit-hint {
+            font-size: 11px;
+            color: rgba(245, 243, 240, 0.35);
+            margin-top: 4px;
+        }
+
+        /* ===== PROFILE COMPLETION BANNER ===== */
+        .profile-banner {
+            background: linear-gradient(135deg, rgba(255,107,107,0.1) 0%, rgba(212,175,55,0.07) 100%);
+            border: 1px solid rgba(255, 107, 107, 0.35);
+            border-radius: 6px;
+            padding: 28px 30px;
+            margin-bottom: 24px;
+        }
+        .profile-banner-header {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            margin-bottom: 22px;
+        }
+        .profile-banner-icon { font-size: 30px; flex-shrink: 0; line-height: 1; }
+        .profile-banner-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 20px;
+            font-weight: 900;
+            color: var(--white);
+            margin-bottom: 4px;
+        }
+        .profile-banner-sub {
+            font-size: 13px;
+            color: rgba(245, 243, 240, 0.6);
+            line-height: 1.5;
+        }
+        .profile-banner-fields {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 12px 20px;
+            margin-bottom: 6px;
+        }
+        @media (max-width: 600px) {
+            .profile-banner-fields { grid-template-columns: 1fr; }
+            .profile-edit-actions { flex-direction: column; }
+            .tier-card { text-align: left; }
+        }
+
         /* Suggested upcoming events for a marked connection */
         .suggested-events {
             margin-top: 8px;
@@ -481,6 +582,44 @@
         <div class="message message-success" id="successMsg"></div>
         <div class="message message-error" id="errorMsg"></div>
 
+        <!-- Profile completion banner — rendered by JS when intent/interests/vibes are missing.
+             Shown to ticket buyers and lead-converts who haven't filled in the full questionnaire. -->
+        <div class="profile-banner" id="profileBanner" style="display: none;">
+            <div class="profile-banner-header">
+                <div class="profile-banner-icon">⚡</div>
+                <div>
+                    <div class="profile-banner-title">Finish setting up your profile</div>
+                    <div class="profile-banner-sub">Your matching score is limited until you tell us a bit more. Takes 60 seconds.</div>
+                </div>
+            </div>
+            <div class="profile-banner-fields">
+                <div class="profile-edit-field">
+                    <label for="bannerAge">Age</label>
+                    <input type="number" id="bannerAge" class="profile-edit-input" placeholder="Your age" min="18" max="99">
+                </div>
+                <div class="profile-edit-field">
+                    <label for="bannerIntent">Looking for</label>
+                    <select id="bannerIntent" class="profile-edit-input">
+                        <option value="">— Select —</option>
+                        <option value="long_term">Something long-term</option>
+                        <option value="dating_around">Dating around</option>
+                        <option value="friends_first">Friends first</option>
+                    </select>
+                </div>
+                <div class="profile-edit-field">
+                    <label for="bannerInterests">Interests</label>
+                    <input type="text" id="bannerInterests" class="profile-edit-input" placeholder="e.g. hiking, jazz, cooking">
+                </div>
+                <div class="profile-edit-field">
+                    <label for="bannerVibes">Your vibe</label>
+                    <input type="text" id="bannerVibes" class="profile-edit-input" placeholder="e.g. chill, adventurous, nerdy">
+                </div>
+            </div>
+            <div class="profile-edit-hint" style="margin-bottom: 16px;">Separate multiple entries with commas</div>
+            <button class="btn btn-primary" onclick="saveProfileCompletion()">Save profile</button>
+            <div id="bannerMsg" style="margin-top: 12px; font-size: 13px; display: none;"></div>
+        </div>
+
         <div class="card">
             <h2 class="card-title">Profile</h2>
             <div class="field"><span class="field-label">Name</span><span class="field-value" id="profileName">—</span></div>
@@ -520,10 +659,44 @@
         </div>
 
         <div class="card">
-            <h2 class="card-title">Interests &amp; Vibes</h2>
-            <div class="field"><span class="field-label">Looking for</span><span class="field-value" id="profileIntent">—</span></div>
-            <div class="field"><span class="field-label">Interests</span><span class="field-value" id="profileInterests">—</span></div>
-            <div class="field"><span class="field-label">Vibes</span><span class="field-value" id="profileVibes">—</span></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 class="card-title" style="margin-bottom: 0;">Interests &amp; Vibes</h2>
+                <button class="btn btn-secondary" style="padding: 7px 16px; font-size: 11px;" onclick="toggleProfileEdit()">Edit</button>
+            </div>
+
+            <!-- Read-only view -->
+            <div id="profileReadView">
+                <div class="field"><span class="field-label">Looking for</span><span class="field-value" id="profileIntent">—</span></div>
+                <div class="field"><span class="field-label">Interests</span><span class="field-value" id="profileInterests">—</span></div>
+                <div class="field"><span class="field-label">Vibes</span><span class="field-value" id="profileVibes">—</span></div>
+            </div>
+
+            <!-- Inline edit form (hidden by default) -->
+            <div id="profileEditView" style="display: none;">
+                <div class="profile-edit-field">
+                    <label for="editIntent">Looking for</label>
+                    <select id="editIntent" class="profile-edit-input">
+                        <option value="long_term">Something long-term</option>
+                        <option value="dating_around">Dating around</option>
+                        <option value="friends_first">Friends first</option>
+                    </select>
+                </div>
+                <div class="profile-edit-field">
+                    <label for="editInterests">Interests</label>
+                    <input type="text" id="editInterests" class="profile-edit-input" placeholder="e.g. hiking, jazz, cooking">
+                    <div class="profile-edit-hint">Separate with commas</div>
+                </div>
+                <div class="profile-edit-field">
+                    <label for="editVibes">Vibes</label>
+                    <input type="text" id="editVibes" class="profile-edit-input" placeholder="e.g. chill, adventurous, nerdy">
+                    <div class="profile-edit-hint">Separate with commas</div>
+                </div>
+                <div class="profile-edit-actions">
+                    <button class="btn btn-primary" onclick="saveProfileFields()">Save</button>
+                    <button class="btn btn-secondary" onclick="toggleProfileEdit()">Cancel</button>
+                </div>
+                <div id="profileEditMsg" style="margin-top: 12px; font-size: 13px; display: none;"></div>
+            </div>
         </div>
 
         <div class="card">
@@ -641,14 +814,29 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, collection, query, where, getDocs, orderBy, addDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, orderBy, addDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         // ========= TIER CONFIG =========
         // Keys match Firestore values: free / mid / premium
         const TIERS = {
-            free:    { name: 'Spark',    price: 9.99,  desc: '1 event/month · 30-day free trial' },
-            mid:     { name: 'Kindling', price: 19.99, desc: '3 events/month · priority check-in' },
-            premium: { name: 'Fire',     price: 39.99, desc: 'Unlimited events · VIP matching' },
+            free: {
+                name: 'Spark', price: 9.99,
+                desc: '1 event/month · Basic matching',
+                trial: 'after 30-day free trial',
+                benefits: ['30-day free trial', '1 curated event per month', 'Basic chemistry matching', 'Member community access'],
+            },
+            mid: {
+                name: 'Kindling', price: 19.99,
+                desc: '3 events/month · Priority access',
+                trial: null,
+                benefits: ['3 curated events per month', 'Advanced chemistry matching', 'Priority check-in & seating', 'Early access to new events'],
+            },
+            premium: {
+                name: 'Fire', price: 39.99,
+                desc: 'Unlimited events · VIP matching',
+                trial: null,
+                benefits: ['Unlimited curated events', 'VIP chemistry matching', 'Exclusive members-only gatherings', 'Priority support'],
+            },
         };
         const TIER_LABELS = { free: 'Spark', mid: 'Kindling', premium: 'Fire' };
 
@@ -698,10 +886,13 @@
                 const card = document.createElement('div');
                 card.className = 'tier-card' + (isCurrent ? ' current' : '');
                 card.dataset.tier = tierKey;
+                const benefitsHtml = tier.benefits.map(b => `<li>${b}</li>`).join('');
                 card.innerHTML = `
                     <div class="tier-card-name">${tier.name}</div>
                     <div class="tier-card-price">$${tier.price.toFixed(2)}<small>/mo</small></div>
-                    <div class="tier-card-desc">${tier.desc}</div>
+                    ${tier.trial ? `<div class="tier-card-trial">${tier.trial}</div>` : ''}
+                    <ul class="tier-card-benefits">${benefitsHtml}</ul>
+                    <div class="tier-card-cta">${isCurrent ? 'Current plan' : 'Switch to ' + tier.name}</div>
                 `;
                 if (!isCurrent) {
                     card.onclick = () => performTierChange(tierKey);
@@ -907,6 +1098,115 @@
             }
         };
 
+        // ========= PROFILE EDITING (intent / interests / vibes) =========
+
+        // Toggle the read-only view vs the inline edit form in the
+        // Interests & Vibes card. Pre-populates inputs from current userData.
+        window.toggleProfileEdit = function () {
+            const readView = document.getElementById('profileReadView');
+            const editView = document.getElementById('profileEditView');
+            const isEditing = editView.style.display !== 'none';
+
+            if (isEditing) {
+                // Cancel — restore read view
+                editView.style.display = 'none';
+                readView.style.display = '';
+                document.getElementById('profileEditMsg').style.display = 'none';
+            } else {
+                // Open — pre-fill from userData
+                const editIntent = document.getElementById('editIntent');
+                const editInterests = document.getElementById('editInterests');
+                const editVibes = document.getElementById('editVibes');
+                if (userData) {
+                    if (editIntent)    editIntent.value = userData.intent || 'long_term';
+                    if (editInterests) editInterests.value = (userData.interests || []).join(', ');
+                    if (editVibes)     editVibes.value = (userData.vibes || []).join(', ');
+                }
+                readView.style.display = 'none';
+                editView.style.display = '';
+                if (editIntent) editIntent.focus();
+            }
+        };
+
+        // Split a comma-separated string into a trimmed, non-empty array.
+        function splitTags(str) {
+            return (str || '').split(',').map(s => s.trim()).filter(Boolean);
+        }
+
+        // Save intent, interests, vibes from the inline edit form.
+        window.saveProfileFields = async function () {
+            const msgEl = document.getElementById('profileEditMsg');
+            msgEl.style.display = 'none';
+            try {
+                if (!currentUser) throw new Error('Not signed in');
+                const intent    = document.getElementById('editIntent').value;
+                const interests = splitTags(document.getElementById('editInterests').value);
+                const vibes     = splitTags(document.getElementById('editVibes').value);
+
+                await updateDoc(doc(db, 'users', currentUser.uid), { intent, interests, vibes });
+
+                // Reflect in the cached userData object so the read view refreshes
+                // without a full page reload.
+                if (userData) { userData.intent = intent; userData.interests = interests; userData.vibes = vibes; }
+
+                const INTENT_LABELS = { long_term: 'Something long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
+                setText('profileIntent',    INTENT_LABELS[intent] || intent);
+                setText('profileInterests', interests.join(', ') || '—');
+                setText('profileVibes',     vibes.join(', ') || '—');
+
+                // Collapse the form on success
+                document.getElementById('profileEditView').style.display = 'none';
+                document.getElementById('profileReadView').style.display = '';
+
+                showMessage('success', '✓ Profile updated.');
+            } catch (err) {
+                console.error('[saveProfileFields]', err);
+                msgEl.style.display = 'block';
+                msgEl.style.color = 'var(--danger)';
+                msgEl.textContent = err.message || 'Save failed. Please try again.';
+            }
+        };
+
+        // ========= PROFILE COMPLETION BANNER =========
+        // Shown to ticket-buyers and lead-converts who are missing the
+        // chemistry fields (intent, interests, vibes, age). Saves all four.
+        window.saveProfileCompletion = async function () {
+            const msgEl = document.getElementById('bannerMsg');
+            msgEl.style.display = 'none';
+            try {
+                if (!currentUser) throw new Error('Not signed in');
+                const age       = parseInt(document.getElementById('bannerAge').value, 10) || null;
+                const intent    = document.getElementById('bannerIntent').value;
+                const interests = splitTags(document.getElementById('bannerInterests').value);
+                const vibes     = splitTags(document.getElementById('bannerVibes').value);
+
+                if (!intent) { throw new Error('Please select what you\'re looking for.'); }
+                if (!age || age < 18) { throw new Error('Please enter a valid age (18+).'); }
+
+                const updates = { intent, interests, vibes };
+                if (age) updates.age = age;
+                await updateDoc(doc(db, 'users', currentUser.uid), updates);
+
+                // Update local cache + dismiss banner
+                if (userData) Object.assign(userData, updates);
+                document.getElementById('profileBanner').style.display = 'none';
+
+                // Refresh the read-only fields in the Interests & Vibes card
+                const INTENT_LABELS = { long_term: 'Something long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
+                setText('profileIntent',    INTENT_LABELS[intent] || intent);
+                setText('profileInterests', interests.join(', ') || '—');
+                setText('profileVibes',     vibes.join(', ') || '—');
+                if (age) setText('profileAge', age);
+
+                showMessage('success', '✓ Profile complete! You\'re now included in chemistry matching.');
+            } catch (err) {
+                console.error('[saveProfileCompletion]', err);
+                msgEl.style.display = 'block';
+                msgEl.style.color = 'var(--danger)';
+                msgEl.textContent = err.message || 'Save failed. Please try again.';
+            }
+        };
+
         // XSS-safe HTML escape — apply to any user-controlled value flowing into innerHTML.
         function safe(v) {
             if (v === null || v === undefined) return '';
@@ -973,9 +1273,29 @@
                 }
 
                 const intentLabels = { long_term: 'Something long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
-                setText('profileIntent',    intentLabels[userData.intent]);
-                setText('profileInterests', (userData.interests || []).join(', '));
-                setText('profileVibes',     (userData.vibes || []).join(', '));
+                setText('profileIntent',    intentLabels[userData.intent] || (userData.intent ? userData.intent : '—'));
+                setText('profileInterests', (userData.interests || []).join(', ') || '—');
+                setText('profileVibes',     (userData.vibes || []).join(', ') || '—');
+
+                // Show profile-completion banner if the chemistry fields are missing.
+                // These fields only get written by signup.html — ticket buyers and
+                // lead-converts who arrive here directly will see the prompt.
+                const profileIncomplete = !userData.intent || !userData.interests?.length || !userData.vibes?.length || !userData.age;
+                const banner = document.getElementById('profileBanner');
+                if (banner) {
+                    banner.style.display = profileIncomplete ? '' : 'none';
+                    // Pre-fill existing values if user has some but not all fields.
+                    if (profileIncomplete) {
+                        const ba = document.getElementById('bannerAge');
+                        const bi = document.getElementById('bannerIntent');
+                        const bint = document.getElementById('bannerInterests');
+                        const bv = document.getElementById('bannerVibes');
+                        if (ba && userData.age)   ba.value = userData.age;
+                        if (bi && userData.intent) bi.value = userData.intent;
+                        if (bint && userData.interests?.length) bint.value = userData.interests.join(', ');
+                        if (bv  && userData.vibes?.length)      bv.value  = userData.vibes.join(', ');
+                    }
+                }
 
                 const cancelBtn = document.getElementById('cancelBtn');
                 const reactivateBtn = document.getElementById('reactivateBtn');
