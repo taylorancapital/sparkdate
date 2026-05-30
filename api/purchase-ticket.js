@@ -362,6 +362,74 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
   }
 }
 
+// ── Lead upsert from a guest ticket purchase ────────────────────────
+//
+// Mirrors the schema written by webhook-formspree.js so the same admin
+// Leads tab + nurture-email cron can act on these rows.
+//
+// Upserts by email (case-insensitive). Existing leads get the latest
+// ticket info MERGED in — we deliberately don't reset nurture flags,
+// don't touch `source` or `subscribed`, and don't overwrite a name /
+// phone the user previously provided. This way a founding-form lead who
+// later buys a ticket keeps their original signup history AND picks up
+// the ticket-purchase metadata.
+//
+// New leads are created with `welcome_sent: true` — the ticket-purchase
+// welcome already went out via enrollGuestAsMember; we don't want the
+// cron (or anything else) to send a second welcome on top of it. The
+// day2/5/14/25 nurture flags are false so they enter the sequence
+// normally.
+//
+// Best-effort: a lead-write failure must never affect the ticket response.
+
+async function recordLead({ email, name, phone, eventId, eventName }) {
+  const norm = String(email || '').toLowerCase().trim();
+  if (!norm) return;
+  try {
+    const snap = await db.collection('leads').where('email', '==', norm).limit(1).get();
+    if (snap.empty) {
+      await db.collection('leads').add({
+        name:    String(name  || '').trim().slice(0, 120),
+        email:   norm,
+        phone:   String(phone || '').trim().slice(0, 40),
+        source:  'ticket_purchase',
+        createdAt: FieldValue.serverTimestamp(),
+        // Ticket-purchase buyers got their welcome via the
+        // enrollGuestAsMember email, not the cron — mark welcomed so
+        // nothing tries to send a second welcome on top.
+        welcome_sent: true,
+        subscribed:   true,
+        day2_sent:    false,
+        day5_sent:    false,
+        day14_sent:   false,
+        day25_sent:   false,
+        last_ticket_event_id:    eventId  || null,
+        last_ticket_event_name:  eventName || null,
+        last_ticket_purchased_at: FieldValue.serverTimestamp(),
+        ticket_count: 1,
+      });
+      console.log(`[lead] new ticket-purchase lead created for ${norm}`);
+    } else {
+      const doc = snap.docs[0];
+      const existing = doc.data();
+      const patch = {
+        last_ticket_event_id:    eventId  || null,
+        last_ticket_event_name:  eventName || null,
+        last_ticket_purchased_at: FieldValue.serverTimestamp(),
+        ticket_count: FieldValue.increment(1),
+      };
+      // Only fill in name / phone if the existing row didn't already
+      // have one — we never overwrite the user's prior input.
+      if (!existing.name  && name)  patch.name  = String(name).trim().slice(0, 120);
+      if (!existing.phone && phone) patch.phone = String(phone).trim().slice(0, 40);
+      await doc.ref.update(patch);
+      console.log(`[lead] existing lead updated for ${norm} (count=${(existing.ticket_count || 0) + 1})`);
+    }
+  } catch (err) {
+    console.error('[lead] write failed (non-fatal):', err.message);
+  }
+}
+
 module.exports = async function handler(req, res) {
   if (applyCors(req, res)) return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });

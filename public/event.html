@@ -384,7 +384,12 @@
 
                         <div class="form-group">
                             <label for="ticketEmail">Email</label>
-                            <input type="email" id="ticketEmail" placeholder="you@example.com" required>
+                            <input type="email" id="ticketEmail" placeholder="you@example.com" autocomplete="email" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ticketPhone">Phone <span style="font-weight: 400; color: rgba(245,243,240,0.45);">(optional)</span></label>
+                            <input type="tel" id="ticketPhone" placeholder="+1 (555) 123-4567" autocomplete="tel">
                         </div>
 
                         <div class="form-group">
@@ -630,6 +635,13 @@
             btn.textContent = 'Processing...';
 
             try {
+                // Name is required so we can address the welcome email and
+                // store a real lead row. (HTML `required` catches most cases
+                // but this is a belt-and-suspenders runtime check.)
+                if (!name) {
+                    throw new Error('Please enter your name.');
+                }
+
                 // Enforce quota for logged-in members
                 if (currentUser) {
                     const allowed = await checkQuota(currentUser);
@@ -678,6 +690,8 @@
                         phone,
                         gender,
                         eventId: evId,
+                        name,
+                        phone,
                     };
                 } else {
                     // Guest checkout — collect new card via Stripe Elements
@@ -695,6 +709,8 @@
                         phone,
                         gender,
                         eventId: evId,
+                        name,
+                        phone,
                     };
                 }
 
