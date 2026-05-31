@@ -28,7 +28,9 @@
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-      gtag('config', 'G-21YLCC35F1');
+      gtag('config', 'G-21YLCC35F1', {
+        'page_path': window.location.pathname + window.location.search
+      });
     </script>
     <style>
         * {
@@ -930,6 +932,10 @@
                 };
                 successMsg.textContent = msgs[tier];
                 successMsg.style.display = 'block';
+
+                // Track conversion in Google Analytics
+                gtag('event', 'sign_up', { method: 'email' });
+
                 document.getElementById('signupForm').reset();
                 cardElement.clear();
                 // Wait long enough for the user to read the success banner,

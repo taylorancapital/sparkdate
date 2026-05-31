@@ -46,3 +46,12 @@ Thumbs.db
 
 # ── Claude Code internal state ────────────────────────────────────
 .claude/worktrees/
+
+# ── Large media binaries (keep marketing video/audio out of git) ──
+*.mp4
+*.mov
+*.webm
+*.avi
+*.mkv
+*.wav
+*.mp3
