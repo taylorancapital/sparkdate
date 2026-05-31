@@ -23,6 +23,35 @@
             'page_path': window.location.pathname + window.location.search
         });
     </script>
+    <!-- schema.org Organization — helps Google build a Knowledge Panel and
+         link the brand to its social profiles (sameAs). -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "SparkDate",
+      "url": "https://sparkdate.date/",
+      "logo": "https://sparkdate.date/og-image.svg",
+      "description": "Experience-first dating in Philadelphia. Stop swiping. Start living. Curated dating events for urban singles.",
+      "areaServed": "Philadelphia, PA",
+      "sameAs": [
+        "https://www.instagram.com/sparkdate.date",
+        "https://www.tiktok.com/@sparkdate.date",
+        "https://www.facebook.com/sparkdate.date",
+        "https://twitter.com/sparkdatedate"
+      ]
+    }
+    </script>
+    <!-- Referral capture: persist a member's ?ref=<uid> across navigation so
+         the eventual signup/lead is credited to the inviter. -->
+    <script>
+      (function () {
+        try {
+          var ref = new URLSearchParams(window.location.search).get('ref');
+          if (ref) localStorage.setItem('sparkdate_ref', ref.slice(0, 80));
+        } catch (e) {}
+      })();
+    </script>
     <style>
         * {
             margin: 0;
@@ -703,6 +732,18 @@
         <a href="/founding?utm_source=organic&utm_medium=direct&utm_campaign=homepage_hero#signup" class="btn-cta">Claim Your Spot</a>
     </section>
 
+    <!-- Newsletter capture -->
+    <section style="background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%); border-top: 1px solid rgba(255,107,107,0.1); padding: 56px 40px; text-align: center;">
+        <h2 style="font-family: 'Fraunces', serif; font-size: clamp(24px, 5vw, 34px); color: var(--white); margin-bottom: 12px;">Get first dibs on new events</h2>
+        <p style="color: rgba(245,243,240,0.7); font-size: 15px; max-width: 520px; margin: 0 auto 24px;">Join the list — early access to Philadelphia mixers, no spam, unsubscribe anytime.</p>
+        <form id="newsletterForm" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; max-width: 480px; margin: 0 auto;">
+            <input type="email" id="newsletterEmail" required placeholder="you@email.com" aria-label="Email address"
+                style="flex: 1; min-width: 220px; padding: 14px 16px; background: #ffffff; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; color: #000000; font-family: inherit; font-size: 14px;">
+            <button type="submit" class="btn btn-primary" style="padding: 14px 28px;">Notify Me</button>
+        </form>
+        <div id="newsletterMsg" style="margin-top: 16px; font-size: 14px; display: none;"></div>
+    </section>
+
     <!-- Footer -->
     <footer>
         <div class="footer-content">
@@ -742,5 +783,53 @@
             <p>&copy; 2026 SparkDate. Philadelphia. Stop swiping. Start living.</p>
         </div>
     </footer>
+
+    <script>
+      // Newsletter capture — reuses the lead-signup endpoint with a
+      // 'newsletter' source so these are distinguishable from founding leads.
+      (function () {
+        var form = document.getElementById('newsletterForm');
+        if (!form) return;
+        form.addEventListener('submit', async function (e) {
+          e.preventDefault();
+          var emailEl = document.getElementById('newsletterEmail');
+          var msg = document.getElementById('newsletterMsg');
+          var btn = form.querySelector('button[type="submit"]');
+          var email = (emailEl.value || '').trim();
+          if (!email) return;
+          var orig = btn.textContent;
+          btn.textContent = 'Joining…';
+          btn.disabled = true;
+          msg.style.display = 'none';
+          try {
+            var ref = null;
+            try { ref = localStorage.getItem('sparkdate_ref'); } catch (_) {}
+            var res = await fetch('/api/lead-signup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: email, source: 'newsletter', ref: ref })
+            });
+            if (res.ok) {
+              msg.style.display = 'block';
+              msg.style.color = '#4ade80';
+              msg.textContent = '✓ You’re on the list. Watch your inbox for the next event.';
+              if (window.gtag) gtag('event', 'generate_lead', { value: 'newsletter' });
+              form.reset();
+            } else {
+              msg.style.display = 'block';
+              msg.style.color = '#ff6b6b';
+              msg.textContent = '✕ Something went wrong. Please try again.';
+            }
+          } catch (_) {
+            msg.style.display = 'block';
+            msg.style.color = '#ff6b6b';
+            msg.textContent = '✕ Network error. Please try again.';
+          } finally {
+            btn.textContent = orig;
+            btn.disabled = false;
+          }
+        });
+      })();
+    </script>
 </body>
 </html>

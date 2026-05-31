@@ -710,10 +710,16 @@
             messageDiv.style.display = 'none';
             
             try {
+                // Referral attribution: if the visitor arrived via a member's
+                // invite link (?ref=<uid>), forward it so the lead is credited.
+                // Fall back to a stored ref in case they landed elsewhere first.
+                let ref = new URLSearchParams(window.location.search).get('ref');
+                try { ref = ref || localStorage.getItem('sparkdate_ref'); } catch (_) {}
+                ref = ref || null;
                 const response = await fetch('/api/lead-signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, phone })
+                    body: JSON.stringify({ name, email, phone, ref, source: 'founding_form' })
                 });
                 
                 const data = await response.json();

@@ -714,6 +714,19 @@
                 <div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">Loading…</div>
             </div>
         </div>
+
+        <div class="card">
+            <h2 class="card-title">Invite Friends</h2>
+            <p style="color: rgba(245,243,240,0.7); font-size: 14px; margin-bottom: 16px;">
+                The best events happen with good people. Share your personal link — when a friend joins, you both get priority seating at the next mixer.
+            </p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <input type="text" id="inviteLink" readonly value="" aria-label="Your personal invite link"
+                    style="flex: 1; min-width: 220px; padding: 10px 12px; background: #ffffff; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; color: #000000; font-family: inherit; font-size: 13px;">
+                <button id="copyInviteBtn" class="upsell-btn" style="white-space: nowrap;">Copy link</button>
+            </div>
+            <div id="inviteShare" style="display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;"></div>
+        </div>
     </div>
 
     <!-- ============================================================ -->
@@ -1251,6 +1264,54 @@
             if (el) el.innerHTML = value;
         }
 
+        // Referral: build the member's personal invite link and wire the
+        // copy + share-to buttons. The ?ref=<uid> param is captured by the
+        // founding/landing forms and stored on the resulting lead.
+        function setupInvite() {
+            try {
+                if (!currentUser) return;
+                const link = `https://sparkdate.date/founding?ref=${encodeURIComponent(currentUser.uid)}&utm_source=referral&utm_medium=invite&utm_campaign=member_invite`;
+                const input = document.getElementById('inviteLink');
+                if (input) input.value = link;
+
+                const copyBtn = document.getElementById('copyInviteBtn');
+                if (copyBtn) {
+                    copyBtn.addEventListener('click', async () => {
+                        try {
+                            await navigator.clipboard.writeText(link);
+                        } catch (_) {
+                            if (input) { input.focus(); input.select(); document.execCommand('copy'); }
+                        }
+                        const orig = copyBtn.textContent;
+                        copyBtn.textContent = 'Copied!';
+                        gtag('event', 'share', { method: 'copy_link', content_type: 'referral' });
+                        setTimeout(() => { copyBtn.textContent = orig; }, 1800);
+                    });
+                }
+
+                const msg = 'Come to a SparkDate event with me — real people, real venues in Philly. Stop swiping, start living:';
+                const enc = encodeURIComponent(link);
+                const encMsg = encodeURIComponent(msg);
+                const targets = [
+                    { label: 'Text', href: `sms:?&body=${encMsg}%20${enc}` },
+                    { label: 'WhatsApp', href: `https://wa.me/?text=${encMsg}%20${enc}` },
+                    { label: 'X', href: `https://twitter.com/intent/tweet?text=${encMsg}&url=${enc}` },
+                    { label: 'Email', href: `mailto:?subject=${encodeURIComponent('Come to a SparkDate event with me')}&body=${encMsg}%20${enc}` },
+                ];
+                const wrap = document.getElementById('inviteShare');
+                if (wrap) {
+                    wrap.innerHTML = targets.map(t =>
+                        `<a href="${t.href}" target="_blank" rel="noopener" data-share="${t.label}" style="color: var(--coral); text-decoration: none; font-size: 13px; font-weight: 600; border: 1px solid rgba(255,107,107,0.4); border-radius: 4px; padding: 8px 14px;">${t.label}</a>`
+                    ).join('');
+                    wrap.querySelectorAll('[data-share]').forEach(a =>
+                        a.addEventListener('click', () => gtag('event', 'share', { method: a.dataset.share, content_type: 'referral' }))
+                    );
+                }
+            } catch (e) {
+                console.error('[invite] setup failed', e);
+            }
+        }
+
         async function loadProfile() {
             // Whole-function try/catch so a missing field or broken DOM ref
             // never leaves the page in a frozen state. Always call
@@ -1346,6 +1407,7 @@
                 }
 
                 renderTierOptions(tierKey);
+                setupInvite();
             } catch (err) {
                 console.error('[loadProfile] failed:', err);
                 showMessage('error', 'We had trouble loading your account. Please refresh, or email support@sparkdate.date.');

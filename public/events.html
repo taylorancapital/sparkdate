@@ -493,6 +493,50 @@
         </div>
     </section>
 
+    <section style="border-top: 1px solid rgba(255,107,107,0.1); padding: 48px 24px; text-align: center;">
+        <h2 style="font-family: 'Fraunces', serif; font-size: clamp(22px, 5vw, 30px); color: #fff; margin-bottom: 10px;">Never miss an event</h2>
+        <p style="color: rgba(245,243,240,0.7); font-size: 14px; max-width: 480px; margin: 0 auto 20px;">Get notified the moment new Philadelphia mixers open. No spam.</p>
+        <form id="newsletterForm" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; max-width: 460px; margin: 0 auto;">
+            <input type="email" id="newsletterEmail" required placeholder="you@email.com" aria-label="Email address"
+                style="flex: 1; min-width: 200px; padding: 13px 15px; background: #ffffff; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; color: #000; font-family: inherit; font-size: 14px;">
+            <button type="submit" style="padding: 13px 26px; background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%); color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-family: inherit;">Notify Me</button>
+        </form>
+        <div id="newsletterMsg" style="margin-top: 14px; font-size: 14px; display: none;"></div>
+    </section>
+
+    <script>
+      (function () {
+        var form = document.getElementById('newsletterForm');
+        if (!form) return;
+        form.addEventListener('submit', async function (e) {
+          e.preventDefault();
+          var emailEl = document.getElementById('newsletterEmail');
+          var msg = document.getElementById('newsletterMsg');
+          var btn = form.querySelector('button[type="submit"]');
+          var email = (emailEl.value || '').trim();
+          if (!email) return;
+          var orig = btn.textContent; btn.textContent = 'Joining…'; btn.disabled = true; msg.style.display = 'none';
+          try {
+            var ref = null; try { ref = localStorage.getItem('sparkdate_ref'); } catch (_) {}
+            var res = await fetch('/api/lead-signup', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: email, source: 'newsletter', ref: ref })
+            });
+            if (res.ok) {
+              msg.style.display = 'block'; msg.style.color = '#4ade80';
+              msg.textContent = '✓ You’re on the list.';
+              if (window.gtag) gtag('event', 'generate_lead', { value: 'newsletter' });
+              form.reset();
+            } else {
+              msg.style.display = 'block'; msg.style.color = '#ff6b6b'; msg.textContent = '✕ Something went wrong. Try again.';
+            }
+          } catch (_) {
+            msg.style.display = 'block'; msg.style.color = '#ff6b6b'; msg.textContent = '✕ Network error. Try again.';
+          } finally { btn.textContent = orig; btn.disabled = false; }
+        });
+      })();
+    </script>
+
     <footer>
         <p>SparkDate · Philadelphia · 2026</p>
         <div style="display: flex; gap: 14px; justify-content: center; margin-top: 16px;">
@@ -598,6 +642,7 @@
                 );
                 const events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderEvents(events, grid);
+                injectEventsListSchema(events);
             } catch (err) {
                 console.error('[events] load error:', err);
                 // Fallback: show the hardcoded Founders Mixer
@@ -616,6 +661,58 @@
                     blurb: 'An intimate evening of conversation and connection at Philadelphia\'s most stylish venue. Curated guest list, real people only.',
                     status: 'open',
                 }], grid);
+            }
+        }
+
+        // schema.org ItemList of upcoming Events — lets Google understand
+        // this is an events listing and surface individual events in search.
+        function injectEventsListSchema(events) {
+            try {
+                if (!events || !events.length) return;
+                const itemList = {
+                    '@context': 'https://schema.org',
+                    '@type': 'ItemList',
+                    itemListElement: events.slice(0, 25).map((ev, i) => {
+                        const d = ev.date && ev.date.toDate ? ev.date.toDate() : (ev.date ? new Date(ev.date) : null);
+                        const url = `https://sparkdate.date/event?id=${encodeURIComponent(ev.id)}`;
+                        const item = {
+                            '@type': 'Event',
+                            name: ev.title || 'SparkDate Event',
+                            url: url,
+                            eventStatus: 'https://schema.org/EventScheduled',
+                            eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+                            image: ['https://sparkdate.date/og-image.svg'],
+                            location: {
+                                '@type': 'Place',
+                                name: ev.venue || 'Philadelphia venue',
+                                address: {
+                                    '@type': 'PostalAddress',
+                                    addressLocality: 'Philadelphia',
+                                    addressRegion: 'PA',
+                                    addressCountry: 'US'
+                                }
+                            },
+                            organizer: { '@type': 'Organization', name: 'SparkDate', url: 'https://sparkdate.date/' }
+                        };
+                        if (d) item.startDate = d.toISOString();
+                        if (ev.blurb) item.description = ev.blurb;
+                        const price = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+                        if (price > 0) {
+                            item.offers = { '@type': 'Offer', price: price.toFixed(2), priceCurrency: 'USD', url: url, availability: 'https://schema.org/InStock' };
+                        }
+                        return { '@type': 'ListItem', position: i + 1, item: item };
+                    })
+                };
+                let tag = document.getElementById('events-jsonld');
+                if (!tag) {
+                    tag = document.createElement('script');
+                    tag.type = 'application/ld+json';
+                    tag.id = 'events-jsonld';
+                    document.head.appendChild(tag);
+                }
+                tag.textContent = JSON.stringify(itemList);
+            } catch (e) {
+                console.error('[events] schema inject failed', e);
             }
         }
 

@@ -350,6 +350,10 @@
                     </div>
                 </div>
 
+                <div id="eventShare" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 8px;">
+                    <span style="color: rgba(245,243,240,0.6); font-size: 13px;">Share:</span>
+                </div>
+
                 <div class="event-description">
                     <h2>What to Expect</h2>
                     <p>This isn't a speed dating event, and it isn't a singles bar. SparkDate's Founders Mixer is a curated evening designed for adults who are tired of swiping and ready for something real.</p>
@@ -561,6 +565,147 @@
                 document.getElementById('eventVenueRating').textContent = `★ ${ev.venueStars.toFixed(1)}`;
                 document.getElementById('venueRatingItem').style.display = '';
             }
+
+            // SEO: dynamic page meta + schema.org Event JSON-LD so this page
+            // is eligible for Google event rich results / event carousels.
+            injectEventSeo(ev);
+        }
+
+        // Build per-event <title>, meta description, canonical, Open Graph
+        // tags, and a schema.org Event JSON-LD block. Called once the event
+        // doc loads. Safe to call with partial data — every field is guarded.
+        function injectEventSeo(ev) {
+            try {
+                const d = ev.date && ev.date.toDate ? ev.date.toDate() : (ev.date ? new Date(ev.date) : null);
+                const dateLabel = d ? d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
+                const venueLabel = ev.venue ? `${ev.venue}${ev.neighborhood ? ', ' + ev.neighborhood : ''}` : 'Philadelphia';
+                const title = ev.title ? `${ev.title} — SparkDate` : 'Event Tickets — SparkDate';
+                const desc = (ev.blurb && ev.blurb.trim())
+                    || `${ev.title || 'A SparkDate event'} on ${dateLabel} at ${venueLabel}. Reserve your spot — real dates, real venues, real people in Philadelphia.`;
+                const pageUrl = `https://sparkdate.date/event?id=${encodeURIComponent(ev.id || eventId)}`;
+                const img = 'https://sparkdate.date/og-image.svg';
+
+                // <title> + meta description
+                document.title = title;
+                setMeta('name', 'description', desc);
+                setLink('canonical', pageUrl);
+
+                // Open Graph + Twitter
+                setMeta('property', 'og:type', 'event');
+                setMeta('property', 'og:title', title);
+                setMeta('property', 'og:description', desc);
+                setMeta('property', 'og:url', pageUrl);
+                setMeta('property', 'og:image', img);
+                setMeta('name', 'twitter:card', 'summary_large_image');
+                setMeta('name', 'twitter:title', title);
+                setMeta('name', 'twitter:description', desc);
+                setMeta('name', 'twitter:image', img);
+
+                // schema.org Event JSON-LD
+                const price = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+                const ld = {
+                    '@context': 'https://schema.org',
+                    '@type': 'Event',
+                    name: ev.title || 'SparkDate Event',
+                    description: desc,
+                    eventStatus: 'https://schema.org/EventScheduled',
+                    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+                    url: pageUrl,
+                    image: [img],
+                    organizer: {
+                        '@type': 'Organization',
+                        name: 'SparkDate',
+                        url: 'https://sparkdate.date/'
+                    },
+                    location: {
+                        '@type': 'Place',
+                        name: ev.venue || 'Philadelphia venue',
+                        address: {
+                            '@type': 'PostalAddress',
+                            addressLocality: 'Philadelphia',
+                            addressRegion: 'PA',
+                            addressCountry: 'US'
+                        }
+                    }
+                };
+                if (d) ld.startDate = d.toISOString();
+                if (price > 0) {
+                    ld.offers = {
+                        '@type': 'Offer',
+                        price: price.toFixed(2),
+                        priceCurrency: 'USD',
+                        url: pageUrl,
+                        availability: 'https://schema.org/InStock'
+                    };
+                }
+                let tag = document.getElementById('event-jsonld');
+                if (!tag) {
+                    tag = document.createElement('script');
+                    tag.type = 'application/ld+json';
+                    tag.id = 'event-jsonld';
+                    document.head.appendChild(tag);
+                }
+                tag.textContent = JSON.stringify(ld);
+
+                renderShareLinks(ev.title || 'a SparkDate event', pageUrl);
+            } catch (e) {
+                console.error('[event] SEO inject failed', e);
+            }
+        }
+
+        // Build "share this event" links (UTM-tagged) once the event loads.
+        function renderShareLinks(title, url) {
+            const wrap = document.getElementById('eventShare');
+            if (!wrap) return;
+            const shareUrl = url + (url.includes('?') ? '&' : '?') + 'utm_source=share&utm_medium=social&utm_campaign=event_share';
+            const enc = encodeURIComponent(shareUrl);
+            const msg = encodeURIComponent(`Come to ${title} with me — a SparkDate event in Philly. `);
+            const targets = [
+                { label: 'Text', href: `sms:?&body=${msg}${enc}` },
+                { label: 'WhatsApp', href: `https://wa.me/?text=${msg}${enc}` },
+                { label: 'X', href: `https://twitter.com/intent/tweet?text=${msg}&url=${enc}` },
+                { label: 'Copy', href: '#', copy: true },
+            ];
+            // Keep the leading "Share:" label, replace any prior links.
+            wrap.querySelectorAll('[data-share]').forEach(el => el.remove());
+            targets.forEach(t => {
+                const a = document.createElement('a');
+                a.href = t.href;
+                a.dataset.share = t.label;
+                a.textContent = t.label;
+                if (!t.copy) { a.target = '_blank'; a.rel = 'noopener'; }
+                a.style.cssText = 'color: var(--coral); text-decoration: none; font-size: 13px; font-weight: 600; border: 1px solid rgba(255,107,107,0.4); border-radius: 4px; padding: 6px 12px;';
+                a.addEventListener('click', async (e) => {
+                    if (t.copy) {
+                        e.preventDefault();
+                        try { await navigator.clipboard.writeText(shareUrl); a.textContent = 'Copied!'; setTimeout(() => { a.textContent = 'Copy'; }, 1600); } catch (_) {}
+                    }
+                    if (window.gtag) gtag('event', 'share', { method: t.label, content_type: 'event' });
+                });
+                wrap.appendChild(a);
+            });
+        }
+
+        // Upsert a <meta {attr}="{key}" content="{val}"> into <head>.
+        function setMeta(attr, key, val) {
+            let el = document.head.querySelector(`meta[${attr}="${key}"]`);
+            if (!el) {
+                el = document.createElement('meta');
+                el.setAttribute(attr, key);
+                document.head.appendChild(el);
+            }
+            el.setAttribute('content', val);
+        }
+
+        // Upsert a <link rel="{rel}" href="{href}"> into <head>.
+        function setLink(rel, href) {
+            let el = document.head.querySelector(`link[rel="${rel}"]`);
+            if (!el) {
+                el = document.createElement('link');
+                el.setAttribute('rel', rel);
+                document.head.appendChild(el);
+            }
+            el.setAttribute('href', href);
         }
 
         // Check if logged-in user is over their monthly limit

@@ -22,7 +22,13 @@ const hashEmail = (e) => crypto.createHash('sha256').update(String(e || '').toLo
 const MAX_NAME = 120;
 const MAX_EMAIL = 254; // RFC 5321 max
 const MAX_PHONE = 40;
+const MAX_REF = 80;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Allowlist of lead sources the client may declare. Anything else is
+// coerced to 'founding_form' so an attacker can't inject arbitrary source
+// strings into our analytics. Keep in sync with the public forms.
+const ALLOWED_SOURCES = new Set(['founding_form', 'newsletter', 'referral']);
 
 function clean(value, max) {
   return String(value ?? '').trim().slice(0, max);
@@ -39,6 +45,9 @@ module.exports = async function handler(req, res) {
     const name  = clean(req.body?.name,  MAX_NAME);
     const email = clean(req.body?.email, MAX_EMAIL).toLowerCase();
     const phone = clean(req.body?.phone, MAX_PHONE);
+    const ref   = clean(req.body?.ref,   MAX_REF) || null; // referrer uid/code
+    const reqSource = clean(req.body?.source, 40);
+    const source = ALLOWED_SOURCES.has(reqSource) ? reqSource : 'founding_form';
 
     // Log only non-PII: presence flags and a one-way email hash for correlation.
     console.log('📥 Parsed:', {
@@ -62,7 +71,8 @@ module.exports = async function handler(req, res) {
       name,
       email,
       phone,
-      source: 'founding_form',
+      source,
+      referredBy: ref,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       welcome_sent: false,
       subscribed: true,
