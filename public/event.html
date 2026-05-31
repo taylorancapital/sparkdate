@@ -20,7 +20,9 @@
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-      gtag('config', 'G-21YLCC35F1');
+      gtag('config', 'G-21YLCC35F1', {
+        'page_path': window.location.pathname + window.location.search
+      });
     </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -741,6 +743,16 @@
                 // collection from the browser (audit #13).
                 successMsg.textContent = "You're confirmed. Check your email for event details.";
                 successMsg.style.display = 'block';
+
+                // Track ticket purchase in Google Analytics
+                const ticketPrice = (ticket + SERVICE_FEE) / 100; // Convert back from cents
+                gtag('event', 'purchase', {
+                    transaction_id: evId,
+                    value: parseFloat(ticketPrice.toFixed(2)),
+                    currency: 'USD',
+                    items: [{ item_name: evName, price: parseFloat(ticket.toFixed(2)) }]
+                });
+
                 document.getElementById('checkoutForm').reset();
                 cardElement.clear();
                 updatePricing();
