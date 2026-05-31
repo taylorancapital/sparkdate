@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/event-page.js": {
+      "includeFiles": "public/event.html"
+    }
+  },
   "crons": [
     {
       "path": "/api/cron-send-emails",
@@ -57,11 +62,11 @@
     },
     {
       "source": "/event",
-      "destination": "/event.html"
+      "destination": "/api/event-page"
     },
     {
       "source": "/event/:id",
-      "destination": "/event.html"
+      "destination": "/api/event-page?id=:id"
     },
     {
       "source": "/about",
