@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/event-page.js": {
+    "api/next-event.js": {
       "includeFiles": "public/event.html"
     }
   },
@@ -62,11 +62,11 @@
     },
     {
       "source": "/event",
-      "destination": "/api/event-page"
+      "destination": "/api/next-event?render=page"
     },
     {
       "source": "/event/:id",
-      "destination": "/api/event-page?id=:id"
+      "destination": "/api/next-event?render=page&id=:id"
     },
     {
       "source": "/about",
