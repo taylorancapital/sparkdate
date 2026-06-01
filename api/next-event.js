@@ -183,8 +183,8 @@ module.exports = async function handler(req, res) {
         time: e.time || '',
         venue: e.venue || '',
         neighborhood: e.neighborhood || '',
-        priceWomen: Number(e.priceWomen) || 0,
-        priceMen: Number(e.priceMen) || 0,
+        // Single-price model (gender pricing removed); fall back to legacy fields.
+        price: Number(e.price || e.priceMen || e.priceWomen || 0),
         blurb: e.blurb || '',
         status: e.status || 'open',
       },
