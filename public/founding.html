@@ -554,8 +554,7 @@
           .then(function (data) {
             var ev = data && data.event;
             if (ev && ev.id) {
-              btn.href = '/event?id=' + encodeURIComponent(ev.id) +
-                '&utm_source=organic&utm_medium=direct&utm_campaign=early_bird';
+              btn.href = '/event?id=' + encodeURIComponent(ev.id);
             }
             // No event resolved → keep the /events fallback href.
           })

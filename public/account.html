@@ -1270,7 +1270,7 @@
         function setupInvite() {
             try {
                 if (!currentUser) return;
-                const link = `https://sparkdate.date/founding?ref=${encodeURIComponent(currentUser.uid)}&utm_source=referral&utm_medium=invite&utm_campaign=member_invite`;
+                const link = `https://sparkdate.date/founding?ref=${encodeURIComponent(currentUser.uid)}&utm_source=referral&utm_medium=referral&utm_campaign=member_invite`;
                 const input = document.getElementById('inviteLink');
                 if (input) input.value = link;
 

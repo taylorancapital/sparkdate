@@ -1,5 +1,6 @@
 const { admin } = require('../lib/auth');
 const { stripe } = require('../lib/stripe');
+const { seatFields } = require('../lib/seat-model');
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const db = admin.firestore();
@@ -191,8 +192,12 @@ module.exports = async function handler(req, res) {
           // late-arriving payment_failed for that same intent must not
           // release it a second time.
           if (t.status === 'pending_3ds' || t.status === 'pending') {
-            const counterField = t.gender === 'woman' ? 'confirmedWomen' : 'confirmedMen';
-            await db.collection('events').doc(t.eventId)
+            // Release the SAME counter the reservation bumped: single-pool
+            // `confirmed` for new events, per-gender for legacy ones.
+            const evRef = db.collection('events').doc(t.eventId);
+            const evSnap = await evRef.get();
+            const { counterField } = seatFields(evSnap.exists ? evSnap.data() : {}, t.gender);
+            await evRef
               .update({ [counterField]: admin.firestore.FieldValue.increment(-1) })
               .catch(() => {});
             await ticketSnap.docs[0].ref.update({ status: 'failed' });
