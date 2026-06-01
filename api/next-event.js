@@ -76,6 +76,8 @@ async function renderEventPage(req, res) {
           url: pageUrl,
           image: [img],
           organizer: { '@type': 'Organization', name: 'SparkDate', url: 'https://sparkdate.date/' },
+          // SparkDate hosts/runs each mixer, so it is also the performer.
+          performer: { '@type': 'Organization', name: 'SparkDate', url: 'https://sparkdate.date/' },
           location: {
             '@type': 'Place',
             name: ev.venue || 'Philadelphia venue',
@@ -87,7 +89,13 @@ async function renderEventPage(req, res) {
             },
           },
         };
-        if (d) ld.startDate = d.toISOString();
+        if (d) {
+          ld.startDate = d.toISOString();
+          // Mixers run ~3 hours; provide an endDate (recommended by Google).
+          // Use the event's own durationHours if set, else default to 3.
+          const hrs = Number(ev.durationHours) > 0 ? Number(ev.durationHours) : 3;
+          ld.endDate = new Date(d.getTime() + hrs * 60 * 60 * 1000).toISOString();
+        }
         if (price > 0) {
           ld.offers = {
             '@type': 'Offer',
@@ -95,6 +103,10 @@ async function renderEventPage(req, res) {
             priceCurrency: 'USD',
             url: pageUrl,
             availability: 'https://schema.org/InStock',
+            // Tickets are on sale from when the event was created (else now).
+            validFrom: (ev.createdAt && ev.createdAt.toDate
+              ? ev.createdAt.toDate()
+              : new Date()).toISOString(),
           };
         }
 

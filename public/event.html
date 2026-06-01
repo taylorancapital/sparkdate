@@ -617,6 +617,11 @@
                         name: 'SparkDate',
                         url: 'https://sparkdate.date/'
                     },
+                    performer: {
+                        '@type': 'Organization',
+                        name: 'SparkDate',
+                        url: 'https://sparkdate.date/'
+                    },
                     location: {
                         '@type': 'Place',
                         name: ev.venue || 'Philadelphia venue',
@@ -628,14 +633,21 @@
                         }
                     }
                 };
-                if (d) ld.startDate = d.toISOString();
+                if (d) {
+                    ld.startDate = d.toISOString();
+                    const hrs = Number(ev.durationHours) > 0 ? Number(ev.durationHours) : 3;
+                    ld.endDate = new Date(d.getTime() + hrs * 60 * 60 * 1000).toISOString();
+                }
                 if (price > 0) {
                     ld.offers = {
                         '@type': 'Offer',
                         price: price.toFixed(2),
                         priceCurrency: 'USD',
                         url: pageUrl,
-                        availability: 'https://schema.org/InStock'
+                        availability: 'https://schema.org/InStock',
+                        validFrom: (ev.createdAt && ev.createdAt.toDate
+                            ? ev.createdAt.toDate()
+                            : new Date()).toISOString()
                     };
                 }
                 let tag = document.getElementById('event-jsonld');
