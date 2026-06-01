@@ -24,6 +24,7 @@ const { applyCors } = require('../lib/cors');
 const { TIERS, getOrCreatePrice } = require('../lib/tiers');
 const { stripe } = require('../lib/stripe');
 const { SERVICE_FEE_CENTS } = require('../lib/pricing');
+const { seatFields, ticketPriceDollars } = require('../lib/seat-model');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const db = admin.firestore();
@@ -85,12 +86,16 @@ async function promote3ds(ticketDoc, ticket) {
 // the seat. The transaction only decrements if it finds the ticket
 // still `pending_3ds`, so two concurrent sweeps can't double-release.
 async function expire3ds(ticketDoc, ticket, eventRef) {
-  const counterField = ticket.gender === 'woman' ? 'confirmedWomen' : 'confirmedMen';
   let released = false;
   try {
     await db.runTransaction(async (tx) => {
+      // All reads must precede writes in a Firestore txn.
       const fresh = await tx.get(ticketDoc.ref);
       if (!fresh.exists || fresh.data().status !== 'pending_3ds') return;
+      const evSnap = await tx.get(eventRef);
+      // Decrement the SAME counter the reservation bumped (single-pool
+      // `confirmed` for new events, per-gender for legacy).
+      const { counterField } = seatFields(evSnap.exists ? evSnap.data() : {}, ticket.gender);
       tx.update(ticketDoc.ref, { status: 'expired' });
       tx.update(eventRef, { [counterField]: FieldValue.increment(-1) });
       released = true;
@@ -485,10 +490,12 @@ module.exports = async function handler(req, res) {
     // We bump a counter on the event doc inside the txn. If two requests
     // race, only one wins; the other sees the updated count and aborts.
     //
-    // Counters live as `confirmedWomen` and `confirmedMen` on the event.
-    // If they're missing (legacy events), default to 0.
-    const counterField = gender === 'woman' ? 'confirmedWomen' : 'confirmedMen';
-    const capField     = gender === 'woman' ? 'spotsWomen'     : 'spotsMen';
+    // Resolve the seat model (lib/seat-model). New events share one pool
+    // (`spots`/`confirmed`); legacy events split by gender
+    // (`spotsWomen`/`confirmedWomen`, etc.). Without this, a new single-pool
+    // event has no `spotsMen`/`spotsWomen` and every purchase is wrongly
+    // rejected as "Event full".
+    const { counterField, capField } = seatFields(event, gender);
 
     let reservedSlot;
     try {
@@ -500,12 +507,12 @@ module.exports = async function handler(req, res) {
         const current = Number(e[counterField] ?? 0);
 
         if (cap <= 0) {
-          const err = new Error(`No ${gender === 'woman' ? "women's" : "men's"} spots on this event`);
+          const err = new Error('No spots available on this event');
           err.statusCode = 409;
           throw err;
         }
         if (current >= cap) {
-          const err = new Error(`Event full on the ${gender === 'woman' ? "women's" : "men's"} side`);
+          const err = new Error('Event full');
           err.statusCode = 409;
           throw err;
         }
@@ -520,10 +527,9 @@ module.exports = async function handler(req, res) {
     }
 
     // ── Server-side price computation. Client `amount` is ignored. ─
-    const baseDollars = gender === 'woman'
-      ? Number(event.priceWomen || 0)
-      : Number(event.priceMen || 0);
-    if (!isFinite(baseDollars) || baseDollars < 0) {
+    // Flat `price` for new events; per-gender price for legacy events.
+    const baseDollars = ticketPriceDollars(event, gender);
+    if (!isFinite(baseDollars) || baseDollars <= 0) {
       // Roll back the counter we just bumped.
       await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
       return res.status(500).json({ error: 'Invalid event pricing' });
