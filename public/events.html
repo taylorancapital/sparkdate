@@ -653,11 +653,8 @@
                     time: '7:30 PM',
                     venue: 'a.kitchen + a.bar',
                     neighborhood: 'Rittenhouse',
-                    spotsMen: 15,
-                    spotsWomen: 15,
-                    spotsTotal: 30,
-                    priceWomen: 20,
-                    priceMen: 40,
+                    spots: 30,
+                    price: 24.99,
                     blurb: 'An intimate evening of conversation and connection at Philadelphia\'s most stylish venue. Curated guest list, real people only.',
                     status: 'open',
                 }], grid);
@@ -735,10 +732,13 @@
                 const day = date.getDate();
                 const dayStr = date.toLocaleDateString('en-US', { weekday: 'short' });
                 const dateLabel = `${dayStr} · ${month} ${day}, ${date.getFullYear()} · ${ev.time || ''}`.trim().replace(/ · $/, '');
-                const capacity = `${ev.spotsTotal || (ev.spotsMen + ev.spotsWomen)} spots · ${ev.spotsMen} men / ${ev.spotsWomen} women`;
-                const priceLabel = ev.priceWomen === ev.priceMen
-                    ? `$${ev.priceWomen}`
-                    : `$${ev.priceWomen}–$${ev.priceMen}`;
+                // Single-price model: admin writes `spots`/`price`. Fall back
+                // to the legacy gendered fields for older event docs so both
+                // render correctly (gender-based pricing was removed).
+                const totalSpots = ev.spots || ev.spotsTotal || ((ev.spotsMen || 0) + (ev.spotsWomen || 0));
+                const capacity = totalSpots ? `${totalSpots} spots` : '';
+                const priceVal = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+                const priceLabel = priceVal > 0 ? `$${priceVal}` : 'TBA';
                 const statusLabel = ev.status === 'full' ? 'Full' : ev.status === 'almost' ? 'Almost Full' : 'Open';
                 const gradientClass = GRADIENT_ALTS[i % GRADIENT_ALTS.length];
 
@@ -788,7 +788,7 @@
                             </div>
                             ${ev.blurb ? `<div class="event-description">${safe(ev.blurb)}</div>` : ''}
                             <div class="event-footer">
-                                <div class="event-price">${safe(priceLabel)} <small>by tier</small></div>
+                                <div class="event-price">${safe(priceLabel)}</div>
                                 ${reserveBtn}
                             </div>
                         </div>
