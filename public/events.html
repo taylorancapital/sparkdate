@@ -525,7 +525,7 @@
             if (res.ok) {
               msg.style.display = 'block'; msg.style.color = '#4ade80';
               msg.textContent = '✓ You’re on the list.';
-              if (window.gtag) gtag('event', 'generate_lead', { value: 'newsletter' });
+              if (window.gtag) gtag('event', 'generate_lead', { lead_type: 'newsletter' });
               form.reset();
             } else {
               msg.style.display = 'block'; msg.style.color = '#ff6b6b'; msg.textContent = '✕ Something went wrong. Try again.';
