@@ -897,11 +897,18 @@
                 successMsg.textContent = "You're confirmed. Check your email for event details.";
                 successMsg.style.display = 'block';
 
-                // Track ticket purchase in Google Analytics
-                const ticketPrice = (ticket + SERVICE_FEE) / 100; // Convert back from cents
+                // Track ticket purchase in Google Analytics. `ticket` and
+                // SERVICE_FEE are already in DOLLARS (the charge sent to the
+                // server is (ticket + SERVICE_FEE) * 100 to get cents), so the
+                // GA value is just their sum — do NOT divide by 100.
+                // NB: do not name this `ticketPrice` — a block-scoped const of
+                // that name shadows the ticketPrice() function across this whole
+                // try block and makes the earlier `const ticket = ticketPrice()`
+                // throw a TDZ ReferenceError, breaking every checkout.
+                const purchaseValue = ticket + SERVICE_FEE;
                 gtag('event', 'purchase', {
                     transaction_id: evId,
-                    value: parseFloat(ticketPrice.toFixed(2)),
+                    value: parseFloat(purchaseValue.toFixed(2)),
                     currency: 'USD',
                     items: [{ item_name: evName, price: parseFloat(ticket.toFixed(2)) }]
                 });
