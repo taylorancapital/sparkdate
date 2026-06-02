@@ -87,6 +87,12 @@ async function promote3ds(ticketDoc, ticket) {
 // still `pending_3ds`, so two concurrent sweeps can't double-release.
 async function expire3ds(ticketDoc, ticket, eventRef) {
   let released = false;
+  // Hoisted to function scope so the post-transaction success log can read
+  // it. The field is resolved INSIDE the txn (it depends on the freshly-read
+  // event doc), but declaring it with `const` in the callback left it out of
+  // scope for the log below, which threw a ReferenceError *after* the seat
+  // had already been released.
+  let counterField = null;
   try {
     await db.runTransaction(async (tx) => {
       // All reads must precede writes in a Firestore txn.
@@ -95,7 +101,7 @@ async function expire3ds(ticketDoc, ticket, eventRef) {
       const evSnap = await tx.get(eventRef);
       // Decrement the SAME counter the reservation bumped (single-pool
       // `confirmed` for new events, per-gender for legacy).
-      const { counterField } = seatFields(evSnap.exists ? evSnap.data() : {}, ticket.gender);
+      ({ counterField } = seatFields(evSnap.exists ? evSnap.data() : {}, ticket.gender));
       tx.update(ticketDoc.ref, { status: 'expired' });
       tx.update(eventRef, { [counterField]: FieldValue.increment(-1) });
       released = true;
