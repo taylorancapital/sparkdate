@@ -730,7 +730,7 @@
                     messageDiv.textContent = '✓ Welcome to the cohort! Check your email for next steps.';
 
                     // Track lead capture in Google Analytics
-                    gtag('event', 'generate_lead', { value: 'founding_member' });
+                    gtag('event', 'generate_lead', { lead_type: 'founding_member' });
 
                     form.reset();
                     submitBtn.textContent = originalText;

@@ -42,11 +42,32 @@ function escAttr(s) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Serialize a JSON-LD object for safe embedding inside a script element.
+// JSON.stringify does not escape the less-than character, so a field value
+// containing a closing script tag could otherwise terminate the block
+// early. Replacing every less-than character with its unicode escape
+// prevents that breakout; the escape is valid inside a JSON string and
+// parses back to the original text, so the structured data is unchanged.
+function escapeJsonLd(obj) {
+  return JSON.stringify(obj).replace(/</g, '\\u003c');
+}
+
 // Fetch the event, build the head injection, and return the full HTML.
 // Fail-soft: on any error serve the unmodified template so checkout works.
 async function renderEventPage(req, res) {
   const id = (req.query && (req.query.id || req.query.eventId)) || '';
-  let html = loadEventTemplate();
+  let html;
+  try {
+    html = loadEventTemplate();
+  } catch (e) {
+    // The checkout template (public/event.html) is bundled via vercel.json
+    // `includeFiles`. If it ever fails to resolve at runtime we have no page
+    // to render — fail soft to the events listing rather than throw an
+    // unhandled 500 on every /event request.
+    console.error('[next-event] template load failed:', e && e.message);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.redirect(302, '/events');
+  }
   let headInject = '';
   let pageTitle = null;
 
@@ -123,7 +144,7 @@ async function renderEventPage(req, res) {
           `\n    <meta name="twitter:title" content="${escAttr(title)}">` +
           `\n    <meta name="twitter:description" content="${escAttr(desc)}">` +
           `\n    <meta name="twitter:image" content="${escAttr(img)}">` +
-          `\n    <script type="application/ld+json" id="event-jsonld">${JSON.stringify(ld)}</script>\n`;
+          `\n    <script type="application/ld+json" id="event-jsonld">${escapeJsonLd(ld)}</script>\n`;
       }
     }
   } catch (err) {
@@ -131,8 +152,11 @@ async function renderEventPage(req, res) {
   }
 
   if (headInject) {
-    html = html.replace(/<\/head>/i, `${headInject}</head>`);
-    if (pageTitle) html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escAttr(pageTitle)}</title>`);
+    // Function-form replacements so any `$` sequences in the injected meta
+    // or JSON-LD (e.g. "$5" in a blurb, or "$&") are inserted literally and
+    // not interpreted as String.prototype.replace special patterns.
+    html = html.replace(/<\/head>/i, () => `${headInject}</head>`);
+    if (pageTitle) html = html.replace(/<title>[\s\S]*?<\/title>/i, () => `<title>${escAttr(pageTitle)}</title>`);
   }
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');

@@ -681,6 +681,12 @@ module.exports = async function handler(req, res) {
       }).catch((err) => {
         console.error('[purchase-ticket] guest auto-enroll failed:', err.message);
       });
+
+      // Mirror the buyer into the leads collection so the admin Leads tab and
+      // the nurture-email cron pick them up. recordLead upserts by email and
+      // is fully best-effort (it never throws). Guests aren't otherwise
+      // captured as leads; members already have a user doc.
+      await recordLead({ email, name: cleanName, phone: cleanPhone, eventId, eventName });
     }
 
     // ── Activity log (best-effort, doesn't block success). ─────────
