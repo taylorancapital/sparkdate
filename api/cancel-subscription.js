@@ -107,13 +107,15 @@ module.exports = async function handler(req, res) {
       userEmail: userData.email,
       userName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
       type: 'subscription_canceled',
-      details: { tier: userData.tier, accessUntil: new Date(subscription.current_period_end * 1000) },
+      // current_period_end moved to items.data[0] in Stripe API ≥ 2024-12-18.
+      details: { tier: userData.tier, accessUntil: new Date(((subscription.items?.data?.[0]?.current_period_end ?? subscription.current_period_end) || 0) * 1000) },
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     return res.status(200).json({
       success: true,
-      accessUntil: subscription.current_period_end,
+      // current_period_end moved to items.data[0] in Stripe API ≥ 2024-12-18.
+      accessUntil: subscription.items?.data?.[0]?.current_period_end ?? subscription.current_period_end,
     });
   } catch (err) {
     console.error('[cancel-subscription] error', { reactivate, message: err.message, type: err.type, code: err.code });

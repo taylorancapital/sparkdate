@@ -79,10 +79,14 @@ module.exports = async function handler(req, res) {
         const sub = event.data.object;
         const userDoc = await findUserByCustomer(sub.customer);
         if (userDoc) {
+          // In Stripe API ≥ 2024-12-18, current_period_end moved from the
+          // top-level Subscription to subscription.items.data[0].current_period_end.
+          // cancel_at_period_end remains at the top level.
+          const periodEnd = sub.items?.data?.[0]?.current_period_end ?? sub.current_period_end;
           await userDoc.ref.update({
             subscriptionStatus: sub.status,
             subscriptionId: sub.id,
-            currentPeriodEnd: new Date(sub.current_period_end * 1000),
+            currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : null,
             cancelAtPeriodEnd: sub.cancel_at_period_end,
           });
           await logActivity(userDoc, 'subscription_update', {
