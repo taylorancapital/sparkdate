@@ -833,6 +833,7 @@
             const password   = document.getElementById('password').value;
             const gender     = document.getElementById('gender').value;
             const age        = document.getElementById('age').value;
+            const phone      = document.getElementById('phone').value.trim();
             const intent     = document.getElementById('intent').value;
             const interests  = document.getElementById('interests').value;
             const vibes      = document.getElementById('vibes').value;
@@ -874,7 +875,7 @@
 
                 // ── Step 3: Save initial profile to Firestore ──────────────────
                 await setDoc(doc(db, 'users', firebaseUser.uid), {
-                    firstName, lastName, email, gender, intent,
+                    firstName, lastName, email, phone, gender, intent,
                     age: parseInt(age) || 0,
                     interests: interests.split(',').map(i => i.trim()).filter(Boolean),
                     vibes:     vibes.split(',').map(v => v.trim()).filter(Boolean),
