@@ -1,12 +1,15 @@
-// firestore.rules — SparkDate Firestore Security Rules (DRAFT)
+// firestore.rules — SparkDate Firestore Security Rules (LIVE)
 //
-// ⚠️  DRAFT — DO NOT DEPLOY until you've:
-//      1. Set a custom claim `{ admin: true }` on your admin Firebase user(s),
-//         e.g. via Admin SDK:
-//           await admin.auth().setCustomUserClaims(uid, { admin: true })
-//      2. Verified the collection list below matches what's in production.
-//      3. Tested with the Firebase emulator suite (`firebase emulators:start`)
-//         against the real client app.
+// Deployed and enforcing in production — verified against the live REST API:
+// public `events` reads succeed (200) while `users` / `leads` / `payments`
+// deny unauthenticated reads (403).
+//
+// Maintenance checklist when editing:
+//      1. Admin access requires the `{ admin: true }` custom claim on the
+//         Firebase user (set via Admin SDK — see scripts/set-admin-claim.js).
+//      2. Keep the collection list below in sync with production.
+//      3. Test changes with the Firebase emulator (`firebase emulators:start`)
+//         before deploying.
 //
 // Deploy via: `firebase deploy --only firestore:rules`
 //
