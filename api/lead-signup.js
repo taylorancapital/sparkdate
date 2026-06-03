@@ -49,6 +49,14 @@ module.exports = async function handler(req, res) {
     const reqSource = clean(req.body?.source, 40);
     const source = ALLOWED_SOURCES.has(reqSource) ? reqSource : 'founding_form';
 
+    // Honeypot: a hidden form field humans never see. Bots that auto-fill
+    // every input populate it; real submissions leave it empty. Return 200
+    // so a bot can't tell it was filtered, but write nothing and email no one.
+    if (clean(req.body?.website, 200)) {
+      console.log('🕳️ honeypot tripped — dropping submission', hashEmail(email));
+      return res.status(200).json({ success: true });
+    }
+
     // Log only non-PII: presence flags and a one-way email hash for correlation.
     console.log('📥 Parsed:', {
       hasName: !!name,
@@ -58,6 +66,24 @@ module.exports = async function handler(req, res) {
 
     if (!email || !EMAIL_RE.test(email)) {
       return res.status(400).json({ error: 'Valid email required' });
+    }
+
+    // Dedupe by email: if this address is already a lead, don't create a
+    // duplicate row or re-send the welcome. Stops accidental double-submits
+    // and prevents a single address from being email-bombed through this
+    // public endpoint. (Bombing with many DISTINCT addresses still needs
+    // rate limiting — tracked separately.)
+    const dupe = await db.collection('leads').where('email', '==', email).limit(1).get();
+    if (!dupe.empty) {
+      const doc = dupe.docs[0];
+      const prev = doc.data();
+      const patch = {};
+      if (name  && !prev.name)       patch.name       = name;
+      if (phone && !prev.phone)      patch.phone      = phone;
+      if (ref   && !prev.referredBy) patch.referredBy = ref;
+      if (Object.keys(patch).length) await doc.ref.update(patch);
+      console.log('↩️ duplicate lead — skipped welcome for', hashEmail(email));
+      return res.status(200).json({ success: true, lead_id: doc.id, duplicate: true, email_sent: false });
     }
 
     const firstName = name ? name.split(' ')[0] : 'there';
