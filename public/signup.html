@@ -31,6 +31,22 @@
         'page_path': window.location.pathname + window.location.search
       });
     </script>
+    <!-- ── Subscription pause toggle ──────────────────────────────────
+         Membership tiers are hidden pre-launch while we gather event
+         retention data (admin dashboard → Retention tab). When false, the
+         tier picker + signup form are hidden and a "coming soon → buy
+         tickets" block is shown instead. Stripe/backend is untouched —
+         flip to true to re-enable the membership signup flow. -->
+    <style>
+        #subsComingSoon { display: none; }
+        html.subs-off #pricingSection,
+        html.subs-off #signupSection { display: none !important; }
+        html.subs-off #subsComingSoon { display: block !important; }
+    </style>
+    <script>
+        window.SUBSCRIPTIONS_ENABLED = false;
+        if (!window.SUBSCRIPTIONS_ENABLED) document.documentElement.classList.add('subs-off');
+    </script>
     <style>
         * {
             margin: 0;
@@ -549,8 +565,19 @@
         </div>
     </section>
 
+    <!-- Subscriptions paused pre-launch — shown when SUBSCRIPTIONS_ENABLED is false -->
+    <section class="section" id="subsComingSoon">
+        <div style="max-width:680px;margin:0 auto;padding:44px 28px;text-align:center;background:rgba(255,107,107,0.06);border:1px solid rgba(255,107,107,0.25);border-radius:8px;">
+            <h2 class="section-title" style="margin-bottom:14px;">Memberships <span class="highlight">Coming Soon</span></h2>
+            <p style="color:rgba(245,243,240,0.8);font-size:17px;line-height:1.7;margin-bottom:28px;">
+                Monthly memberships launch after our first few events. For now, the best way in is a ticket to our next Philadelphia mixer — same curated events, no commitment.
+            </p>
+            <a href="/events" style="display:inline-block;background:linear-gradient(135deg,#ff6b6b 0%,#ff5252 100%);color:#fff;padding:16px 38px;border-radius:4px;text-decoration:none;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;font-size:15px;">See Upcoming Events →</a>
+        </div>
+    </section>
+
     <!-- Pricing Tiers -->
-    <section class="section">
+    <section class="section" id="pricingSection">
         <h2 class="section-title">Pick Your <span class="highlight">Tier</span></h2>
         <div class="tiers-grid">
             <!-- Free Tier -->
@@ -607,7 +634,7 @@
     </section>
 
     <!-- Signup Form -->
-    <section class="section">
+    <section class="section" id="signupSection">
         <div class="form-section">
             <h2>Create Your Account</h2>
 
