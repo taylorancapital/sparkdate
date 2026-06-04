@@ -727,7 +727,7 @@
     <!-- CTA Section -->
     <section class="cta-section">
         <h2>Ready to Stop Swiping?</h2>
-        <p>Join our founding member cohort. Get free first events, lifetime founding status, and a real say in what we build.</p>
+        <p>Join our founding member cohort. Get your first month free, lifetime founding status, and a real say in what we build.</p>
         <a href="/founding#signup" class="btn-cta">Claim Your Spot</a>
     </section>
 
@@ -736,6 +736,7 @@
         <h2 style="font-family: 'Fraunces', serif; font-size: clamp(24px, 5vw, 34px); color: var(--white); margin-bottom: 12px;">Get first dibs on new events</h2>
         <p style="color: rgba(245,243,240,0.7); font-size: 15px; max-width: 520px; margin: 0 auto 24px;">Join the list — early access to Philadelphia mixers, no spam, unsubscribe anytime.</p>
         <form id="newsletterForm" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; max-width: 480px; margin: 0 auto;">
+            <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
             <input type="email" id="newsletterEmail" required placeholder="you@email.com" aria-label="Email address"
                 style="flex: 1; min-width: 220px; padding: 14px 16px; background: #ffffff; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; color: #000000; font-family: inherit; font-size: 14px;">
             <button type="submit" class="btn btn-primary" style="padding: 14px 28px;">Notify Me</button>
@@ -806,7 +807,7 @@
             var res = await fetch('/api/lead-signup', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: email, source: 'newsletter', ref: ref })
+              body: JSON.stringify({ email: email, source: 'newsletter', ref: ref, website: (form.querySelector('input[name="website"]') || {}).value || '' })
             });
             if (res.ok) {
               msg.style.display = 'block';

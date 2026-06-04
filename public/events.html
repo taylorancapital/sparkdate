@@ -497,6 +497,7 @@
         <h2 style="font-family: 'Fraunces', serif; font-size: clamp(22px, 5vw, 30px); color: #fff; margin-bottom: 10px;">Never miss an event</h2>
         <p style="color: rgba(245,243,240,0.7); font-size: 14px; max-width: 480px; margin: 0 auto 20px;">Get notified the moment new Philadelphia mixers open. No spam.</p>
         <form id="newsletterForm" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; max-width: 460px; margin: 0 auto;">
+            <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
             <input type="email" id="newsletterEmail" required placeholder="you@email.com" aria-label="Email address"
                 style="flex: 1; min-width: 200px; padding: 13px 15px; background: #ffffff; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; color: #000; font-family: inherit; font-size: 14px;">
             <button type="submit" style="padding: 13px 26px; background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%); color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-family: inherit;">Notify Me</button>
@@ -520,7 +521,7 @@
             var ref = null; try { ref = localStorage.getItem('sparkdate_ref'); } catch (_) {}
             var res = await fetch('/api/lead-signup', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: email, source: 'newsletter', ref: ref })
+              body: JSON.stringify({ email: email, source: 'newsletter', ref: ref, website: (form.querySelector('input[name="website"]') || {}).value || '' })
             });
             if (res.ok) {
               msg.style.display = 'block'; msg.style.color = '#4ade80';

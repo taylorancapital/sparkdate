@@ -16,6 +16,49 @@ const db = admin.firestore();
 const crypto = require('crypto');
 const hashEmail = (e) => crypto.createHash('sha256').update(String(e || '').toLowerCase()).digest('hex').slice(0, 12);
 
+// ── Per-IP rate limiting ─────────────────────────────────────────────
+// This endpoint is public and emails per accepted submission, so a scripted
+// flood from one source could spam arbitrary addresses and burn the Resend
+// quota. Cap submissions per client IP per rolling window using a Firestore
+// doc as the shared counter (serverless containers don't share memory).
+// Best-effort: any failure fails OPEN so a Firestore hiccup never blocks a
+// real signup. The `rate_limits` collection is server-only (covered by the
+// default-deny Firestore rule).
+const RL_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RL_MAX = 5;                    // accepted submissions per IP per window
+
+function clientIp(req) {
+  const xff = String(req.headers['x-forwarded-for'] || '');
+  return xff.split(',')[0].trim()
+    || req.headers['x-real-ip']
+    || (req.socket && req.socket.remoteAddress)
+    || '';
+}
+
+// True if within the limit, false if it should be rejected. Fails open.
+async function withinRateLimit(ip) {
+  if (!ip) return true; // can't identify the caller → don't block real users
+  const ipHash = crypto.createHash('sha256').update(ip).digest('hex').slice(0, 24);
+  const ref = db.collection('rate_limits').doc(ipHash);
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const now = Date.now();
+      if (!snap.exists || (now - (snap.data().windowStart || 0)) > RL_WINDOW_MS) {
+        tx.set(ref, { windowStart: now, count: 1 });
+        return true;
+      }
+      const count = snap.data().count || 0;
+      if (count >= RL_MAX) return false;
+      tx.update(ref, { count: count + 1 });
+      return true;
+    });
+  } catch (e) {
+    console.error('[lead-signup] rate-limit check failed (fail-open):', e.message);
+    return true;
+  }
+}
+
 // Length/shape limits — this endpoint is unauthenticated by necessity
 // (founding form is public). Tightens the spam surface without breaking
 // real submissions.
@@ -49,6 +92,20 @@ module.exports = async function handler(req, res) {
     const reqSource = clean(req.body?.source, 40);
     const source = ALLOWED_SOURCES.has(reqSource) ? reqSource : 'founding_form';
 
+    // Honeypot: a hidden form field humans never see. Bots that auto-fill
+    // every input populate it; real submissions leave it empty. Return 200
+    // so a bot can't tell it was filtered, but write nothing and email no one.
+    if (clean(req.body?.website, 200)) {
+      console.log('🕳️ honeypot tripped — dropping submission', hashEmail(email));
+      return res.status(200).json({ success: true });
+    }
+
+    // Per-IP rate limit (after the honeypot so bot floods are capped too).
+    if (!(await withinRateLimit(clientIp(req)))) {
+      console.log('🚦 rate-limited submission', hashEmail(email));
+      return res.status(429).json({ error: 'Too many requests. Please try again in a bit.' });
+    }
+
     // Log only non-PII: presence flags and a one-way email hash for correlation.
     console.log('📥 Parsed:', {
       hasName: !!name,
@@ -58,6 +115,24 @@ module.exports = async function handler(req, res) {
 
     if (!email || !EMAIL_RE.test(email)) {
       return res.status(400).json({ error: 'Valid email required' });
+    }
+
+    // Dedupe by email: if this address is already a lead, don't create a
+    // duplicate row or re-send the welcome. Stops accidental double-submits
+    // and prevents a single address from being email-bombed through this
+    // public endpoint. (Distinct-address floods are additionally capped by
+    // the per-IP rate limit above.)
+    const dupe = await db.collection('leads').where('email', '==', email).limit(1).get();
+    if (!dupe.empty) {
+      const doc = dupe.docs[0];
+      const prev = doc.data();
+      const patch = {};
+      if (name  && !prev.name)       patch.name       = name;
+      if (phone && !prev.phone)      patch.phone      = phone;
+      if (ref   && !prev.referredBy) patch.referredBy = ref;
+      if (Object.keys(patch).length) await doc.ref.update(patch);
+      console.log('↩️ duplicate lead — skipped welcome for', hashEmail(email));
+      return res.status(200).json({ success: true, lead_id: doc.id, duplicate: true, email_sent: false });
     }
 
     const firstName = name ? name.split(' ')[0] : 'there';

@@ -13,7 +13,7 @@
       }
     </script>
     <title>SparkDate Founding Members</title>
-    <meta name="description" content="Join SparkDate's founding member cohort. Free events, lifetime status, real say in the product. Philadelphia.">
+    <meta name="description" content="Join SparkDate's founding member cohort. First month free, lifetime status, real say in the product. Philadelphia.">
     <link rel="canonical" href="https://sparkdate.date/founding">
     <meta property="og:type" content="website">
     <meta property="og:title" content="SparkDate Founding Members">
@@ -578,9 +578,9 @@
         <h2>What Founding Members Get</h2>
         <div class="benefits-grid">
             <div class="benefit-card">
-                <div class="benefit-icon"></div>
-                <h3>Free Launch Party!</h3>
-                <p>Your first SparkDate event is completely free. Experience the product before anyone else.</p>
+                <div class="benefit-icon">🎁</div>
+                <h3>First Month Free</h3>
+                <p>Your first month is completely free with a Spark account. Experience SparkDate before anyone else.</p>
             </div>
             <div class="benefit-card">
                 <div class="benefit-icon">👑</div>
@@ -599,14 +599,20 @@
     <section class="form-section" id="signup">
         <h2>Join the <span class="highlight">Cohort</span></h2>
         <form id="cohortForm">
+            <!-- Honeypot: hidden from humans; bots fill it and get silently dropped server-side. -->
+            <input type="text" name="website" id="hp_website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
             <label for="name">Your Name</label>
             <input type="text" id="name" name="name" placeholder="Jane Doe" required>
 
             <label for="email">Email</label>
             <input type="email" id="email" name="email" placeholder="jane@example.com" required>
 
-            <label for="phone">Phone Number</label>
-            <input type="tel" id="phone" name="phone" placeholder="+1 (555) 123-4567">
+            <!-- Phone hidden for now to reduce signup friction. Kept (empty) so the
+                 handler + payload stay intact; remove this wrapper to re-enable. -->
+            <div style="display: none;">
+                <label for="phone">Phone Number <span style="font-weight: 400; text-transform: none; color: rgba(245, 243, 240, 0.45);">(optional)</span></label>
+                <input type="tel" id="phone" name="phone" placeholder="+1 (555) 123-4567">
+            </div>
 
             <button type="submit" class="form-submit">Claim Your Spot</button>
             <div id="formMessage" style="margin-top: 20px; padding: 12px; border-radius: 4px; text-align: center; display: none;"></div>
@@ -645,7 +651,7 @@
                 <span>+</span>
             </div>
             <div class="faq-answer">
-                Founding members get free entry to the first two events (valued at $60), lifetime founding member status, and direct access to the founder. You're not just a user—you're helping build the product. That's special.
+                Founding members get their first month free on a Spark account, lifetime founding member status, and direct access to the founder. You're not just a user—you're helping build the product. That's special.
             </div>
         </div>
 
@@ -655,7 +661,7 @@
                 <span>+</span>
             </div>
             <div class="faq-answer">
-                No hard feelings. We're still figuring out what works. Your honest feedback helps us improve. You get one more free event to try again, and we listen to what didn't work.
+                No hard feelings. We're still figuring out what works. Your honest feedback helps us improve—tell us what didn't land and we'll make the next one better.
             </div>
         </div>
 
@@ -703,6 +709,7 @@
             const name = document.getElementById('name').value;
             const email = document.getElementById('email').value;
             const phone = document.getElementById('phone').value;
+            const website = (document.getElementById('hp_website') || {}).value || ''; // honeypot
             
             const originalText = submitBtn.textContent;
             submitBtn.textContent = 'Joining...';
@@ -719,7 +726,7 @@
                 const response = await fetch('/api/lead-signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, phone, ref, source: 'founding_form' })
+                    body: JSON.stringify({ name, email, phone, ref, source: 'founding_form', website })
                 });
                 
                 const data = await response.json();
