@@ -703,6 +703,7 @@
             <button class="tab" onclick="switchTab('events', this)">Events</button>
             <button class="tab" onclick="switchTab('venues', this)">Venues</button>
             <button class="tab" onclick="switchTab('leads', this)">Leads</button>
+            <button class="tab" onclick="switchTab('retention', this)">Retention</button>
         </div>
 
         <!-- Overview Tab -->
@@ -1097,6 +1098,19 @@
                         <tr><td colspan="11"><div class="spinner"></div></td></tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <div class="tab-content" id="tab-retention">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">📊 Event Retention</h2>
+                    <button onclick="loadRetention()" style="padding:7px 14px; background:var(--coral); color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:13px;">↻ Refresh</button>
+                </div>
+                <p style="font-size: 13px; color: rgba(245,243,240,0.55); margin: -6px 0 16px; line-height: 1.6;">
+                    Repeat-buyer rates from <strong>confirmed</strong> ticket purchases (join key: email — covers both guests and members). Use this to decide when to switch subscriptions back on in <code>/signup</code>.
+                </p>
+                <div id="retentionBody"><div class="spinner"></div></div>
             </div>
         </div>
 
@@ -1942,6 +1956,150 @@
             }).join('');
         }
 
+        // ─── RETENTION ─────────────────────────────────────
+        // Repeat-attendance tracking from CONFIRMED ticket purchases. The
+        // join key is buyer email (a guest and a member both produce a
+        // tickets row). Subscriptions are paused pre-launch; these return
+        // rates decide if/when to switch them back on (see signup.html
+        // SUBSCRIPTIONS_ENABLED).
+        const toEventDate = (e) =>
+            e && e.date && e.date.toDate ? e.date.toDate()
+            : (e && e.date ? new Date(e.date) : null);
+
+        function retentionColor(rate) {
+            if (rate >= 40) return 'rgba(74, 222, 128, 0.18)';  // strong
+            if (rate >= 25) return 'rgba(212, 175, 55, 0.18)';  // ok
+            return 'rgba(248, 113, 113, 0.15)';                 // weak
+        }
+
+        async function loadRetention() {
+            const root = document.getElementById('retentionBody');
+            root.innerHTML = '<div class="spinner"></div>';
+            try {
+                const [evSnap, tkSnap] = await Promise.all([
+                    getDocs(query(collection(db, 'events'), orderBy('date', 'asc'))),
+                    getDocs(collection(db, 'tickets')),
+                ]);
+
+                const evById = {};
+                evSnap.docs.forEach(d => { evById[d.id] = { id: d.id, ...d.data() }; });
+
+                // eventId -> Set(lowercased email) from confirmed tickets only.
+                const emailsByEvent = {};
+                tkSnap.docs.forEach(d => {
+                    const t = d.data();
+                    if (t.status !== 'confirmed' || !t.eventId || !t.email) return;
+                    const key = String(t.eventId);
+                    (emailsByEvent[key] = emailsByEvent[key] || new Set())
+                        .add(String(t.email).toLowerCase());
+                });
+
+                // Events that actually sold ≥1 confirmed ticket, oldest first.
+                const sold = Object.keys(emailsByEvent).map(id => {
+                    const e = evById[id] || {};
+                    const dt = toEventDate(e);
+                    return {
+                        id, dt,
+                        dateLabel: dt && !isNaN(dt) ? dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : (e.date || '—'),
+                        venue: e.venue || e.title || '(unknown event)',
+                        emails: emailsByEvent[id],
+                        count: emailsByEvent[id].size,
+                    };
+                }).sort((a, b) => (a.dt ? a.dt.getTime() : 0) - (b.dt ? b.dt.getTime() : 0));
+
+                // Consecutive-event return rates.
+                const retention = [];
+                for (let i = 0; i < sold.length - 1; i++) {
+                    const cur = sold[i], nxt = sold[i + 1];
+                    let returnees = 0;
+                    nxt.emails.forEach(em => { if (cur.emails.has(em)) returnees++; });
+                    retention.push({
+                        fromLabel: cur.dateLabel, fromVenue: cur.venue, toLabel: nxt.dateLabel,
+                        base: cur.count, returnees,
+                        rate: cur.count ? (returnees / cur.count * 100) : 0,
+                        newcomers: nxt.count - returnees,
+                    });
+                }
+
+                const unique = new Set();
+                sold.forEach(s => s.emails.forEach(em => unique.add(em)));
+                const avg = sold.length ? Math.round(sold.reduce((n, s) => n + s.count, 0) / sold.length) : 0;
+
+                renderRetention({
+                    sold, retention,
+                    totalEvents: sold.length,
+                    unique: unique.size,
+                    avg,
+                    last: sold.length ? sold[sold.length - 1].dateLabel : 'TBD',
+                });
+            } catch (err) {
+                console.error('[retention] load error:', err);
+                root.innerHTML = '<p class="empty">Error loading retention data. Check Firestore rules / admin claim.</p>';
+            }
+        }
+        window.loadRetention = loadRetention;
+
+        function renderRetention(d) {
+            const root = document.getElementById('retentionBody');
+            if (!d.totalEvents) {
+                root.innerHTML = '<p class="empty">No confirmed ticket sales yet. This populates once your first event sells tickets.</p>';
+                return;
+            }
+            const stat = (label, val) => `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,107,107,0.2); border-left: 4px solid var(--coral); border-radius: 6px; padding: 18px 20px;">
+                    <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:rgba(245,243,240,0.55); margin-bottom:6px;">${label}</div>
+                    <div style="font-size:26px; font-weight:800; color:var(--white);">${val}</div>
+                </div>`;
+
+            const cards = `
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-bottom:28px;">
+                    ${stat('Events w/ Sales', d.totalEvents)}
+                    ${stat('Unique Buyers', d.unique)}
+                    ${stat('Avg Tickets/Event', d.avg)}
+                    ${stat('Latest Event', safe(d.last))}
+                </div>`;
+
+            const rateRows = d.retention.length
+                ? d.retention.map(r => `
+                    <tr>
+                        <td>${safe(r.fromLabel)} <span style="color:rgba(245,243,240,0.45);">→</span> ${safe(r.toLabel)}
+                            <div style="font-size:12px; color:rgba(245,243,240,0.45);">${safe(r.fromVenue)}</div></td>
+                        <td style="text-align:center;">${r.base}</td>
+                        <td style="text-align:center; color:var(--coral); font-weight:700;">${r.returnees}</td>
+                        <td style="text-align:center;"><span style="background:${retentionColor(r.rate)}; padding:4px 10px; border-radius:4px; font-weight:700;">${r.rate.toFixed(1)}%</span></td>
+                        <td style="text-align:center;">${r.newcomers}</td>
+                    </tr>`).join('')
+                : '<tr><td colspan="5" class="empty">Need at least 2 events with sales to compute return rates.</td></tr>';
+
+            const table = `
+                <h3 style="margin:0 0 14px; color:var(--white);">Return Rate (event → next event)</h3>
+                <table>
+                    <thead><tr>
+                        <th>From → To</th>
+                        <th style="text-align:center;">Buyers</th>
+                        <th style="text-align:center;">Returned</th>
+                        <th style="text-align:center;">Return %</th>
+                        <th style="text-align:center;">New</th>
+                    </tr></thead>
+                    <tbody>${rateRows}</tbody>
+                </table>`;
+
+            const timeline = `
+                <h3 style="margin:32px 0 14px; color:var(--white);">Tickets per Event</h3>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                    ${d.sold.map(s => `
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px; background:rgba(255,255,255,0.03); border-left:4px solid var(--coral); border-radius:4px;">
+                            <div><strong style="color:var(--white);">${safe(s.dateLabel)}</strong>
+                                <div style="font-size:12px; color:rgba(245,243,240,0.5);">${safe(s.venue)}</div></div>
+                            <div style="text-align:right;">
+                                <div style="font-size:20px; font-weight:800; color:var(--coral);">${s.count}</div>
+                                <div style="font-size:11px; color:rgba(245,243,240,0.5);">buyers</div></div>
+                        </div>`).join('')}
+                </div>`;
+
+            root.innerHTML = cards + table + timeline;
+        }
+
         // ─── Tab Switching ────────────────────────────────
         window.switchTab = (id, btn) => {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -1951,6 +2109,7 @@
             if (id === 'venues') loadVenues();
             if (id === 'leads')  loadLeads();
             if (id === 'events') populateVenuePicker();
+            if (id === 'retention') loadRetention();
         };
 
         // ─── LEADS ─────────────────────────────────────────
