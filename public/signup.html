@@ -634,7 +634,9 @@
                     <input type="email" id="email" name="email" placeholder="you@example.com" required>
                 </div>
 
-                <div class="form-group">
+                <!-- Phone hidden for now to reduce signup friction. Input kept (empty)
+                     so the handler + profile wiring stay intact; remove style="display:none" to re-enable. -->
+                <div class="form-group" style="display: none;">
                     <label for="phone">Phone Number <span style="font-weight: 400; text-transform: none; color: rgba(245, 243, 240, 0.45);">(optional)</span></label>
                     <input type="tel" id="phone" name="phone" placeholder="+1 (555) 123-4567">
                 </div>
