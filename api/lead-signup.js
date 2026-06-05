@@ -9,6 +9,8 @@
 const { Resend } = require('resend');
 const { admin } = require('../lib/auth');
 const { makeUnsubscribeUrl } = require('../lib/unsubscribe');
+const { buildUtmUrl } = require('../lib/utm');
+const { getNextEvent, eventCardHtml, ctaButtonHtml, shell, h1, p } = require('../lib/next-event');
 
 const db = admin.firestore();
 
@@ -168,46 +170,39 @@ module.exports = async function handler(req, res) {
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
 
+    // Show the next upcoming event (dynamic) with a "Get Tickets" CTA.
+    // Fails soft to an evergreen card when nothing is scheduled.
+    const nextEvent = await getNextEvent(db);
+    const ctaUrl = nextEvent
+      ? buildUtmUrl('/event?id=' + nextEvent.id, 'email', 'nurture', 'welcome')
+      : buildUtmUrl('/events', 'email', 'nurture', 'welcome');
+
+    const welcomeHtml = shell(
+      h1('Your app matched you.<br>We host the date.') +
+      p(`Hey ${safeFirstName},`) +
+      p('You know that feeling when you match on an app and then... three weeks of texting and still no actual date?') +
+      p('Yeah. We built SparkDate to skip that part.') +
+      p('We host real, in-person mixers in Philadelphia. You show up, meet a dozen-plus people in short, low-pressure rounds, and swap numbers with anyone you click with. No swiping. No pen-pal phase. Just actual meetings.') +
+      eventCardHtml(nextEvent) +
+      ctaButtonHtml(ctaUrl, 'Get Tickets') +
+      `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">
+        <strong>How it works:</strong> arrive &amp; check in → 4 rounds, ~7 min each → meet 12+ people → swap info if you vibe. That's it.
+      </div>` +
+      p('Questions? Just reply to this email.') +
+      p('See you there,<br>The SparkDate Team')
+    ).replace(/__UNSUB__/g, unsubUrl);
+
     const emailResult = await resend.emails.send({
       from: 'SparkDate <hello@mail.sparkdate.date>',
       to: email,
-      subject: "You're in. Welcome to SparkDate.",
+      subject: 'Your app matched you. We host the date. 🎯',
       headers: {
         // RFC 8058 one-click unsubscribe. Required by Gmail and a strong
         // deliverability signal for everyone else.
         'List-Unsubscribe':      `<${unsubUrl}>, <mailto:hello@sparkdate.date?subject=Unsubscribe>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
       },
-      html: `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><style>
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
-.container{max-width:600px;margin:0 auto;background:#fff}
-.header{background:#0a0e27;padding:40px 30px;text-align:center}
-.logo{font-family:Georgia,serif;font-size:32px;font-weight:900;color:#fff;letter-spacing:-1px}
-.logo span{color:#ff6b6b}
-.content{padding:40px 30px}
-h1{font-family:Georgia,serif;font-size:28px;color:#0a0e27;margin:0 0 20px;font-weight:900}
-p{font-size:16px;line-height:1.7;color:#1a1f3a;margin:0 0 18px}
-.highlight{color:#ff6b6b;font-weight:600}
-.footer{background:#0a0e27;padding:30px;text-align:center;color:#888;font-size:12px}
-.footer a{color:#ff6b6b;text-decoration:none}
-</style></head>
-<body><div class="container">
-  <div class="header"><div class="logo">Spark<span>Date</span></div></div>
-  <div class="content">
-    <h1>Welcome to SparkDate, ${safeFirstName}.</h1>
-    <p>You just did something most people won't — you stopped swiping and started showing up.</p>
-    <p>Here's what happens next:</p>
-    <p><strong>1. We curate.</strong> Our team reviews every member to keep events high-quality.<br>
-       <strong>2. We invite.</strong> You'll get your first event invitation within 7 days.<br>
-       <strong>3. You show up.</strong> No swiping. No pen pals. Real people, real conversations.</p>
-    <p>See you soon,<br><span class="highlight">The SparkDate Team</span></p>
-  </div>
-  <div class="footer">
-    <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
-    <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="${unsubUrl}">Unsubscribe</a></p>
-  </div>
-</div></body></html>`
+      html: welcomeHtml,
     });
 
     console.log('📧 Resend response:', JSON.stringify(emailResult));

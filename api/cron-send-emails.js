@@ -6,335 +6,114 @@
 // registers TWO daily schedules — 13:00 UTC (= 9 AM EDT) and 14:00 UTC
 // (= 9 AM EST). Whichever one is actually 9 AM Eastern today runs; the
 // other no-ops via the hour guard in the handler below.
+//
+// Copy: the "app-supplement" positioning — "Your app matched you. We host
+// the date." Every email shows the NEXT upcoming event (pulled live via
+// lib/next-event) with a dynamic "X days away", falling back to an
+// evergreen card when nothing is scheduled.
 
 const { Resend } = require('resend');
 const { admin } = require('../lib/auth');
 const { makeUnsubscribeUrl } = require('../lib/unsubscribe');
-const { EMAIL_CAMPAIGNS: UTM } = require('../lib/utm');
+const { EMAIL_CAMPAIGNS: UTM, buildUtmUrl } = require('../lib/utm');
+const { getNextEvent, eventCardHtml, ctaButtonHtml, urgencyBox, shell, h1, p, esc } = require('../lib/next-event');
 
 const db = admin.firestore();
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ── Email templates (your actual HTML files) ─────────────────────────────────
+// ── Email templates ──────────────────────────────────────────────────
+// Each html(firstName, event, ctaUrl) returns a full HTML doc. `firstName`
+// is pre-escaped by the caller; `event` may be null (evergreen fallback);
+// `ctaUrl` is a UTM-tagged link to the next event (or /events).
 
 const EMAILS = {
+  // Email 2 (Day 7 in the spec): the conversion-math hook.
   day2: {
-    subject: 'How SparkDate actually works (read this)',
-    html: (firstName) => `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f3f0; margin: 0; padding: 0; color: #0a0e27; }
-  .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
-  .header { background: #0a0e27; padding: 40px 30px; text-align: center; }
-  .logo { font-family: Georgia, serif; font-size: 32px; font-weight: 900; color: #ffffff; letter-spacing: -1px; }
-  .logo span { color: #ff6b6b; }
-  .content { padding: 40px 30px; }
-  h1 { font-family: Georgia, serif; font-size: 28px; color: #0a0e27; margin: 0 0 20px; font-weight: 900; }
-  h2 { font-family: Georgia, serif; font-size: 20px; color: #ff6b6b; margin: 30px 0 12px; }
-  p { font-size: 16px; line-height: 1.7; color: #1a1f3a; margin: 0 0 18px; }
-  .highlight { color: #ff6b6b; font-weight: 600; }
-  .step { background: #f5f3f0; padding: 20px; border-left: 3px solid #ff6b6b; margin: 16px 0; }
-  .step strong { color: #0a0e27; }
-  .footer { background: #0a0e27; padding: 30px; text-align: center; color: #888; font-size: 12px; }
-  .footer a { color: #ff6b6b; text-decoration: none; }
-</style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="logo">Spark<span>Date</span></div>
-    </div>
-    <div class="content">
-      <h1>Here's exactly how it works.</h1>
-
-      <p>${firstName}, we get a lot of "wait, how is this different from Tinder?" questions. So here's the simple version:</p>
-
-      <h2>The 3-step model:</h2>
-
-      <div class="step">
-        <strong>1. We host curated events.</strong><br>
-        Cocktail nights, dinners, cooking classes, rooftop mixers — all at real Philly venues. Each event has 25-35 people, pre-screened for the right vibe.
-      </div>
-
-      <div class="step">
-        <strong>2. You attend.</strong><br>
-        No swiping, no profiles to optimize. Show up, meet people face-to-face. Our hostess handles the introductions.
-      </div>
-
-      <div class="step">
-        <strong>3. You connect.</strong><br>
-        Vibe with someone? Exchange numbers the old-fashioned way. The app gets you off the app. That's the point.
-      </div>
-
-      <h2>What makes SparkDate different:</h2>
-
-      <p>
-        ✓ <strong>No swiping.</strong> Algorithms can't measure chemistry.<br>
-        ✓ <strong>No ghosting.</strong> You're meeting in person.<br>
-        ✓ <strong>No pen-pal phase.</strong> Skip the 3-week message chains.<br>
-        ✓ <strong>No bots.</strong> Every member is verified.
-      </p>
-
-      <p>Your first event invite is coming. Stay tuned.</p>
-
-      <p>Talk soon,<br>
-      <span class="highlight">The SparkDate Team</span></p>
-    </div>
-    <div class="footer">
-      <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
-      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="__UNSUB__">Unsubscribe</a></p>
-    </div>
-  </div>
-</body>
-</html>`
+    subject: '70% of people exchange contact info',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('70% exchange contact info.') +
+      p(`${firstName}, quick stat: roughly <strong>70% of people who come to a SparkDate night</strong> leave having swapped contact info with someone.`) +
+      p('On the apps? Match-to-date conversion is closer to 0.5%.') +
+      p("The difference is simple — you're meeting face to face, where chemistry is instant, instead of texting for three weeks until the thread quietly dies.") +
+      `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">
+        <strong>The apps:</strong> 6 months · 12 matches · 0 dates<br>
+        <strong>SparkDate:</strong> one night · 12 conversations · a couple of real ones
+      </div>` +
+      p('One night beats six months. Every time.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Get Tickets') +
+      p('Questions? Just reply — we read every message.') +
+      p('See you there,<br>The SparkDate Team')
+    ),
   },
+
+  // Email 3 (Day 14 in the spec): scarcity (generic — we don't track exact
+  // remaining seats in this email).
   day5: {
-    subject: 'Your first SparkDate event is here',
-    html: (firstName) => `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f3f0; margin: 0; padding: 0; color: #0a0e27; }
-  .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
-  .header { background: #0a0e27; padding: 40px 30px; text-align: center; }
-  .logo { font-family: Georgia, serif; font-size: 32px; font-weight: 900; color: #ffffff; letter-spacing: -1px; }
-  .logo span { color: #ff6b6b; }
-  .content { padding: 40px 30px; }
-  h1 { font-family: Georgia, serif; font-size: 28px; color: #0a0e27; margin: 0 0 20px; font-weight: 900; }
-  p { font-size: 16px; line-height: 1.7; color: #1a1f3a; margin: 0 0 18px; }
-  .event-card { background: #0a0e27; color: #ffffff; padding: 30px; border-radius: 6px; margin: 24px 0; }
-  .event-card h2 { font-family: Georgia, serif; font-size: 24px; color: #ff6b6b; margin: 0 0 12px; }
-  .event-card p { color: #f5f3f0; margin: 0 0 10px; font-size: 14px; }
-  .event-card .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-  .button { display: inline-block; background: #ff6b6b; color: #ffffff !important; padding: 14px 32px; text-decoration: none; border-radius: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 13px; }
-  .highlight { color: #ff6b6b; font-weight: 600; }
-  .urgency { background: #fff3cd; color: #856404; padding: 12px 16px; border-radius: 4px; font-size: 14px; margin: 20px 0; }
-  .footer { background: #0a0e27; padding: 30px; text-align: center; color: #888; font-size: 12px; }
-  .footer a { color: #ff6b6b; text-decoration: none; }
-</style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="logo">Spark<span>Date</span></div>
-    </div>
-    <div class="content">
-      <h1>You're invited, ${firstName}.</h1>
-
-      <p>Your first SparkDate event is right around the corner. We've curated the guest list and now we want you in it.</p>
-
-      <div class="event-card">
-        <div class="label">Event #1 · Founding Members</div>
-        <h2>SparkDate Founders Mixer</h2>
-        <p>📅 <strong>Coming Soon — stay tuned</strong></p>
-        <p>📍 <strong>Rittenhouse Square, Philadelphia</strong></p>
-        <p>👥 <strong>25 people · pre-screened</strong></p>
-        <p>💰 <strong>FREE (Founding Members)</strong></p>
-      </div>
-
-      <p>Here's what to expect:</p>
-
-      <p>
-        ✓ Arrive any time after 7:00 PM<br>
-        ✓ Our hostess will greet you, introduce you to people<br>
-        ✓ Structured intros and real conversations<br>
-        ✓ Leave with a few real connections (or numbers — your call)
-      </p>
-
-      <div class="urgency">
-        ⏰ <strong>This event has limited capacity.</strong> Founding members get first pick — but spots are filling fast.
-      </div>
-
-      <p style="text-align: center;">
-        <a href="${UTM.day5.events}" class="button">Reserve Your Spot</a>
-      </p>
-
-      <p>Questions? Just reply to this email — we read every message.</p>
-
-      <p>See you there,<br>
-      <span class="highlight">The SparkDate Team</span></p>
-    </div>
-    <div class="footer">
-      <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
-      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="__UNSUB__">Unsubscribe</a></p>
-    </div>
-  </div>
-</body>
-</html>`
+    subject: 'Spots are limited for our next mixer',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('Spots are limited.') +
+      p(`${firstName}, our mixers are intentionally small — enough people to meet a dozen new faces, few enough that it never feels like a cattle call.`) +
+      p("That also means seats go quickly. If you've been thinking about it, grab yours before it fills.") +
+      eventCardHtml(event) +
+      urgencyBox('⏰ <strong>We cap every event on purpose.</strong> Lock in your seat while there\'s room.') +
+      ctaButtonHtml(ctaUrl, 'Reserve Your Spot') +
+      p('See you there,<br>The SparkDate Team')
+    ),
   },
+
+  // Email 4 (Day 21 in the spec): what-to-expect / the format. Timing is
+  // described relative to the real event time, not hardcoded clock stamps.
   day14: {
-    subject: 'Why we built SparkDate',
-    html: (firstName) => `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f3f0; margin: 0; padding: 0; color: #0a0e27; }
-  .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
-  .header { background: #0a0e27; padding: 40px 30px; text-align: center; }
-  .logo { font-family: Georgia, serif; font-size: 32px; font-weight: 900; color: #ffffff; letter-spacing: -1px; }
-  .logo span { color: #ff6b6b; }
-  .content { padding: 40px 30px; }
-  h1 { font-family: Georgia, serif; font-size: 28px; color: #0a0e27; margin: 0 0 20px; font-weight: 900; }
-  p { font-size: 16px; line-height: 1.7; color: #1a1f3a; margin: 0 0 18px; }
-  .stat { font-family: Georgia, serif; font-size: 42px; color: #ff6b6b; font-weight: 900; line-height: 1; }
-  .stat-label { font-size: 13px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
-  .stats-grid { display: table; width: 100%; margin: 30px 0; }
-  .stat-cell { display: table-cell; text-align: center; padding: 0 10px; }
-  .pullquote { font-family: Georgia, serif; font-size: 22px; line-height: 1.5; color: #0a0e27; border-left: 4px solid #ff6b6b; padding: 12px 24px; margin: 30px 0; font-style: italic; }
-  .highlight { color: #ff6b6b; font-weight: 600; }
-  .footer { background: #0a0e27; padding: 30px; text-align: center; color: #888; font-size: 12px; }
-  .footer a { color: #ff6b6b; text-decoration: none; }
-</style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="logo">Spark<span>Date</span></div>
-    </div>
-    <div class="content">
-      <h1>Why we built this.</h1>
-
-      <p>${firstName}, I want to tell you something that took me a while to admit:</p>
-
-      <p>Dating apps are designed to fail you.</p>
-
-      <p>Not in a malicious way — but the business model literally depends on it. The longer you stay single and swiping, the more revenue they make. The system is rigged.</p>
-
-      <div class="stats-grid">
-        <div class="stat-cell">
-          <div class="stat">78%</div>
-          <div class="stat-label">Report burnout</div>
-        </div>
-        <div class="stat-cell">
-          <div class="stat">72%</div>
-          <div class="stat-label">Want IRL</div>
-        </div>
-        <div class="stat-cell">
-          <div class="stat">38%</div>
-          <div class="stat-label">Show depression symptoms</div>
-        </div>
-      </div>
-
-      <p>Those numbers come from <em>actual</em> studies — Forbes Health, Bumble's own reports, peer-reviewed research. They're not exaggerations.</p>
-
-      <div class="pullquote">
-        "I don't want to just be chatting people online. I don't want a pen pal."
-        <div style="font-size: 13px; font-style: normal; color: #666; margin-top: 8px;">— Gen Z user, Fortune Magazine, 2025</div>
-      </div>
-
-      <p>So we built something different. <span class="highlight">SparkDate is the app that gets you off the app.</span></p>
-
-      <p>You're not a metric. You're not a daily-active-user. You're a person looking for connection. And we believe connection happens in real life — over a glass of wine, on a rooftop at sunset, in a room full of people who chose to show up.</p>
-
-      <p>You're in the founding cohort. You're helping us prove this works. Thank you.</p>
-
-      <p>— <span class="highlight">Taylor Chambers</span><br>
-      Founder, SparkDate</p>
-    </div>
-    <div class="footer">
-      <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
-      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="__UNSUB__">Unsubscribe</a></p>
-    </div>
-  </div>
-</body>
-</html>`
+    subject: "Here's exactly what to expect",
+    html: (firstName, event, ctaUrl) => {
+      const doors = event && event.timeLabel ? esc(event.timeLabel) : 'the listed start time';
+      return shell(
+        h1("Here's exactly what to expect.") +
+        p(`${firstName}, nervous? Don't be. Here's how a SparkDate night actually runs:`) +
+        `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">
+          <strong>Doors at ${doors}.</strong> Check in, grab a name tag (first name only).<br>
+          <strong>4 rounds, ~7 minutes each.</strong> A real conversation with a dozen-plus people.<br>
+          <strong>A bell marks each switch.</strong> No scripts, no pressure.<br>
+          <strong>Then: open mingling.</strong> Swap numbers with anyone you clicked with.
+        </div>` +
+        p('Bring yourself and an open mind. Leave the expectations (and the nerves — everyone\'s a little nervous) at the door.') +
+        eventCardHtml(event) +
+        ctaButtonHtml(ctaUrl, 'Get Tickets') +
+        p('See you there,<br>The SparkDate Team')
+      );
+    },
   },
+
+  // Email 5 (Day 28 in the spec): final nudge. (Replaces the old
+  // trial-ending/upgrade email — leads aren't subscribers and subscriptions
+  // are paused, so that copy was off-audience and off-message.)
   day25: {
-    subject: 'Your trial ends in 5 days — what happens next',
-    html: (firstName) => `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f3f0; margin: 0; padding: 0; color: #0a0e27; }
-  .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
-  .header { background: #0a0e27; padding: 40px 30px; text-align: center; }
-  .logo { font-family: Georgia, serif; font-size: 32px; font-weight: 900; color: #ffffff; letter-spacing: -1px; }
-  .logo span { color: #ff6b6b; }
-  .content { padding: 40px 30px; }
-  h1 { font-family: Georgia, serif; font-size: 28px; color: #0a0e27; margin: 0 0 20px; font-weight: 900; }
-  p { font-size: 16px; line-height: 1.7; color: #1a1f3a; margin: 0 0 18px; }
-  .countdown { background: linear-gradient(135deg, #ff6b6b, #ff5252); color: #ffffff; padding: 30px; text-align: center; border-radius: 6px; margin: 24px 0; }
-  .countdown .days { font-family: Georgia, serif; font-size: 56px; font-weight: 900; line-height: 1; }
-  .countdown .label { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; margin-top: 8px; opacity: 0.9; }
-  .tier-comparison { width: 100%; border-collapse: collapse; margin: 20px 0; }
-  .tier-comparison td { padding: 14px; border-bottom: 1px solid #e8e4df; font-size: 14px; }
-  .tier-comparison .name { font-weight: 700; color: #0a0e27; }
-  .tier-comparison .price { color: #ff6b6b; font-weight: 700; }
-  .button { display: inline-block; background: #ff6b6b; color: #ffffff !important; padding: 14px 32px; text-decoration: none; border-radius: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 13px; margin: 8px; }
-  .button-secondary { background: transparent; color: #0a0e27 !important; border: 2px solid #0a0e27; }
-  .highlight { color: #ff6b6b; font-weight: 600; }
-  .footer { background: #0a0e27; padding: 30px; text-align: center; color: #888; font-size: 12px; }
-  .footer a { color: #ff6b6b; text-decoration: none; }
-</style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="logo">Spark<span>Date</span></div>
-    </div>
-    <div class="content">
-      <h1>5 days left, ${firstName}.</h1>
-
-      <p>Your free Spark trial is ending soon. Here's what you need to know:</p>
-
-      <div class="countdown">
-        <div class="days">5</div>
-        <div class="label">Days until 30 days from signup</div>
-      </div>
-
-      <p>On <strong>30 days from signup</strong>, your card will be charged <span class="highlight">$9.99/month</span> for the Spark tier — unless you change plans or cancel.</p>
-
-      <p>Want more events? Here are your options:</p>
-
-      <table class="tier-comparison">
-        <tr>
-          <td class="name">Spark<br><span style="font-size: 12px; color: #666; font-weight: normal;">1 event/month · Basic matching</span></td>
-          <td class="price">$9.99/mo</td>
-          <td style="text-align: right;"><span style="color: #888; font-size: 12px;">Current plan</span></td>
-        </tr>
-        <tr>
-          <td class="name">Kindling<br><span style="font-size: 12px; color: #666; font-weight: normal;">3 events/month · Advanced matching · Priority access</span></td>
-          <td class="price">$19.99/mo</td>
-          <td style="text-align: right;"><a href="${UTM.day25.upgradeMid}" style="color: #ff6b6b; font-size: 12px;">Upgrade →</a></td>
-        </tr>
-        <tr>
-          <td class="name">Fire<br><span style="font-size: 12px; color: #666; font-weight: normal;">Unlimited events · VIP matching · Exclusive gatherings</span></td>
-          <td class="price">$39.99/mo</td>
-          <td style="text-align: right;"><a href="${UTM.day25.upgradePremium}" style="color: #ff6b6b; font-size: 12px;">Upgrade →</a></td>
-        </tr>
-      </table>
-
-      <p style="text-align: center; margin-top: 30px;">
-        <a href="${UTM.day25.account}" class="button">Manage Subscription</a>
-      </p>
-
-      <p>Loving SparkDate so far? Reply and let us know — we read every message. Not loving it? Reply anyway. We want to make this better.</p>
-
-      <p>Thanks for being a founding member,<br>
-      <span class="highlight">The SparkDate Team</span></p>
-    </div>
-    <div class="footer">
-      <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
-      <p><a href="https://sparkdate.date">sparkdate.date</a> · <a href="__UNSUB__">Unsubscribe</a> · <a href="${UTM.day25.account}">Manage subscription</a></p>
-    </div>
-  </div>
-</body>
-</html>`
-  }
+    subject: "Don't miss our next mixer",
+    html: (firstName, event, ctaUrl) => shell(
+      h1("Don't miss the next one.") +
+      p(`${firstName}, our next SparkDate night is <strong>${event ? esc(event.daysAwayLabel) : 'coming up'}</strong> — and we'd love to see you there.`) +
+      eventCardHtml(event) +
+      `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">
+        <strong>Quick reminders:</strong><br>
+        • Arrive a few minutes early for check-in.<br>
+        • Bring a way to swap contact info.<br>
+        • Just be yourself — everyone's in the same boat.
+      </div>` +
+      ctaButtonHtml(ctaUrl, 'Get Tickets') +
+      p("Can't make this one? Reply and let us know — we'll make sure you hear about the next.") +
+      p('See you soon,<br>The SparkDate Team')
+    ),
+  },
 };
 
 // Max days an email may go out past its target day. Wide enough to ride
-// out a missed cron run / a backlog; tight enough that the day25 "trial
-// ending" mail never reaches someone who signed up months ago.
+// out a missed cron run / a backlog; tight enough that the day25 mail
+// never reaches someone who signed up months ago.
 const MAX_LATE_DAYS = 21;
 
 // ── Send one day-bucket's email to every eligible lead ───────────────
-async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun) {
+async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event) {
   let sent = 0;
   let skipped = 0;
   const errors = [];
@@ -347,10 +126,7 @@ async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun) {
     const lead = leadDoc.data();
 
     // Already sent? A MISSING `${emailKey}_sent` field reads as falsy
-    // here, so leads created before those fields existed are now picked
-    // up. The original `where(${emailKey}_sent == false)` query skipped
-    // them entirely — Firestore equality filters ignore documents that
-    // lack the field — which is why Day 2/5/14/25 mail never went out.
+    // here, so leads created before those fields existed are picked up.
     if (lead[`${emailKey}_sent`]) { skipped++; continue; }
 
     const created = lead.createdAt?.toDate ? lead.createdAt.toDate()
@@ -361,9 +137,13 @@ async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun) {
     const ageDays = (nowMs - created.getTime()) / 86400000;
     if (ageDays < dayNum || ageDays > dayNum + MAX_LATE_DAYS) { skipped++; continue; }
 
-    const firstName = lead.name ? lead.name.split(' ')[0] : 'there';
+    const firstName = esc(lead.name ? lead.name.split(' ')[0] : 'there');
     const tmpl      = EMAILS[emailKey];
     const unsubUrl  = makeUnsubscribeUrl(leadDoc.id, lead.email);
+    // CTA → the specific next event's checkout when we have one, else /events.
+    const ctaUrl = event
+      ? buildUtmUrl('/event?id=' + event.id, 'email', 'nurture', emailKey)
+      : ((UTM[emailKey] && UTM[emailKey].events) || buildUtmUrl('/events', 'email', 'nurture', emailKey));
 
     try {
       const result = await resend.emails.send({
@@ -373,11 +153,8 @@ async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun) {
         // Per-lead unsubscribe URL is interpolated AFTER template render —
         // each Resend send gets its own signed token so a recipient can
         // unsubscribe themselves but can't unsubscribe anyone else.
-        html:    tmpl.html(firstName).replace(/__UNSUB__/g, unsubUrl),
-        // RFC 8058: gives Gmail / iOS Mail / Outlook a native one-click
-        // unsubscribe button at the top of the message. Required by Gmail
-        // for senders over 5k/day, and a strong deliverability signal at
-        // any volume.
+        html:    tmpl.html(firstName, event, ctaUrl).replace(/__UNSUB__/g, unsubUrl),
+        // RFC 8058: native one-click unsubscribe for Gmail / iOS / Outlook.
         headers: {
           'List-Unsubscribe':      `<${unsubUrl}>, <mailto:hello@sparkdate.date?subject=Unsubscribe>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
@@ -431,12 +208,14 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    // The single next upcoming event shown in every email this run.
+    const event = await getNextEvent(db);
+
     // Fetch every subscribed lead ONCE, then evaluate each day-bucket in
     // code. The query intentionally filters ONLY on `subscribed` — never
-    // on `dayN_sent` — because a Firestore equality filter skips
-    // documents that lack the field, which is exactly how the nurture
-    // sequence went silently dead (leads are created without those
-    // fields). Filtering in code treats a missing field as "not sent".
+    // on `dayN_sent` — because a Firestore equality filter skips documents
+    // that lack the field, which is exactly how the nurture sequence went
+    // silently dead. Filtering in code treats a missing field as "not sent".
     const snap = await db.collection('leads').where('subscribed', '==', true).get();
     const leads = snap.docs;
     const nowMs = Date.now();
@@ -446,14 +225,17 @@ module.exports = async function handler(req, res) {
     const emailedThisRun = new Set();
     const results = [];
     for (const [dayNum, key] of [[2, 'day2'], [5, 'day5'], [14, 'day14'], [25, 'day25']]) {
-      results.push(await sendBucket(leads, dayNum, key, nowMs, emailedThisRun));
+      results.push(await sendBucket(leads, dayNum, key, nowMs, emailedThisRun, event));
     }
 
     console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results));
-    return res.status(200).json({ success: true, leads: leads.length, results, ts: new Date().toISOString() });
+    return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, ts: new Date().toISOString() });
 
   } catch (err) {
     console.error('❌ Cron error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 };
+
+// Exported for unit tests (tests/email-render.test.js).
+module.exports.EMAILS = EMAILS;
