@@ -73,7 +73,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Allowlist of lead sources the client may declare. Anything else is
 // coerced to 'founding_form' so an attacker can't inject arbitrary source
 // strings into our analytics. Keep in sync with the public forms.
-const ALLOWED_SOURCES = new Set(['founding_form', 'newsletter', 'referral']);
+const ALLOWED_SOURCES = new Set(['founding_form', 'newsletter', 'referral', 'ad_landing']);
 
 function clean(value, max) {
   return String(value ?? '').trim().slice(0, max);

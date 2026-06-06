@@ -525,20 +525,18 @@
          the right event page; falls back to /events if the API errors. -->
     <section class="event-cta" id="eventCta">
         <div class="event-cta-inner">
-            <div class="event-cta-eyebrow">Early Bird Pricing · Ends May 31</div>
-            <h2 class="event-cta-title">Founders Mixer</h2>
-            <div class="event-cta-meta">
-                <span>📍 American Bar &amp; Grill, Lancaster</span>
+            <div class="event-cta-eyebrow" id="eventCtaEyebrow">Upcoming Mixer</div>
+            <h2 class="event-cta-title" id="eventCtaTitle">SparkDate Mixer</h2>
+            <div class="event-cta-meta" id="eventCtaMeta">
+                <span>📍 A real Philly venue</span>
             </div>
             <a class="event-cta-button" id="eventCtaBtn" href="/events">
-                🎟️ Get Tickets — $18 <span class="regular-price">$25</span>
+                🎟️ Get Tickets
             </a>
-            <div class="event-cta-limit">Limited to 30 people</div>
             <div class="event-cta-sub">Secure checkout · no account needed</div>
             <ul class="event-cta-trust">
-                <li>Only 8 spots left at early bird price</li>
                 <li>100% money-back guarantee if you hate it</li>
-                <li>Join 2,000+ looking for real connections</li>
+                <li>Curated, pre-screened guest list</li>
             </ul>
         </div>
     </section>
@@ -550,16 +548,54 @@
       (function () {
         var btn = document.getElementById('eventCtaBtn');
         if (!btn) return;
+        var $ = function (id) { return document.getElementById(id); };
+        var fmt = function (n) { n = Number(n); return '$' + (n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)); };
         fetch('/api/next-event')
           .then(function (r) { return r.json(); })
           .then(function (data) {
             var ev = data && data.event;
-            if (ev && ev.id) {
-              btn.href = '/event?id=' + encodeURIComponent(ev.id);
+            if (!ev || !ev.id) return; // no upcoming event → keep generic copy + /events
+
+            if ($('eventCtaTitle')) $('eventCtaTitle').textContent = ev.title || 'SparkDate Mixer';
+
+            var d = ev.date ? new Date(ev.date) : null;
+            var dateLabel = d ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+            var daysAway = '';
+            if (d) {
+              var diff = Math.ceil((d.getTime() - Date.now()) / 86400000);
+              daysAway = diff <= 0 ? 'Today' : (diff === 1 ? 'Tomorrow' : 'in ' + diff + ' days');
             }
-            // No event resolved → keep the /events fallback href.
+            var venue = ev.venue ? ('📍 ' + ev.venue + (ev.neighborhood ? ', ' + ev.neighborhood : '')) : '';
+            var meta = [venue, dateLabel ? ('📅 ' + dateLabel + (daysAway ? ' · ' + daysAway : '')) : '']
+              .filter(Boolean).map(function (t) { return '<span>' + t + '</span>'; }).join('');
+            if (meta && $('eventCtaMeta')) $('eventCtaMeta').innerHTML = meta;
+
+            var eyebrow = 'Upcoming Mixer';
+            if (ev.isEarlyBird && ev.earlyBirdEnds) {
+              eyebrow = 'Early-bird pricing · ends ' +
+                new Date(ev.earlyBirdEnds).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            }
+            if ($('eventCtaEyebrow')) $('eventCtaEyebrow').textContent = eyebrow;
+
+            if (ev.price != null) {
+              var html = '🎟️ Get Tickets — ' + fmt(ev.price);
+              if (ev.isEarlyBird && ev.regularPrice && Number(ev.regularPrice) > Number(ev.price)) {
+                html += ' <span class="regular-price">' + fmt(ev.regularPrice) + '</span>';
+              }
+              btn.innerHTML = html;
+            }
+
+            // Carry ad UTMs through to checkout so GA4 attributes the sale.
+            var qs = window.location.search;
+            var carry = (qs && qs.indexOf('utm_') !== -1) ? '&' + qs.replace(/^\?/, '') : '';
+            btn.href = '/event?id=' + encodeURIComponent(ev.id) + carry;
           })
-          .catch(function () { /* keep /events fallback */ });
+          .catch(function () { /* keep generic copy + /events fallback */ });
+
+        // GA4: measure clicks from the block into checkout (ad ROAS).
+        btn.addEventListener('click', function () {
+          if (typeof gtag === 'function') gtag('event', 'begin_checkout', { source: 'get_tickets_block' });
+        });
       })();
     </script>
 
@@ -601,18 +637,8 @@
         <form id="cohortForm">
             <!-- Honeypot: hidden from humans; bots fill it and get silently dropped server-side. -->
             <input type="text" name="website" id="hp_website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
-            <label for="name">Your Name</label>
-            <input type="text" id="name" name="name" placeholder="Jane Doe" required>
-
             <label for="email">Email</label>
             <input type="email" id="email" name="email" placeholder="jane@example.com" required>
-
-            <!-- Phone hidden for now to reduce signup friction. Kept (empty) so the
-                 handler + payload stay intact; remove this wrapper to re-enable. -->
-            <div style="display: none;">
-                <label for="phone">Phone Number <span style="font-weight: 400; text-transform: none; color: rgba(245, 243, 240, 0.45);">(optional)</span></label>
-                <input type="tel" id="phone" name="phone" placeholder="+1 (555) 123-4567">
-            </div>
 
             <button type="submit" class="form-submit">Claim Your Spot</button>
             <div id="formMessage" style="margin-top: 20px; padding: 12px; border-radius: 4px; text-align: center; display: none;"></div>
@@ -706,9 +732,7 @@
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const name = document.getElementById('name').value;
             const email = document.getElementById('email').value;
-            const phone = document.getElementById('phone').value;
             const website = (document.getElementById('hp_website') || {}).value || ''; // honeypot
             
             const originalText = submitBtn.textContent;
@@ -726,7 +750,7 @@
                 const response = await fetch('/api/lead-signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, phone, ref, source: 'founding_form', website })
+                    body: JSON.stringify({ email, ref, source: 'founding_form', website })
                 });
                 
                 const data = await response.json();
