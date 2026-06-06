@@ -86,8 +86,30 @@ console, then flip the header key from `Content-Security-Policy-Report-Only` to
 - **`gender` is required at checkout** for all events (line ~482) even though single-pool events
   don't use it for price/capacity. Fine for matching/seating — just make sure every checkout form
   always collects it (a missing value is a hard 400).
+- **Stale comment in `firestore.rules`:** the `leads` block says "from Formspree webhook" — that
+  endpoint is now `api/lead-signup.js` (Formspree was removed). Comment-only; rules are correct.
 
 ---
+
+## Security rules — reviewed, properly locked down ✅
+
+`firestore.rules` is in good shape and is the single biggest data-exposure surface, so it's worth
+calling out explicitly:
+
+- **Default-deny catch-all** (`match /{document=**} { allow read, write: if false }`) — anything not
+  explicitly allowed is denied.
+- **PII is admin-or-owner only:** `users` read = owner/admin; `leads` and `payments` read = admin only.
+  Unauthenticated traffic can read **only** public `events` (verified against the live REST API per
+  the file header: events 200, users/leads/payments 403).
+- **All sensitive collections are server-write-only** (`tickets`, `event_registrations`, `payments`,
+  `leads`, `activity`, `stripe_events`, `connection_intents` → `allow write: if false`), written only
+  via the Admin SDK which bypasses rules.
+- **No privilege escalation:** the `users` self-update whitelist deliberately excludes `tier`,
+  `subscriptionStatus`, `stripeCustomerId`, `subscriptionId` — a user can't upgrade their own tier;
+  only the Stripe webhook (Admin SDK) can.
+
+No action needed. (Tiny nit: the `users` update whitelist allows self-setting `profileCompleted` —
+harmless, since the magic-link path uses Admin SDK anyway and billing fields are excluded.)
 
 ## What's solid (no action needed)
 
