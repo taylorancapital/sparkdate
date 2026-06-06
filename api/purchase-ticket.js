@@ -225,7 +225,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 </div></body></html>`;
 }
 
-function existingUserHTML({ eventName }) {
+function existingUserHTML({ eventName, profileUrl }) {
   const safeEvent = escEmail(eventName);
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><style>
@@ -246,11 +246,14 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
   <div class="content">
     <h1>Your ticket is locked in.</h1>
     <p>You're on the list for <strong>${safeEvent}</strong>. See you there.</p>
-    <p>This email already has a SparkDate account — sign in below to see your tickets and manage your subscription.</p>
-    <p style="text-align:center;"><a class="cta" href="https://sparkdate.date/account">Log in to my account</a></p>
+    ${profileUrl ? `<p><strong>One quick thing</strong> — tell us a bit about yourself so we can seat you with the right people on the night. 60 seconds, no login needed:</p>
+    <p style="text-align:center;"><a class="cta" href="${escEmail(profileUrl)}">Complete my profile</a></p>
+    <p style="font-size:13px;color:#666;">Want to manage your subscription? <a href="https://sparkdate.date/account" style="color:#ff6b6b;">Log in to your account</a>.</p>`
+    : `<p>This email already has a SparkDate account — sign in below to see your tickets and manage your subscription.</p>
+    <p style="text-align:center;"><a class="cta" href="https://sparkdate.date/account">Log in to my account</a></p>`}
   </div>
   <div class="footer">
-    <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
+    <p>SparkDate · Philadelphia · Real people. Real venues.</p>
     <p><a href="https://sparkdate.date">sparkdate.date</a></p>
   </div>
 </div></body></html>`;
@@ -281,13 +284,28 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
   }
 
   if (existing) {
+    // "Magic link for everyone": existing buyers get the no-login profile link
+    // too — but only when their chemistry profile isn't already done, so we
+    // never nag someone who's finished. Read the user doc to decide; fail-open
+    // to the plain login email on any hiccup (the ticket already succeeded).
+    let profileUrl = '';
+    try {
+      const udoc = await db.collection('users').doc(existing.uid).get();
+      if (udoc.exists && udoc.data().profileCompleted !== true) {
+        profileUrl = makeProfileUrl(existing.uid);
+      }
+    } catch (e) {
+      console.error('[auto-enroll] existing-user profile check skipped:', e.message);
+    }
     try {
       if (process.env.RESEND_API_KEY) {
         await resend.emails.send({
           from: 'SparkDate <hello@mail.sparkdate.date>',
           to: norm,
-          subject: 'Your SparkDate ticket — log in to manage it',
-          html: existingUserHTML({ eventName }),
+          subject: profileUrl
+            ? 'Your ticket is in — one quick step to get matched'
+            : 'Your SparkDate ticket — log in to manage it',
+          html: existingUserHTML({ eventName, profileUrl }),
         });
       }
     } catch (e) {
