@@ -24,7 +24,7 @@ const { applyCors } = require('../lib/cors');
 const { TIERS, getOrCreatePrice } = require('../lib/tiers');
 const { stripe } = require('../lib/stripe');
 const { SERVICE_FEE_CENTS } = require('../lib/pricing');
-const { seatFields, ticketPriceDollars } = require('../lib/seat-model');
+const { seatFields, effectivePrice } = require('../lib/seat-model');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const db = admin.firestore();
@@ -533,8 +533,10 @@ module.exports = async function handler(req, res) {
     }
 
     // ── Server-side price computation. Client `amount` is ignored. ─
-    // Flat `price` for new events; per-gender price for legacy events.
-    const baseDollars = ticketPriceDollars(event, gender);
+    // Early-bird-aware: charges the early-bird price while the window is open,
+    // else the regular price. Same resolver the marketing block uses, so the
+    // charge always matches what was advertised.
+    const { price: baseDollars } = effectivePrice(event, gender);
     if (!isFinite(baseDollars) || baseDollars <= 0) {
       // Roll back the counter we just bumped.
       await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});

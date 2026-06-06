@@ -18,6 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const { admin } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
+const { effectivePrice } = require('../lib/seat-model');
 
 const db = admin.firestore();
 
@@ -85,7 +86,7 @@ async function renderEventPage(req, res) {
           || `${ev.title || 'A SparkDate event'} on ${dateLabel} at ${venueLabel}. Reserve your spot — real dates, real venues, real people in Philadelphia.`;
         const pageUrl = `https://sparkdate.date/event?id=${encodeURIComponent(id)}`;
         const img = 'https://sparkdate.date/og-image.svg';
-        const price = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+        const price = effectivePrice(ev, 'any').price;
 
         const ld = {
           '@context': 'https://schema.org',
@@ -199,6 +200,7 @@ module.exports = async function handler(req, res) {
     if (!picked) return res.status(200).json({ event: null });
 
     const { id, e, dt } = picked;
+    const ep = effectivePrice(e, 'any');
     return res.status(200).json({
       event: {
         id,
@@ -207,8 +209,13 @@ module.exports = async function handler(req, res) {
         time: e.time || '',
         venue: e.venue || '',
         neighborhood: e.neighborhood || '',
-        // Single-price model (gender pricing removed); fall back to legacy fields.
-        price: Number(e.price || e.priceMen || e.priceWomen || 0),
+        // Early-bird-aware price (lib/seat-model effectivePrice) — the checkout
+        // charges this exact number. regularPrice/isEarlyBird/earlyBirdEnds let
+        // the landing "Get Tickets" block render "early bird $X · then $Y".
+        price: ep.price,
+        regularPrice: ep.regularPrice,
+        isEarlyBird: ep.isEarlyBird,
+        earlyBirdEnds: ep.earlyBirdEnds,
         blurb: e.blurb || '',
         status: e.status || 'open',
       },

@@ -1,5 +1,38 @@
 import { describe, it, expect } from 'vitest';
-import { isSinglePool, seatFields, ticketPriceDollars } from '../lib/seat-model.js';
+import { isSinglePool, seatFields, ticketPriceDollars, effectivePrice } from '../lib/seat-model.js';
+
+describe('effectivePrice', () => {
+  const future = new Date(Date.now() + 86400000).toISOString();
+  const past = new Date(Date.now() - 86400000).toISOString();
+  it('returns the early-bird price before the deadline', () => {
+    const r = effectivePrice({ price: 25, earlyBirdPrice: 18, earlyBirdEnds: future }, 'any');
+    expect(r.price).toBe(18);
+    expect(r.isEarlyBird).toBe(true);
+    expect(r.regularPrice).toBe(25);
+  });
+  it('returns the regular price after the deadline', () => {
+    const r = effectivePrice({ price: 25, earlyBirdPrice: 18, earlyBirdEnds: past }, 'any');
+    expect(r.price).toBe(25);
+    expect(r.isEarlyBird).toBe(false);
+  });
+  it('returns the regular price when no early-bird fields are set', () => {
+    const r = effectivePrice({ price: 25 }, 'any');
+    expect(r.price).toBe(25);
+    expect(r.isEarlyBird).toBe(false);
+    expect(r.earlyBirdEnds).toBe(null);
+  });
+  it('ignores an early-bird price with no deadline', () => {
+    expect(effectivePrice({ price: 25, earlyBirdPrice: 18 }, 'any').isEarlyBird).toBe(false);
+  });
+  it('ignores a deadline with no early-bird price', () => {
+    expect(effectivePrice({ price: 25, earlyBirdEnds: future }, 'any').isEarlyBird).toBe(false);
+  });
+  it('respects an explicit now argument', () => {
+    const ends = '2026-06-30T23:59:59.000Z';
+    expect(effectivePrice({ price: 25, earlyBirdPrice: 18, earlyBirdEnds: ends }, 'any', new Date('2026-06-01')).isEarlyBird).toBe(true);
+    expect(effectivePrice({ price: 25, earlyBirdPrice: 18, earlyBirdEnds: ends }, 'any', new Date('2026-07-01')).isEarlyBird).toBe(false);
+  });
+});
 
 describe('isSinglePool', () => {
   it('is true for new single-pool events (numeric spots)', () => {
