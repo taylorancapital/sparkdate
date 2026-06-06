@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Per-buyer magic link; never index. -->
+    <meta name="robots" content="noindex, nofollow">
+    <script>
+      if (location.host === 'www.sparkdate.date') {
+        location.replace('https://sparkdate.date' + location.pathname + location.search + location.hash);
+      }
+    </script>
+    <title>Complete Your Profile — SparkDate</title>
+    <link rel="canonical" href="https://sparkdate.date/profile">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-21YLCC35F1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-21YLCC35F1', { 'page_path': window.location.pathname });
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --navy: #0a0e27; --coral: #ff6b6b; --cream: #f5f3f0; --white: #fff; --success: #4ade80; --danger: #f87171; }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%); color: var(--cream); line-height: 1.6; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+        .card { width: 100%; max-width: 520px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,107,107,0.2); border-radius: 10px; padding: 40px 32px; }
+        .logo { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 900; color: var(--white); text-align: center; margin-bottom: 4px; }
+        .logo span { color: var(--coral); }
+        h1 { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 900; margin: 18px 0 6px; letter-spacing: -0.5px; }
+        .sub { color: rgba(245,243,240,0.7); font-size: 15px; margin-bottom: 26px; }
+        label { display: block; font-size: 13px; font-weight: 600; color: rgba(245,243,240,0.85); margin: 16px 0 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        input, select { width: 100%; padding: 13px 15px; background: #fff; border: 2px solid rgba(255,107,107,0.35); border-radius: 4px; color: #000; font-family: inherit; font-size: 15px; }
+        input:focus, select:focus { outline: none; border-color: var(--coral); }
+        .hint { font-size: 12px; color: rgba(245,243,240,0.45); margin-top: 5px; }
+        button { width: 100%; margin-top: 26px; padding: 16px; background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%); color: #fff; border: none; border-radius: 4px; font-weight: 700; font-size: 15px; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        .msg { margin-top: 16px; font-size: 14px; display: none; text-align: center; }
+        .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+        .center { text-align: center; }
+        a { color: var(--coral); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="logo">Spark<span>Date</span></div>
+
+        <div id="formWrap">
+            <h1>One quick step.</h1>
+            <p class="sub">Tell us a bit about you so we can seat you with the right people at the event. Takes 60 seconds.</p>
+            <form id="profileForm">
+                <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+                <label for="age">Age</label>
+                <input type="number" id="age" placeholder="28" min="18" max="99" inputmode="numeric" required>
+
+                <label for="intent">What are you here for?</label>
+                <select id="intent" required>
+                    <option value="">Select…</option>
+                    <option value="long_term">Something long-term</option>
+                    <option value="dating_around">Dating around, seeing what's out there</option>
+                    <option value="friends_first">Friends first, see where it goes</option>
+                </select>
+
+                <label for="interests">Your interests</label>
+                <input type="text" id="interests" placeholder="hiking, wine, startups, art">
+                <div class="hint">Separate with commas</div>
+
+                <label for="vibes">Your vibe</label>
+                <input type="text" id="vibes" placeholder="intellectual, adventurous, laid-back">
+                <div class="hint">Separate with commas</div>
+
+                <button type="submit" id="submitBtn">Save my profile</button>
+                <div class="msg" id="msg"></div>
+            </form>
+        </div>
+
+        <div id="doneWrap" style="display:none;" class="center">
+            <h1>You're all set. ✨</h1>
+            <p class="sub">Thanks — we'll use this to make great introductions at the event. See you there!</p>
+            <p><a href="/events">Browse upcoming events →</a></p>
+        </div>
+
+        <div id="badWrap" style="display:none;" class="center">
+            <h1>This link isn't valid.</h1>
+            <p class="sub">It may have expired or been mistyped. If you bought a ticket, check your most recent SparkDate email for the latest link — or just <a href="/account">log in to your account</a> to finish your profile.</p>
+        </div>
+    </div>
+
+    <script>
+      (function () {
+        var qs = new URLSearchParams(location.search);
+        var uid = qs.get('uid') || '';
+        var token = qs.get('t') || '';
+        if (!uid || !token) {
+          document.getElementById('formWrap').style.display = 'none';
+          document.getElementById('badWrap').style.display = 'block';
+          return;
+        }
+        var form = document.getElementById('profileForm');
+        var btn = document.getElementById('submitBtn');
+        var msg = document.getElementById('msg');
+        form.addEventListener('submit', async function (e) {
+          e.preventDefault();
+          btn.disabled = true; btn.textContent = 'Saving…'; msg.style.display = 'none';
+          var payload = {
+            action: 'complete_profile',
+            uid: uid,
+            t: token,
+            age: document.getElementById('age').value,
+            intent: document.getElementById('intent').value,
+            interests: document.getElementById('interests').value,
+            vibes: document.getElementById('vibes').value,
+            website: (form.querySelector('input[name="website"]') || {}).value || ''
+          };
+          try {
+            var res = await fetch('/api/lead-signup', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            var data = await res.json().catch(function () { return {}; });
+            if (res.ok && data.success) {
+              if (typeof gtag === 'function') gtag('event', 'profile_complete', { method: 'magic_link' });
+              document.getElementById('formWrap').style.display = 'none';
+              document.getElementById('doneWrap').style.display = 'block';
+            } else {
+              msg.style.display = 'block'; msg.style.color = 'var(--danger)';
+              msg.textContent = data.error || 'Something went wrong. Please try again.';
+              btn.disabled = false; btn.textContent = 'Save my profile';
+            }
+          } catch (_) {
+            msg.style.display = 'block'; msg.style.color = 'var(--danger)';
+            msg.textContent = 'Network error. Please try again.';
+            btn.disabled = false; btn.textContent = 'Save my profile';
+          }
+        });
+      })();
+    </script>
+</body>
+</html>

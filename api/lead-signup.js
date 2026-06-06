@@ -11,6 +11,7 @@ const { admin } = require('../lib/auth');
 const { makeUnsubscribeUrl } = require('../lib/unsubscribe');
 const { buildUtmUrl } = require('../lib/utm');
 const { getNextEvent, eventCardHtml, ctaButtonHtml, shell, h1, p } = require('../lib/next-event');
+const { verifyProfileToken } = require('../lib/profile-link');
 
 const db = admin.firestore();
 
@@ -79,11 +80,64 @@ function clean(value, max) {
   return String(value ?? '').trim().slice(0, max);
 }
 
+// ── Chemistry-profile completion (folded in here to stay under Vercel's
+// 12-function cap) ─────────────────────────────────────────────────────────
+// A ticket buyer's post-purchase / pre-event email carries a signed magic
+// link (?uid=&t=, see lib/profile-link). public/profile.html POSTs here with
+// action:'complete_profile' to write the questionnaire to users/{uid} with NO
+// login — the token IS the authorization (Admin SDK bypasses Firestore rules).
+const PROFILE_INTENTS = new Set(['long_term', 'dating_around', 'friends_first']);
+function splitTags(value) {
+  return clean(value, 300).split(',').map((s) => s.trim()).filter(Boolean).slice(0, 20);
+}
+async function handleProfileCompletion(req, res) {
+  const uid = clean(req.body?.uid, 128);
+  const token = clean(req.body?.t, 64);
+  if (!uid || !verifyProfileToken(uid, token)) {
+    return res.status(401).json({ error: 'This link is invalid or has expired.' });
+  }
+  // Honeypot — token-gated already, but cheap defense in depth.
+  if (clean(req.body?.website, 100)) return res.status(200).json({ success: true });
+
+  const ageNum = parseInt(req.body?.age, 10);
+  const age = (Number.isFinite(ageNum) && ageNum >= 18 && ageNum <= 99) ? ageNum : null;
+  const intentRaw = clean(req.body?.intent, 40);
+  const intent = PROFILE_INTENTS.has(intentRaw) ? intentRaw : null;
+  if (age === null || !intent) {
+    return res.status(400).json({ error: "Please add your age and what you're looking for." });
+  }
+  const interests = splitTags(req.body?.interests);
+  const vibes = splitTags(req.body?.vibes);
+
+  const ref = db.collection('users').doc(uid);
+  const snap = await ref.get();
+  if (!snap.exists) return res.status(404).json({ error: 'Account not found.' });
+
+  await ref.update({
+    age, intent, interests, vibes,
+    profileCompleted: true,
+    profileCompletedAt: new Date().toISOString(),
+  });
+  console.log('✅ chemistry profile completed for users/' + uid);
+  return res.status(200).json({ success: true });
+}
+
 module.exports = async function handler(req, res) {
   console.log('🔔 lead-capture hit:', new Date().toISOString(), 'method=', req.method);
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'POST only' });
+  }
+
+  // Magic-link chemistry-profile completion — a distinct flow from lead
+  // capture, sharing this function only to respect the 12-function cap.
+  if (req.body && req.body.action === 'complete_profile') {
+    try {
+      return await handleProfileCompletion(req, res);
+    } catch (err) {
+      console.error('❌ complete_profile error:', err.message);
+      return res.status(500).json({ error: 'Could not save. Please try again.' });
+    }
   }
 
   try {

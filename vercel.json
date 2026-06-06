@@ -82,6 +82,14 @@
     {
       "source": "/privacy",
       "destination": "/privacy.html"
+    },
+    {
+      "source": "/profile",
+      "destination": "/profile.html"
+    },
+    {
+      "source": "/lp",
+      "destination": "/lp.html"
     }
   ]
 }
