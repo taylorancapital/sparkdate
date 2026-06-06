@@ -15,6 +15,7 @@
 const { Resend } = require('resend');
 const { admin } = require('../lib/auth');
 const { makeUnsubscribeUrl } = require('../lib/unsubscribe');
+const { makeProfileUrl } = require('../lib/profile-link');
 const { EMAIL_CAMPAIGNS: UTM, buildUtmUrl } = require('../lib/utm');
 const { getNextEvent, eventCardHtml, ctaButtonHtml, urgencyBox, shell, h1, p, esc } = require('../lib/next-event');
 
@@ -182,6 +183,82 @@ async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event)
   return { emailKey, sent, skipped, errors };
 }
 
+// ── Pre-event chemistry-profile reminders ───────────────────────────────────
+// Emails confirmed ticket-holders who haven't completed their profile, a few
+// days before their event, with a no-login magic link (lib/profile-link).
+// Idempotent via `profileReminderSent` on the user doc. Best-effort: a failure
+// in here never breaks the lead nurture pass.
+const PROFILE_REMINDER_WINDOW_DAYS = 4;
+
+function profileReminderHTML({ eventName, profileUrl }) {
+  const s = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
+.container{max-width:600px;margin:0 auto;background:#fff}
+.header{background:#0a0e27;padding:36px 30px;text-align:center}
+.logo{font-family:Georgia,serif;font-size:30px;font-weight:900;color:#fff}.logo span{color:#ff6b6b}
+.content{padding:36px 30px}h1{font-family:Georgia,serif;font-size:24px;margin:0 0 16px}
+p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
+.cta{display:inline-block;background:#ff6b6b;color:#fff!important;font-weight:800;padding:14px 34px;border-radius:4px;text-decoration:none;margin:6px 0 18px}
+.footer{background:#0a0e27;padding:22px;text-align:center;color:#888;font-size:12px}.footer a{color:#ff6b6b;text-decoration:none}
+</style></head><body><div class="container">
+<div class="header"><div class="logo">Spark<span>Date</span></div></div>
+<div class="content">
+<h1>${s(eventName)} is coming up.</h1>
+<p>We're finalizing who meets who. Take 60 seconds to tell us a bit about yourself so we can make the introductions count — no login needed:</p>
+<p style="text-align:center;"><a class="cta" href="${s(profileUrl)}">Complete my profile</a></p>
+<p>See you soon.</p>
+</div>
+<div class="footer"><p>SparkDate · Philadelphia · Real people. Real venues.</p>
+<p><a href="https://sparkdate.date">sparkdate.date</a></p></div>
+</div></body></html>`;
+}
+
+async function sendProfileReminders(nowMs) {
+  let sent = 0, skipped = 0;
+  try {
+    const horizon = new Date(nowMs + PROFILE_REMINDER_WINDOW_DAYS * 86400000);
+    const evSnap = await db.collection('events')
+      .where('date', '>=', new Date(nowMs))
+      .where('date', '<=', horizon)
+      .get();
+    for (const evDoc of evSnap.docs) {
+      const eventName = evDoc.data().title || 'your SparkDate event';
+      // Single-field query (eventId is auto-indexed); filter status in code to
+      // avoid needing a composite index (mirrors purchase-ticket sweepStale3ds).
+      const tkSnap = await db.collection('tickets').where('eventId', '==', evDoc.id).get();
+      const seen = new Set();
+      for (const tk of tkSnap.docs) {
+        const t = tk.data();
+        if (t.status !== 'confirmed' || !t.firebaseUid || seen.has(t.firebaseUid)) { skipped++; continue; }
+        seen.add(t.firebaseUid);
+        const uref = db.collection('users').doc(t.firebaseUid);
+        const usnap = await uref.get();
+        if (!usnap.exists) { skipped++; continue; }
+        const u = usnap.data();
+        if (u.profileCompleted === true || u.profileReminderSent === true || !u.email) { skipped++; continue; }
+        try {
+          const profileUrl = makeProfileUrl(t.firebaseUid);
+          const result = await resend.emails.send({
+            from: 'SparkDate <hello@mail.sparkdate.date>',
+            to: u.email,
+            subject: `Before ${eventName} — a 60-second profile so we can match you`,
+            html: profileReminderHTML({ eventName, profileUrl }),
+          });
+          if (!result.error) {
+            await uref.update({ profileReminderSent: true, profileReminderSentAt: new Date().toISOString() });
+            sent++;
+            console.log(`✅ profile reminder → users/${t.firebaseUid}`);
+          } else { skipped++; }
+        } catch (e) { console.error('[profile-reminder]', t.firebaseUid, e.message); skipped++; }
+      }
+    }
+  } catch (e) {
+    console.error('[profile-reminder] pass failed:', e.message);
+  }
+  return { sent, skipped };
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
   if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -228,8 +305,11 @@ module.exports = async function handler(req, res) {
       results.push(await sendBucket(leads, dayNum, key, nowMs, emailedThisRun, event));
     }
 
-    console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results));
-    return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, ts: new Date().toISOString() });
+    // Pre-event chemistry-profile reminders to confirmed ticket-holders.
+    const profileReminders = await sendProfileReminders(nowMs);
+
+    console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders));
+    return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, ts: new Date().toISOString() });
 
   } catch (err) {
     console.error('❌ Cron error:', err.message);

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Paid-traffic landing page; keep out of the index (no duplicate-content / SEO competition). -->
+    <meta name="robots" content="noindex, nofollow">
+    <script>
+      if (location.host === 'www.sparkdate.date') {
+        location.replace('https://sparkdate.date' + location.pathname + location.search + location.hash);
+      }
+    </script>
+    <title>SparkDate — Real Philadelphia dating events</title>
+    <link rel="canonical" href="https://sparkdate.date/lp">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-21YLCC35F1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-21YLCC35F1', { 'page_path': window.location.pathname + window.location.search });
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --navy: #0a0e27; --coral: #ff6b6b; --cream: #f5f3f0; --white: #fff; --success: #4ade80; --danger: #f87171; }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%); color: var(--cream); line-height: 1.6; min-height: 100vh; }
+        .wrap { max-width: 600px; margin: 0 auto; padding: 56px 24px 64px; text-align: center; }
+        .logo { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 900; color: var(--white); margin-bottom: 40px; }
+        .logo span { color: var(--coral); }
+        h1 { font-family: 'Playfair Display', serif; font-size: clamp(34px, 8vw, 52px); font-weight: 900; line-height: 1.1; letter-spacing: -1px; margin-bottom: 18px; }
+        h1 .hl { color: var(--coral); }
+        .sub { font-size: 18px; color: rgba(245,243,240,0.8); margin-bottom: 36px; }
+        .capture { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,107,107,0.25); border-radius: 10px; padding: 30px 24px; margin-bottom: 28px; }
+        .capture h2 { font-family: 'Playfair Display', serif; font-size: 24px; margin-bottom: 8px; }
+        .capture p { font-size: 14px; color: rgba(245,243,240,0.7); margin-bottom: 18px; }
+        form { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        input[type=email] { flex: 1; min-width: 220px; padding: 15px 16px; background: #fff; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; color: #000; font-family: inherit; font-size: 15px; }
+        button { padding: 15px 28px; background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%); color: #fff; border: none; border-radius: 4px; font-weight: 700; cursor: pointer; font-family: inherit; font-size: 15px; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        .msg { margin-top: 14px; font-size: 14px; display: none; }
+        .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+        .event { background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%); border-radius: 10px; padding: 28px 24px; color: #fff; }
+        .event .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; opacity: 0.9; margin-bottom: 8px; }
+        .event h3 { font-family: 'Playfair Display', serif; font-weight: 900; font-size: clamp(22px, 5vw, 32px); margin-bottom: 8px; }
+        .event .meta { font-size: 14px; opacity: 0.95; margin-bottom: 18px; }
+        .event .ticket { display: inline-block; background: #0a0e27; color: #fff; padding: 15px 36px; border-radius: 4px; text-decoration: none; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 14px; }
+        .event .fine { font-size: 12px; opacity: 0.85; margin-top: 12px; }
+        .divider { font-size: 13px; color: rgba(245,243,240,0.5); margin: 24px 0 18px; text-transform: uppercase; letter-spacing: 1px; }
+        .foot { margin-top: 40px; font-size: 12px; color: rgba(245,243,240,0.45); }
+        .foot a { color: rgba(245,243,240,0.6); }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="logo">Spark<span>Date</span></div>
+        <h1>Your app matched you.<br>We <span class="hl">host the date.</span></h1>
+        <p class="sub">Real, curated dating events at Philadelphia's best venues. Skip the endless texting — meet in person.</p>
+
+        <!-- Primary CTA: email capture (lowest friction) -->
+        <div class="capture">
+            <h2>Get on the list</h2>
+            <p>Be first to hear about our next Philly mixer. No spam, unsubscribe anytime.</p>
+            <form id="leadForm">
+                <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+                <input type="email" id="leadEmail" required placeholder="you@email.com" aria-label="Email address">
+                <button type="submit" id="leadBtn">Notify Me</button>
+            </form>
+            <div class="msg" id="leadMsg"></div>
+        </div>
+
+        <div class="divider">— or grab a ticket now —</div>
+
+        <!-- Secondary CTA: dynamic next-event ticket card -->
+        <div class="event">
+            <div class="eyebrow" id="lpEyebrow">Upcoming Mixer</div>
+            <h3 id="lpTitle">SparkDate Mixer</h3>
+            <div class="meta" id="lpMeta">📍 A real Philly venue</div>
+            <a class="ticket" id="lpTicketBtn" href="/events">🎟️ Get Tickets</a>
+            <div class="fine">Secure checkout · no account needed · money-back guarantee</div>
+        </div>
+
+        <div class="foot">
+            SparkDate · Philadelphia · Real people. Real venues.<br>
+            <a href="/about">About</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a>
+        </div>
+    </div>
+
+    <script>
+      (function () {
+        var $ = function (id) { return document.getElementById(id); };
+        var fmt = function (n) { n = Number(n); return '$' + (n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)); };
+        var carry = (function () { var qs = location.search; return (qs && qs.indexOf('utm_') !== -1) ? '&' + qs.replace(/^\?/, '') : ''; })();
+        var refOf = function () { try { return new URLSearchParams(location.search).get('ref') || localStorage.getItem('sparkdate_ref'); } catch (_) { return null; } };
+
+        // Dynamic next-event card
+        var btn = $('lpTicketBtn');
+        fetch('/api/next-event').then(function (r) { return r.json(); }).then(function (data) {
+          var ev = data && data.event;
+          if (!ev || !ev.id || !btn) return;
+          if ($('lpTitle')) $('lpTitle').textContent = ev.title || 'SparkDate Mixer';
+          var d = ev.date ? new Date(ev.date) : null;
+          var dl = d ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+          var away = '';
+          if (d) { var diff = Math.ceil((d.getTime() - Date.now()) / 86400000); away = diff <= 0 ? 'Today' : (diff === 1 ? 'Tomorrow' : 'in ' + diff + ' days'); }
+          var venue = ev.venue ? ('📍 ' + ev.venue + (ev.neighborhood ? ', ' + ev.neighborhood : '')) : '';
+          if ($('lpMeta')) $('lpMeta').textContent = [venue, dl ? ('📅 ' + dl + (away ? ' · ' + away : '')) : ''].filter(Boolean).join('    ');
+          if (ev.isEarlyBird && ev.earlyBirdEnds && $('lpEyebrow')) {
+            $('lpEyebrow').textContent = 'Early-bird · ends ' + new Date(ev.earlyBirdEnds).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          }
+          if (ev.price != null) {
+            var html = '🎟️ Get Tickets — ' + fmt(ev.price);
+            if (ev.isEarlyBird && ev.regularPrice && Number(ev.regularPrice) > Number(ev.price)) html += ' <span style="opacity:0.6;text-decoration:line-through;font-weight:500;">' + fmt(ev.regularPrice) + '</span>';
+            btn.innerHTML = html;
+          }
+          btn.href = '/event?id=' + encodeURIComponent(ev.id) + carry;
+        }).catch(function () {});
+        if (btn) btn.addEventListener('click', function () { if (typeof gtag === 'function') gtag('event', 'begin_checkout', { source: 'lp' }); });
+
+        // Email capture
+        var f = $('leadForm'), b = $('leadBtn'), msg = $('leadMsg');
+        if (f) f.addEventListener('submit', async function (e) {
+          e.preventDefault();
+          b.disabled = true; b.textContent = 'Joining…'; msg.style.display = 'none';
+          var email = ($('leadEmail') || {}).value || '';
+          var hp = (f.querySelector('input[name="website"]') || {}).value || '';
+          try {
+            var res = await fetch('/api/lead-signup', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: email, source: 'ad_landing', ref: refOf(), website: hp })
+            });
+            if (res.ok) {
+              if (typeof gtag === 'function') gtag('event', 'generate_lead', { lead_type: 'lp' });
+              f.style.display = 'none';
+              msg.style.display = 'block'; msg.style.color = 'var(--success)';
+              msg.textContent = "✓ You're on the list — check your email.";
+            } else {
+              msg.style.display = 'block'; msg.style.color = 'var(--danger)'; msg.textContent = 'Something went wrong. Try again.';
+              b.disabled = false; b.textContent = 'Notify Me';
+            }
+          } catch (_) {
+            msg.style.display = 'block'; msg.style.color = 'var(--danger)'; msg.textContent = 'Network error. Try again.';
+            b.disabled = false; b.textContent = 'Notify Me';
+          }
+        });
+      })();
+    </script>
+</body>
+</html>

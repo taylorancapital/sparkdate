@@ -25,6 +25,7 @@ const { TIERS, getOrCreatePrice } = require('../lib/tiers');
 const { stripe } = require('../lib/stripe');
 const { SERVICE_FEE_CENTS } = require('../lib/pricing');
 const { seatFields, effectivePrice } = require('../lib/seat-model');
+const { makeProfileUrl } = require('../lib/profile-link');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const db = admin.firestore();
@@ -190,7 +191,7 @@ function escEmail(s) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function welcomeHTML({ eventName, resetLink }) {
+function welcomeHTML({ eventName, resetLink, profileUrl }) {
   const safeEvent = escEmail(eventName);
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><style>
@@ -212,13 +213,13 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
   <div class="content">
     <h1>Your ticket is locked in.</h1>
     <p>You're on the list for <strong>${safeEvent}</strong>. See you there.</p>
-    <p>While you're here, we also activated your free <strong>30-day Spark trial</strong> — full SparkDate access, no charge for 30 days. After that, it's $9.99/month (cancel anytime at <a href="https://sparkdate.date/account">sparkdate.date/account</a>).</p>
-    <p>Set your password to log in:</p>
-    <p style="text-align:center;"><a class="cta" href="${escEmail(resetLink)}">Set my password</a></p>
-    <p class="fine">If the button doesn't work, paste this into your browser:<br><span style="word-break:break-all;color:#666;">${escEmail(resetLink)}</span></p>
+    ${profileUrl ? `<p><strong>One quick thing</strong> — tell us a bit about yourself so we can seat you with the right people on the night. 60 seconds, no login needed:</p>
+    <p style="text-align:center;"><a class="cta" href="${escEmail(profileUrl)}">Complete my profile</a></p>` : ''}
+    <p>We also activated your free <strong>30-day Spark trial</strong> — full SparkDate access, no charge for 30 days, then $9.99/month (cancel anytime at <a href="https://sparkdate.date/account">sparkdate.date/account</a>). Set a password to manage it:</p>
+    <p style="text-align:center;"><a href="${escEmail(resetLink)}" style="color:#ff6b6b;font-weight:600;text-decoration:none;">Set my password →</a></p>
   </div>
   <div class="footer">
-    <p>SparkDate · Philadelphia · Stop swiping. Start living.</p>
+    <p>SparkDate · Philadelphia · Real people. Real venues.</p>
     <p><a href="https://sparkdate.date">sparkdate.date</a></p>
   </div>
 </div></body></html>`;
@@ -353,13 +354,17 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
     // Password-reset link doubles as the "set initial password" link
     // (Firebase generates one URL that handles both cases).
     const resetLink = await admin.auth().generatePasswordResetLink(norm);
+    // Profile magic link is non-essential — never let it abort enrollment.
+    let profileUrl = '';
+    try { profileUrl = makeProfileUrl(userRecord.uid); }
+    catch (e) { console.error('[auto-enroll] profile link skipped:', e.message); }
 
     if (process.env.RESEND_API_KEY) {
       await resend.emails.send({
         from: 'SparkDate <hello@mail.sparkdate.date>',
         to: norm,
-        subject: 'Your ticket + free Spark trial — set your password',
-        html: welcomeHTML({ eventName, resetLink }),
+        subject: 'Your ticket is in — one quick step to get matched',
+        html: welcomeHTML({ eventName, resetLink, profileUrl }),
       });
     }
 
