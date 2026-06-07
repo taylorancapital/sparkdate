@@ -21,7 +21,6 @@ const crypto = require('crypto');
 const { Resend } = require('resend');
 const { admin, requireAuth } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
-const { TIERS, getOrCreatePrice } = require('../lib/tiers');
 const { stripe } = require('../lib/stripe');
 const { SERVICE_FEE_CENTS } = require('../lib/pricing');
 const { seatFields, effectivePrice } = require('../lib/seat-model');
@@ -166,23 +165,21 @@ async function sweepStale3ds(eventRef, eventId) {
   }
 }
 
-// ── Auto-enroll guest ticket buyers in a 30-day Spark trial ─────────
+// ── Auto-enroll guest ticket buyers as SparkDate users ──────────────
 //
 // When someone buys a ticket as a guest (no Authorization header), we
-// also create a Firebase Auth user + Stripe Customer + Spark-tier
-// subscription with a 30-day trial, then email them a password-set link
-// so they can log in. Members buying tickets skip this entirely — they
-// already have a subscription.
+// create a Firebase Auth user + Firestore user doc + send a welcome email
+// with a password-set link so they can log in and complete their profile.
+// Members buying tickets skip this entirely — they already have an account.
 //
-// FTC ROSCA-compliant: event.html shows clear pre-billing disclosure
-// ("Includes a 30-day free Spark trial — $9.99/mo after, cancel anytime")
-// BEFORE the buy button, and the legal-checkbox line spells out the
-// auto-renew terms. The buy action is the express informed consent.
+// Memberships/subscriptions are currently paused — no Stripe customer or
+// trial subscription is created. When memberships re-launch, re-add the
+// Stripe customer creation + subscription.create call below.
 //
 // Fully best-effort: any failure inside this helper must NOT roll back
 // the ticket. The caller wraps it in .catch() and the ticket response
-// proceeds regardless. Partial state (Firebase user / Stripe customer /
-// user doc) is cleaned up inline on failure to avoid orphans.
+// proceeds regardless. Partial state (Firebase user / user doc) is
+// cleaned up inline on failure to avoid orphans.
 
 // Tiny HTML-escape for values that flow into the welcome email body.
 function escEmail(s) {
@@ -215,7 +212,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
     <p>You're on the list for <strong>${safeEvent}</strong>. See you there.</p>
     ${profileUrl ? `<p><strong>One quick thing</strong> — tell us a bit about yourself so we can seat you with the right people on the night. 60 seconds, no login needed:</p>
     <p style="text-align:center;"><a class="cta" href="${escEmail(profileUrl)}">Complete my profile</a></p>` : ''}
-    <p>We also activated your free <strong>30-day Spark trial</strong> — full SparkDate access, no charge for 30 days, then $9.99/month (cancel anytime at <a href="https://sparkdate.date/account">sparkdate.date/account</a>). Set a password to manage it:</p>
+    <p>We created a SparkDate account for you — set a password to view your tickets and manage your profile:</p>
     <p style="text-align:center;"><a href="${escEmail(resetLink)}" style="color:#ff6b6b;font-weight:600;text-decoration:none;">Set my password →</a></p>
   </div>
   <div class="footer">
@@ -248,8 +245,8 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
     <p>You're on the list for <strong>${safeEvent}</strong>. See you there.</p>
     ${profileUrl ? `<p><strong>One quick thing</strong> — tell us a bit about yourself so we can seat you with the right people on the night. 60 seconds, no login needed:</p>
     <p style="text-align:center;"><a class="cta" href="${escEmail(profileUrl)}">Complete my profile</a></p>
-    <p style="font-size:13px;color:#666;">Want to manage your subscription? <a href="https://sparkdate.date/account" style="color:#ff6b6b;">Log in to your account</a>.</p>`
-    : `<p>This email already has a SparkDate account — sign in below to see your tickets and manage your subscription.</p>
+    <p style="font-size:13px;color:#666;">Want to view your tickets? <a href="https://sparkdate.date/account" style="color:#ff6b6b;">Log in to your account</a>.</p>`
+    : `<p>This email already has a SparkDate account — sign in below to see your tickets.</p>
     <p style="text-align:center;"><a class="cta" href="https://sparkdate.date/account">Log in to my account</a></p>`}
   </div>
   <div class="footer">
@@ -314,10 +311,12 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
     return;
   }
 
-  // 2. New email — full enrollment with cleanup-on-failure so we don't
-  //    leak partial state into Firebase Auth / Stripe / Firestore.
+  // 2. New email — create Firebase Auth user + Firestore user doc + welcome email.
+  //    Memberships are currently paused: no Stripe customer or subscription is created.
+  //    When memberships re-launch, re-add Stripe customer + subscriptions.create here.
+  //    Cleanup-on-failure: if anything throws we delete the partial Firebase/Firestore
+  //    state so the next purchase attempt starts clean.
   let userRecord = null;
-  let customer = null;
   let userDocCreated = false;
 
   try {
@@ -328,19 +327,6 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
       emailVerified: false,
     });
 
-    const priceId = await getOrCreatePrice('free');
-
-    customer = await stripe.customers.create({
-      email: norm,
-      payment_method: paymentMethodId,
-      invoice_settings: { default_payment_method: paymentMethodId },
-      metadata: { firebaseUid: userRecord.uid, tier: 'free', source: 'ticket_purchase' },
-    }, { idempotencyKey: `customer:${userRecord.uid}` });
-
-    // Write user doc BEFORE creating the subscription. The Stripe
-    // webhook (customer.subscription.created) resolves the user by
-    // stripeCustomerId — if the doc doesn't exist yet, that lookup
-    // fails and the user's subscriptionStatus is never set.
     await db.collection('users').doc(userRecord.uid).set({
       email: norm,
       firstName,
@@ -348,26 +334,14 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
       phone: cleanPhone,
       gender: gender || null,
       tier: 'free',
-      stripeCustomerId: customer.id,
+      stripeCustomerId: null,
       subscriptionId: null,
-      subscriptionStatus: 'pending',
+      subscriptionStatus: null,
       source: 'ticket_purchase',
       profileCompleted: false,
       createdAt: FieldValue.serverTimestamp(),
     });
     userDocCreated = true;
-
-    const subscription = await stripe.subscriptions.create({
-      customer: customer.id,
-      items: [{ price: priceId }],
-      trial_period_days: TIERS.free.trialDays,
-      metadata: { firebaseUid: userRecord.uid, tier: 'free', source: 'ticket_purchase' },
-    }, { idempotencyKey: `sub:${userRecord.uid}:free` });
-
-    await db.collection('users').doc(userRecord.uid).update({
-      subscriptionId: subscription.id,
-      subscriptionStatus: subscription.status, // typically 'trialing'; 'incomplete' if 3DS setup needed
-    });
 
     // Password-reset link doubles as the "set initial password" link
     // (Firebase generates one URL that handles both cases).
@@ -386,12 +360,11 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
       });
     }
 
-    console.log(`[auto-enroll] ✓ uid=${userRecord.uid} customer=${customer.id} sub=${subscription.id}`);
+    console.log(`[auto-enroll] ✓ uid=${userRecord.uid}`);
   } catch (err) {
     console.error('[auto-enroll] failed mid-flow:', err.message);
     // Best-effort cleanup of any partial state, in reverse order.
     if (userDocCreated) await db.collection('users').doc(userRecord.uid).delete().catch(() => {});
-    if (customer)        await stripe.customers.del(customer.id).catch(() => {});
     if (userRecord)      await admin.auth().deleteUser(userRecord.uid).catch(() => {});
   }
 }
@@ -737,8 +710,8 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Payment did not succeed.' });
     }
 
-    // ── Auto-enroll the guest in a 30-day Spark trial ─────────────
-    // Members (firebaseUid set) already have a subscription — skip.
+    // ── Auto-enroll the guest as a SparkDate user ─────────────────
+    // Members (firebaseUid set) already have an account — skip.
     // Vercel kills work after the response is sent, so we MUST await
     // this; the helper itself is best-effort and never throws.
     if (!firebaseUid) {

@@ -149,7 +149,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
     <p style="text-align:center;"><a class="cta" href="${escEmail(profileUrl)}">Complete my profile</a></p>`
         : ''
     }
-    <p>We also activated your free <strong>30-day Spark trial</strong> — full SparkDate access, no charge for 30 days, then $9.99/month (cancel anytime at <a href="https://sparkdate.date/account">sparkdate.date/account</a>). Set a password to manage it:</p>
+    <p>We created a SparkDate account for you — set a password to view your tickets and manage your profile:</p>
     <p style="text-align:center;"><a href="${escEmail(resetLink)}" style="color:#ff6b6b;font-weight:600;text-decoration:none;">Set my password →</a></p>
   </div>
   <div class="footer">
