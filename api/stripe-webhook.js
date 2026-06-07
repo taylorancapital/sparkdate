@@ -1,6 +1,11 @@
 const { admin } = require('../lib/auth');
 const { stripe } = require('../lib/stripe');
 const { seatFields } = require('../lib/seat-model');
+// Reuse the EXACT guest enrollment + lead capture from the purchase path so a
+// 3-D Secure guest (who completes payment asynchronously, after the purchase
+// handler has already returned `requiresAction`) still gets the welcome email,
+// the Spark trial, the profile magic link, and a nurture-lead row (audit P1).
+const { enrollGuestAsMember, recordLead } = require('./purchase-ticket');
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const db = admin.firestore();
@@ -165,15 +170,58 @@ module.exports = async function handler(req, res) {
         if (pi.metadata?.type !== 'ticket') break;
         const ticketSnap = await db.collection('tickets')
           .where('paymentIntentId', '==', pi.id).limit(1).get();
+
+        // Atomically flip pending_3ds/pending → confirmed. Only the txn that
+        // WINS the flip should trigger guest enrollment, so a non-3DS echo
+        // (the ticket is already 'confirmed' from the synchronous purchase
+        // path) or a Stripe redelivery can never double-enroll / double-email.
+        let confirmedTicket = null;
         if (!ticketSnap.empty) {
-          await ticketSnap.docs[0].ref.update({ status: 'confirmed' });
+          const ref = ticketSnap.docs[0].ref;
+          confirmedTicket = await db.runTransaction(async (tx) => {
+            const fresh = await tx.get(ref);
+            if (!fresh.exists) return null;
+            const d = fresh.data();
+            if (d.status === 'pending_3ds' || d.status === 'pending') {
+              tx.update(ref, { status: 'confirmed' });
+              return d; // we performed the confirmation
+            }
+            return null; // already confirmed / terminal — leave as-is
+          });
         }
+
         const regSnap = await db.collection('event_registrations')
           .where('paymentIntentId', '==', pi.id).limit(1).get();
         if (!regSnap.empty) {
           await regSnap.docs[0].ref.update({ status: 'confirmed' });
         }
         console.log(`[webhook] ticket confirmed via 3DS: ${pi.id}`);
+
+        // Guest enrollment for the 3DS path (audit P1). Guests (no firebaseUid)
+        // are enrolled inline only on the synchronous-success path in
+        // purchase-ticket.js; a 3DS guest skips that, so we run the identical
+        // enrollment + lead capture here — but ONLY when this handler is the one
+        // that just confirmed a previously-pending ticket. Both calls are
+        // best-effort and never throw (a failure must not 500 the webhook and
+        // trigger a redelivery that the idempotency lock would then swallow).
+        if (confirmedTicket && !confirmedTicket.firebaseUid) {
+          console.log(`[webhook] enrolling 3DS guest for ${pi.id}`);
+          await enrollGuestAsMember({
+            email: confirmedTicket.email,
+            paymentMethodId: pi.payment_method,
+            gender: confirmedTicket.gender,
+            eventName: confirmedTicket.eventName,
+            name: confirmedTicket.name,
+            phone: confirmedTicket.phone,
+          }).catch((e) => console.error('[webhook] 3DS guest enroll failed:', e.message));
+          await recordLead({
+            email: confirmedTicket.email,
+            name: confirmedTicket.name,
+            phone: confirmedTicket.phone,
+            eventId: confirmedTicket.eventId,
+            eventName: confirmedTicket.eventName,
+          }).catch((e) => console.error('[webhook] 3DS guest lead failed:', e.message));
+        }
         break;
       }
 

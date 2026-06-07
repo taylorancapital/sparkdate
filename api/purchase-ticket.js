@@ -628,6 +628,42 @@ module.exports = async function handler(req, res) {
       throw e;
     }
 
+    // ── Duplicate-submit guard (audit P2). ─────────────────────────
+    // The Stripe idempotency key is stable per (member | card × event), so a
+    // re-submit — double-click, or back-button then "buy" again — returns the
+    // SAME PaymentIntent. But this request's transaction already bumped the
+    // seat counter again, so without this guard we'd hold a phantom seat AND
+    // write a second ticket row for a single charge (a member could even get a
+    // free extra ticket). If a ticket already exists for this PaymentIntent,
+    // release the seat we just reserved and return the ORIGINAL ticket instead
+    // of writing a duplicate. (Residual: two perfectly-simultaneous submits can
+    // still both miss here — the client should also disable the buy button on
+    // first click. Worst case is an over-counted seat, never an oversell or a
+    // double charge.)
+    const dupSnap = await db.collection('tickets')
+      .where('paymentIntentId', '==', paymentIntent.id).limit(1).get();
+    if (!dupSnap.empty) {
+      await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
+      const dup = dupSnap.docs[0];
+      const dupData = dup.data();
+      console.log(`[purchase-ticket] duplicate submit for PI ${paymentIntent.id} — released seat, returning existing ticket ${dup.id}`);
+      if (paymentIntent.status === 'requires_action') {
+        return res.status(200).json({
+          requiresAction: true,
+          clientSecret: paymentIntent.client_secret,
+          ticketId: dup.id,
+          duplicate: true,
+        });
+      }
+      return res.status(200).json({
+        success: true,
+        duplicate: true,
+        ticketId: dup.id,
+        paymentIntentId: paymentIntent.id,
+        amount: dupData.amount,
+      });
+    }
+
     // ── Persist the ticket + event_registration. ───────────────────
     // Both are written here so an unauthenticated browser can never
     // fabricate a registration (audit #13).
@@ -773,3 +809,13 @@ module.exports = async function handler(req, res) {
     });
   }
 };
+
+// ── Shared with api/stripe-webhook.js (audit P1) ───────────────────────
+// A guest paying with a 3-D Secure card never reaches the synchronous
+// enrollment path above (the handler returns `requiresAction` first), so the
+// webhook runs the SAME enrollment + lead capture when payment_intent.succeeded
+// arrives. Exported here (rather than duplicated) so both paths stay in lockstep.
+// Importing this file from the webhook only bundles the shared code — it does
+// not create another serverless function.
+module.exports.enrollGuestAsMember = enrollGuestAsMember;
+module.exports.recordLead = recordLead;
