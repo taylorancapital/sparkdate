@@ -753,6 +753,10 @@ module.exports = async function handler(req, res) {
       ticketId: ticketRef.id,
       paymentIntentId: paymentIntent.id,
       amount,
+      _pixel_purchase: {
+        value: Math.round(amount / 100),  // Convert cents to dollars
+        currency: 'USD'
+      }
     });
   } catch (err) {
     console.error('[purchase-ticket] error', { message: err.message, type: err.type, code: err.code });
