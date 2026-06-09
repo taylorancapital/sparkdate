@@ -704,6 +704,7 @@
             <button class="tab" onclick="switchTab('venues', this)">Venues</button>
             <button class="tab" onclick="switchTab('leads', this)">Leads</button>
             <button class="tab" onclick="switchTab('retention', this)">Retention</button>
+            <button class="tab" onclick="switchTab('enroll', this)">Enroll</button>
         </div>
 
         <!-- Overview Tab -->
@@ -1111,6 +1112,7 @@
             </div>
         </div>
 
+        <!-- Retention Tab -->
         <div class="tab-content" id="tab-retention">
             <div class="card">
                 <div class="card-header">
@@ -1121,6 +1123,57 @@
                     Repeat-buyer rates from <strong>confirmed</strong> ticket purchases (join key: email — covers both guests and members). Use this to decide when to switch subscriptions back on in <code>/signup</code>.
                 </p>
                 <div id="retentionBody"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <!-- Enroll Tab -->
+        <div class="tab-content" id="tab-enroll">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Enroll Eventbrite Buyers</h2>
+                </div>
+                <p style="font-size:13px;color:rgba(245,243,240,0.55);margin:-6px 0 20px;line-height:1.6;">
+                    Paste your Eventbrite attendee list below. Each buyer gets a Firebase account, a ticket record, and a welcome email with their magic profile link.
+                </p>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                    <div>
+                        <label style="display:block;font-size:12px;color:rgba(245,243,240,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Event Name</label>
+                        <input id="eb-event-name" type="text" placeholder="Founders Mixer" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px 12px;color:#f5f3f0;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;color:rgba(245,243,240,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Event ID <span style="font-weight:400;text-transform:none;">(Firestore events doc ID)</span></label>
+                        <input id="eb-event-id" type="text" placeholder="79nTqQ0WEtkVOdBr0vbA" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px 12px;color:#f5f3f0;font-size:14px;box-sizing:border-box;">
+                    </div>
+                </div>
+
+                <label style="display:block;font-size:12px;color:rgba(245,243,240,0.5);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;">Attendees — one per line: <code style="font-size:11px;color:rgba(245,243,240,0.4);">First Last, email@example.com, man/woman</code></label>
+                <textarea id="eb-buyers" rows="8" placeholder="Taylor Chambers, taylor@example.com, man
+Jane Smith, jane@example.com, woman
+Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:12px;color:#f5f3f0;font-size:13px;font-family:monospace;line-height:1.6;box-sizing:border-box;resize:vertical;"></textarea>
+
+                <div style="display:flex;align-items:center;gap:16px;margin-top:16px;">
+                    <button id="eb-enroll-btn" onclick="enrollEventbriteBuyers()" style="background:#ff6b6b;color:#fff;border:none;border-radius:6px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;">
+                        Enroll &amp; Send Emails
+                    </button>
+                    <span id="eb-status" style="font-size:13px;color:rgba(245,243,240,0.6);"></span>
+                </div>
+
+                <div id="eb-results" style="margin-top:24px;display:none;">
+                    <div id="eb-summary" style="font-size:14px;margin-bottom:12px;padding:12px 16px;background:rgba(255,255,255,0.06);border-radius:6px;"></div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Email Sent</th>
+                                <th>Profile Link</th>
+                            </tr>
+                        </thead>
+                        <tbody id="eb-results-table"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -2113,6 +2166,96 @@
 
             root.innerHTML = cards + table + timeline;
         }
+
+        // ─── Eventbrite Enrollment ────────────────────────
+        window.enrollEventbriteBuyers = async () => {
+            const eventName = document.getElementById('eb-event-name').value.trim();
+            const eventId   = document.getElementById('eb-event-id').value.trim();
+            const raw       = document.getElementById('eb-buyers').value.trim();
+            const statusEl  = document.getElementById('eb-status');
+            const btn       = document.getElementById('eb-enroll-btn');
+
+            if (!eventName || !eventId) {
+                statusEl.textContent = '⚠️ Fill in Event Name and Event ID first.';
+                return;
+            }
+            if (!raw) {
+                statusEl.textContent = '⚠️ Paste at least one attendee.';
+                return;
+            }
+
+            // Parse lines: "Name, email, gender"
+            const buyers = [];
+            const errors = [];
+            for (const line of raw.split('\n')) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                const parts = trimmed.split(',').map(p => p.trim());
+                if (parts.length < 2) { errors.push(`Bad line: "${trimmed}"`); continue; }
+                const [name, email, gender] = parts;
+                if (!email || !email.includes('@')) { errors.push(`Bad email on: "${trimmed}"`); continue; }
+                buyers.push({ name, email, gender: gender || null, eventId, eventName, priceCents: 0 });
+            }
+
+            if (errors.length) {
+                statusEl.textContent = '⚠️ ' + errors[0];
+                return;
+            }
+            if (!buyers.length) {
+                statusEl.textContent = '⚠️ No valid attendees found.';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = `Enrolling ${buyers.length}…`;
+            statusEl.textContent = '';
+
+            try {
+                const token = await auth.currentUser.getIdToken();
+                const resp  = await fetch('/api/enroll-eventbrite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ buyers }),
+                });
+                const data = await resp.json();
+
+                if (!resp.ok) throw new Error(data.error || resp.statusText);
+
+                const { summary, results } = data;
+                document.getElementById('eb-summary').innerHTML =
+                    `✅ <strong>${summary.enrolled}</strong> enrolled &nbsp;·&nbsp; ` +
+                    `<strong>${summary.existing}</strong> already had accounts &nbsp;·&nbsp; ` +
+                    `<strong>${summary.errors}</strong> errors`;
+
+                const tbody = document.getElementById('eb-results-table');
+                tbody.innerHTML = results.map(r => {
+                    const statusBadge = r.status === 'enrolled'
+                        ? '<span style="color:#4ade80">✓ Enrolled</span>'
+                        : r.status === 'existing_user'
+                            ? '<span style="color:#facc15">↩ Existing</span>'
+                            : `<span style="color:#f87171">✗ ${r.reason || 'Error'}</span>`;
+                    const emailBadge = r.emailSent ? '✓' : '—';
+                    const profileLink = r.profileUrl
+                        ? `<a href="${r.profileUrl}" target="_blank" style="color:#ff6b6b;font-size:11px;">Open →</a>`
+                        : '—';
+                    return `<tr>
+                        <td>${r.name || '—'}</td>
+                        <td>${r.email}</td>
+                        <td>${statusBadge}</td>
+                        <td style="text-align:center;">${emailBadge}</td>
+                        <td>${profileLink}</td>
+                    </tr>`;
+                }).join('');
+
+                document.getElementById('eb-results').style.display = 'block';
+                statusEl.textContent = `Done — ${summary.enrolled + summary.existing} of ${summary.total} processed.`;
+            } catch (e) {
+                statusEl.textContent = '✗ ' + e.message;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Enroll & Send Emails';
+            }
+        };
 
         // ─── Tab Switching ────────────────────────────────
         window.switchTab = (id, btn) => {
