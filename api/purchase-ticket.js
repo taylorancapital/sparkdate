@@ -183,9 +183,11 @@ async function sweepStale3ds(eventRef, eventId) {
 
 // Tiny HTML-escape for values that flow into the welcome email body.
 function escEmail(s) {
+  // new RegExp, not a regex literal: a literal quote inside a regex breaks
+  // Vercel's build-time entrypoint scanner and drops this file from deploys.
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    .replace(/>/g, '&gt;').replace(new RegExp('"', 'g'), '&quot;');
 }
 
 function welcomeHTML({ eventName, resetLink, profileUrl }) {

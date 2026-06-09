@@ -38,9 +38,12 @@ function loadEventTemplate() {
 }
 
 function escAttr(s) {
+  // new RegExp, not a regex literal: a literal quote inside a regex breaks
+  // Vercel's build-time entrypoint scanner, which then drops this file from
+  // the deployed functions ("pattern doesn't match any Serverless Functions").
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    .replace(/>/g, '&gt;').replace(new RegExp('"', 'g'), '&quot;');
 }
 
 // Serialize a JSON-LD object for safe embedding inside a script element.

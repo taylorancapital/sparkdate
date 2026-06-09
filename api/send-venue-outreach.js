@@ -31,11 +31,13 @@ const OUTREACH_FROM  = process.env.OUTREACH_FROM  || 'SparkDate Outreach <hello@
 // `${venue.name}` into the Subject line, where stray < / > / & break
 // downstream rendering across mail clients.
 function esc(s) {
+  // new RegExp, not a regex literal: a literal quote inside a regex breaks
+  // Vercel's build-time entrypoint scanner and drops this file from deploys.
   return String(s ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(new RegExp('"', 'g'), '&quot;');
 }
 
 // Physical mailing address — required by CAN-SPAM in every commercial

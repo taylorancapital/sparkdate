@@ -128,7 +128,9 @@ async function handleProfileCompletion(req, res) {
 // batch of buyers. For each: create (or reuse) a Firebase Auth user, write
 // users/tickets/event_registrations atomically, and email a magic profile link.
 function ebEsc(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  // new RegExp, not a regex literal: a literal quote inside a regex breaks
+  // Vercel's build-time entrypoint scanner and drops this file from deploys.
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(new RegExp('"', 'g'), '&quot;');
 }
 
 function ebWelcomeHTML({ firstName, eventName, profileUrl, resetLink }) {
@@ -441,7 +443,7 @@ module.exports = async function handler(req, res) {
     // against a name like `<script>...</script>` arriving as raw markup.
     const safeFirstName = String(firstName)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(new RegExp('"', 'g'), '&quot;');
 
     // Show the next upcoming event (dynamic) with a "Get Tickets" CTA.
     // Fails soft to an evergreen card when nothing is scheduled.

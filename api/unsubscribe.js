@@ -24,9 +24,11 @@ const db = admin.firestore();
 // The unsubscribe token is HMAC-gated so this isn't practically
 // reachable, but escaping it is correct defense-in-depth.
 function esc(s) {
+  // new RegExp, not a regex literal: a literal quote inside a regex breaks
+  // Vercel's build-time entrypoint scanner and drops this file from deploys.
   return String(s ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    .replace(/>/g, '&gt;').replace(new RegExp('"', 'g'), '&quot;');
 }
 
 async function unsubscribeLead(leadId, sig) {
