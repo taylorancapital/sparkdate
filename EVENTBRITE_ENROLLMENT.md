@@ -31,6 +31,9 @@ pull them in. **It takes about a minute and happens entirely in the browser.**
      Alex Johnson, alex@example.com, man
      ```
 
+   > Up to **25 attendees per batch**. Got more? Run them 25 at a time —
+   > re-running is safe (it skips anyone already enrolled).
+
 4. **Click "Enroll & Send Emails"**
    A results table shows each buyer:
    - ✓ **Enrolled** — new account created

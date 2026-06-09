@@ -163,6 +163,44 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 </div></body></html>`;
 }
 
+// Existing SparkDate users: NO "we created an account" copy and NO password
+// reset link (that reads like a phishing/takeover email to someone who already
+// has an account). Just confirm the ticket; include the profile link only if
+// they haven't completed it yet.
+function ebExistingHTML({ firstName, eventName, profileUrl }) {
+  return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
+.container{max-width:600px;margin:0 auto;background:#fff}
+.header{background:#0a0e27;padding:40px 30px;text-align:center}
+.logo{font-family:Georgia,serif;font-size:32px;font-weight:900;color:#fff;letter-spacing:-1px}
+.logo span{color:#ff6b6b}
+.content{padding:40px 30px}
+h1{font-family:Georgia,serif;font-size:26px;color:#0a0e27;margin:0 0 18px;font-weight:900}
+p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
+.cta{display:inline-block;background:#ff6b6b;color:#fff !important;font-weight:800;font-size:15px;padding:14px 34px;border-radius:4px;text-decoration:none;margin:8px 0 20px}
+.fine{font-size:12px;color:#666;line-height:1.6}
+.footer{background:#0a0e27;padding:24px;text-align:center;color:#888;font-size:12px}
+.footer a{color:#ff6b6b;text-decoration:none}
+</style></head>
+<body><div class="container">
+  <div class="header"><div class="logo">Spark<span>Date</span></div></div>
+  <div class="content">
+    <h1>See you at ${ebEsc(eventName)} 🎉</h1>
+    <p>Hey ${ebEsc(firstName)} — your ticket is confirmed. You already have a SparkDate account, so you're all set.</p>
+    ${profileUrl
+      ? `<p><strong>One quick thing:</strong> finish your profile so we can match you with other attendees after the event:</p>
+    <p style="text-align:center;"><a class="cta" href="${ebEsc(profileUrl)}">Complete my profile →</a></p>`
+      : ''}
+    <p class="fine">Manage your tickets and account anytime at <a href="https://sparkdate.date/account">sparkdate.date/account</a>.</p>
+  </div>
+  <div class="footer">
+    <p>SparkDate · Lancaster, PA · Real people. Real venues.</p>
+    <p><a href="https://sparkdate.date">sparkdate.date</a></p>
+  </div>
+</div></body></html>`;
+}
+
 async function enrollEventbriteOne({ email, name, gender, eventId, eventName, priceCents }) {
   const norm = String(email || '').toLowerCase().trim();
   if (!norm) return { email, status: 'skipped', reason: 'empty email' };
@@ -193,13 +231,19 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
   const FieldValue = admin.firestore.FieldValue;
 
   // 2. Atomic Firestore writes (idempotent — keyed by uid+event).
+  // wasNewUserDoc / alreadyCompleted drive which welcome email goes out below.
+  // Set inside the txn (reset on each retry) so they reflect the final state.
   const ticketId = `eb_${uid}_${eventId}`;
   const regId    = `eb_reg_${uid}_${eventId}`;
+  let wasNewUserDoc = false;
+  let alreadyCompleted = false;
   await db.runTransaction(async (txn) => {
     const userRef   = db.collection('users').doc(uid);
     const ticketRef = db.collection('tickets').doc(ticketId);
     const regRef    = db.collection('event_registrations').doc(regId);
     const userSnap  = await txn.get(userRef);
+    wasNewUserDoc = !userSnap.exists;
+    alreadyCompleted = userSnap.exists && userSnap.data().profileCompleted === true;
 
     if (!userSnap.exists) {
       txn.set(userRef, {
@@ -224,19 +268,25 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
     }, { merge: true });
   });
 
-  // 3. Magic profile link + welcome email (best-effort).
+  // 3. Magic profile link + welcome email (best-effort). New SparkDate users
+  // get account-creation copy + a set-password link; users who already had a
+  // doc get a ticket-confirmation only (no "we made you an account", no reset
+  // link), with the profile CTA only if they haven't completed it.
   let profileUrl = null, emailSent = false;
   try {
     profileUrl = makeProfileUrl(uid);
-    const resetLink = await admin.auth().generatePasswordResetLink(norm);
     if (process.env.RESEND_API_KEY) {
       const resend = new Resend(process.env.RESEND_API_KEY);
-      await resend.emails.send({
-        from: 'SparkDate <hello@mail.sparkdate.date>',
-        to: norm,
-        subject: `Your SparkDate ticket — ${eventName}`,
-        html: ebWelcomeHTML({ firstName: firstName || name, eventName, profileUrl, resetLink }),
-      });
+      let subject, html;
+      if (wasNewUserDoc) {
+        const resetLink = await admin.auth().generatePasswordResetLink(norm);
+        subject = `Your SparkDate ticket — ${eventName}`;
+        html = ebWelcomeHTML({ firstName: firstName || name, eventName, profileUrl, resetLink });
+      } else {
+        subject = `Your ticket for ${eventName} is confirmed`;
+        html = ebExistingHTML({ firstName: firstName || name, eventName, profileUrl: alreadyCompleted ? null : profileUrl });
+      }
+      await resend.emails.send({ from: 'SparkDate <hello@mail.sparkdate.date>', to: norm, subject, html });
       emailSent = true;
     }
   } catch (e) {
@@ -245,7 +295,9 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
 
   return {
     email: norm, name: String(name || '').trim(), uid,
-    status: isExisting ? 'existing_user' : 'enrolled', emailSent, profileUrl,
+    // "enrolled" = we created the SparkDate user doc; "existing_user" = it
+    // already existed (keyed off the user doc, not just the Auth record).
+    status: wasNewUserDoc ? 'enrolled' : 'existing_user', emailSent, profileUrl,
   };
 }
 
@@ -256,8 +308,11 @@ async function handleEventbriteEnroll(req, res) {
   if (!Array.isArray(buyers) || buyers.length === 0) {
     return res.status(400).json({ error: 'buyers must be a non-empty array' });
   }
-  if (buyers.length > 200) {
-    return res.status(400).json({ error: 'Max 200 buyers per request' });
+  // Each buyer is ~1-2s (Auth + Firestore txn + Resend), processed sequentially.
+  // Cap the batch so it finishes inside the function's maxDuration (60s on
+  // Hobby — see vercel.json) rather than timing out and half-enrolling.
+  if (buyers.length > 25) {
+    return res.status(400).json({ error: 'Max 25 buyers per batch — split larger lists and run them one batch at a time (re-running is safe; it skips anyone already enrolled).' });
   }
 
   const results = [];
