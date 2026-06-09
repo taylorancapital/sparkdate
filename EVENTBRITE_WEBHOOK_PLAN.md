@@ -234,15 +234,27 @@ const order = await eventbrite.request('/orders/{id}');
 
 ### Reuse Existing Logic
 
-The heavy lifting is already done:
-- `enrollGuestAsMember()` — create Firebase Auth user + Stripe subscription + email
-- `recordLead()` — add to nurture sequence
-- `sign()` / `makeProfileUrl()` — magic-link token
+The heavy lifting is already done — the admin "Enroll" tab and this webhook can
+share the exact same enrollment function:
+- `enrollEventbriteOne({ email, name, gender, eventId, eventName, priceCents })`
+  in `api/lead-signup.js` — creates/reuses the Firebase Auth user, writes
+  `users` / `tickets` / `event_registrations` atomically, and sends the
+  magic-link welcome email. (Note: memberships are paused, so no Stripe
+  subscription is created — see the membership-pause notes in
+  `api/purchase-ticket.js`.)
+- `makeProfileUrl(uid)` in `lib/profile-link.js` — magic-link token.
 
 Webhook just:
-1. Verifies signature
-2. Fetches full order from Eventbrite API
-3. Calls the same enrollment functions
+1. Verifies the signature
+2. Fetches the full order from the Eventbrite API (email, name, gender answer)
+3. Maps the Eventbrite event → SparkDate `eventId`
+4. Calls `enrollEventbriteOne(...)` — same code path as the admin tab
+
+> **Function-cap note:** SparkDate is at the 12-function Vercel limit. Don't add
+> `api/enroll-eventbrite.js` as a standalone function — that broke a deploy once.
+> Fold the webhook into an existing endpoint (e.g. a `webhook_eventbrite` action
+> on `api/lead-signup.js`, or extend `api/stripe-webhook.js`'s raw-body handling)
+> the same way `enroll_eventbrite` and `complete_profile` are folded in today.
 
 ### Error Handling
 
@@ -302,10 +314,12 @@ When you're ready to build (10+ orders/week):
   - [ ] Set env vars: `EVENTBRITE_PERSONAL_OAUTH_TOKEN`, `EVENTBRITE_WEBHOOK_SIGNING_SECRET`
 
 - [ ] **Implementation Phase:**
-  - [ ] Create `/api/enroll-eventbrite.js` endpoint
+  - [ ] Add the webhook as an **action on an existing endpoint** (NOT a new
+        function file — 12-function cap). E.g. a `webhook_eventbrite` branch in
+        `api/lead-signup.js`, reading the raw body for signature verification.
   - [ ] Implement signature verification
   - [ ] Implement Eventbrite API order lookup
-  - [ ] Reuse `enrollGuestAsMember()` / `recordLead()` from purchase-ticket.js
+  - [ ] Reuse `enrollEventbriteOne()` from `api/lead-signup.js`
   - [ ] Add error handling + logging
   - [ ] Test with Eventbrite test webhook delivery
 
@@ -374,10 +388,10 @@ For now, the **manual script is production-ready** and handles the current volum
 
 ## Files to Build (When Ready)
 
-- `/api/enroll-eventbrite.js` — new endpoint (mirrors the script logic)
-  - Signature verification
+- **An action on an existing endpoint** (NOT a new function file — 12-function cap)
+  - Signature verification (raw body)
   - Eventbrite API call
-  - Enrollment + email (reuse purchase-ticket.js exports)
+  - Enrollment + email (reuse `enrollEventbriteOne()` from `api/lead-signup.js`)
   - Error handling
 
 - Env var setup in Vercel:
