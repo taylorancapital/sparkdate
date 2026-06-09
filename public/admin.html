@@ -643,6 +643,7 @@
                 <span class="live-dot"></span>
                 <span>Live · <span id="lastUpdate">just now</span></span>
             </div>
+            <button id="adminLogoutBtn" onclick="adminLogout()" style="margin-left:16px;background:rgba(255,255,255,0.08);color:#f5f3f0;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;">Log out</button>
         </div>
     </header>
 
@@ -1248,8 +1249,28 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             }
         };
 
+        // Single auto-refresh timer. Tracked so we never stack duplicate
+        // 30s loops if onAuthStateChanged fires more than once (e.g. a correct
+        // admin login right after a rejected non-admin attempt), and so we can
+        // stop polling on logout.
+        let refreshTimer = null;
+        function stopRefresh() {
+            if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+        }
+
+        window.adminLogout = async () => {
+            stopRefresh();
+            try { await auth.signOut(); } catch (_) {}
+            // onAuthStateChanged(null) below re-shows the login overlay.
+        };
+
         onAuthStateChanged(auth, async (user) => {
-            if (!user) return;
+            if (!user) {
+                // Signed out (or never signed in): stop polling and show the gate.
+                stopRefresh();
+                document.getElementById('loginOverlay').style.display = '';
+                return;
+            }
             const ok = await isAdminUser(user);
             if (!ok) {
                 const errorEl = document.getElementById('loginError');
@@ -1261,7 +1282,8 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             }
             document.getElementById('loginOverlay').style.display = 'none';
             loadDashboard();
-            setInterval(loadDashboard, 30000);
+            stopRefresh();
+            refreshTimer = setInterval(loadDashboard, 30000);
         });
 
         // ─── Data Loaders ──────────────────────────────────
@@ -1319,7 +1341,12 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 const date = ev.date?.toDate ? ev.date.toDate() : new Date(ev.date);
                 const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                 const timeStr = ev.time || '';
-                const spots = ev.spotsTotal || ((ev.spotsMen || 0) + (ev.spotsWomen || 0));
+                // New single-pool events store one numeric `spots`; legacy
+                // gendered events split into spotsWomen/spotsMen. Prefer `spots`
+                // (incl. a valid 0) so form-created events don't read as "0".
+                const spots = Number.isFinite(Number(ev.spots))
+                    ? Number(ev.spots)
+                    : (ev.spotsTotal ?? ((ev.spotsMen || 0) + (ev.spotsWomen || 0)));
                 const regCount = allRegistrations.filter(r => r.eventId === ev.id).length;
                 const statusClass = ev.status === 'open' ? 'badge-active' : ev.status === 'almost' ? 'badge-pending' : 'badge-canceled';
                 const venueLine = (ev.venue || '—') + (ev.neighborhood ? ' · ' + ev.neighborhood : '');
@@ -1687,12 +1714,11 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     amenities,
                     emoji,
                     status: evStatus,
-                    // Initialize the counters that /api/purchase-ticket bumps
-                    // inside its capacity transaction. Without these fields,
-                    // the first concurrent ticket purchase races against the
-                    // counter's implicit-zero default, which could miscount.
-                    confirmedWomen: 0,
-                    confirmedMen:   0,
+                    // Single-pool seat counter that /api/purchase-ticket bumps
+                    // inside its capacity transaction (lib/seat-model resolves
+                    // `spots`/`confirmed` for new events). Initialized to 0 so
+                    // the field exists from creation.
+                    confirmed: 0,
                     createdAt: Timestamp.now(),
                 });
 
@@ -2233,14 +2259,14 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         ? '<span style="color:#4ade80">✓ Enrolled</span>'
                         : r.status === 'existing_user'
                             ? '<span style="color:#facc15">↩ Existing</span>'
-                            : `<span style="color:#f87171">✗ ${r.reason || 'Error'}</span>`;
+                            : `<span style="color:#f87171">✗ ${safe(r.reason || 'Error')}</span>`;
                     const emailBadge = r.emailSent ? '✓' : '—';
                     const profileLink = r.profileUrl
-                        ? `<a href="${r.profileUrl}" target="_blank" style="color:#ff6b6b;font-size:11px;">Open →</a>`
+                        ? `<a href="${safe(r.profileUrl)}" target="_blank" style="color:#ff6b6b;font-size:11px;">Open →</a>`
                         : '—';
                     return `<tr>
-                        <td>${r.name || '—'}</td>
-                        <td>${r.email}</td>
+                        <td>${safe(r.name || '—')}</td>
+                        <td>${safe(r.email)}</td>
                         <td>${statusBadge}</td>
                         <td style="text-align:center;">${emailBadge}</td>
                         <td>${profileLink}</td>
