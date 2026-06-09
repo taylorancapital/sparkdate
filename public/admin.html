@@ -2212,10 +2212,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
             try {
                 const token = await auth.currentUser.getIdToken();
-                const resp  = await fetch('/api/enroll-eventbrite', {
+                const resp  = await fetch('/api/lead-signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                    body: JSON.stringify({ buyers }),
+                    body: JSON.stringify({ action: 'enroll_eventbrite', buyers }),
                 });
                 const data = await resp.json();
 
