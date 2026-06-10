@@ -930,18 +930,16 @@
                     items: [{ item_name: evName, price: parseFloat(ticket.toFixed(2)) }]
                 });
 
-                // Fire purchase event to Facebook Pixel and Google Ads
-                if (result._pixel_purchase) {
-                    if (typeof fbq !== 'undefined') {
-                        fbq('track', 'Purchase', {
-                            value: result._pixel_purchase.value,
-                            currency: result._pixel_purchase.currency
-                        });
-                    }
-                    gtag('event', 'purchase', {
-                        value: result._pixel_purchase.value,
-                        currency: result._pixel_purchase.currency,
-                        items: [{ item_name: evName }]
+                // Mirror the same purchase to the Facebook Pixel. GA4 is already
+                // handled by the gtag('purchase') above — firing a second gtag
+                // here would double-count it (the duplicate lacks transaction_id
+                // so GA4 won't dedupe). Use the client-side purchaseValue so the
+                // Pixel value matches GA4 exactly, keeps the cents, and fires for
+                // 3DS buyers too (the requiresAction response carries no value).
+                if (typeof fbq !== 'undefined') {
+                    fbq('track', 'Purchase', {
+                        value: parseFloat(purchaseValue.toFixed(2)),
+                        currency: 'USD'
                     });
                 }
 

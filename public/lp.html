@@ -149,7 +149,6 @@
             if (res.ok) {
               if (typeof gtag === 'function') gtag('event', 'generate_lead', { lead_type: 'lp' });
               if (typeof fbq !== 'undefined') fbq('track', 'Lead');
-              gtag('event', 'conversion', { 'allow_custom_events': true, 'value': 1.0, 'currency': 'USD' });
               f.style.display = 'none';
               msg.style.display = 'block'; msg.style.color = 'var(--success)';
               msg.textContent = "✓ You're on the list — check your email.";

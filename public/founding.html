@@ -781,13 +781,8 @@
                     // Track lead capture in Google Analytics
                     gtag('event', 'generate_lead', { lead_type: 'founding_member' });
 
-                    // Track lead in Facebook Pixel and Google Ads
+                    // Track lead in the Facebook Pixel (GA4 lead handled above)
                     if (typeof fbq !== 'undefined') fbq('track', 'Lead');
-                    gtag('event', 'conversion', {
-                        'allow_custom_events': true,
-                        'value': 1.0,
-                        'currency': 'USD'
-                    });
 
                     form.reset();
                     submitBtn.textContent = originalText;
