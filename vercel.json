@@ -41,6 +41,13 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/flyer",
+      "destination": "/lp?utm_source=flyer&utm_medium=offline&utm_campaign=week1_math",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/",
