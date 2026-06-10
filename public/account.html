@@ -1375,18 +1375,22 @@
                 setText('profileJoined', created ? created.toLocaleDateString() : null);
 
                 tierKey = userData.tier || 'free';
-                setHTML('subTier',   badge(TIER_LABELS[tierKey] || tierKey, tierKey));
                 // Distinguish "pending" (signup never completed) so users get a clear message instead of a generic badge.
                 const status = userData.subscriptionStatus || 'pending';
-                setHTML('subStatus', badge(status, status));
-                setText('subPrice',  '$' + ((TIERS[tierKey]?.price) || 0).toFixed(2) + '/month');
+                // tierKey/status feed the gated logic below; only the DOM writes
+                // are skipped while paused (the whole card is hidden anyway).
+                if (SUBSCRIPTIONS_ENABLED) {
+                    setHTML('subTier',   badge(TIER_LABELS[tierKey] || tierKey, tierKey));
+                    setHTML('subStatus', badge(status, status));
+                    setText('subPrice',  '$' + ((TIERS[tierKey]?.price) || 0).toFixed(2) + '/month');
 
-                const renewal = userData.currentPeriodEnd?.toDate ? userData.currentPeriodEnd.toDate() : (userData.currentPeriodEnd ? new Date(userData.currentPeriodEnd) : null);
-                const label   = userData.cancelAtPeriodEnd ? 'Access ends' : 'Next billing';
-                const renewalEl = document.getElementById('subRenewal');
-                if (renewalEl) {
-                    if (renewalEl.previousElementSibling) renewalEl.previousElementSibling.textContent = label;
-                    renewalEl.textContent = renewal ? renewal.toLocaleDateString() : '—';
+                    const renewal = userData.currentPeriodEnd?.toDate ? userData.currentPeriodEnd.toDate() : (userData.currentPeriodEnd ? new Date(userData.currentPeriodEnd) : null);
+                    const label   = userData.cancelAtPeriodEnd ? 'Access ends' : 'Next billing';
+                    const renewalEl = document.getElementById('subRenewal');
+                    if (renewalEl) {
+                        if (renewalEl.previousElementSibling) renewalEl.previousElementSibling.textContent = label;
+                        renewalEl.textContent = renewal ? renewal.toLocaleDateString() : '—';
+                    }
                 }
 
                 const intentLabels = { long_term: 'Something long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
@@ -1519,6 +1523,13 @@
                 // ── 3. Gate Connections to Fire (premium) tier ─────────
                 const tier = userData?.tier || 'free';
                 if (tier !== 'premium') {
+                    // Memberships paused: don't pitch the $39.99/mo Fire upgrade
+                    // (/api/upgrade-subscription would reject it with "No active
+                    // subscription" anyway) — show a neutral coming-soon note.
+                    if (!SUBSCRIPTIONS_ENABLED) {
+                        connectionsEl.innerHTML = `<div style="color: rgba(245,243,240,0.5); font-size: 13px; padding: 12px 0; line-height: 1.6;">Connections lets you stay in touch with people you met at events. It's part of memberships, which are coming soon.</div>`;
+                        return;
+                    }
                     renderConnectionsUpsell(connectionsEl);
                     return;
                 }
