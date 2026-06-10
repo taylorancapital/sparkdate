@@ -451,23 +451,24 @@
                             </div>
                         </div>
 
-                        <!-- Pre-billing trial disclosure (FTC ROSCA — must be visible
-                             BEFORE the buy button, in normal contrast). Hidden for
-                             logged-in members in applyUserContext() since they already
-                             have a subscription. -->
+                        <!-- Memberships are paused pre-launch: a ticket purchase
+                             creates NO trial and NO subscription (see enrollGuestAsMember
+                             in api/purchase-ticket.js — stripeCustomerId/subscriptionId
+                             are null). State that plainly so buyers aren't misled into
+                             expecting a recurring charge. Hidden for logged-in members
+                             in applyUserContext() (card-on-file path) for when
+                             memberships return. -->
                         <div class="trial-disclosure" id="trialDisclosure">
-                            <strong>Includes a 30-day free Spark trial.</strong>
-                            After 30 days, <strong>$9.99/mo</strong>. Cancel anytime at
-                            <a href="/account">/account</a>.
+                            <strong>One-time ticket purchase.</strong>
+                            No membership and no subscription — you're only paying for
+                            this event. Nothing recurring.
                         </div>
 
                         <button type="submit" class="checkout-btn" id="checkoutBtn" disabled>Select Gender</button>
 
                         <div class="legal">
                             By purchasing, you agree to our <a href="/terms">Terms</a> and
-                            <a href="/privacy">Privacy Policy</a>, and (for non-members) to start
-                            a 30-day free Spark trial that auto-renews at $9.99/month unless
-                            canceled.<br>
+                            <a href="/privacy">Privacy Policy</a>.<br>
                             Must be 21+. Bring valid ID.
                         </div>
                     </form>
