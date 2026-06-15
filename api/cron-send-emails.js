@@ -259,6 +259,83 @@ async function sendProfileReminders(nowMs) {
   return { sent, skipped };
 }
 
+// ── Post-event "who did you click with" prompt ──────────────────────────────
+// The morning after an event, email every confirmed attendee a link to their
+// /account Connections section so they can pick who they clicked with. (Login
+// required per product decision; password-less guests set one via the existing
+// reset-password link.) Idempotent via `postEventPromptSent` on the ticket doc
+// (per attendee × event, so a second event still prompts). Best-effort: a
+// failure here never breaks the nurture or profile-reminder passes.
+const POST_EVENT_LOOKBACK_DAYS = 3;
+
+function postEventPromptHTML({ eventName, accountUrl }) {
+  const s = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
+.container{max-width:600px;margin:0 auto;background:#fff}
+.header{background:#0a0e27;padding:36px 30px;text-align:center}
+.logo{font-family:Georgia,serif;font-size:30px;font-weight:900;color:#fff}.logo span{color:#ff6b6b}
+.content{padding:36px 30px}h1{font-family:Georgia,serif;font-size:24px;margin:0 0 16px}
+p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
+.cta{display:inline-block;background:#ff6b6b;color:#fff!important;font-weight:800;padding:14px 34px;border-radius:4px;text-decoration:none;margin:6px 0 18px}
+.footer{background:#0a0e27;padding:22px;text-align:center;color:#888;font-size:12px}.footer a{color:#ff6b6b;text-decoration:none}
+</style></head><body><div class="container">
+<div class="header"><div class="logo">Spark<span>Date</span></div></div>
+<div class="content">
+<h1>Who did you click with at ${s(eventName)}?</h1>
+<p>Tell us who you'd like to see again. If they pick you too, we'll share contact info so you can meet up — no missed signals, no awkward Instagram hunt.</p>
+<p style="text-align:center;"><a class="cta" href="${s(accountUrl)}">Pick your matches</a></p>
+<p>Sign in with the email you used to register.</p>
+</div>
+<div class="footer"><p>SparkDate · Philadelphia · Real people. Real venues.</p>
+<p><a href="https://sparkdate.date">sparkdate.date</a></p></div>
+</div></body></html>`;
+}
+
+async function sendPostEventPrompts(nowMs) {
+  let sent = 0, skipped = 0;
+  try {
+    const since = new Date(nowMs - POST_EVENT_LOOKBACK_DAYS * 86400000);
+    const evSnap = await db.collection('events')
+      .where('date', '>=', since)
+      .where('date', '<=', new Date(nowMs))
+      .get();
+    for (const evDoc of evSnap.docs) {
+      const eventName = evDoc.data().title || 'your SparkDate event';
+      // Single-field query (eventId auto-indexed); filter status in code to
+      // avoid a composite index (mirrors sendProfileReminders).
+      const tkSnap = await db.collection('tickets').where('eventId', '==', evDoc.id).get();
+      const seen = new Set();
+      for (const tk of tkSnap.docs) {
+        const t = tk.data();
+        if (t.status !== 'confirmed' || !t.firebaseUid) { skipped++; continue; }
+        if (t.postEventPromptSent === true) { skipped++; continue; }
+        if (seen.has(t.firebaseUid)) { skipped++; continue; } // one prompt per person per event
+        seen.add(t.firebaseUid);
+        const usnap = await db.collection('users').doc(t.firebaseUid).get();
+        const email = usnap.exists ? usnap.data().email : null;
+        if (!email) { skipped++; continue; }
+        try {
+          const result = await resend.emails.send({
+            from: 'SparkDate <hello@mail.sparkdate.date>',
+            to: email,
+            subject: `Who did you click with at ${eventName}?`,
+            html: postEventPromptHTML({ eventName, accountUrl: 'https://sparkdate.date/account' }),
+          });
+          if (!result.error) {
+            await tk.ref.update({ postEventPromptSent: true, postEventPromptSentAt: new Date().toISOString() });
+            sent++;
+            console.log(`✅ post-event prompt → tickets/${tk.id}`);
+          } else { skipped++; }
+        } catch (e) { console.error('[post-event-prompt]', tk.id, e.message); skipped++; }
+      }
+    }
+  } catch (e) {
+    console.error('[post-event-prompt] pass failed:', e.message);
+  }
+  return { sent, skipped };
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
   if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -308,8 +385,11 @@ module.exports = async function handler(req, res) {
     // Pre-event chemistry-profile reminders to confirmed ticket-holders.
     const profileReminders = await sendProfileReminders(nowMs);
 
-    console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders));
-    return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, ts: new Date().toISOString() });
+    // Post-event "who did you click with" prompts to recent attendees.
+    const postEventPrompts = await sendPostEventPrompts(nowMs);
+
+    console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders), 'postEventPrompts=', JSON.stringify(postEventPrompts));
+    return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, postEventPrompts, ts: new Date().toISOString() });
 
   } catch (err) {
     console.error('❌ Cron error:', err.message);
