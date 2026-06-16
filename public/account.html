@@ -1520,104 +1520,58 @@
                             </div>`;
                     }).join('');
 
-                // ── 3. Gate Connections to Fire (premium) tier ─────────
-                const tier = userData?.tier || 'free';
-                if (tier !== 'premium') {
-                    // Memberships paused: don't pitch the $39.99/mo Fire upgrade
-                    // (/api/upgrade-subscription would reject it with "No active
-                    // subscription" anyway) — show a neutral coming-soon note.
-                    if (!SUBSCRIPTIONS_ENABLED) {
-                        connectionsEl.innerHTML = `<div style="color: rgba(245,243,240,0.5); font-size: 13px; padding: 12px 0; line-height: 1.6;">Connections lets you stay in touch with people you met at events. It's part of memberships, which are coming soon.</div>`;
-                        return;
-                    }
-                    renderConnectionsUpsell(connectionsEl);
+                // ── 3. Connections: post-event "who did you click with" ──
+                // Open to ALL confirmed ticket-holders. The co-attendee list +
+                // match state come from /api/declare-connection (GET): the
+                // Firestore rules forbid a browser from reading other users'
+                // docs or others' event_registrations, so the server assembles
+                // it with the Admin SDK. (Replaces the old premium-gated,
+                // client-side query that would hit permission-denied for any
+                // real user.)
+                let connEvents = [];
+                try {
+                    const idToken = await currentUser.getIdToken();
+                    const cRes = await fetch('/api/declare-connection', {
+                        headers: { 'Authorization': `Bearer ${idToken}` },
+                    });
+                    const cData = await cRes.json();
+                    if (!cRes.ok) throw new Error(cData.error || 'load failed');
+                    connEvents = cData.events || [];
+                } catch (e) {
+                    console.error('[connections] load error', e);
+                    connectionsEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">Could not load connections. Please refresh.</div>`;
                     return;
                 }
 
-                // ── 4. Fire member: load past-event attendees + suggestions ───
-                if (past.length === 0) {
-                    connectionsEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0; line-height: 1.6;">After you attend an event, the people you met will appear here. Tell us who you'd like to stay in touch with and we'll suggest upcoming events to bring you back together.</div>`;
+                if (connEvents.length === 0) {
+                    connectionsEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0; line-height: 1.6;">After you attend an event, the people you met will appear here. Tell us who you clicked with — if they pick you too, we'll share contact info so you can meet up.</div>`;
                     return;
                 }
 
-                const pastEventIds = past.map(e => e.id);
-                const attendeeChunks = [];
-                for (let i = 0; i < pastEventIds.length; i += 10) {
-                    attendeeChunks.push(
-                        getDocs(query(collection(db, 'event_registrations'), where('eventId', 'in', pastEventIds.slice(i, i + 10))))
-                    );
-                }
-                const attendeeSnaps = await Promise.all(attendeeChunks);
-                // Only treat someone as an attendee if their registration
-                // actually finalized — failed/pending_3ds/expired rows
-                // would otherwise show up as "ghost" attendees the user
-                // can't actually connect with (audit H1).
-                const allAttendees = attendeeSnaps
-                    .flatMap(s => s.docs.map(d => d.data()))
-                    .filter(r => r.status === 'confirmed');
+                const intentLabels = { long_term: 'Long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
 
-                const otherUserIds = [...new Set(allAttendees.filter(a => a.userId !== currentUser.uid).map(a => a.userId))];
-                const userDocs = await Promise.all(otherUserIds.map(uid => getDoc(doc(db, 'users', uid))));
-                const usersById = {};
-                userDocs.forEach((d, i) => { if (d.exists()) usersById[otherUserIds[i]] = d.data(); });
+                const renderAttendee = (a, eventId) => {
+                    const genderDisp = ({woman:'Woman',man:'Man'})[a.gender] || '';
+                    const meta = [a.age, genderDisp, intentLabels[a.intent] || ''].filter(Boolean).join(' · ');
 
-                // ── 5. Connection intents + upcoming events globally ──
-                const [outSnap, inSnap, allUpcomingSnap] = await Promise.all([
-                    getDocs(query(collection(db, 'connection_intents'), where('fromUserId', '==', currentUser.uid))),
-                    getDocs(query(collection(db, 'connection_intents'), where('toUserId', '==', currentUser.uid))),
-                    getDocs(query(collection(db, 'events'), orderBy('date', 'asc'))),
-                ]);
-                const myIntents = new Set(outSnap.docs.map(d => `${d.data().toUserId}_${d.data().eventId}`));
-                const incomingIntents = new Set(inSnap.docs.map(d => `${d.data().fromUserId}_${d.data().eventId}`));
-                const allUpcomingEvents = allUpcomingSnap.docs
-                    .map(d => ({ id: d.id, ...d.data() }))
-                    .filter(e => { const d = eventDate(e); return d && d >= now && e.status !== 'full'; });
-
-                // ── 6. Render ─────────────────────────────────────────
-                const renderSuggestions = () => {
-                    if (allUpcomingEvents.length === 0) return '';
-                    const top = allUpcomingEvents.slice(0, 3).map(e => {
-                        const d = eventDate(e);
-                        const dateStr = d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-                        return `<li>· <a href="/event?id=${encodeURIComponent(e.id)}">${safe(e.title)}</a> — ${safe(dateStr)}${e.venue ? ' · ' + safe(e.venue) : ''}</li>`;
-                    }).join('');
-                    return `
-                        <div class="suggested-events">
-                            <div class="suggested-events-label">We'll try to bring you both to</div>
-                            <ul>${top}</ul>
-                        </div>`;
-                };
-
-                const renderAttendee = (otherUid, event) => {
-                    const u = usersById[otherUid];
-                    if (!u) return '';
-                    const key = `${otherUid}_${event.id}`;
-                    const sent = myIntents.has(key);
-                    const received = incomingIntents.has(key);
-                    const matched = sent && received;
-                    const genderDisp = ({woman:'Woman',man:'Man'})[u.gender] || '';
-                    const intentLabels = { long_term: 'Long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
-                    const intentDisp = intentLabels[u.intent] || '';
-                    const meta = [u.age, genderDisp, intentDisp].filter(Boolean).join(' · ');
-                    const displayName = (u.firstName || 'Member') + ' ' + (u.lastName || '').charAt(0) + (u.lastName ? '.' : '');
-
-                    let action, extra = '';
-                    if (matched) {
-                        action = `<div class="connect-state matched">Mutual</div>`;
-                        extra = renderSuggestions();
-                    } else if (sent) {
+                    let action = '', extra = '';
+                    if (a.state === 'matched') {
+                        action = `<div class="connect-state matched">Matched ✨</div>`;
+                        const c = a.contact || {};
+                        const reach = c.phone ? `📞 ${safe(c.phone)}` : (c.email ? `✉️ ${safe(c.email)}` : 'Reconnect at the next event');
+                        extra = `<div style="margin-top: 6px; font-size: 13px; color: var(--success); line-height: 1.5;">You both clicked! Reach ${safe(c.name || a.displayName)}: ${reach}</div>`;
+                    } else if (a.state === 'sent') {
                         action = `<div class="connect-state sent">Saved</div>`;
-                        extra = renderSuggestions();
-                    } else if (received) {
-                        action = `<button class="connect-btn" data-uid="${safe(otherUid)}" data-event="${safe(event.id)}" style="border-color: var(--info); color: var(--info);">They picked you · Stay in touch</button>`;
+                    } else if (a.state === 'received') {
+                        action = `<button class="connect-btn" data-uid="${safe(a.uid)}" data-event="${safe(eventId)}" style="border-color: var(--info); color: var(--info);">They clicked with you · I did too</button>`;
                     } else {
-                        action = `<button class="connect-btn" data-uid="${safe(otherUid)}" data-event="${safe(event.id)}">Stay in touch</button>`;
+                        action = `<button class="connect-btn" data-uid="${safe(a.uid)}" data-event="${safe(eventId)}">I clicked with them</button>`;
                     }
 
                     return `
                         <div class="attendee-row">
                             <div class="attendee-info">
-                                <div class="attendee-name">${safe(displayName)}</div>
+                                <div class="attendee-name">${safe(a.displayName)}</div>
                                 <div class="attendee-meta">${safe(meta)}</div>
                                 ${extra}
                             </div>
@@ -1625,29 +1579,25 @@
                         </div>`;
                 };
 
-                const intro = `<p style="font-size: 13px; color: rgba(245,243,240,0.6); margin: -10px 0 18px; line-height: 1.6;">Tell us who you'd like to stay in touch with. We'll suggest upcoming events to you both and try to get you in the same room again.</p>`;
+                const intro = `<p style="font-size: 13px; color: rgba(245,243,240,0.6); margin: -10px 0 18px; line-height: 1.6;">Who did you click with? Tap the people you'd like to see again. If they pick you too, we'll share contact info so you can meet up.</p>`;
 
-                connectionsEl.innerHTML = intro + past.map(event => {
-                    const others = allAttendees
-                        .filter(a => a.eventId === event.id && a.userId !== currentUser.uid)
-                        .map(a => a.userId);
-                    const d = eventDate(event);
+                connectionsEl.innerHTML = intro + connEvents.map(ev => {
+                    const d = ev.date ? new Date(ev.date) : null;
                     const dateStr = d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-
                     return `
                         <div class="event-group">
                             <div class="event-group-header">
-                                <div class="event-group-title">${safe(event.title)}</div>
+                                <div class="event-group-title">${safe(ev.title)}</div>
                                 <div class="event-group-date">${safe(dateStr)}</div>
                             </div>
-                            ${others.length === 0
+                            ${(!ev.attendees || ev.attendees.length === 0)
                                 ? '<div style="color: rgba(245,243,240,0.4); font-size: 12px; padding: 8px 0;">No other attendees registered.</div>'
-                                : others.map(uid => renderAttendee(uid, event)).join('')}
+                                : ev.attendees.map(a => renderAttendee(a, ev.eventId)).join('')}
                         </div>`;
                 }).join('');
 
-                // Wire up "Stay in touch" buttons via event delegation
-                // (replaces inline onclick which would break on user-controlled IDs)
+                // Wire up the "I clicked with them" buttons via event delegation
+                // (avoids inline onclick, which would break on user-controlled IDs).
                 connectionsEl.querySelectorAll('button.connect-btn[data-uid]').forEach(btn => {
                     btn.addEventListener('click', () => {
                         window.markConnection(btn.dataset.uid, btn.dataset.event);
@@ -1658,19 +1608,6 @@
                 upcomingEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">Could not load events.</div>`;
                 connectionsEl.innerHTML = `<div style="color: rgba(245,243,240,0.4); font-size: 13px; padding: 12px 0;">Could not load connections.</div>`;
             }
-        }
-
-        // Upsell shown to non-Fire members
-        function renderConnectionsUpsell(el) {
-            el.innerHTML = `
-                <div class="upsell">
-                    <div class="upsell-eyebrow">Fire members only</div>
-                    <h3>Want to get connected?</h3>
-                    <p>Tell us who you'd like to stay in touch with from past events. We'll suggest upcoming events to you — and try to get you both in the same room again.</p>
-                    <div class="upsell-price">$39.99<small>/mo</small></div>
-                    <button class="upsell-btn" id="upgradeFireBtn" onclick="upgradeToFire()">Upgrade to Fire</button>
-                    <div id="upgradeFireStatus" style="margin-top: 14px; font-size: 12px; display: none;"></div>
-                </div>`;
         }
 
         // Inline Fire upgrade — reuses performTierChange under the hood
@@ -1718,10 +1655,11 @@
             }
         };
 
-        // Mark a connection: A wants to stay in touch with B from a specific past event.
+        // Mark a connection: A clicked with B at a specific past event.
         // Goes through /api/declare-connection so the server can validate
-        // (a) the requester is actually who they claim to be, (b) they're
-        // on Fire tier, and (c) both parties really attended the event.
+        // (a) the requester is actually who they claim to be and (b) both
+        // parties really attended the event. If B already picked A, the
+        // server flips it to a mutual match and emails both their contact.
         window.markConnection = async (toUserId, eventId) => {
             try {
                 if (!currentUser) throw new Error('Not signed in');

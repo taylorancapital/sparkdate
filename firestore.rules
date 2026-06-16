@@ -144,6 +144,15 @@ service cloud.firestore {
       allow write: if false; // server-only
     }
 
+    // ── matches/{matchId} ────────────────────────────────────────
+    // Idempotency lock + record for a mutual post-event match. Written
+    // exclusively by /api/declare-connection (Admin SDK bypasses these rules)
+    // when two attendees pick each other. Admin-only read; never client-writable.
+    match /matches/{matchId} {
+      allow read: if isAdmin();
+      allow write: if false; // server-only
+    }
+
     // ── Default deny ─────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
