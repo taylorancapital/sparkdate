@@ -25,6 +25,7 @@ const { Resend } = require('resend');
 const { admin, requireAuth } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
 const { esc } = require('../lib/next-event');
+const { verifyMatchToken } = require('../lib/profile-link');
 
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
@@ -181,16 +182,31 @@ async function handleGet(req, res, uid) {
   return res.status(200).json({ events });
 }
 
+// Resolve the calling uid from EITHER a no-login match magic link (?uid=&t=,
+// in query or body) OR a Firebase ID token (the logged-in /account path).
+// A present-but-invalid magic link is rejected outright (no silent fallthrough).
+async function resolveCaller(req) {
+  const uid = (req.query && req.query.uid) || (req.body && req.body.uid);
+  const t = (req.query && req.query.t) || (req.body && req.body.t);
+  if (uid && t) {
+    if (verifyMatchToken(String(uid), String(t))) return String(uid);
+    const e = new Error('This link is invalid or has expired.');
+    e.statusCode = 401;
+    throw e;
+  }
+  const decoded = await requireAuth(req);
+  return decoded.uid;
+}
+
 module.exports = async function handler(req, res) {
   if (applyCors(req, res)) return res.status(204).end();
 
-  let decoded;
+  let fromUserId;
   try {
-    decoded = await requireAuth(req);
+    fromUserId = await resolveCaller(req);
   } catch (e) {
     return res.status(e.statusCode || 401).json({ error: e.message });
   }
-  const fromUserId = decoded.uid;
 
   if (req.method === 'GET') {
     try {

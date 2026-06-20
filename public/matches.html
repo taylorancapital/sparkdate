@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Per-attendee magic link; never index. -->
+    <meta name="robots" content="noindex, nofollow">
+    <script>
+      if (location.host === 'www.sparkdate.date') {
+        location.replace('https://sparkdate.date' + location.pathname + location.search + location.hash);
+      }
+    </script>
+    <title>Who did you click with? — SparkDate</title>
+    <link rel="canonical" href="https://sparkdate.date/matches">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-21YLCC35F1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-21YLCC35F1', { 'page_path': window.location.pathname });
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --navy: #0a0e27; --coral: #ff6b6b; --cream: #f5f3f0; --white: #fff; --success: #4ade80; --danger: #f87171; --info: #60a5fa; --gold: #f5c451; }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%); color: var(--cream); line-height: 1.55; min-height: 100vh; padding: 28px 18px 60px; }
+        .wrap { max-width: 520px; margin: 0 auto; }
+        .logo { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 900; color: var(--white); text-align: center; }
+        .logo span { color: var(--coral); }
+        h1 { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 900; margin: 22px 0 6px; letter-spacing: -0.5px; }
+        .sub { color: rgba(245,243,240,0.7); font-size: 14px; margin-bottom: 22px; }
+        .event-group { margin-bottom: 26px; }
+        .event-group-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid rgba(255,107,107,0.2); padding-bottom: 8px; margin-bottom: 12px; }
+        .event-group-title { font-weight: 700; font-size: 16px; color: var(--white); }
+        .event-group-date { font-size: 12px; color: var(--gold); }
+        .attendee-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .attendee-name { font-weight: 600; font-size: 15px; }
+        .attendee-meta { font-size: 12px; color: rgba(245,243,240,0.5); }
+        .connect-btn { padding: 10px 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,107,107,0.5); border-radius: 6px; color: var(--coral); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+        .connect-btn:disabled { opacity: 0.6; cursor: wait; }
+        .connect-state { font-size: 13px; font-weight: 700; white-space: nowrap; }
+        .connect-state.matched { color: var(--success); }
+        .connect-state.sent { color: rgba(245,243,240,0.5); }
+        .match-contact { margin-top: 6px; font-size: 13px; color: var(--success); line-height: 1.5; }
+        .empty, .bad { color: rgba(245,243,240,0.6); font-size: 14px; text-align: center; padding: 24px 0; }
+        a { color: var(--coral); }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="logo">Spark<span>Date</span></div>
+        <div id="content">
+            <div class="empty">Loading…</div>
+        </div>
+    </div>
+
+    <script>
+      (function () {
+        var qs = new URLSearchParams(location.search);
+        var uid = qs.get('uid') || '';
+        var token = qs.get('t') || '';
+        var content = document.getElementById('content');
+
+        var esc = function (s) {
+          return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        };
+        var intentLabels = { long_term: 'Long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
+
+        if (!uid || !token) {
+          content.innerHTML = '<h1>This link isn’t valid.</h1><p class="bad">It may have expired or been mistyped. Check your most recent SparkDate email for the latest link.</p>';
+          return;
+        }
+
+        function render(events) {
+          if (!events || events.length === 0) {
+            content.innerHTML = '<h1>Nothing here yet.</h1><p class="bad">Once you’ve attended an event, the people you met show up here.</p>';
+            return;
+          }
+          var html = '<h1>Who did you click with?</h1>'
+            + '<p class="sub">Tap everyone you’d like to see again. If they pick you too, we’ll share contact info so you can meet up.</p>';
+          events.forEach(function (ev) {
+            var d = ev.date ? new Date(ev.date) : null;
+            var dateStr = d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+            html += '<div class="event-group"><div class="event-group-header">'
+              + '<div class="event-group-title">' + esc(ev.title) + '</div>'
+              + '<div class="event-group-date">' + esc(dateStr) + '</div></div>';
+            if (!ev.attendees || ev.attendees.length === 0) {
+              html += '<div class="empty">No other attendees registered.</div>';
+            } else {
+              ev.attendees.forEach(function (a) {
+                html += renderAttendee(a, ev.eventId);
+              });
+            }
+            html += '</div>';
+          });
+          content.innerHTML = html;
+          content.querySelectorAll('button.connect-btn[data-uid]').forEach(function (btn) {
+            btn.addEventListener('click', function () { pick(btn.dataset.uid, btn.dataset.event, btn); });
+          });
+        }
+
+        function renderAttendee(a, eventId) {
+          var genderDisp = ({ woman: 'Woman', man: 'Man' })[a.gender] || '';
+          var meta = [a.age, genderDisp, intentLabels[a.intent] || ''].filter(Boolean).join(' · ');
+          var action = '', extra = '';
+          if (a.state === 'matched') {
+            action = '<div class="connect-state matched">Matched ✨</div>';
+            var c = a.contact || {};
+            var reach = c.phone ? ('📞 ' + esc(c.phone)) : (c.email ? ('✉️ ' + esc(c.email)) : 'Reconnect at the next event');
+            extra = '<div class="match-contact">You both clicked! Reach ' + esc(c.name || a.displayName) + ': ' + reach + '</div>';
+          } else if (a.state === 'sent') {
+            action = '<div class="connect-state sent">Saved</div>';
+          } else if (a.state === 'received') {
+            action = '<button class="connect-btn" data-uid="' + esc(a.uid) + '" data-event="' + esc(eventId) + '" style="border-color: var(--info); color: var(--info);">They picked you · I did too</button>';
+          } else {
+            action = '<button class="connect-btn" data-uid="' + esc(a.uid) + '" data-event="' + esc(eventId) + '">I clicked with them</button>';
+          }
+          return '<div class="attendee-row"><div><div class="attendee-name">' + esc(a.displayName) + '</div>'
+            + '<div class="attendee-meta">' + esc(meta) + '</div>' + extra + '</div>' + action + '</div>';
+        }
+
+        async function load() {
+          try {
+            var res = await fetch('/api/declare-connection?uid=' + encodeURIComponent(uid) + '&t=' + encodeURIComponent(token));
+            var data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'load failed');
+            render(data.events);
+          } catch (e) {
+            content.innerHTML = '<h1>This link isn’t valid.</h1><p class="bad">' + esc(e.message || 'Please try the latest link from your email.') + '</p>';
+          }
+        }
+
+        async function pick(toUserId, eventId, btn) {
+          btn.disabled = true; btn.textContent = 'Saving…';
+          try {
+            var res = await fetch('/api/declare-connection', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: uid, t: token, toUserId: toUserId, eventId: eventId })
+            });
+            var data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Could not save');
+            if (typeof gtag === 'function') gtag('event', 'select_item', { item_list_name: 'matches' });
+            load(); // re-render with fresh state (sent / matched)
+          } catch (e) {
+            btn.disabled = false; btn.textContent = 'I clicked with them';
+            alert(e.message || 'Could not save. Please try again.');
+          }
+        }
+
+        load();
+      })();
+    </script>
+</body>
+</html>

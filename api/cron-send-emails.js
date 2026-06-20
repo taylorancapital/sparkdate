@@ -15,7 +15,7 @@
 const { Resend } = require('resend');
 const { admin } = require('../lib/auth');
 const { makeUnsubscribeUrl } = require('../lib/unsubscribe');
-const { makeProfileUrl } = require('../lib/profile-link');
+const { makeProfileUrl, makeMatchUrl } = require('../lib/profile-link');
 const { EMAIL_CAMPAIGNS: UTM, buildUtmUrl } = require('../lib/utm');
 const { getNextEvent, eventCardHtml, ctaButtonHtml, urgencyBox, shell, h1, p, esc } = require('../lib/next-event');
 
@@ -268,7 +268,7 @@ async function sendProfileReminders(nowMs) {
 // failure here never breaks the nurture or profile-reminder passes.
 const POST_EVENT_LOOKBACK_DAYS = 3;
 
-function postEventPromptHTML({ eventName, accountUrl }) {
+function postEventPromptHTML({ eventName, matchUrl }) {
   const s = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
@@ -284,8 +284,8 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 <div class="content">
 <h1>Who did you click with at ${s(eventName)}?</h1>
 <p>Tell us who you'd like to see again. If they pick you too, we'll share contact info so you can meet up — no missed signals, no awkward Instagram hunt.</p>
-<p style="text-align:center;"><a class="cta" href="${s(accountUrl)}">Pick your matches</a></p>
-<p>Sign in with the email you used to register.</p>
+<p style="text-align:center;"><a class="cta" href="${s(matchUrl)}">Pick your matches</a></p>
+<p>No login needed — this link is just for you.</p>
 </div>
 <div class="footer"><p>SparkDate · Philadelphia · Real people. Real venues.</p>
 <p><a href="https://sparkdate.date">sparkdate.date</a></p></div>
@@ -320,7 +320,7 @@ async function sendPostEventPrompts(nowMs) {
             from: 'SparkDate <hello@mail.sparkdate.date>',
             to: email,
             subject: `Who did you click with at ${eventName}?`,
-            html: postEventPromptHTML({ eventName, accountUrl: 'https://sparkdate.date/account' }),
+            html: postEventPromptHTML({ eventName, matchUrl: makeMatchUrl(t.firebaseUid) }),
           });
           if (!result.error) {
             await tk.ref.update({ postEventPromptSent: true, postEventPromptSentAt: new Date().toISOString() });

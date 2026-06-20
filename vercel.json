@@ -105,6 +105,14 @@
     {
       "source": "/lp",
       "destination": "/lp.html"
+    },
+    {
+      "source": "/checkin",
+      "destination": "/checkin.html"
+    },
+    {
+      "source": "/matches",
+      "destination": "/matches.html"
     }
   ]
 }
