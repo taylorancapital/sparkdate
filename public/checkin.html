@@ -191,10 +191,10 @@
             submitBtn.disabled = true; submitBtn.textContent = 'Checking in…'; msg.textContent = '';
             try {
                 const idToken = await auth.currentUser.getIdToken();
-                const res = await fetch('/api/checkin', {
+                const res = await fetch('/api/lead-signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                    body: JSON.stringify({ email, firstName, gender, firstTime, photoConsent, eventId: event.id, eventTitle: event.title }),
+                    body: JSON.stringify({ action: 'checkin', email, firstName, gender, firstTime, photoConsent, eventId: event.id, eventTitle: event.title }),
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Check-in failed');

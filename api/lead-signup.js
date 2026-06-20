@@ -332,6 +332,105 @@ async function handleEventbriteEnroll(req, res) {
   return res.status(200).json({ results, summary: { enrolled, existing, errors, total: results.length } });
 }
 
+// ── Door check-in (folded in here to stay under Vercel's 12-function cap) ────
+// Admin-only. The /checkin page POSTs action:'checkin' per attendee. Find or
+// create the Auth user (passwordless — no door email; matching reaches them via
+// a magic link), merge firstTimeAttendee/photoConsent/checkedInAt onto the user
+// doc, and upsert an idempotent CONFIRMED event_registration for (uid, eventId)
+// so post-event matching includes native buyers, Eventbrite buyers, and
+// walk-ins alike. Native buyers already have a registration → just mark checked
+// in, never duplicate.
+async function handleCheckin(req, res) {
+  await requireAdmin(req); // throws 401/403 if not an admin
+
+  const b = req.body || {};
+  const email = clean(b.email, MAX_EMAIL).toLowerCase();
+  const eventId = clean(b.eventId, 128);
+  const eventTitle = clean(b.eventTitle, 200) || 'SparkDate event';
+  const firstName = clean(b.firstName, 80);
+  const gender = b.gender === 'woman' || b.gender === 'man' ? b.gender : null;
+  const phone = clean(b.phone, MAX_PHONE);
+  const firstTime = b.firstTime === true || b.firstTime === 'true';
+  const photoConsent = b.photoConsent === true || b.photoConsent === 'true';
+
+  if (!email || !EMAIL_RE.test(email)) return res.status(400).json({ error: 'A valid email is required.' });
+  if (!eventId) return res.status(400).json({ error: 'Missing eventId.' });
+
+  const FieldValue = admin.firestore.FieldValue;
+
+  // 1. Find or create the Firebase Auth user.
+  let userRecord = null;
+  let createdUser = false;
+  try {
+    userRecord = await admin.auth().getUserByEmail(email);
+  } catch (e) {
+    if (e.code !== 'auth/user-not-found') throw e;
+  }
+  if (!userRecord) {
+    userRecord = await admin.auth().createUser({
+      email,
+      password: crypto.randomBytes(32).toString('hex'), // throwaway — matching uses a magic link
+      emailVerified: false,
+    });
+    createdUser = true;
+  }
+  const uid = userRecord.uid;
+
+  // 2. Upsert the user doc (full baseline for new; merge check-in fields + fill
+  //    blanks for existing — never clobber a completed profile).
+  const userRef = db.collection('users').doc(uid);
+  const userSnap = await userRef.get();
+  const checkInFields = {
+    firstTimeAttendee: firstTime,
+    photoConsent,
+    checkedInAt: FieldValue.serverTimestamp(),
+    lastCheckedInEventId: eventId,
+  };
+  if (!userSnap.exists) {
+    await userRef.set({
+      email, firstName, lastName: '', phone, gender,
+      tier: 'free', stripeCustomerId: null, subscriptionId: null, subscriptionStatus: null,
+      source: 'checkin', profileCompleted: false,
+      createdAt: FieldValue.serverTimestamp(),
+      ...checkInFields,
+    });
+  } else {
+    const ex = userSnap.data();
+    const fill = {};
+    if (firstName && !ex.firstName) fill.firstName = firstName;
+    if (phone && !ex.phone) fill.phone = phone;
+    if (gender && !ex.gender) fill.gender = gender;
+    await userRef.set({ ...fill, ...checkInFields }, { merge: true });
+  }
+
+  // 3. Idempotent CONFIRMED event_registration for (uid, eventId).
+  const regSnap = await db.collection('event_registrations')
+    .where('userId', '==', uid).where('eventId', '==', eventId).limit(1).get();
+  let alreadyRegistered = false;
+  if (!regSnap.empty) {
+    alreadyRegistered = true;
+    await regSnap.docs[0].ref.set({
+      status: 'confirmed',
+      checkedInAt: FieldValue.serverTimestamp(),
+      firstTimeAttendee: firstTime,
+      photoConsent,
+    }, { merge: true });
+  } else {
+    const monthKey = new Date().toISOString().slice(0, 7);
+    await db.collection('event_registrations').add({
+      userId: uid, email, name: firstName, phone, gender,
+      eventId, eventTitle, ticketId: null, paymentIntentId: null,
+      status: 'confirmed', source: 'checkin',
+      firstTimeAttendee: firstTime, photoConsent, month: monthKey,
+      checkedInAt: FieldValue.serverTimestamp(),
+      registeredAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  }
+
+  return res.status(200).json({ success: true, uid, createdUser, alreadyRegistered });
+}
+
 module.exports = async function handler(req, res) {
   console.log('🔔 lead-capture hit:', new Date().toISOString(), 'method=', req.method);
 
@@ -358,6 +457,17 @@ module.exports = async function handler(req, res) {
       const status = err.statusCode || err.status || 500;
       console.error('❌ enroll_eventbrite error:', err.message);
       return res.status(status).json({ error: status === 500 ? 'Enrollment failed. Please try again.' : err.message });
+    }
+  }
+
+  // Admin-only door check-in — also folded here for the cap.
+  if (req.body && req.body.action === 'checkin') {
+    try {
+      return await handleCheckin(req, res);
+    } catch (err) {
+      const status = err.statusCode || err.status || 500;
+      console.error('❌ checkin error:', err.message);
+      return res.status(status).json({ error: status === 500 ? 'Check-in failed. Try again.' : err.message });
     }
   }
 
