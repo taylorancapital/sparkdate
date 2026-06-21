@@ -1423,22 +1423,212 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
         // Semantic interest clusters: interests in the same cluster score partial
         // credit even when the exact strings differ (e.g. "volleyball" ↔ "beach").
+        // Tags are lowercase; normTags() lowercases user input before lookup.
         const INTEREST_CLUSTERS = [
-            ['hiking', 'camping', 'outdoors', 'nature', 'trails', 'backpacking', 'mountains'],
-            ['beach', 'volleyball', 'surfing', 'swimming', 'ocean', 'boating', 'sailing', 'water sports'],
-            ['running', 'cycling', 'biking', 'fitness', 'gym', 'yoga', 'crossfit', 'working out', 'weightlifting', 'pilates'],
-            ['tennis', 'golf', 'sports', 'basketball', 'soccer', 'baseball', 'football', 'lacrosse', 'pickleball', 'softball'],
-            ['music', 'concerts', 'live music', 'jazz', 'indie', 'hip hop', 'electronic', 'classical', 'rap', 'bands', 'festivals', 'singing'],
-            ['cooking', 'baking', 'foodie', 'food', 'restaurants', 'brunch', 'wine', 'coffee', 'craft beer'],
-            ['travel', 'adventure', 'exploring', 'road trips', 'international travel'],
-            ['art', 'photography', 'painting', 'museums', 'galleries', 'design', 'creative', 'drawing'],
-            ['reading', 'books', 'writing', 'poetry', 'literature', 'book clubs'],
-            ['film', 'movies', 'theater', 'comedy', 'stand-up', 'tv', 'documentaries'],
-            ['tech', 'coding', 'startups', 'entrepreneurship', 'business', 'investing'],
-            ['games', 'board games', 'trivia', 'video games', 'gaming', 'game nights', 'puzzles'],
-            ['dogs', 'pets', 'animals', 'cats'],
-            ['dancing', 'clubs', 'nightlife', 'social dancing', 'salsa'],
-            ['meditation', 'mindfulness', 'wellness', 'spirituality', 'self-improvement'],
+            // Outdoor / nature
+            ['hiking', 'camping', 'outdoors', 'nature', 'trails', 'backpacking', 'mountains', 'national parks',
+             'birdwatching', 'bird watching', 'foraging', 'stargazing', 'astronomy', 'rock collecting',
+             'kayaking', 'canoeing', 'paddleboarding', 'rafting', 'tubing', 'zip lining', 'orienteering'],
+
+            // Beach / water sports
+            ['beach', 'ocean', 'lake', 'swimming', 'surfing', 'snorkeling', 'scuba diving', 'water skiing',
+             'wakeboarding', 'boating', 'sailing', 'fishing', 'fly fishing', 'water sports', 'lake life',
+             'volleyball', 'beach volleyball'],
+
+            // Running / endurance
+            ['running', 'jogging', 'marathons', 'half marathon', '5k', '10k', 'trail running', 'triathlons',
+             'obstacle courses', 'spartan race', 'mud runs', 'ironman'],
+
+            // Gym / strength / HIIT
+            ['gym', 'weightlifting', 'working out', 'crossfit', 'orange theory', 'peloton', 'hiit',
+             'bodybuilding', 'powerlifting', 'calisthenics', 'functional fitness', 'fitness', 'lifting'],
+
+            // Yoga / mind-body
+            ['yoga', 'pilates', 'barre', 'hot yoga', 'vinyasa', 'stretching', 'flexibility', 'tai chi',
+             'qigong', 'breathwork'],
+
+            // Cycling
+            ['cycling', 'biking', 'mountain biking', 'road cycling', 'spin class', 'spin', 'bike rides',
+             'bmx', 'gravel biking', 'e-bike'],
+
+            // Racket / paddle sports
+            ['tennis', 'pickleball', 'squash', 'racquetball', 'badminton', 'ping pong', 'table tennis'],
+
+            // Team / field sports
+            ['basketball', 'soccer', 'football', 'baseball', 'softball', 'volleyball', 'lacrosse',
+             'field hockey', 'ultimate frisbee', 'rugby', 'cricket', 'kickball', 'dodgeball', 'flag football'],
+
+            // Golf
+            ['golf', 'mini golf', 'disc golf', 'driving range', 'putting green', 'golf lessons'],
+
+            // Combat / martial arts
+            ['boxing', 'mma', 'martial arts', 'wrestling', 'jiu-jitsu', 'bjj', 'karate', 'kickboxing',
+             'muay thai', 'taekwondo', 'self defense', 'judo', 'fencing'],
+
+            // Winter sports
+            ['skiing', 'snowboarding', 'ice skating', 'hockey', 'ice hockey', 'sledding', 'snowshoeing',
+             'cross-country skiing', 'figure skating'],
+
+            // Climbing / extreme / adventure sports
+            ['rock climbing', 'bouldering', 'climbing', 'parkour', 'skateboarding', 'longboarding',
+             'skydiving', 'bungee jumping', 'paragliding', 'motocross', 'adventure sports'],
+
+            // Watching sports / fan culture
+            ['sports', 'sports bars', 'watching sports', 'eagles', 'phillies', '76ers', 'sixers', 'flyers',
+             'nfl', 'nba', 'mlb', 'nhl', 'mls', 'formula 1', 'f1', 'nascar', 'racing', 'fantasy sports',
+             'sports betting', 'march madness', 'super bowl', 'world series', 'playoffs'],
+
+            // Music (listening / attending)
+            ['music', 'concerts', 'live music', 'music festivals', 'festivals', 'shows', 'vinyl', 'records',
+             'spotify', 'discovering music', 'playlists', 'music history'],
+
+            // Music genres
+            ['jazz', 'classical', 'indie', 'hip hop', 'rap', 'r&b', 'soul', 'country', 'electronic', 'edm',
+             'rock', 'pop', 'metal', 'punk', 'folk', 'blues', 'reggae', 'latin music', 'afrobeats', 'k-pop'],
+
+            // Playing / making music
+            ['guitar', 'piano', 'drums', 'singing', 'songwriting', 'band', 'dj', 'producing music',
+             'music production', 'playing music', 'musical instruments', 'musical theater', 'choir', 'orchestra'],
+
+            // Cooking / baking
+            ['cooking', 'baking', 'meal prep', 'grilling', 'bbq', 'sourdough', 'pasta making',
+             'bread baking', 'meal planning', 'home cooking', 'recipe testing', 'meal kits',
+             'canning', 'fermentation', 'cheesemaking'],
+
+            // Food / restaurants / dining
+            ['foodie', 'restaurants', 'trying new restaurants', 'food tours', 'tasting menus',
+             'brunch', 'food markets', "farmer's market", 'farmers market', 'food blogs', 'yelp',
+             'dining out', 'new restaurants', 'local eats', 'food trucks', 'pop-ups',
+             'fine dining', 'sushi', 'italian food', 'tacos', 'pizza', 'ramen', 'cheesteaks'],
+
+            // Drinks
+            ['wine', 'wine tasting', 'wineries', 'vineyards', 'craft beer', 'breweries', 'beer',
+             'cocktails', 'mixology', 'whiskey', 'bourbon', 'spirits', 'wine clubs', 'bar hopping'],
+
+            // Coffee / tea
+            ['coffee', 'coffee shops', 'espresso', 'cafe hopping', 'tea', 'matcha', 'boba', 'kombucha'],
+
+            // Travel
+            ['travel', 'international travel', 'backpacking', 'road trips', 'travel photography',
+             'solo travel', 'budget travel', 'luxury travel', 'travel planning', 'exploring new places',
+             'world travel', 'europe', 'asia', 'south america', 'cruises', 'hostels', 'airbnb',
+             'travel hacking', 'points and miles', 'van life'],
+
+            // Local exploring / city life
+            ['exploring', 'local spots', 'exploring the city', 'neighborhood walks', 'hidden gems',
+             'urban exploration', 'day trips', 'weekend trips', 'local events', 'city life', 'philly',
+             'philadelphia', 'reading terminal', 'rittenhouse', 'fishtown', 'old city'],
+
+            // Visual art
+            ['art', 'painting', 'drawing', 'sketching', 'illustration', 'galleries', 'museums',
+             'art history', 'contemporary art', 'sculpture', 'street art', 'graffiti', 'abstract art',
+             'watercolor', 'oil painting', 'acrylic', 'printmaking'],
+
+            // Photography / videography / content
+            ['photography', 'videography', 'filmmaking', 'cinematography', 'photo editing', 'lightroom',
+             'instagram', 'content creation', 'youtube', 'tiktok', 'vlogging', 'drone photography'],
+
+            // Fashion / style
+            ['fashion', 'style', 'shopping', 'thrift shopping', 'thrifting', 'vintage', 'designer',
+             'streetwear', 'sneakers', 'fashion week', 'personal styling', 'sustainable fashion',
+             'ootd', 'outfit ideas', 'beauty', 'makeup', 'skincare', 'hair'],
+
+            // Interior design / home / DIY
+            ['interior design', 'home decor', 'furniture', 'renovation', 'diy', 'home improvement',
+             'crafts', 'making things', 'etsy', 'pinterest', 'organizing', 'minimalism', 'plants',
+             'houseplants', 'gardening', 'landscaping', 'floral arrangements'],
+
+            // Handmade crafts
+            ['pottery', 'ceramics', 'knitting', 'crocheting', 'embroidery', 'sewing', 'calligraphy',
+             'jewelry making', 'woodworking', 'leatherworking', 'scrapbooking', 'candle making',
+             'macrame', 'weaving', 'origami'],
+
+            // Reading / writing / literature
+            ['reading', 'books', 'book clubs', 'literature', 'fiction', 'non-fiction', 'audiobooks',
+             'poetry', 'writing', 'journaling', 'creative writing', 'short stories', 'essays',
+             'book recommendations', 'kindle', 'libraries'],
+
+            // Sci-fi / fantasy / comics
+            ['sci-fi', 'science fiction', 'fantasy', 'comic books', 'manga', 'anime', 'graphic novels',
+             'superhero', 'marvel', 'dc', 'game of thrones', 'lord of the rings', 'star wars',
+             'star trek', 'dune', 'harry potter', 'cosplay'],
+
+            // True crime / mystery / thriller
+            ['true crime', 'mysteries', 'murder mystery', 'thrillers', 'crime podcasts', 'detective shows',
+             'crime fiction', 'serial killers', 'cold cases', 'forensics'],
+
+            // Film / TV / streaming
+            ['movies', 'film', 'netflix', 'hulu', 'hbo', 'streaming', 'tv shows', 'binge-watching',
+             'film festivals', 'foreign films', 'documentaries', 'indie films', 'horror movies',
+             'action movies', 'rom-coms', 'oscar films', 'criterion'],
+
+            // Comedy
+            ['comedy', 'stand-up', 'improv', 'sketch comedy', 'snl', 'comedy shows', 'funny movies',
+             'comedy podcasts', 'comedy clubs', 'humor'],
+
+            // Theater / performing arts
+            ['theater', 'broadway', 'musicals', 'opera', 'ballet', 'dance performance', 'live performance',
+             'performing arts', 'community theater', 'fringe festival', 'spoken word'],
+
+            // Video games / gaming
+            ['video games', 'gaming', 'esports', 'nintendo', 'playstation', 'xbox', 'pc gaming',
+             'mobile games', 'retro games', 'game streaming', 'twitch', 'rpg', 'fps', 'mmorpg'],
+
+            // Board games / tabletop
+            ['board games', 'card games', 'tabletop games', 'tabletop', 'd&d', 'dungeons and dragons',
+             'role playing games', 'rpg', 'game nights', 'settlers of catan', 'pandemic', 'poker',
+             'magic the gathering', 'warhammer'],
+
+            // Trivia / puzzles / intellectual games
+            ['trivia', 'pub quiz', 'trivia nights', 'puzzles', 'crossword', 'sudoku', 'chess',
+             'strategy games', 'escape rooms', 'brain teasers', 'word games', 'jeopardy'],
+
+            // Nightlife / social going out
+            ['going out', 'bars', 'clubs', 'dancing', 'karaoke', 'nightlife', 'happy hour',
+             'after work drinks', 'socializing', 'parties', 'social events', 'bar hopping', 'rooftop bars',
+             'speakeasies', 'cocktail bars', 'wine bars'],
+
+            // Podcasts / audio
+            ['podcasts', 'npr', 'audio books', 'radio', 'storytelling', 'journalism',
+             'interview podcasts', 'true crime podcasts', 'comedy podcasts', 'news podcasts'],
+
+            // Tech / startups / product
+            ['tech', 'coding', 'programming', 'software', 'startups', 'entrepreneurship',
+             'product management', 'ux design', 'web development', 'app development', 'ai',
+             'machine learning', 'data science', 'cybersecurity', 'blockchain', 'crypto', 'web3'],
+
+            // Business / finance / investing
+            ['business', 'investing', 'stocks', 'real estate', 'finance', 'personal finance',
+             'side hustles', 'leadership', 'management', 'marketing', 'sales', 'e-commerce',
+             'private equity', 'venture capital', 'day trading', 'index funds', 'financial independence'],
+
+            // Learning / intellectual pursuits
+            ['learning', 'online courses', 'languages', 'linguistics', 'history', 'philosophy',
+             'psychology', 'science', 'self-improvement', 'personal development', 'ted talks',
+             'documentaries', 'debates', 'critical thinking', 'research', 'academia'],
+
+            // Volunteering / community / activism
+            ['volunteering', 'community service', 'nonprofits', 'charity', 'giving back', 'activism',
+             'social justice', 'environmentalism', 'sustainability', 'green living', 'climate',
+             'politics', 'civic engagement', 'voting', 'advocacy', 'community organizing'],
+
+            // Spirituality / mindfulness / wellness
+            ['spirituality', 'astrology', 'tarot', 'crystals', 'energy healing', 'manifestation',
+             'law of attraction', 'new age', 'faith', 'church', 'religion', 'meditation',
+             'mindfulness', 'breathwork', 'wellness', 'holistic health', 'reiki'],
+
+            // Pets / animals
+            ['dogs', 'dog parks', 'puppies', 'cats', 'kittens', 'pets', 'animals', 'fostering animals',
+             'animal rescue', 'pet adoption', 'exotic pets', 'aquariums', 'horseback riding', 'equestrian'],
+
+            // Family / home life
+            ['family', 'kids', 'parenting', 'family time', 'home', 'nesting', 'hosting', 'entertaining',
+             'dinner parties', 'game nights', 'movie nights at home'],
+
+            // Health / nutrition / lifestyle
+            ['health', 'nutrition', 'meal prep', 'plant-based', 'vegan', 'vegetarian', 'keto',
+             'intermittent fasting', 'gut health', 'supplements', 'biohacking', 'sleep', 'cold plunge',
+             'sauna', 'longevity'],
         ];
 
         // Build a lookup: tag → cluster index (for O(1) access).
