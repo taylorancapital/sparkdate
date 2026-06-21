@@ -1760,8 +1760,42 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const eventRegs = allRegistrations.filter(r =>
                 r.eventId === eventId && (r.status === 'confirmed' || !r.status)
             );
+            // Guest buyers (non-logged-in at checkout) get userId:null on their
+            // registration because the Firebase user is created AFTER payment
+            // in enrollGuestAsMember. Fall back to email matching for those rows.
+            // If enrollGuestAsMember also failed (no user doc at all), build a
+            // synthetic attendee from the registration fields — gender, name, and
+            // email are written there at checkout and are enough to score the pair.
             const registeredUserIds = new Set(eventRegs.map(r => r.userId).filter(Boolean));
-            const attendees = allUsers.filter(u => registeredUserIds.has(u.id));
+            const allUserEmails = new Map(allUsers.map(u => [u.email?.toLowerCase(), u]));
+            const seenEmails = new Set();
+            const attendees = [];
+            // Pass 1: user-doc matched (by uid or email)
+            for (const u of allUsers) {
+                if (registeredUserIds.has(u.id) ||
+                    (u.email && eventRegs.some(r => !r.userId && r.email?.toLowerCase() === u.email.toLowerCase()))) {
+                    attendees.push(u);
+                    if (u.email) seenEmails.add(u.email.toLowerCase());
+                }
+            }
+            // Pass 2: registrations with no matching user doc — use reg fields directly
+            for (const r of eventRegs) {
+                const em = r.email?.toLowerCase();
+                if (em && !seenEmails.has(em) && !allUserEmails.has(em)) {
+                    // Synthetic attendee: name from reg, no interests/vibes/age/intent
+                    const nameParts = (r.name || '').trim().split(/\s+/);
+                    attendees.push({
+                        id: r.id,
+                        email: r.email,
+                        firstName: nameParts[0] || '',
+                        lastName: nameParts.slice(1).join(' ') || '',
+                        gender: r.gender || null,
+                        age: null, interests: [], vibes: [], intent: null,
+                        _synthetic: true,
+                    });
+                    if (em) seenEmails.add(em);
+                }
+            }
 
             // Enumerate opposite-gender pairs only (see the note above).
             const women    = attendees.filter(u => u.gender === 'woman');

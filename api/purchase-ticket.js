@@ -258,7 +258,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 </div></body></html>`;
 }
 
-async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, name, phone }) {
+async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, name, phone, eventId }) {
   const norm = String(email || '').toLowerCase().trim();
   if (!norm) return;
 
@@ -344,6 +344,16 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
       createdAt: FieldValue.serverTimestamp(),
     });
     userDocCreated = true;
+
+    // Backfill userId on the event_registration created during checkout
+    // (it was null because the user didn't exist yet at payment time).
+    if (eventId) {
+      await db.collection('event_registrations')
+        .where('email', '==', norm).where('eventId', '==', eventId).where('userId', '==', null)
+        .limit(1).get()
+        .then(snap => { if (!snap.empty) return snap.docs[0].ref.update({ userId: userRecord.uid }); })
+        .catch(e => console.error('[auto-enroll] reg backfill failed:', e.message));
+    }
 
     // Password-reset link doubles as the "set initial password" link
     // (Firebase generates one URL that handles both cases).
@@ -719,7 +729,7 @@ module.exports = async function handler(req, res) {
     if (!firebaseUid) {
       await enrollGuestAsMember({
         email, paymentMethodId, gender, eventName,
-        name: cleanName, phone: cleanPhone,
+        name: cleanName, phone: cleanPhone, eventId,
       }).catch((err) => {
         console.error('[purchase-ticket] guest auto-enroll failed:', err.message);
       });
