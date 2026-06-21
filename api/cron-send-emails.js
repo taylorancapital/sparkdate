@@ -310,6 +310,10 @@ async function sendPostEventPrompts(nowMs) {
         const t = tk.data();
         if (t.status !== 'confirmed' || !t.firebaseUid) { skipped++; continue; }
         if (t.postEventPromptSent === true) { skipped++; continue; }
+        if (!t.firebaseUid) {
+          console.warn(`[post-event-prompt] skipping tickets/${tk.id} — no firebaseUid`);
+          skipped++; continue;
+        }
         if (seen.has(t.firebaseUid)) { skipped++; continue; } // one prompt per person per event
         seen.add(t.firebaseUid);
         const usnap = await db.collection('users').doc(t.firebaseUid).get();
