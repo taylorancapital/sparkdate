@@ -602,6 +602,115 @@
         .score-cell.high { color: var(--success); }
         .score-cell.low { color: rgba(245,243,240,0.4); }
 
+        /* View toggle */
+        .chem-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .chem-toggle-btn {
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,107,107,0.3);
+            background: transparent;
+            color: rgba(245,243,240,0.6);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .chem-toggle-btn.active {
+            background: var(--coral);
+            border-color: var(--coral);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        /* Rounds view */
+        .rounds-wrap {
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+        .rounds-grid {
+            display: flex;
+            gap: 12px;
+            min-width: max-content;
+        }
+        .round-col {
+            width: 200px;
+            flex-shrink: 0;
+        }
+        .round-col-title {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            color: var(--gold);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .round-pair {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,107,107,0.12);
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            position: relative;
+        }
+        .round-pair:hover { border-color: rgba(255,107,107,0.35); }
+        .round-pair.selected {
+            border-color: var(--gold);
+            background: rgba(212,175,55,0.08);
+        }
+        .round-pair.swap-target {
+            border-color: var(--coral);
+            background: rgba(255,107,107,0.08);
+        }
+        .round-pair-score {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--gold);
+            position: absolute;
+            top: 6px; right: 8px;
+        }
+        .round-pair-score.high { color: var(--success); }
+        .round-pair-score.low  { color: rgba(245,243,240,0.3); }
+        .round-pair-name {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--white);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding-right: 28px;
+        }
+        .round-pair-sub {
+            font-size: 10px;
+            color: rgba(245,243,240,0.45);
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .round-sitout {
+            font-size: 11px;
+            color: rgba(245,243,240,0.35);
+            text-align: center;
+            padding: 6px;
+            font-style: italic;
+        }
+        .rounds-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+        .rounds-hint {
+            font-size: 11px;
+            color: rgba(245,243,240,0.4);
+            margin-top: 10px;
+        }
+
         /* Grouped chemistry cards */
         .chem-cards {
             display: flex;
@@ -1052,7 +1161,23 @@
                 <button class="close-x" onclick="closeCandidates()">&times;</button>
             </div>
             <div class="candidate-stats" id="candidateStats"></div>
-            <div class="chem-cards" id="candidateTable"></div>
+            <div class="chem-toggle">
+                <button class="chem-toggle-btn active" id="viewChemBtn" onclick="switchChemView('chemistry')">Chemistry</button>
+                <button class="chem-toggle-btn" id="viewRoundsBtn" onclick="switchChemView('rounds')">Rounds</button>
+            </div>
+            <div id="chemView">
+                <div class="chem-cards" id="candidateTable"></div>
+            </div>
+            <div id="roundsView" style="display:none;">
+                <div class="rounds-wrap">
+                    <div class="rounds-grid" id="roundsGrid"></div>
+                </div>
+                <div class="rounds-hint" id="roundsHint">Click a pair to select it, then click another pair in the same round to swap their men.</div>
+                <div class="rounds-actions">
+                    <button class="action-btn" onclick="regenerateRounds()">↺ Regenerate</button>
+                    <button class="action-btn" onclick="printRounds()">⎙ Print</button>
+                </div>
+            </div>
         </div>
     </div>
         </div>
@@ -1844,6 +1969,11 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const topScore  = pairs.length ? pairs[0].score : 0;
             const highCount = pairs.filter(p => p.score >= 70).length;
 
+            // Expose to rounds functions
+            _chemWomen = women; _chemMen = men; _chemPairs = pairs;
+            _roundsState = null; _selectedPair = null;
+            switchChemView('chemistry');
+
             const excludedNote = excluded.length
                 ? `<div style="margin-top:10px;font-size:12px;color:var(--coral);opacity:0.85;">
                      ⚠️ ${excluded.length} attendee${excluded.length > 1 ? 's' : ''} excluded — no gender on file:
@@ -1939,6 +2069,147 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
         window.closeCandidates = () => {
             document.getElementById('candidateModal').classList.remove('show');
+            _roundsState = null;
+            _selectedPair = null;
+        };
+
+        // ── View toggle ───────────────────────────────────────
+        window.switchChemView = (view) => {
+            const isRounds = view === 'rounds';
+            document.getElementById('chemView').style.display    = isRounds ? 'none' : '';
+            document.getElementById('roundsView').style.display  = isRounds ? '' : 'none';
+            document.getElementById('viewChemBtn').classList.toggle('active', !isRounds);
+            document.getElementById('viewRoundsBtn').classList.toggle('active',  isRounds);
+            if (isRounds && !_roundsState) regenerateRounds();
+        };
+
+        // ── Rounds state ──────────────────────────────────────
+        // _roundsState: Array<Array<{ woman, man, score } | { sitout: user }>>
+        let _chemWomen = [], _chemMen = [], _chemPairs = [];
+        let _roundsState = null;
+        let _selectedPair = null; // { ri, pi }
+
+        const _chemShortName = (u) => {
+            if (!u) return '—';
+            const fn = u.firstName || '';
+            const li = (u.lastName || '').charAt(0);
+            return (`${fn}${li ? ' ' + li + '.' : ''}`).trim() || u.email || '—';
+        };
+
+        window.regenerateRounds = () => {
+            if (!_chemWomen || !_chemMen || !_chemPairs) return;
+            _roundsState = generateRounds(_chemWomen, _chemMen, _chemPairs);
+            _selectedPair = null;
+            renderRounds();
+        };
+
+        function generateRounds(women, men, pairs) {
+            const numRounds = Math.max(women.length, men.length);
+            // Score lookup: wId→mId→score
+            const scoreMap = new Map();
+            for (const p of pairs) {
+                if (!scoreMap.has(p.a.id)) scoreMap.set(p.a.id, new Map());
+                scoreMap.get(p.a.id).set(p.b.id, p.score);
+            }
+            const getScore = (w, m) => (scoreMap.get(w.id) || new Map()).get(m.id) || 0;
+
+            const rounds = [];
+            // Track which (wId, mId) pairings have already appeared across rounds
+            const usedPairings = new Set();
+
+            for (let r = 0; r < numRounds; r++) {
+                const round = [];
+                const wUsed = new Set();
+                const mUsed = new Set();
+
+                // Greedy: sort all unused pairings by score desc, pick greedily
+                const candidates = [];
+                for (const w of women) {
+                    for (const m of men) {
+                        const key = `${w.id}|${m.id}`;
+                        if (!usedPairings.has(key)) candidates.push({ w, m, score: getScore(w, m) });
+                    }
+                }
+                candidates.sort((a, b) => b.score - a.score);
+
+                for (const { w, m, score } of candidates) {
+                    if (wUsed.has(w.id) || mUsed.has(m.id)) continue;
+                    round.push({ woman: w, man: m, score });
+                    wUsed.add(w.id);
+                    mUsed.add(m.id);
+                    usedPairings.add(`${w.id}|${m.id}`);
+                }
+
+                // Sit-outs: anyone not paired this round
+                for (const w of women) if (!wUsed.has(w.id)) round.push({ sitout: w, side: 'woman' });
+                for (const m of men)   if (!mUsed.has(m.id)) round.push({ sitout: m, side: 'man' });
+
+                rounds.push(round);
+            }
+            return rounds;
+        }
+
+        function renderRounds() {
+            if (!_roundsState) return;
+            const grid = document.getElementById('roundsGrid');
+            grid.innerHTML = _roundsState.map((round, ri) => {
+                const pairs = round.filter(r => r.woman);
+                const sitouts = round.filter(r => r.sitout);
+                const pairRows = pairs.map((entry, pi) => {
+                    const isSel = _selectedPair && _selectedPair.ri === ri && _selectedPair.pi === pi;
+                    const isTarget = _selectedPair && _selectedPair.ri === ri && !isSel && entry.woman;
+                    const cls = isSel ? 'selected' : isTarget ? 'swap-target' : '';
+                    const scoreCls = entry.score >= 70 ? 'high' : entry.score < 40 ? 'low' : '';
+                    return `<div class="round-pair ${cls}" onclick="roundPairClick(${ri},${pi})">
+                        <div class="round-pair-score ${scoreCls}">${entry.score}</div>
+                        <div class="round-pair-name">${safe(_chemShortName(entry.woman))}</div>
+                        <div class="round-pair-sub">${safe(_chemShortName(entry.man))}</div>
+                    </div>`;
+                }).join('');
+                const sitoutRows = sitouts.map(s =>
+                    `<div class="round-sitout">${safe(_chemShortName(s.sitout))} sits out</div>`
+                ).join('');
+                return `<div class="round-col">
+                    <div class="round-col-title">Round ${ri + 1}</div>
+                    ${pairRows}${sitoutRows}
+                </div>`;
+            }).join('');
+        }
+
+        window.roundPairClick = (ri, pi) => {
+            if (!_selectedPair) {
+                _selectedPair = { ri, pi };
+            } else if (_selectedPair.ri === ri && _selectedPair.pi === pi) {
+                _selectedPair = null; // deselect
+            } else if (_selectedPair.ri === ri) {
+                // Swap men between the two selected pairs in the same round
+                const round = _roundsState[ri];
+                const a = round.filter(r => r.woman)[_selectedPair.pi];
+                const b = round.filter(r => r.woman)[pi];
+                if (a && b) { const tmp = a.man; a.man = b.man; b.man = tmp; }
+                _selectedPair = null;
+            } else {
+                // Different round — move selection
+                _selectedPair = { ri, pi };
+            }
+            renderRounds();
+        };
+
+        window.printRounds = () => {
+            if (!_roundsState) return;
+            const lines = _roundsState.map((round, ri) => {
+                const pairs = round.filter(r => r.woman)
+                    .map(e => `  ${_chemShortName(e.woman)} ↔ ${_chemShortName(e.man)} (${e.score})`)
+                    .join('\n');
+                const sits = round.filter(r => r.sitout)
+                    .map(s => `  ${_chemShortName(s.sitout)} — sits out`)
+                    .join('\n');
+                return `ROUND ${ri + 1}\n${pairs}${sits ? '\n' + sits : ''}`;
+            }).join('\n\n');
+            const w = window.open('', '_blank');
+            w.document.write(`<pre style="font-family:monospace;font-size:14px;padding:24px;white-space:pre-wrap;">${lines}</pre>`);
+            w.document.close();
+            w.print();
         };
 
         // Close modal on backdrop click
