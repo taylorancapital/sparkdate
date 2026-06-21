@@ -982,24 +982,55 @@
 
         <!-- Revenue Tab -->
         <div class="tab-content" id="tab-revenue">
+            <div class="candidate-stats" id="revenueKPIs" style="margin-bottom:20px;"></div>
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">Payment History</h2>
+                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">Tickets + subscriptions · newest first</span>
                 </div>
                 <table>
                     <thead>
                         <tr>
-                            <th>Member</th>
+                            <th>Person</th>
+                            <th>Type</th>
                             <th>Amount</th>
-                            <th>Tier</th>
+                            <th>Event / Tier</th>
                             <th>Date</th>
                         </tr>
                     </thead>
                     <tbody id="paymentHistory">
-                        <tr><td colspan="4"><div class="spinner"></div></td></tr>
+                        <tr><td colspan="5"><div class="spinner"></div></td></tr>
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <!-- Roster Modal -->
+    <div class="candidate-modal-backdrop" id="rosterModal">
+        <div class="candidate-modal" style="max-width:720px;">
+            <div class="candidate-modal-header">
+                <div>
+                    <h3 id="rosterModalTitle">Roster</h3>
+                    <div class="modal-sub" id="rosterModalSub"></div>
+                </div>
+                <button class="close-x" onclick="closeRoster()">&times;</button>
+            </div>
+            <div class="candidate-stats" id="rosterStats" style="margin-bottom:16px;"></div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Gender</th>
+                        <th>Source</th>
+                        <th>Check-in</th>
+                    </tr>
+                </thead>
+                <tbody id="rosterTable">
+                    <tr><td colspan="5"><div class="spinner"></div></td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -1513,7 +1544,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <td style="color: rgba(245,243,240,0.7);">${safe(venueLine)}</td>
                         <td style="color: rgba(245,243,240,0.7);">${spots}</td>
                         <td style="color: rgba(245,243,240,0.85); font-size: 12px;">${fmtPrice(ev.price)}${tierLabel}</td>
-                        <td style="color: var(--gold); font-weight: 600;">${regCount}</td>
+                        <td><button class="action-btn" data-act="open-roster" data-id="${safe(ev.id)}" data-title="${safe(ev.title)}" style="color:var(--gold);border-color:rgba(212,175,55,0.4);">${regCount} · Roster</button></td>
                         <td><span class="badge ${safe(statusClass)}">${safe(ev.status || 'open')}</span></td>
                         <td style="font-size: 12px;">
                             <button class="action-btn" data-act="score-candidates" data-id="${safe(ev.id)}" title="Chemistry score between every pair of registered attendees">Chemistry</button>
@@ -1524,6 +1555,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
             // Event delegation — replaces inline onclick which would break if
             // an event ID/title ever contained a quote.
+            tbody.querySelectorAll('button[data-act="open-roster"]').forEach(btn => {
+                btn.addEventListener('click', () => window.openRoster(btn.dataset.id, btn.dataset.title));
+            });
             tbody.querySelectorAll('button[data-act="score-candidates"]').forEach(btn => {
                 btn.addEventListener('click', () => window.openCandidates(btn.dataset.id));
             });
@@ -2320,8 +2354,20 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
         async function loadPayments() {
             try {
-                const snap = await getDocs(query(collection(db, 'payments'), orderBy('paidAt', 'desc'), limit(100)));
-                allPayments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                const [subSnap, tkSnap] = await Promise.all([
+                    getDocs(query(collection(db, 'payments'), orderBy('paidAt', 'desc'), limit(200))).catch(() => ({ docs: [] })),
+                    getDocs(query(collection(db, 'tickets'), orderBy('createdAt', 'desc'), limit(200))).catch(() => ({ docs: [] })),
+                ]);
+                const subs = subSnap.docs.map(d => ({ id: d.id, _type: 'subscription', ...d.data() }));
+                const tickets = tkSnap.docs
+                    .map(d => ({ id: d.id, _type: 'ticket', ...d.data() }))
+                    .filter(t => t.status === 'confirmed');
+                // Merge and sort newest first
+                allPayments = [...subs, ...tickets].sort((a, b) => {
+                    const ta = (a.paidAt || a.createdAt)?.toMillis?.() ?? 0;
+                    const tb = (b.paidAt || b.createdAt)?.toMillis?.() ?? 0;
+                    return tb - ta;
+                });
             } catch (e) {
                 allPayments = [];
             }
@@ -2582,26 +2628,98 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         function renderPaymentHistory() {
             const tbody = document.getElementById('paymentHistory');
             if (allPayments.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="empty">No payments yet. Once members are charged, the history appears here.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="empty">No payments yet.</td></tr>';
                 return;
             }
+
+            // Summary KPIs
+            const ticketTotal = allPayments.filter(p => p._type === 'ticket').reduce((s, p) => s + (Number(p.amount) || 0), 0);
+            const subTotal    = allPayments.filter(p => p._type === 'subscription').reduce((s, p) => s + (Number(p.amount) || 0), 0);
+            const grandTotal  = ticketTotal + subTotal;
+            document.getElementById('revenueKPIs').innerHTML = `
+                <div class="candidate-stat"><strong>$${(grandTotal / 100).toFixed(2)}</strong>Total revenue</div>
+                <div class="candidate-stat"><strong>$${(ticketTotal / 100).toFixed(2)}</strong>Ticket sales</div>
+                <div class="candidate-stat"><strong>$${(subTotal / 100).toFixed(2)}</strong>Subscriptions</div>
+                <div class="candidate-stat"><strong>${allPayments.filter(p => p._type === 'ticket').length}</strong>Tickets sold</div>
+            `;
+
             tbody.innerHTML = allPayments.map(p => {
-                const user = allUsers.find(u => u.id === p.userId);
-                const displayName = p.userName || (user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '—');
+                const isTicket = p._type === 'ticket';
+                const user = allUsers.find(u => u.id === (p.userId || p.firebaseUid));
+                const name = p.name || (user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '') || '—';
+                const email = p.email || p.userEmail || user?.email || '—';
                 const amount = Number(p.amount) || 0;
-                return `
-                    <tr>
-                        <td>
-                            <div style="color: var(--white); font-weight: 500;">${safe(displayName)}</div>
-                            <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(p.userEmail || '')}</div>
-                        </td>
-                        <td style="color: var(--gold); font-weight: 600;">$${(amount / 100).toFixed(2)}</td>
-                        <td>${tierBadge(user?.tier || 'free')}</td>
-                        <td style="color: rgba(245,243,240,0.6);">${formatDate(p.paidAt)}</td>
-                    </tr>
-                `;
+                const when = p.paidAt || p.createdAt;
+                const event = isTicket ? (allEvents.find(e => e.id === p.eventId)?.title || p.eventName || '—') : (user?.tier ? user.tier + ' plan' : '—');
+                const typeBadge = isTicket
+                    ? `<span class="badge badge-active" style="font-size:10px;">Ticket</span>`
+                    : `<span class="badge badge-pending" style="font-size:10px;">Subscription</span>`;
+                const source = isTicket && p.source === 'eventbrite_import'
+                    ? ' <span style="font-size:10px;color:rgba(245,243,240,0.4);">Eventbrite</span>' : '';
+                return `<tr>
+                    <td>
+                        <div style="color:var(--white);font-weight:500;">${safe(name)}${source}</div>
+                        <div style="font-size:11px;color:rgba(245,243,240,0.5);">${safe(email)}</div>
+                    </td>
+                    <td>${typeBadge}</td>
+                    <td style="color:var(--gold);font-weight:600;">$${(amount / 100).toFixed(2)}</td>
+                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(event)}</td>
+                    <td style="color:rgba(245,243,240,0.6);">${formatDate(when)}</td>
+                </tr>`;
             }).join('');
         }
+
+        // ── Roster modal ───────────────────────────────────────
+        window.openRoster = (eventId, eventTitle) => {
+            document.getElementById('rosterModalTitle').textContent = eventTitle || 'Roster';
+            document.getElementById('rosterModal').classList.add('show');
+            const regs = allRegistrations.filter(r => r.eventId === eventId && (r.status === 'confirmed' || !r.status));
+            const checkedIn  = regs.filter(r => r.checkedInAt).length;
+            const women      = regs.filter(r => (r.gender || '').toLowerCase() === 'woman').length;
+            const men        = regs.filter(r => (r.gender || '').toLowerCase() === 'man').length;
+
+            document.getElementById('rosterModalSub').textContent = `${regs.length} confirmed registrations`;
+            document.getElementById('rosterStats').innerHTML = `
+                <div class="candidate-stat"><strong>${regs.length}</strong>Registered</div>
+                <div class="candidate-stat"><strong>${checkedIn}</strong>Checked in</div>
+                <div class="candidate-stat"><strong>${women}</strong>Women</div>
+                <div class="candidate-stat"><strong>${men}</strong>Men</div>
+            `;
+
+            if (!regs.length) {
+                document.getElementById('rosterTable').innerHTML = '<tr><td colspan="5" class="empty">No confirmed registrations yet.</td></tr>';
+                return;
+            }
+
+            // Sort: checked-in first, then alpha by name
+            regs.sort((a, b) => {
+                if (!!a.checkedInAt !== !!b.checkedInAt) return a.checkedInAt ? -1 : 1;
+                return (a.name || a.email || '').localeCompare(b.name || b.email || '');
+            });
+
+            document.getElementById('rosterTable').innerHTML = regs.map(r => {
+                const checkinCell = r.checkedInAt
+                    ? `<span style="color:var(--success);font-weight:600;">✓ ${formatDate(r.checkedInAt)}</span>`
+                    : `<span style="color:rgba(245,243,240,0.3);">—</span>`;
+                const source = r.source === 'eventbrite_import' ? 'Eventbrite'
+                    : r.source === 'checkin' ? 'Walk-in'
+                    : 'SparkDate';
+                const gNorm = (r.gender || '').toLowerCase();
+                const genderCell = gNorm === 'woman' ? 'Woman' : gNorm === 'man' ? 'Man' : r.gender || '—';
+                return `<tr>
+                    <td style="color:var(--white);font-weight:500;">${safe(r.name || '—')}</td>
+                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(r.email || '—')}</td>
+                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(genderCell)}</td>
+                    <td style="color:rgba(245,243,240,0.5);font-size:11px;">${safe(source)}</td>
+                    <td style="font-size:12px;">${checkinCell}</td>
+                </tr>`;
+            }).join('');
+        };
+
+        window.closeRoster = () => document.getElementById('rosterModal').classList.remove('show');
+        document.getElementById('rosterModal').addEventListener('click', e => {
+            if (e.target.id === 'rosterModal') closeRoster();
+        });
 
         // ─── RETENTION ─────────────────────────────────────
         // Repeat-attendance tracking from CONFIRMED ticket purchases. The
