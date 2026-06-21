@@ -1760,8 +1760,20 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const eventRegs = allRegistrations.filter(r =>
                 r.eventId === eventId && (r.status === 'confirmed' || !r.status)
             );
+            // Guest buyers (non-logged-in at checkout) get userId:null on their
+            // registration because the Firebase user is created AFTER payment
+            // in enrollGuestAsMember. Fall back to email matching for those rows
+            // so they don't silently disappear from chemistry scoring.
             const registeredUserIds = new Set(eventRegs.map(r => r.userId).filter(Boolean));
-            const attendees = allUsers.filter(u => registeredUserIds.has(u.id));
+            const registeredEmails  = new Set(
+                eventRegs.filter(r => !r.userId && r.email).map(r => r.email.toLowerCase())
+            );
+            const seenIds = new Set();
+            const attendees = allUsers.filter(u => {
+                if (registeredUserIds.has(u.id)) { seenIds.add(u.id); return true; }
+                if (u.email && registeredEmails.has(u.email.toLowerCase())) { seenIds.add(u.id); return true; }
+                return false;
+            });
 
             // Enumerate opposite-gender pairs only (see the note above).
             const women    = attendees.filter(u => u.gender === 'woman');
