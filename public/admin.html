@@ -1421,10 +1421,34 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // ────────────────────────────────────────────────────────────────
         const INTENT_LABELS = { long_term: 'Long-term', dating_around: 'Dating around', friends_first: 'Friends first' };
 
+        // Semantic interest clusters: interests in the same cluster score partial
+        // credit even when the exact strings differ (e.g. "volleyball" ↔ "beach").
+        const INTEREST_CLUSTERS = [
+            ['hiking', 'camping', 'outdoors', 'nature', 'trails', 'backpacking', 'mountains'],
+            ['beach', 'volleyball', 'surfing', 'swimming', 'ocean', 'boating', 'sailing', 'water sports'],
+            ['running', 'cycling', 'biking', 'fitness', 'gym', 'yoga', 'crossfit', 'working out', 'weightlifting', 'pilates'],
+            ['tennis', 'golf', 'sports', 'basketball', 'soccer', 'baseball', 'football', 'lacrosse', 'pickleball', 'softball'],
+            ['music', 'concerts', 'live music', 'jazz', 'indie', 'hip hop', 'electronic', 'classical', 'rap', 'bands', 'festivals', 'singing'],
+            ['cooking', 'baking', 'foodie', 'food', 'restaurants', 'brunch', 'wine', 'coffee', 'craft beer'],
+            ['travel', 'adventure', 'exploring', 'road trips', 'international travel'],
+            ['art', 'photography', 'painting', 'museums', 'galleries', 'design', 'creative', 'drawing'],
+            ['reading', 'books', 'writing', 'poetry', 'literature', 'book clubs'],
+            ['film', 'movies', 'theater', 'comedy', 'stand-up', 'tv', 'documentaries'],
+            ['tech', 'coding', 'startups', 'entrepreneurship', 'business', 'investing'],
+            ['games', 'board games', 'trivia', 'video games', 'gaming', 'game nights', 'puzzles'],
+            ['dogs', 'pets', 'animals', 'cats'],
+            ['dancing', 'clubs', 'nightlife', 'social dancing', 'salsa'],
+            ['meditation', 'mindfulness', 'wellness', 'spirituality', 'self-improvement'],
+        ];
+
+        // Build a lookup: tag → cluster index (for O(1) access).
+        const TAG_CLUSTER = new Map();
+        INTEREST_CLUSTERS.forEach((cluster, idx) => cluster.forEach(tag => TAG_CLUSTER.set(tag, idx)));
+
         // Tunable weights in one place. Re-calibrating later is a one-file change.
         const PAIR_SCORE = {
             BASE:           50,
-            INTEREST_PER:   10, INTEREST_CAP: 30,
+            INTEREST_PER:   10, INTEREST_PARTIAL: 5, INTEREST_CAP: 30,
             VIBE_PER:       10, VIBE_CAP:     25,
             INTENT_SAME:    12, INTENT_NEAR:   6, INTENT_FAR: -8,
             AGE_NEAR_3:      8, AGE_OK_7:      3, AGE_FAR_18:  -5, AGE_VERY_FAR: -15,
@@ -1437,6 +1461,27 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     .map(t => String(t == null ? '' : t).trim().toLowerCase())
                     .filter(Boolean)
             ));
+        }
+
+        // Find same-cluster-but-not-exact pairs between two tag lists.
+        // Each tag is used at most once per side so we don't double-count.
+        function clusterPartials(aInt, bInt) {
+            const usedA = new Set(), usedB = new Set();
+            const pairs = [];
+            for (const a of aInt) {
+                if (usedA.has(a)) continue;
+                const ci = TAG_CLUSTER.get(a);
+                if (ci === undefined) continue;
+                for (const b of bInt) {
+                    if (usedB.has(b) || b === a) continue;
+                    if (TAG_CLUSTER.get(b) === ci) {
+                        pairs.push([a, b]);
+                        usedA.add(a); usedB.add(b);
+                        break;
+                    }
+                }
+            }
+            return pairs;
         }
 
         // Score the intent alignment between two attendees.
@@ -1472,8 +1517,20 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const sharedInterests = aInt.filter(t => bInt.includes(t));
             const sharedVibes     = aVib.filter(t => bVib.includes(t));
 
-            score += Math.min(sharedInterests.length * PAIR_SCORE.INTEREST_PER, PAIR_SCORE.INTEREST_CAP);
-            score += Math.min(sharedVibes.length     * PAIR_SCORE.VIBE_PER,     PAIR_SCORE.VIBE_CAP);
+            // Exact matches filtered out before partial matching so we don't
+            // double-count a tag that already earned full credit.
+            const exactA = new Set(sharedInterests), exactB = new Set(sharedInterests);
+            const partialInterests = clusterPartials(
+                aInt.filter(t => !exactA.has(t)),
+                bInt.filter(t => !exactB.has(t))
+            );
+
+            score += Math.min(
+                sharedInterests.length * PAIR_SCORE.INTEREST_PER +
+                partialInterests.length * PAIR_SCORE.INTEREST_PARTIAL,
+                PAIR_SCORE.INTEREST_CAP
+            );
+            score += Math.min(sharedVibes.length * PAIR_SCORE.VIBE_PER, PAIR_SCORE.VIBE_CAP);
 
             const it  = intentDelta(a.intent, b.intent);
             const age = ageDeltaScore(a.age, b.age);
@@ -1487,7 +1544,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
             return {
                 score: Math.max(0, Math.min(100, Math.round(score))),
-                sharedInterests, sharedVibes,
+                sharedInterests, partialInterests, sharedVibes,
                 intentLabel: it.label,
                 ageGap: age.gap,
                 limitedProfile,
@@ -1517,8 +1574,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const attendees = allUsers.filter(u => registeredUserIds.has(u.id));
 
             // Enumerate opposite-gender pairs only (see the note above).
-            const women = attendees.filter(u => u.gender === 'woman');
-            const men   = attendees.filter(u => u.gender === 'man');
+            const women    = attendees.filter(u => u.gender === 'woman');
+            const men      = attendees.filter(u => u.gender === 'man');
+            const excluded = attendees.filter(u => u.gender !== 'woman' && u.gender !== 'man');
             const pairs = [];
             for (const w of women) for (const m of men) {
                 pairs.push({ a: w, b: m, ...scorePair(w, m) });
@@ -1528,12 +1586,25 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const topScore  = pairs.length ? pairs[0].score : 0;
             const highCount = pairs.filter(p => p.score >= 70).length;
 
+            const excludedNote = excluded.length
+                ? `<div style="margin-top:10px;font-size:12px;color:var(--coral);opacity:0.85;">
+                     ⚠️ ${excluded.length} attendee${excluded.length > 1 ? 's' : ''} excluded — no gender on file:
+                     ${excluded.map(u => {
+                         const fn = u.firstName || '';
+                         const li = (u.lastName || '').charAt(0);
+                         const name = `${fn}${li ? ' ' + li + '.' : ''}`.trim() || '—';
+                         return `${safe(name)} (${safe(u.email || '—')})`;
+                     }).join(', ')}
+                   </div>`
+                : '';
+
             document.getElementById('candidateStats').innerHTML = `
                 <div class="candidate-stat"><strong>${attendees.length}</strong>Attendees</div>
                 <div class="candidate-stat"><strong>${pairs.length}</strong>Pairs scored</div>
                 <div class="candidate-stat"><strong>${topScore}</strong>Top score</div>
                 <div class="candidate-stat"><strong>${highCount}</strong>Pairs ≥ 70</div>
-            `;
+                <div class="candidate-stat" style="${excluded.length ? 'color:var(--coral)' : ''}"><strong>${excluded.length}</strong>No gender</div>
+            ` + excludedNote;
 
             const tbody = document.getElementById('candidateTable');
             if (top.length === 0) {
@@ -1566,8 +1637,12 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 const ages = [p.a.age, p.b.age].filter(Boolean).join(' · ') || '—';
                 const gapTag = p.ageGap !== null
                     ? ` <span style="opacity:0.5;">(Δ${p.ageGap})</span>` : '';
-                const interestsCell = p.sharedInterests.length
-                    ? p.sharedInterests.slice(0, 3).join(', ')
+                const interestParts = [
+                    ...p.sharedInterests.slice(0, 3),
+                    ...p.partialInterests.slice(0, 2).map(([a, b]) => `~${a}/${b}`),
+                ];
+                const interestsCell = interestParts.length
+                    ? interestParts.join(', ')
                     : (p.limitedProfile ? 'limited profile data' : '—');
                 const vibesCell = p.sharedVibes.length
                     ? p.sharedVibes.slice(0, 3).join(', ')
