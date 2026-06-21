@@ -602,6 +602,55 @@
         .score-cell.high { color: var(--success); }
         .score-cell.low { color: rgba(245,243,240,0.4); }
 
+        /* Grouped chemistry cards */
+        .chem-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .chem-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,107,107,0.12);
+            border-radius: 8px;
+            padding: 14px 16px;
+        }
+        .chem-card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .chem-avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: var(--coral);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+        }
+        .chem-card-name { font-weight: 600; color: var(--white); font-size: 14px; }
+        .chem-card-email { font-size: 11px; color: rgba(245,243,240,0.45); margin-top: 1px; }
+        .chem-matches { display: flex; flex-direction: column; gap: 8px; }
+        .chem-match-row {
+            display: grid;
+            grid-template-columns: 42px 1fr auto;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.025);
+            border-radius: 6px;
+        }
+        .chem-match-score {
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            font-size: 18px;
+            text-align: center;
+            color: var(--gold);
+        }
+        .chem-match-score.high { color: var(--success); }
+        .chem-match-score.low  { color: rgba(245,243,240,0.35); }
+        .chem-match-name { font-size: 13px; font-weight: 500; color: var(--white); }
+        .chem-match-detail { font-size: 11px; color: rgba(245,243,240,0.5); margin-top: 2px; line-height: 1.4; }
+        .chem-match-intent { font-size: 11px; color: rgba(245,243,240,0.5); text-align: right; white-space: nowrap; }
+
         .action-btn {
             background: transparent;
             border: 1px solid rgba(255, 107, 107, 0.3);
@@ -1003,23 +1052,7 @@
                 <button class="close-x" onclick="closeCandidates()">&times;</button>
             </div>
             <div class="candidate-stats" id="candidateStats"></div>
-            <div style="overflow-x: auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Score</th>
-                            <th>Pair</th>
-                            <th>Ages</th>
-                            <th>Shared interests</th>
-                            <th>Shared vibes</th>
-                            <th>Intent</th>
-                        </tr>
-                    </thead>
-                    <tbody id="candidateTable">
-                        <tr><td colspan="6" class="empty">Loading…</td></tr>
-                    </tbody>
-                </table>
-            </div>
+            <div class="chem-cards" id="candidateTable"></div>
         </div>
     </div>
         </div>
@@ -1831,59 +1864,74 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 <div class="candidate-stat" style="${excluded.length ? 'color:var(--coral)' : ''}"><strong>${excluded.length}</strong>No gender</div>
             ` + excludedNote;
 
-            const tbody = document.getElementById('candidateTable');
-            if (top.length === 0) {
-                tbody.innerHTML =
-                    '<tr><td colspan="6" class="empty">No opposite-gender pairs yet — add attendees on both sides.</td></tr>';
+            const container = document.getElementById('candidateTable');
+            if (pairs.length === 0) {
+                container.innerHTML = '<div class="empty" style="padding:24px;text-align:center;">No opposite-gender pairs yet — add attendees on both sides.</div>';
                 document.getElementById('candidateModal').classList.add('show');
                 return;
             }
 
-            // Privacy: render "Sarah C." rather than full last names (matches
-            // the public Connections list's display style).
             const shortName = (u) => {
                 const fn = u.firstName || '';
                 const li = (u.lastName || '').charAt(0);
-                const stub = `${fn}${li ? ' ' + li + '.' : ''}`.trim();
-                return stub || u.email || '—';
+                return (`${fn}${li ? ' ' + li + '.' : ''}`).trim() || u.email || '—';
             };
-
+            const initials = (u) => {
+                const fn = (u.firstName || '').charAt(0).toUpperCase();
+                const ln = (u.lastName || '').charAt(0).toUpperCase();
+                return (fn + ln) || (u.email || '?').charAt(0).toUpperCase();
+            };
             const intentText = (a, b) => {
                 const al = INTENT_LABELS[a.intent] || '';
                 const bl = INTENT_LABELS[b.intent] || '';
-                if (!al && !bl) return '—';
+                if (!al && !bl) return '';
                 if (a.intent && a.intent === b.intent) return `Same · ${al}`;
                 if (al && bl) return `${al} ↔ ${bl}`;
                 return al || bl;
             };
 
-            tbody.innerHTML = top.map((p) => {
-                const scoreClass = p.score >= 70 ? 'high' : p.score >= 40 ? '' : 'low';
-                const ages = [p.a.age, p.b.age].filter(Boolean).join(' · ') || '—';
-                const gapTag = p.ageGap !== null
-                    ? ` <span style="opacity:0.5;">(Δ${p.ageGap})</span>` : '';
-                const interestParts = [
-                    ...p.sharedInterests.slice(0, 3),
-                    ...p.partialInterests.slice(0, 2).map(([a, b]) => `~${a}/${b}`),
-                ];
-                const interestsCell = interestParts.length
-                    ? interestParts.join(', ')
-                    : (p.limitedProfile ? 'limited profile data' : '—');
-                const vibesCell = p.sharedVibes.length
-                    ? p.sharedVibes.slice(0, 3).join(', ')
-                    : '—';
+            // Group by woman, each with her top-3 men sorted by score
+            container.innerHTML = women.map(w => {
+                const herPairs = pairs
+                    .filter(p => p.a.id === w.id || p.b.id === w.id)
+                    .map(p => ({ man: p.a.id === w.id ? p.b : p.a, score: p.score, p }))
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 3);
+
+                const matchRows = herPairs.map(({ man, score, p }) => {
+                    const cls = score >= 70 ? 'high' : score < 40 ? 'low' : '';
+                    const interestParts = [
+                        ...p.sharedInterests.slice(0, 2),
+                        ...p.partialInterests.slice(0, 1).map(([a, b]) => `~${a}/${b}`),
+                    ];
+                    const details = [
+                        man.age ? `Age ${man.age}${p.ageGap !== null ? ` (Δ${p.ageGap})` : ''}` : '',
+                        interestParts.length ? interestParts.join(', ') : (p.limitedProfile ? 'limited data' : ''),
+                        p.sharedVibes.slice(0, 2).join(', '),
+                    ].filter(Boolean).join(' · ');
+                    const intent = intentText(w, man);
+                    return `
+                        <div class="chem-match-row">
+                            <div class="chem-match-score ${cls}">${score}</div>
+                            <div>
+                                <div class="chem-match-name">${safe(shortName(man))}</div>
+                                ${details ? `<div class="chem-match-detail">${safe(details)}</div>` : ''}
+                            </div>
+                            <div class="chem-match-intent">${safe(intent)}</div>
+                        </div>`;
+                }).join('');
+
                 return `
-                    <tr>
-                        <td><span class="score-cell ${scoreClass}">${p.score}</span></td>
-                        <td>
-                            <div style="color: var(--white); font-weight: 500;">${safe(shortName(p.a))} ↔ ${safe(shortName(p.b))}</div>
-                            <div style="font-size: 11px; color: rgba(245,243,240,0.5);">${safe(p.a.email || '')} · ${safe(p.b.email || '')}</div>
-                        </td>
-                        <td style="color: rgba(245,243,240,0.7);">${safe(ages)}${gapTag}</td>
-                        <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(interestsCell)}</td>
-                        <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(vibesCell)}</td>
-                        <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(intentText(p.a, p.b))}</td>
-                    </tr>`;
+                    <div class="chem-card">
+                        <div class="chem-card-header">
+                            <div class="chem-avatar">${safe(initials(w))}</div>
+                            <div>
+                                <div class="chem-card-name">${safe(shortName(w))}</div>
+                                <div class="chem-card-email">${safe(w.email || '')}</div>
+                            </div>
+                        </div>
+                        <div class="chem-matches">${matchRows || '<div class="chem-match-detail" style="padding:4px 0;">No men registered yet</div>'}</div>
+                    </div>`;
             }).join('');
 
             document.getElementById('candidateModal').classList.add('show');
