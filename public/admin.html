@@ -1798,9 +1798,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             }
 
             // Enumerate opposite-gender pairs only (see the note above).
-            const women    = attendees.filter(u => u.gender === 'woman');
-            const men      = attendees.filter(u => u.gender === 'man');
-            const excluded = attendees.filter(u => u.gender !== 'woman' && u.gender !== 'man');
+            const gNorm = g => (g || '').toLowerCase();
+            const women    = attendees.filter(u => gNorm(u.gender) === 'woman');
+            const men      = attendees.filter(u => gNorm(u.gender) === 'man');
+            const excluded = attendees.filter(u => gNorm(u.gender) !== 'woman' && gNorm(u.gender) !== 'man');
             const pairs = [];
             for (const w of women) for (const m of men) {
                 pairs.push({ a: w, b: m, ...scorePair(w, m) });
