@@ -113,6 +113,30 @@
     {
       "source": "/matches",
       "destination": "/matches.html"
+    },
+    {
+      "source": "/blog",
+      "destination": "/blog.html"
+    },
+    {
+      "source": "/blog/conversation-starters",
+      "destination": "/blog/conversation-starters.html"
+    },
+    {
+      "source": "/blog/what-to-wear",
+      "destination": "/blog/what-to-wear.html"
+    },
+    {
+      "source": "/blog/first-timer-guide",
+      "destination": "/blog/first-timer-guide.html"
+    },
+    {
+      "source": "/philadelphia",
+      "destination": "/city.html?city=philadelphia"
+    },
+    {
+      "source": "/lancaster",
+      "destination": "/city.html?city=lancaster"
     }
   ]
 }
