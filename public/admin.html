@@ -1152,6 +1152,10 @@
                                 <label class="form-label">Neighborhood</label>
                                 <input type="text" class="form-input" id="evNeighborhood" placeholder="e.g. Rittenhouse">
                             </div>
+                            <div class="form-group">
+                                <label class="form-label">City (for city pages)</label>
+                                <input type="text" class="form-input" id="evCity" placeholder="e.g. Philadelphia or Lancaster">
+                            </div>
                         </div>
 
                         <div class="form-section-title">Capacity & Pricing</div>
@@ -2335,6 +2339,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const timeVal = document.getElementById('evTime').value;
             const venue = document.getElementById('evVenue').value.trim();
             const neighborhood = document.getElementById('evNeighborhood').value.trim();
+            const city = document.getElementById('evCity').value.trim();
             const spots = parseInt(document.getElementById('evSpots').value) || 0;
             const price = parseFloat(document.getElementById('evPrice').value) || 0;
             const earlyBirdPrice = parseFloat(document.getElementById('evEarlyBirdPrice').value) || null;
@@ -2376,6 +2381,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     time: formattedTime,
                     venue,
                     neighborhood,
+                    city,
                     spots,
                     price,
                     earlyBirdPrice,
@@ -2400,7 +2406,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 status.style.display = 'block';
 
                 // Reset form
-                ['evTitle','evBlurb','evDate','evTime','evVenue','evNeighborhood','evAmenities','evEmoji'].forEach(id => {
+                ['evTitle','evBlurb','evDate','evTime','evVenue','evNeighborhood','evCity','evAmenities','evEmoji'].forEach(id => {
                     document.getElementById(id).value = '';
                 });
                 document.getElementById('evSpots').value = '30';
