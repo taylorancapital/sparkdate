@@ -226,7 +226,7 @@
                         a: "Traditional speed dating events feel like a job fair. SparkDate events are more like a really well-hosted dinner party — the guest list is curated before you arrive, the host makes introductions feel natural, and there's no awkward whistle or scorecard. You just show up and talk."
                     },
                     {
-                        q: 'What's the age range at Philadelphia SparkDate events?',
+                        q: "What's the age range at Philadelphia SparkDate events?",
                         a: "We don't run strict age brackets, but we do check profiles before approving registrations. Most events draw 28–42 year-olds, though we occasionally run specific events for different ranges. The goal is that everyone in the room is at a similar life stage."
                     },
                     {
@@ -268,7 +268,7 @@
                         a: 'We host events at a rotating selection of Lancaster venues — cocktail bars, restaurants, and social spaces in and around downtown Lancaster. The specific venue is listed on each event page.'
                     },
                     {
-                        q: 'What's the vibe at a Lancaster SparkDate event?',
+                        q: "What's the vibe at a Lancaster SparkDate event?",
                         a: "Relaxed, but intentional. These aren't your typical bar meetups where the point is fuzzy. Everyone's there to actually meet someone. But the format is low-pressure — you move through natural conversations, not a rigid rotation with a timer."
                     },
                     {
@@ -337,7 +337,6 @@
             if (descEl) descEl.setAttribute('content', descStr);
             if (canonicalEl) canonicalEl.setAttribute('href', canonicalUrl);
 
-            ['property','og:title'].forEach(() => {});
             [['og:title', titleStr], ['og:description', descStr], ['og:url', canonicalUrl]].forEach(([prop, val]) => {
                 let el = document.querySelector(`meta[property="${prop}"]`);
                 if (!el) { el = document.createElement('meta'); el.setAttribute('property', prop); document.head.appendChild(el); }
@@ -377,6 +376,11 @@
             const schemaEvents = events.slice(0, 10).map(ev => {
                 const d = ev.date && ev.date.toDate ? ev.date.toDate() : (ev.date ? new Date(ev.date) : null);
                 const url = `https://sparkdate.date/event?id=${encodeURIComponent(ev.id)}`;
+                // Use the event's own city for structured data — never the page's
+                // city. In fallback mode (no local events) the list is events from
+                // OTHER cities, so tagging them with this page's city would emit
+                // misleading schema that contradicts the visible banner.
+                const evCity = ev.city || config.name;
                 const obj = {
                     '@type': 'Event',
                     name: ev.title || 'SparkDate Event',
@@ -386,10 +390,10 @@
                     image: ['https://sparkdate.date/og-image.svg'],
                     location: {
                         '@type': 'Place',
-                        name: ev.venue || `${config.name} venue`,
+                        name: ev.venue || `${evCity} venue`,
                         address: {
                             '@type': 'PostalAddress',
-                            addressLocality: config.name,
+                            addressLocality: evCity,
                             addressRegion: config.state || 'PA',
                             addressCountry: 'US'
                         }
