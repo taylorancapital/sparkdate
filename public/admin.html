@@ -816,34 +816,34 @@
                 <div class="kpi-trend" id="kpiActiveTrend">Paying + trialing</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Monthly Recurring Revenue</div>
+                <div class="kpi-label">Ticket Revenue</div>
                 <div class="kpi-value gold" id="kpiMRR">—</div>
-                <div class="kpi-trend" id="kpiMRRTrend">Excludes trials</div>
+                <div class="kpi-trend" id="kpiMRRTrend">All confirmed tickets</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Annual Run Rate</div>
+                <div class="kpi-label">Net Revenue</div>
                 <div class="kpi-value gold" id="kpiARR">—</div>
-                <div class="kpi-trend">MRR × 12</div>
+                <div class="kpi-trend">After EB fees + ad spend</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Avg. Revenue Per User</div>
+                <div class="kpi-label">Revenue Per Buyer</div>
                 <div class="kpi-value" id="kpiARPU">—</div>
-                <div class="kpi-trend">Monthly, paying users</div>
+                <div class="kpi-trend">Avg ticket rev / unique buyer</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Estimated LTV</div>
+                <div class="kpi-label">Est. LTV</div>
                 <div class="kpi-value" id="kpiLTV">—</div>
-                <div class="kpi-trend">ARPU × avg. lifetime</div>
+                <div class="kpi-trend" id="kpiLTVTrend">Rev/buyer × avg events</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Estimated CAC</div>
-                <div class="kpi-value" id="kpiCAC">$20.40</div>
-                <div class="kpi-trend">Blended digital + event</div>
+                <div class="kpi-label">Blended CAC</div>
+                <div class="kpi-value" id="kpiCAC">—</div>
+                <div class="kpi-trend">FB spend ÷ new buyers</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">LTV : CAC Ratio</div>
+                <div class="kpi-label">LTV : CAC</div>
                 <div class="kpi-value coral" id="kpiLTVCAC">—</div>
-                <div class="kpi-trend" id="kpiLTVCACTrend">Target: 6:1+</div>
+                <div class="kpi-trend" id="kpiLTVCACTrend">Target: 3:1+</div>
             </div>
         </div>
 
@@ -1000,6 +1000,33 @@
                     </thead>
                     <tbody id="paymentHistory">
                         <tr><td colspan="5"><div class="spinner"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Event P&L -->
+            <div class="card" style="margin-top:24px;">
+                <div class="card-header">
+                    <h2 class="card-title">Event P&L</h2>
+                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">Revenue vs costs per event</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Date</th>
+                            <th>Direct</th>
+                            <th>Eventbrite</th>
+                            <th>Gross revenue</th>
+                            <th>FB spend</th>
+                            <th>EB fees</th>
+                            <th>Other</th>
+                            <th>Net margin</th>
+                            <th>Margin %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eventPnlTable">
+                        <tr><td colspan="10"><div class="spinner"></div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1388,8 +1415,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // ─── Constants ─────────────────────────────────────
         const TIER_PRICES = { free: 9.99, mid: 19.99, premium: 39.99 };
         const TIER_LABELS = { free: 'Spark', mid: 'Kindling', premium: 'Fire' };
-        const ESTIMATED_CAC = 20.40;
         const AVG_LIFETIME_MONTHS = 18; // conservative
+        // Eventbrite's standard organizer fee schedule
+        const EB_FEE_RATE = 0.037;  // 3.7% of face value
+        const EB_FEE_FLAT = 1.79;   // + $1.79 per ticket
 
         let allUsers = [];
         let allActivity = [];
@@ -1548,7 +1577,26 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <td><span class="badge ${safe(statusClass)}">${safe(ev.status || 'open')}</span></td>
                         <td style="font-size: 12px;">
                             <button class="action-btn" data-act="score-candidates" data-id="${safe(ev.id)}" title="Chemistry score between every pair of registered attendees">Chemistry</button>
+                            <button class="action-btn" data-act="toggle-costs" data-id="${safe(ev.id)}" title="Enter ad spend and other costs for this event">Costs</button>
                             <button class="action-btn" data-act="delete-event" data-id="${safe(ev.id)}" data-title="${safe(ev.title)}" data-regs="${regCount}" style="border-color: rgba(231,76,60,0.5); color: #e74c3c;">Delete</button>
+                        </td>
+                    </tr>
+                    <tr id="costs-row-${safe(ev.id)}" style="display:none;">
+                        <td colspan="8" style="padding: 10px 16px; background: rgba(255,255,255,0.02); border-top: none;">
+                            <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                                <div style="font-size:11px;color:rgba(245,243,240,0.5);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Event costs</div>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(245,243,240,0.7);">
+                                    FB/Instagram spend $
+                                    <input type="number" min="0" step="0.01" id="cost-fb-${safe(ev.id)}" value="${Number(ev.costFacebook)||0}" style="width:80px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,107,107,0.2);border-radius:4px;padding:4px 8px;color:var(--white);font-size:12px;">
+                                </label>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(245,243,240,0.7);">
+                                    Other costs $
+                                    <input type="number" min="0" step="0.01" id="cost-other-${safe(ev.id)}" value="${Number(ev.costOther)||0}" style="width:80px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,107,107,0.2);border-radius:4px;padding:4px 8px;color:var(--white);font-size:12px;">
+                                </label>
+                                <span style="font-size:11px;color:rgba(245,243,240,0.4);" id="cost-eb-label-${safe(ev.id)}">EB fees: calculated</span>
+                                <button class="action-btn" data-act="save-costs" data-id="${safe(ev.id)}" style="padding:4px 12px;">Save</button>
+                                <span id="cost-saved-${safe(ev.id)}" style="font-size:11px;color:var(--success);display:none;">✓ Saved</span>
+                            </div>
                         </td>
                     </tr>`;
             }).join('');
@@ -1560,6 +1608,43 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             });
             tbody.querySelectorAll('button[data-act="score-candidates"]').forEach(btn => {
                 btn.addEventListener('click', () => window.openCandidates(btn.dataset.id));
+            });
+            tbody.querySelectorAll('button[data-act="toggle-costs"]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const row = document.getElementById(`costs-row-${btn.dataset.id}`);
+                    if (!row) return;
+                    const visible = row.style.display !== 'none';
+                    row.style.display = visible ? 'none' : '';
+                    if (!visible) {
+                        // Compute and show EB fee estimate
+                        const ev = allEvents.find(e => e.id === btn.dataset.id);
+                        if (ev) {
+                            const ebTix = allPayments.filter(p => p._type === 'ticket' && p.eventId === ev.id && p.source === 'eventbrite_import');
+                            const faceValue = ebTix.reduce((s, p) => s + (Number(p.amount) || 0), 0) / 100;
+                            const ebFees = (faceValue * EB_FEE_RATE + ebTix.length * EB_FEE_FLAT).toFixed(2);
+                            const lbl = document.getElementById(`cost-eb-label-${ev.id}`);
+                            if (lbl) lbl.textContent = `EB fees (est.): $${ebFees} (${ebTix.length} tickets)`;
+                        }
+                    }
+                });
+            });
+            tbody.querySelectorAll('button[data-act="save-costs"]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.id;
+                    const fb    = parseFloat(document.getElementById(`cost-fb-${id}`)?.value) || 0;
+                    const other = parseFloat(document.getElementById(`cost-other-${id}`)?.value) || 0;
+                    try {
+                        await updateDoc(doc(db, 'events', id), { costFacebook: fb, costOther: other });
+                        // Update local cache so KPIs recalc without reload
+                        const ev = allEvents.find(e => e.id === id);
+                        if (ev) { ev.costFacebook = fb; ev.costOther = other; }
+                        renderKPIs();
+                        const saved = document.getElementById(`cost-saved-${id}`);
+                        if (saved) { saved.style.display = ''; setTimeout(() => saved.style.display = 'none', 2000); }
+                    } catch (e) {
+                        alert('Save failed: ' + e.message);
+                    }
+                });
             });
             tbody.querySelectorAll('button[data-act="delete-event"]').forEach(btn => {
                 btn.addEventListener('click', () => window.deleteEvent(
@@ -2375,16 +2460,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
         // ─── KPI Calculations ──────────────────────────────
         function renderKPIs() {
+            // ── Member counts ────────────────────────────────
             const total = allUsers.length;
             const active = allUsers.filter(u => ['active', 'trialing'].includes(u.subscriptionStatus)).length;
-            const paying = allUsers.filter(u => u.subscriptionStatus === 'active');
-            const mrr = paying.reduce((sum, u) => sum + (TIER_PRICES[u.tier] || 0), 0);
-            const arr = mrr * 12;
-            const arpu = paying.length > 0 ? mrr / paying.length : 0;
-            const ltv = arpu * AVG_LIFETIME_MONTHS;
-            const ltvCac = ESTIMATED_CAC > 0 ? (ltv / ESTIMATED_CAC).toFixed(1) : 0;
-
-            // Last 7 days for trend
             const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
             const newThisWeek = allUsers.filter(u => {
                 const created = u.createdAt?.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
@@ -2395,14 +2473,54 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             document.getElementById('kpiMembersTrend').innerHTML = `<span class="up">+${newThisWeek}</span> this week`;
             document.getElementById('kpiActive').textContent = active.toLocaleString();
             document.getElementById('kpiActiveTrend').textContent = `${total > 0 ? Math.round(active/total*100) : 0}% of total`;
-            document.getElementById('kpiMRR').textContent = '$' + mrr.toFixed(2);
-            document.getElementById('kpiMRRTrend').textContent = `${paying.length} paying members`;
-            document.getElementById('kpiARR').textContent = '$' + arr.toLocaleString(undefined, {maximumFractionDigits: 0});
+
+            // ── Ticket revenue (allPayments populated after loadPayments) ──
+            const tickets = allPayments.filter(p => p._type === 'ticket');
+            const ticketRevenue = tickets.reduce((s, p) => s + (Number(p.amount) || 0), 0) / 100;
+
+            // Unique buyers by email
+            const buyerEmails = new Set(tickets.map(p => (p.email || '').toLowerCase()).filter(Boolean));
+            const uniqueBuyers = buyerEmails.size;
+            const arpu = uniqueBuyers > 0 ? ticketRevenue / uniqueBuyers : 0;
+
+            // Avg events per buyer — count confirmed tickets per email, average it
+            const ticketsPerBuyer = {};
+            tickets.forEach(p => {
+                const em = (p.email || '').toLowerCase();
+                if (em) ticketsPerBuyer[em] = (ticketsPerBuyer[em] || 0) + 1;
+            });
+            const buyerCounts = Object.values(ticketsPerBuyer);
+            const avgEvents = buyerCounts.length
+                ? buyerCounts.reduce((s, n) => s + n, 0) / buyerCounts.length
+                : 1.5;
+            const ltv = arpu * Math.max(avgEvents, 1.5);
+
+            // CAC: total FB spend across all events ÷ first-time buyers
+            const totalFbSpend = allEvents.reduce((s, e) => s + (Number(e.costFacebook) || 0), 0);
+            const firstTimers = buyerCounts.filter(n => n === 1).length;
+            const cac = firstTimers > 0 ? totalFbSpend / firstTimers : 0;
+            const ltvCac = cac > 0 ? (ltv / cac).toFixed(1) : '—';
+
+            // Net revenue: ticket revenue − all costs
+            const totalEbFees = allEvents.reduce((s, e) => {
+                const ebTickets = tickets.filter(p => p.eventId === e.id && p.source === 'eventbrite_import');
+                const faceValue = ebTickets.reduce((sv, p) => sv + (Number(p.amount) || 0), 0) / 100;
+                return s + (faceValue * EB_FEE_RATE + ebTickets.length * EB_FEE_FLAT);
+            }, 0);
+            const totalOtherCosts = allEvents.reduce((s, e) => s + (Number(e.costOther) || 0), 0);
+            const netRevenue = ticketRevenue - totalFbSpend - totalEbFees - totalOtherCosts;
+
+            document.getElementById('kpiMRR').textContent = '$' + ticketRevenue.toFixed(2);
+            document.getElementById('kpiMRRTrend').textContent = `${tickets.length} tickets · ${uniqueBuyers} buyers`;
+            document.getElementById('kpiARR').textContent = '$' + netRevenue.toFixed(2);
             document.getElementById('kpiARPU').textContent = '$' + arpu.toFixed(2);
             document.getElementById('kpiLTV').textContent = '$' + ltv.toFixed(2);
-            document.getElementById('kpiLTVCAC').textContent = `${ltvCac}:1`;
+            document.getElementById('kpiLTVTrend').textContent = `${avgEvents.toFixed(1)} avg events/buyer`;
+            document.getElementById('kpiCAC').textContent = cac > 0 ? '$' + cac.toFixed(2) : 'No spend yet';
+            document.getElementById('kpiLTVCAC').textContent = ltvCac === '—' ? '—' : `${ltvCac}:1`;
 
-            const target = parseFloat(ltvCac) >= 6 ? '<span class="up">✓ Target met</span>' : `<span class="down">Below 6:1 target</span>`;
+            const ratio = parseFloat(ltvCac);
+            const target = ratio >= 3 ? '<span class="up">✓ Target met</span>' : (ratio > 0 ? `<span class="down">Below 3:1 target</span>` : 'Enter FB spend to calculate');
             document.getElementById('kpiLTVCACTrend').innerHTML = target;
         }
 
@@ -2633,15 +2751,20 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             }
 
             // Summary KPIs
-            const ticketTotal = allPayments.filter(p => p._type === 'ticket').reduce((s, p) => s + (Number(p.amount) || 0), 0);
-            const subTotal    = allPayments.filter(p => p._type === 'subscription').reduce((s, p) => s + (Number(p.amount) || 0), 0);
-            const grandTotal  = ticketTotal + subTotal;
+            const ticketPayments = allPayments.filter(p => p._type === 'ticket');
+            const directTickets  = ticketPayments.filter(p => p.source !== 'eventbrite_import');
+            const ebTickets      = ticketPayments.filter(p => p.source === 'eventbrite_import');
+            const ticketTotal    = ticketPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+            const subTotal       = allPayments.filter(p => p._type === 'subscription').reduce((s, p) => s + (Number(p.amount) || 0), 0);
+            const grandTotal     = ticketTotal + subTotal;
             document.getElementById('revenueKPIs').innerHTML = `
                 <div class="candidate-stat"><strong>$${(grandTotal / 100).toFixed(2)}</strong>Total revenue</div>
                 <div class="candidate-stat"><strong>$${(ticketTotal / 100).toFixed(2)}</strong>Ticket sales</div>
+                <div class="candidate-stat" title="Direct sales via SparkDate checkout"><strong>$${(directTickets.reduce((s,p)=>s+(Number(p.amount)||0),0)/100).toFixed(2)}</strong>Direct (${directTickets.length})</div>
+                <div class="candidate-stat" title="Sales via Eventbrite"><strong>$${(ebTickets.reduce((s,p)=>s+(Number(p.amount)||0),0)/100).toFixed(2)}</strong>Eventbrite (${ebTickets.length})</div>
                 <div class="candidate-stat"><strong>$${(subTotal / 100).toFixed(2)}</strong>Subscriptions</div>
-                <div class="candidate-stat"><strong>${allPayments.filter(p => p._type === 'ticket').length}</strong>Tickets sold</div>
             `;
+            renderEventPnl();
 
             tbody.innerHTML = allPayments.map(p => {
                 const isTicket = p._type === 'ticket';
@@ -2665,6 +2788,55 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     <td style="color:var(--gold);font-weight:600;">$${(amount / 100).toFixed(2)}</td>
                     <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(event)}</td>
                     <td style="color:rgba(245,243,240,0.6);">${formatDate(when)}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderEventPnl() {
+            const tbody = document.getElementById('eventPnlTable');
+            if (!tbody) return;
+            const tickets = allPayments.filter(p => p._type === 'ticket');
+
+            // Only events that have at least one confirmed ticket
+            const eventsWithSales = allEvents.filter(ev =>
+                tickets.some(p => p.eventId === ev.id)
+            ).sort((a, b) => {
+                const da = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+                const db_ = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+                return db_ - da; // newest first
+            });
+
+            if (!eventsWithSales.length) {
+                tbody.innerHTML = '<tr><td colspan="10" class="empty">No ticket sales yet.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = eventsWithSales.map(ev => {
+                const evTix     = tickets.filter(p => p.eventId === ev.id);
+                const directTix = evTix.filter(p => p.source !== 'eventbrite_import');
+                const ebTix     = evTix.filter(p => p.source === 'eventbrite_import');
+                const gross     = evTix.reduce((s, p) => s + (Number(p.amount) || 0), 0) / 100;
+                const fbSpend   = Number(ev.costFacebook) || 0;
+                const otherCost = Number(ev.costOther) || 0;
+                const ebFaceVal = ebTix.reduce((s, p) => s + (Number(p.amount) || 0), 0) / 100;
+                const ebFees    = ebFaceVal * EB_FEE_RATE + ebTix.length * EB_FEE_FLAT;
+                const totalCost = fbSpend + ebFees + otherCost;
+                const net       = gross - totalCost;
+                const marginPct = gross > 0 ? (net / gross * 100) : 0;
+                const marginCol = marginPct >= 50 ? 'var(--success)' : marginPct >= 20 ? 'var(--gold)' : 'var(--coral)';
+                const date = ev.date?.toDate ? ev.date.toDate() : new Date(ev.date);
+                const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                return `<tr>
+                    <td style="color:var(--white);font-weight:500;">${safe(ev.title)}</td>
+                    <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(dateStr)}</td>
+                    <td style="color:rgba(245,243,240,0.7);">${directTix.length}</td>
+                    <td style="color:rgba(245,243,240,0.7);">${ebTix.length}</td>
+                    <td style="color:var(--gold);font-weight:600;">$${gross.toFixed(2)}</td>
+                    <td style="color:rgba(245,243,240,0.6);">${fbSpend > 0 ? '$' + fbSpend.toFixed(2) : '<span style="opacity:0.3">—</span>'}</td>
+                    <td style="color:rgba(245,243,240,0.6);">${ebTix.length > 0 ? '$' + ebFees.toFixed(2) : '<span style="opacity:0.3">—</span>'}</td>
+                    <td style="color:rgba(245,243,240,0.6);">${otherCost > 0 ? '$' + otherCost.toFixed(2) : '<span style="opacity:0.3">—</span>'}</td>
+                    <td style="color:${marginCol};font-weight:600;">$${net.toFixed(2)}</td>
+                    <td style="color:${marginCol};font-weight:600;">${marginPct.toFixed(0)}%</td>
                 </tr>`;
             }).join('');
         }
