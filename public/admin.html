@@ -856,6 +856,7 @@
             <button class="tab" onclick="switchTab('events', this)">Events</button>
             <button class="tab" onclick="switchTab('venues', this)">Venues</button>
             <button class="tab" onclick="switchTab('leads', this)">Leads</button>
+            <button class="tab" onclick="switchTab('funnel', this)">Funnel</button>
             <button class="tab" onclick="switchTab('retention', this)">Retention</button>
             <button class="tab" onclick="switchTab('enroll', this)">Enroll</button>
         </div>
@@ -1336,6 +1337,20 @@
                     Repeat-buyer rates from <strong>confirmed</strong> ticket purchases (join key: email — covers both guests and members). Use this to decide when to switch subscriptions back on in <code>/signup</code>.
                 </p>
                 <div id="retentionBody"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <!-- Funnel Tab -->
+        <div class="tab-content" id="tab-funnel">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">🔻 Lead → Buyer Funnel</h2>
+                    <button onclick="loadFunnel()" style="padding:7px 14px; background:var(--coral); color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:13px;">↻ Refresh</button>
+                </div>
+                <p style="font-size: 13px; color: rgba(245,243,240,0.55); margin: -6px 0 16px; line-height: 1.6;">
+                    Do email signups become ticket buyers, and which channel converts best? Joins the <strong>leads</strong> list to <strong>confirmed</strong> ticket buyers by email. Buyers with no matching lead (walk-ins / Eventbrite / direct) are counted separately so the totals reconcile.
+                </p>
+                <div id="funnelBody"><div class="spinner"></div></div>
             </div>
         </div>
 
@@ -3043,6 +3058,137 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             root.innerHTML = cards + table + timeline;
         }
 
+        // ─── FUNNEL (Lead → Buyer conversion + source attribution) ──
+        // Joins the `leads` email funnel to CONFIRMED ticket buyers by
+        // email (same lowercase join key as Retention). Read-only: no
+        // schema, no writes. `allPayments` is loaded on init; `allLeads`
+        // only when the Leads tab opens, so ensure both are present.
+        const FUNNEL_SOURCE_LABELS = {
+            founding_form: 'Founding form',
+            newsletter: 'Newsletter',
+            ad_landing: 'Ad landing',
+            referral: 'Referral',
+        };
+
+        async function loadFunnel() {
+            const root = document.getElementById('funnelBody');
+            root.innerHTML = '<div class="spinner"></div>';
+            try {
+                if (!allLeads.length) await loadLeads();
+                if (!allPayments.length) await loadPayments();
+
+                // Confirmed ticket buyers → unique email set + revenue by email.
+                const revByEmail = {};
+                const buyerEmails = new Set();
+                allPayments.filter(p => p._type === 'ticket').forEach(t => {
+                    if (!t.email) return;
+                    const em = String(t.email).toLowerCase().trim();
+                    buyerEmails.add(em);
+                    revByEmail[em] = (revByEmail[em] || 0) + (Number(t.amount) || 0) / 100;
+                });
+
+                // Roll up leads by source; mark converted if their email bought.
+                const bySource = {};
+                const leadEmails = new Set();
+                allLeads.forEach(l => {
+                    const src = l.source || '—';
+                    const em = l.email ? String(l.email).toLowerCase().trim() : '';
+                    if (em) leadEmails.add(em);
+                    const row = (bySource[src] = bySource[src] || { leads: 0, converted: 0, revenue: 0 });
+                    row.leads++;
+                    if (em && buyerEmails.has(em)) {
+                        row.converted++;
+                        row.revenue += (revByEmail[em] || 0);
+                    }
+                });
+
+                const sources = Object.keys(bySource).map(src => ({
+                    src,
+                    label: FUNNEL_SOURCE_LABELS[src] || src,
+                    ...bySource[src],
+                    rate: bySource[src].leads ? (bySource[src].converted / bySource[src].leads * 100) : 0,
+                })).sort((a, b) => b.leads - a.leads);
+
+                const totalLeads = allLeads.length;
+                const convertedLeads = sources.reduce((n, s) => n + s.converted, 0);
+                const convRevenue = sources.reduce((n, s) => n + s.revenue, 0);
+                const convRate = totalLeads ? (convertedLeads / totalLeads * 100) : 0;
+
+                // Top channel: highest conversion % among sources with ≥1 converted.
+                const top = sources.filter(s => s.converted > 0).sort((a, b) => b.rate - a.rate)[0] || null;
+
+                // Reconciliation by UNIQUE buyer email.
+                let buyersFromLead = 0;
+                buyerEmails.forEach(em => { if (leadEmails.has(em)) buyersFromLead++; });
+                const buyersNoLead = buyerEmails.size - buyersFromLead;
+
+                renderFunnel({
+                    sources, totalLeads, convertedLeads, convRevenue, convRate, top,
+                    totalBuyers: buyerEmails.size, buyersFromLead, buyersNoLead,
+                });
+            } catch (err) {
+                console.error('[funnel] load error:', err);
+                root.innerHTML = '<p class="empty">Error loading funnel data. Check Firestore rules / admin claim.</p>';
+            }
+        }
+        window.loadFunnel = loadFunnel;
+
+        function renderFunnel(d) {
+            const root = document.getElementById('funnelBody');
+            if (!d.totalLeads) {
+                root.innerHTML = '<p class="empty">No leads yet. This populates once the founding form / newsletter captures signups.</p>';
+                return;
+            }
+            const money = (n) => '$' + (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            const stat = (label, val, sub) => `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,107,107,0.2); border-left: 4px solid var(--coral); border-radius: 6px; padding: 18px 20px;">
+                    <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:rgba(245,243,240,0.55); margin-bottom:6px;">${label}</div>
+                    <div style="font-size:26px; font-weight:800; color:var(--white);">${val}</div>
+                    ${sub ? `<div style="font-size:12px; color:rgba(245,243,240,0.5); margin-top:4px;">${sub}</div>` : ''}
+                </div>`;
+
+            const cards = `
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-bottom:28px;">
+                    ${stat('Total Leads', d.totalLeads)}
+                    ${stat('Converted to Buyers', d.convertedLeads, d.convRate.toFixed(1) + '% of leads')}
+                    ${stat('Revenue from Leads', money(d.convRevenue))}
+                    ${stat('Top Channel', d.top ? safe(d.top.label) : '—', d.top ? d.top.rate.toFixed(1) + '% conversion' : 'No conversions yet')}
+                </div>`;
+
+            const rows = d.sources.map(s => `
+                <tr>
+                    <td>${safe(s.label)}</td>
+                    <td style="text-align:center;">${s.leads}</td>
+                    <td style="text-align:center; color:var(--coral); font-weight:700;">${s.converted}</td>
+                    <td style="text-align:center;"><span style="background:${retentionColor(s.rate)}; padding:4px 10px; border-radius:4px; font-weight:700;">${s.rate.toFixed(1)}%</span></td>
+                    <td style="text-align:right;">${money(s.revenue)}</td>
+                </tr>`).join('');
+
+            const table = `
+                <h3 style="margin:0 0 14px; color:var(--white);">Conversion by Source</h3>
+                <table>
+                    <thead><tr>
+                        <th>Source</th>
+                        <th style="text-align:center;">Leads</th>
+                        <th style="text-align:center;">Converted</th>
+                        <th style="text-align:center;">Conv %</th>
+                        <th style="text-align:right;">Revenue</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+
+            const recon = `
+                <div style="margin-top:24px; padding:14px 18px; background:rgba(255,255,255,0.03); border-radius:6px; font-size:13px; color:rgba(245,243,240,0.7); line-height:1.7;">
+                    <strong style="color:var(--white);">Buyer reconciliation:</strong>
+                    ${d.totalBuyers} unique ticket buyer${d.totalBuyers !== 1 ? 's' : ''} —
+                    <span style="color:var(--coral); font-weight:700;">${d.buyersFromLead}</span> came from a tracked lead,
+                    <span style="color:var(--white); font-weight:700;">${d.buyersNoLead}</span> had no matching lead (walk-in / Eventbrite / direct).
+                </div>`;
+
+            root.innerHTML = cards + table + recon;
+        }
+
         // ─── Eventbrite Enrollment ────────────────────────
         window.enrollEventbriteBuyers = async () => {
             const eventName = document.getElementById('eb-event-name').value.trim();
@@ -3143,6 +3289,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             if (id === 'leads')  loadLeads();
             if (id === 'events') populateVenuePicker();
             if (id === 'retention') loadRetention();
+            if (id === 'funnel') loadFunnel();
         };
 
         // ─── LEADS ─────────────────────────────────────────
