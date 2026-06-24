@@ -108,6 +108,54 @@ const EMAILS = {
   },
 };
 
+// ── Newsletter templates (bi-weekly, rotating 6-week cycle) ───────────
+// Each returns HTML for a bi-weekly newsletter with curated content.
+const NEWSLETTER_EMAILS = [
+  // Week 1: Conversation starters
+  {
+    subject: 'What makes a great conversation?',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('What makes a great conversation?') +
+      p(`${firstName}, here's the truth: you already know how to have a great conversation. You do it all the time — with your best friend, your sibling, that barista who remembers your order.`) +
+      p('The only difference at a mixer is you\'re talking to someone new. And the best way to start? Ask something genuine.') +
+      p(`Instead of "What do you do?" try "What have you been excited about lately?" or "If you could move anywhere tomorrow, where would you go?"`) +
+      p('Real questions lead to real conversations. Real conversations lead to real connections.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Find your next connection') +
+      p('See you there,<br>The SparkDate Team')
+    ),
+  },
+  // Week 2: Dating reality check
+  {
+    subject: 'One night vs. six months (the numbers)',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('One night vs. six months') +
+      p(`${firstName}, let's talk about efficiency.`) +
+      p('On the apps: 6 months, 12 matches, 3 unmatchable conversations, 0 dates.') +
+      p('At a mixer: one night, 12 real conversations, instant chemistry (or lack thereof), a couple of genuine connections.') +
+      p('You already know who you click with in the first 30 seconds. Why wait six months to find out?') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Skip the app limbo') +
+      p('See you there,<br>The SparkDate Team')
+    ),
+  },
+  // Week 3: Event insights
+  {
+    subject: 'What to expect at your next mixer',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('What to expect at your next mixer') +
+      p(`${firstName}, new to mixers? Here's the format:`) +
+      p(`<strong>4 rounds × 7 minutes</strong>. You'll chat with 4 different people, bell signals the change, you move on.`) +
+      p(`<strong>Open mingling</strong> after rounds wrap. If you clicked with someone, you can swap contact info and chat longer.`) +
+      p(`<strong>Real people</strong>. No bots, no catfish, no dudes with fish photos. Just humans looking to meet humans.`) +
+      p('Arrive early (check-in takes 2 min). Bring a phone or paper to swap numbers. Be yourself.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'See what the vibe is') +
+      p('See you there,<br>The SparkDate Team')
+    ),
+  },
+];
+
 // Max days an email may go out past its target day. Wide enough to ride
 // out a missed cron run / a backlog; tight enough that the day25 mail
 // never reaches someone who signed up months ago.
@@ -341,6 +389,140 @@ async function sendPostEventPrompts(nowMs) {
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
+// ── Bi-weekly newsletter (separate from nurture sequence) ───────────────────
+// Sends to ALL subscribed leads (independent of nurture day/status).
+// Tracks lastNewsletterSentAt; resends every 14+ days. Uses rotating templates.
+async function sendBiweeklyNewsletter(leads, nowMs, event) {
+  let sent = 0, skipped = 0;
+  const emailedThisRun = new Set();
+
+  for (const leadDoc of leads) {
+    if (emailedThisRun.has(leadDoc.id)) { skipped++; continue; }
+
+    const lead = leadDoc.data();
+    if (!lead.email) { skipped++; continue; }
+
+    // Eligibility: no email sent yet, or last sent > 14 days ago
+    const lastSent = lead.lastNewsletterSentAt
+      ? (new Date(lead.lastNewsletterSentAt).getTime())
+      : null;
+    const fourteenDaysMs = 14 * 86400000;
+    if (lastSent && (nowMs - lastSent) < fourteenDaysMs) { skipped++; continue; }
+
+    if (!event) { skipped++; continue; } // Need event for card
+
+    try {
+      // Rotate through 6 newsletter templates based on (created + send count) % 6
+      const created = lead.createdAt?.toDate ? lead.createdAt.toDate() : new Date(lead.createdAt || 0);
+      const emailIndex = Math.floor((created.getTime() + (lead.newsletterSendCount || 0) * 86400000) / 86400000) % NEWSLETTER_EMAILS.length;
+      const tpl = NEWSLETTER_EMAILS[emailIndex];
+
+      const ctaUrl = buildUtmUrl('/events', { source: 'email', medium: 'newsletter', campaign: 'biweekly' });
+      const html = tpl.html(lead.firstName || lead.name || 'there', event, ctaUrl);
+
+      const result = await resend.emails.send({
+        from: 'SparkDate <hello@mail.sparkdate.date>',
+        to: lead.email,
+        subject: tpl.subject,
+        html,
+        headers: {
+          'List-Unsubscribe': `<${makeUnsubscribeUrl(leadDoc.id)}>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
+      });
+
+      if (!result.error) {
+        await db.collection('leads').doc(leadDoc.id).update({
+          lastNewsletterSentAt: new Date().toISOString(),
+          newsletterSendCount: (lead.newsletterSendCount || 0) + 1,
+        });
+        emailedThisRun.add(leadDoc.id);
+        sent++;
+        console.log(`✅ newsletter → leads/${leadDoc.id}`);
+      } else {
+        skipped++;
+      }
+    } catch (e) {
+      console.error('[newsletter]', leadDoc.id, e.message);
+      skipped++;
+    }
+  }
+
+  return { sent, skipped };
+}
+
+// ── Post-nurture event campaigns (2-week cadence after Day 25) ──────────────
+// Sends to leads with day25_sent=true, every 14+ days, max 12 times.
+// Tracks lastEventEmailSentAt + eventEmailsCount.
+async function sendPostNurtureEventCampaign(leads, nowMs, event) {
+  let sent = 0, skipped = 0;
+  const emailedThisRun = new Set();
+
+  for (const leadDoc of leads) {
+    if (emailedThisRun.has(leadDoc.id)) { skipped++; continue; }
+
+    const lead = leadDoc.data();
+    if (!lead.email || lead.day25_sent !== true) { skipped++; continue; }
+
+    // Max 12 emails (6 months of bi-weekly)
+    const count = lead.eventEmailsCount || 0;
+    if (count >= 12) { skipped++; continue; }
+
+    // Eligibility: no email sent yet, or last sent > 14 days ago
+    const lastSent = lead.lastEventEmailSentAt
+      ? (new Date(lead.lastEventEmailSentAt).getTime())
+      : null;
+    const fourteenDaysMs = 14 * 86400000;
+    if (lastSent && (nowMs - lastSent) < fourteenDaysMs) { skipped++; continue; }
+
+    if (!event) { skipped++; continue; } // Need event for card
+
+    try {
+      const ctaUrl = buildUtmUrl(
+        `/event?id=${event.id}`,
+        { source: 'email', medium: 'event_campaign', campaign: 'post_nurture' }
+      );
+
+      const html = shell(
+        h1('Our next mixer is coming') +
+        p(`${lead.firstName || lead.name || 'There'}, we're hosting our next mixer soon.`) +
+        p('Same format: short conversations, real connections, no app swiping.') +
+        eventCardHtml(event) +
+        ctaButtonHtml(ctaUrl, 'Reserve your spot') +
+        p('See you there,<br>The SparkDate Team')
+      );
+
+      const result = await resend.emails.send({
+        from: 'SparkDate <hello@mail.sparkdate.date>',
+        to: lead.email,
+        subject: `${event.title} is coming up`,
+        html,
+        headers: {
+          'List-Unsubscribe': `<${makeUnsubscribeUrl(leadDoc.id)}>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
+      });
+
+      if (!result.error) {
+        await db.collection('leads').doc(leadDoc.id).update({
+          lastEventEmailSentAt: new Date().toISOString(),
+          eventEmailsCount: count + 1,
+        });
+        emailedThisRun.add(leadDoc.id);
+        sent++;
+        console.log(`✅ post-nurture event → leads/${leadDoc.id}`);
+      } else {
+        skipped++;
+      }
+    } catch (e) {
+      console.error('[post-nurture-event]', leadDoc.id, e.message);
+      skipped++;
+    }
+  }
+
+  return { sent, skipped };
+}
+
 module.exports = async function handler(req, res) {
   if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -392,8 +574,14 @@ module.exports = async function handler(req, res) {
     // Post-event "who did you click with" prompts to recent attendees.
     const postEventPrompts = await sendPostEventPrompts(nowMs);
 
-    console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders), 'postEventPrompts=', JSON.stringify(postEventPrompts));
-    return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, postEventPrompts, ts: new Date().toISOString() });
+    // Bi-weekly newsletter (separate from nurture sequence).
+    const newsletter = await sendBiweeklyNewsletter(leads, nowMs, event);
+
+    // Post-nurture event campaigns (every 2 weeks after Day 25).
+    const postNurtureEvents = await sendPostNurtureEventCampaign(leads, nowMs, event);
+
+    console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders), 'postEventPrompts=', JSON.stringify(postEventPrompts), 'newsletter=', JSON.stringify(newsletter), 'postNurtureEvents=', JSON.stringify(postNurtureEvents));
+    return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, postEventPrompts, newsletter, postNurtureEvents, ts: new Date().toISOString() });
 
   } catch (err) {
     console.error('❌ Cron error:', err.message);
