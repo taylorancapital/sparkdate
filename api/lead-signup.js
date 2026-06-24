@@ -203,6 +203,43 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 </div></body></html>`;
 }
 
+// Check-in (walk-in / door) profile nudge. Sent right after check-in to people
+// whose profile isn't complete, so the Thursday "who did you click with"
+// matching has real data. NO password-reset link — matching is a no-login magic
+// link, and a reset link reads like phishing to a walk-in who never signed up.
+function checkinProfileHTML({ firstName, eventName, profileUrl }) {
+  const hi = firstName ? `Hey ${ebEsc(firstName)}` : 'Hey';
+  return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
+.container{max-width:600px;margin:0 auto;background:#fff}
+.header{background:#0a0e27;padding:40px 30px;text-align:center}
+.logo{font-family:Georgia,serif;font-size:32px;font-weight:900;color:#fff;letter-spacing:-1px}
+.logo span{color:#ff6b6b}
+.content{padding:40px 30px}
+h1{font-family:Georgia,serif;font-size:26px;color:#0a0e27;margin:0 0 18px;font-weight:900}
+p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
+.cta{display:inline-block;background:#ff6b6b;color:#fff !important;font-weight:800;font-size:15px;padding:14px 34px;border-radius:4px;text-decoration:none;margin:8px 0 20px}
+.fine{font-size:12px;color:#666;line-height:1.6}
+.footer{background:#0a0e27;padding:24px;text-align:center;color:#888;font-size:12px}
+.footer a{color:#ff6b6b;text-decoration:none}
+</style></head>
+<body><div class="container">
+  <div class="header"><div class="logo">Spark<span>Date</span></div></div>
+  <div class="content">
+    <h1>Great meeting you at ${ebEsc(eventName)} 🎉</h1>
+    <p>${hi} — thanks for coming out tonight. Here's the one thing left to do: tell us a little about yourself so we can match you with the people you clicked with.</p>
+    <p><strong>Takes 60 seconds.</strong> We'll email you your matches afterward — no app, no login needed.</p>
+    <p style="text-align:center;"><a class="cta" href="${ebEsc(profileUrl)}">Complete my profile →</a></p>
+    <p class="fine">This link is just for you — no password required.</p>
+  </div>
+  <div class="footer">
+    <p>SparkDate · Lancaster, PA · Real people. Real venues.</p>
+    <p><a href="https://sparkdate.date">sparkdate.date</a></p>
+  </div>
+</div></body></html>`;
+}
+
 async function enrollEventbriteOne({ email, name, gender, eventId, eventName, priceCents }) {
   const norm = String(email || '').toLowerCase().trim();
   if (!norm) return { email, status: 'skipped', reason: 'empty email' };
@@ -380,6 +417,8 @@ async function handleCheckin(req, res) {
   //    blanks for existing — never clobber a completed profile).
   const userRef = db.collection('users').doc(uid);
   const userSnap = await userRef.get();
+  // Pre-write profile state decides whether we nudge them to complete it.
+  const alreadyCompleted = userSnap.exists && userSnap.data().profileCompleted === true;
   const checkInFields = {
     firstTimeAttendee: firstTime,
     photoConsent,
@@ -428,7 +467,29 @@ async function handleCheckin(req, res) {
     });
   }
 
-  return res.status(200).json({ success: true, uid, createdUser, alreadyRegistered });
+  // 4. Profile-completion nudge (best-effort — NEVER abort check-in on failure;
+  //    the registration above is what the door needs). Skip if the profile is
+  //    already complete (e.g. a native buyer who finished it at purchase).
+  let emailSent = false;
+  if (!alreadyCompleted) {
+    try {
+      const profileUrl = makeProfileUrl(uid);
+      if (process.env.RESEND_API_KEY) {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: 'SparkDate <hello@mail.sparkdate.date>',
+          to: email,
+          subject: `Complete your profile — get matched after ${eventTitle}`,
+          html: checkinProfileHTML({ firstName, eventName: eventTitle, profileUrl }),
+        });
+        emailSent = true;
+      }
+    } catch (e) {
+      console.error(`[checkin] profile email failed for ${hashEmail(email)}:`, e.message);
+    }
+  }
+
+  return res.status(200).json({ success: true, uid, createdUser, alreadyRegistered, emailSent });
 }
 
 module.exports = async function handler(req, res) {
