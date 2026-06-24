@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root { --navy: #0a0e27; --coral: #ff6b6b; --cream: #f5f3f0; --white: #fff; --success: #4ade80; --danger: #f87171; --info: #60a5fa; }
+        :root { --navy: #0a0e27; --coral: #ff6b6b; --cream: #f5f3f0; --white: #fff; --success: #4ade80; --danger: #f87171; }
         body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%); color: var(--cream); line-height: 1.5; min-height: 100vh; padding: 20px; }
         .wrap { max-width: 480px; margin: 0 auto; }
         .logo { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 900; color: var(--white); text-align: center; margin-bottom: 4px; }
@@ -23,51 +23,38 @@
         .seg button { flex: 1; padding: 14px; background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.15); border-radius: 6px; color: var(--cream); font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
         .seg button.on { background: var(--coral); border-color: var(--coral); color: #fff; }
         .toggle-row { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
-        .toggle-row input { width: 22px; height: 22px; accent-color: var(--coral); }
+        .toggle-row input { width: 22px; height: 22px; accent-color: var(--coral); flex-shrink: 0; }
         .toggle-row label { margin: 0; text-transform: none; font-size: 14px; font-weight: 500; letter-spacing: 0; }
         .submit { width: 100%; margin-top: 22px; padding: 17px; background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%); color: #fff; border: none; border-radius: 6px; font-weight: 700; font-size: 16px; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; }
         .submit:disabled { opacity: 0.6; cursor: not-allowed; }
         .msg { margin-top: 14px; font-size: 14px; text-align: center; min-height: 20px; }
-        .count { text-align: center; font-size: 13px; color: rgba(245,243,240,0.6); margin: 18px 0 8px; }
-        .count strong { color: var(--success); font-size: 18px; }
-        .recent { list-style: none; font-size: 13px; }
-        .recent li { padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 6px; margin-bottom: 6px; display: flex; justify-content: space-between; }
-        .recent .tag { color: rgba(245,243,240,0.45); font-size: 11px; }
-        .overlay { position: fixed; inset: 0; background: var(--navy); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 50; }
-        .overlay .card { width: 100%; max-width: 360px; }
-        .overlay h1 { font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 4px; }
-        .overlay p { font-size: 13px; color: rgba(245,243,240,0.6); margin-bottom: 8px; }
-        .err { color: var(--danger); font-size: 13px; margin-top: 10px; display: none; }
-        .logout { display: block; margin: 18px auto 0; background: none; border: none; color: rgba(245,243,240,0.5); font-size: 12px; text-decoration: underline; cursor: pointer; }
+        .success-banner { text-align: center; padding: 32px 20px; }
+        .success-banner .check { font-size: 56px; margin-bottom: 12px; }
+        .success-banner h2 { font-family: 'Playfair Display', serif; font-size: 26px; margin-bottom: 8px; }
+        .success-banner p { font-size: 14px; color: rgba(245,243,240,0.7); margin-bottom: 20px; }
+        .back-btn { background: none; border: 1px solid rgba(255,107,107,0.4); color: var(--coral); padding: 10px 24px; border-radius: 6px; font-family: inherit; font-size: 14px; cursor: pointer; }
+        .no-event { text-align: center; padding: 40px 20px; }
+        .no-event p { color: rgba(245,243,240,0.6); font-size: 15px; }
     </style>
 </head>
 <body>
-    <!-- Admin login gate (same Firebase admin-claim gate as /admin) -->
-    <div class="overlay" id="loginOverlay">
-        <div class="card">
-            <div class="logo">Spark<span>Date</span></div>
-            <h1>Check-in</h1>
-            <p>Admin sign-in required.</p>
-            <label for="adminEmail">Email</label>
-            <input type="email" id="adminEmail" autocomplete="username">
-            <label for="adminPassword">Password</label>
-            <input type="text" id="adminPassword" style="-webkit-text-security:disc;" autocomplete="current-password">
-            <button class="submit" onclick="adminLogin()">Sign in</button>
-            <div class="err" id="loginError"></div>
-        </div>
-    </div>
-
-    <div class="wrap" id="app" style="display:none;">
+    <div class="wrap">
         <div class="logo">Spark<span>Date</span></div>
-        <div class="evt" id="evtLine">Loading event…</div>
+        <div class="evt" id="evtLine">Loading…</div>
 
-        <div class="card">
+        <!-- No-event state -->
+        <div id="noEvent" style="display:none;" class="card no-event">
+            <p>No upcoming event found.<br>Check back closer to the event date.</p>
+        </div>
+
+        <!-- Check-in form -->
+        <div class="card" id="formCard">
             <form id="checkinForm" autocomplete="off">
                 <label for="ciEmail">Email *</label>
-                <input type="email" id="ciEmail" required autocomplete="off" inputmode="email">
+                <input type="email" id="ciEmail" required autocomplete="off" inputmode="email" placeholder="your@email.com">
 
                 <label for="ciName">First name</label>
-                <input type="text" id="ciName" autocomplete="off">
+                <input type="text" id="ciName" autocomplete="off" placeholder="First name">
 
                 <label>Gender</label>
                 <div class="seg" id="genderSeg">
@@ -89,63 +76,18 @@
             </form>
         </div>
 
-        <div class="count">Checked in this session: <strong id="ciCount">0</strong></div>
-        <ul class="recent" id="ciRecent"></ul>
-        <button class="logout" onclick="adminLogout()">Sign out</button>
+        <!-- Success state -->
+        <div class="card success-banner" id="successCard" style="display:none;">
+            <div class="check">✅</div>
+            <h2>You're checked in!</h2>
+            <p id="successName"></p>
+            <button class="back-btn" id="backBtn">Check in someone else</button>
+        </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
-            authDomain: "sparkdate-philly.firebaseapp.com",
-            projectId: "sparkdate-philly",
-            storageBucket: "sparkdate-philly.firebasestorage.app",
-            messagingSenderId: "330206052938",
-            appId: "1:330206052938:web:18762191153f4037b75cb3"
-        };
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-
-        let event = null;   // { id, title }
+    <script>
+        let event = null;
         let gender = null;
-        let count = 0;
-
-        window.adminLogin = async () => {
-            const email = document.getElementById('adminEmail').value.trim();
-            const password = document.getElementById('adminPassword').value;
-            const err = document.getElementById('loginError');
-            err.style.display = 'none';
-            try { await signInWithEmailAndPassword(auth, email, password); }
-            catch (e) { err.textContent = e.message; err.style.display = 'block'; }
-        };
-        window.adminLogout = async () => { try { await signOut(auth); } catch (_) {} };
-
-        async function isAdmin(user) {
-            if (!user) return false;
-            try { const t = await user.getIdTokenResult(true); return t.claims?.admin === true; }
-            catch (_) { return false; }
-        }
-
-        onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                document.getElementById('loginOverlay').style.display = '';
-                document.getElementById('app').style.display = 'none';
-                return;
-            }
-            if (!(await isAdmin(user))) {
-                const err = document.getElementById('loginError');
-                err.textContent = 'This account is not an admin.';
-                err.style.display = 'block';
-                try { await signOut(auth); } catch (_) {}
-                return;
-            }
-            document.getElementById('loginOverlay').style.display = 'none';
-            document.getElementById('app').style.display = 'block';
-            loadEvent();
-        });
 
         async function loadEvent() {
             const line = document.getElementById('evtLine');
@@ -158,12 +100,15 @@
                     const when = dt ? dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
                     line.textContent = `${event.title}${when ? ' · ' + when : ''}`;
                 } else {
-                    line.textContent = 'No upcoming event found — check /admin.';
+                    line.textContent = '';
+                    document.getElementById('formCard').style.display = 'none';
+                    document.getElementById('noEvent').style.display = '';
                 }
-            } catch (_) { line.textContent = 'Could not load event. Check connection.'; }
+            } catch (_) {
+                line.textContent = 'Could not load event. Check connection.';
+            }
         }
 
-        // Gender segmented control
         document.getElementById('genderSeg').addEventListener('click', (e) => {
             const btn = e.target.closest('button[data-g]');
             if (!btn) return;
@@ -175,44 +120,58 @@
         const submitBtn = document.getElementById('ciSubmit');
         const msg = document.getElementById('ciMsg');
 
+        function showSuccess(name) {
+            document.getElementById('formCard').style.display = 'none';
+            const sc = document.getElementById('successCard');
+            sc.style.display = '';
+            document.getElementById('successName').textContent =
+                name ? `Welcome, ${name}! Check your email for a link to rate your matches after tonight.` :
+                'Check your email after the event for a link to rate your matches.';
+        }
+
         function resetForm() {
-            form.reset(); gender = null;
+            form.reset();
+            gender = null;
             document.querySelectorAll('#genderSeg button').forEach(b => b.classList.remove('on'));
+            msg.textContent = '';
             document.getElementById('ciEmail').focus();
         }
 
+        document.getElementById('backBtn').addEventListener('click', () => {
+            document.getElementById('successCard').style.display = 'none';
+            document.getElementById('formCard').style.display = '';
+            resetForm();
+        });
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!event) { msg.style.color = 'var(--danger)'; msg.textContent = 'No event loaded.'; return; }
+            if (!event) { msg.style.color = 'var(--danger)'; msg.textContent = 'Event not loaded yet. Try refreshing.'; return; }
             const email = document.getElementById('ciEmail').value.trim();
             const firstName = document.getElementById('ciName').value.trim();
             const firstTime = document.getElementById('ciFirstTime').checked;
             const photoConsent = document.getElementById('ciPhoto').checked;
-            submitBtn.disabled = true; submitBtn.textContent = 'Checking in…'; msg.textContent = '';
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Checking in…';
+            msg.textContent = '';
             try {
-                const idToken = await auth.currentUser.getIdToken();
                 const res = await fetch('/api/lead-signup', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'checkin', email, firstName, gender, firstTime, photoConsent, eventId: event.id, eventTitle: event.title }),
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Check-in failed');
-                count++;
-                document.getElementById('ciCount').textContent = count;
-                const li = document.createElement('li');
-                const tag = data.alreadyRegistered ? 'ticket holder' : (data.createdUser ? 'new' : 'returning');
-                const hesc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                li.innerHTML = `<span>${hesc(firstName || email)}</span><span class="tag">✓ ${hesc(tag)}</span>`;
-                document.getElementById('ciRecent').prepend(li);
-                msg.style.color = 'var(--success)'; msg.textContent = '✓ Checked in';
-                resetForm();
+                showSuccess(firstName);
             } catch (err) {
-                msg.style.color = 'var(--danger)'; msg.textContent = err.message || 'Failed. Try again.';
+                msg.style.color = 'var(--danger)';
+                msg.textContent = err.message || 'Something went wrong. Try again.';
             } finally {
-                submitBtn.disabled = false; submitBtn.textContent = 'Check in →';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Check in →';
             }
         });
+
+        loadEvent();
     </script>
 </body>
 </html>
