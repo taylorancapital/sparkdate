@@ -202,7 +202,7 @@
                 document.getElementById('ciCount').textContent = count;
                 const li = document.createElement('li');
                 const tag = data.alreadyRegistered ? 'ticket holder' : (data.createdUser ? 'new' : 'returning');
-                const hesc = s => String(s||').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                const hesc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
                 li.innerHTML = `<span>${hesc(firstName || email)}</span><span class="tag">✓ ${hesc(tag)}</span>`;
                 document.getElementById('ciRecent').prepend(li);
                 msg.style.color = 'var(--success)'; msg.textContent = '✓ Checked in';
