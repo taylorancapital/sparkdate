@@ -1349,7 +1349,7 @@
                     Paste your Eventbrite attendee list below. Each buyer gets a Firebase account, a ticket record, and a welcome email with their magic profile link.
                 </p>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:16px;">
                     <div>
                         <label style="display:block;font-size:12px;color:rgba(245,243,240,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Event Name</label>
                         <input id="eb-event-name" type="text" placeholder="Founders Mixer" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px 12px;color:#f5f3f0;font-size:14px;box-sizing:border-box;">
@@ -1357,6 +1357,10 @@
                     <div>
                         <label style="display:block;font-size:12px;color:rgba(245,243,240,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Event ID <span style="font-weight:400;text-transform:none;">(Firestore events doc ID)</span></label>
                         <input id="eb-event-id" type="text" placeholder="79nTqQ0WEtkVOdBr0vbA" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px 12px;color:#f5f3f0;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;color:rgba(245,243,240,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Ticket Price (USD) <span style="font-weight:400;text-transform:none;">(face value each)</span></label>
+                        <input id="eb-price" type="number" min="0" step="0.01" value="24.99" placeholder="24.99" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px 12px;color:#f5f3f0;font-size:14px;box-sizing:border-box;">
                     </div>
                 </div>
 
@@ -3050,9 +3054,19 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const raw       = document.getElementById('eb-buyers').value.trim();
             const statusEl  = document.getElementById('eb-status');
             const btn       = document.getElementById('eb-enroll-btn');
+            // Ticket face value → cents, so Eventbrite revenue shows in the
+            // dashboard (KPIs, Direct/EB split, Event P&L). Server maps
+            // priceCents → ticket.amount.
+            const priceDollars = parseFloat(document.getElementById('eb-price').value);
+            const priceCents = Number.isFinite(priceDollars) && priceDollars >= 0
+                ? Math.round(priceDollars * 100) : NaN;
 
             if (!eventName || !eventId) {
                 statusEl.textContent = '⚠️ Fill in Event Name and Event ID first.';
+                return;
+            }
+            if (!Number.isFinite(priceCents)) {
+                statusEl.textContent = '⚠️ Enter a valid ticket price (e.g. 24.99).';
                 return;
             }
             if (!raw) {
@@ -3070,7 +3084,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 if (parts.length < 2) { errors.push(`Bad line: "${trimmed}"`); continue; }
                 const [name, email, gender] = parts;
                 if (!email || !email.includes('@')) { errors.push(`Bad email on: "${trimmed}"`); continue; }
-                buyers.push({ name, email, gender: gender || null, eventId, eventName, priceCents: 0 });
+                buyers.push({ name, email, gender: gender || null, eventId, eventName, priceCents });
             }
 
             if (errors.length) {
