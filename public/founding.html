@@ -741,6 +741,13 @@
             toggle.textContent = answer.classList.contains('active') ? '−' : '+';
         }
 
+        // Persist an inbound referral code so it survives navigation before
+        // the visitor actually signs up (the submit handler reads it back).
+        try {
+            const _ref = new URLSearchParams(window.location.search).get('ref');
+            if (_ref) localStorage.setItem('sparkdate_ref', _ref);
+        } catch (_) {}
+
         // Form submission to webhook
         const form = document.getElementById('cohortForm');
         const submitBtn = document.querySelector('.form-submit');
@@ -764,10 +771,12 @@
                 let ref = new URLSearchParams(window.location.search).get('ref');
                 try { ref = ref || localStorage.getItem('sparkdate_ref'); } catch (_) {}
                 ref = ref || null;
+                // A referred lead is its own channel in the Funnel tab.
+                const source = ref ? 'referral' : 'founding_form';
                 const response = await fetch('/api/lead-signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, ref, source: 'founding_form', website })
+                    body: JSON.stringify({ email, ref, source, website })
                 });
                 
                 const data = await response.json();

@@ -51,7 +51,7 @@ function reachLineFor(u) {
   return 'No direct contact on file yet — reconnect at the next event.';
 }
 
-function matchEmailHTML({ youFirstName, theirName, reachLine, eventName }) {
+function matchEmailHTML({ youFirstName, theirName, reachLine, eventName, refUid }) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
 .container{max-width:600px;margin:0 auto;background:#fff}
@@ -68,6 +68,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 <p>${esc(youFirstName)}, you and <strong>${esc(theirName)}</strong> both wanted to stay in touch after ${esc(eventName)}.</p>
 <div class="reach">Reach ${esc(theirName)}: <strong>${reachLine}</strong></div>
 <p>Go say hi — we'll leave the rest to you. 💫</p>
+<p style="font-size:13px;color:#666;border-top:1px solid #eee;padding-top:16px;margin-top:20px;">Know someone who'd love a night like this? <a href="https://sparkdate.date/founding?ref=${esc(refUid)}" style="color:#ff6b6b;font-weight:600;text-decoration:none;">Send them your invite link →</a></p>
 </div>
 <div class="footer"><p>SparkDate · Philadelphia · Real people. Real venues.</p>
 <p><a href="https://sparkdate.date">sparkdate.date</a></p></div>
@@ -104,12 +105,12 @@ async function notifyMatch(aUid, bUid, eventId) {
     if (a.email) sends.push(resend.emails.send({
       from: 'SparkDate <hello@mail.sparkdate.date>', to: a.email,
       subject: `It's a match — say hi to ${b.firstName || 'your match'}`,
-      html: matchEmailHTML({ youFirstName: a.firstName || 'there', theirName: shortName(b), reachLine: reachLineFor(b), eventName }),
+      html: matchEmailHTML({ youFirstName: a.firstName || 'there', theirName: shortName(b), reachLine: reachLineFor(b), eventName, refUid: aUid }),
     }));
     if (b.email) sends.push(resend.emails.send({
       from: 'SparkDate <hello@mail.sparkdate.date>', to: b.email,
       subject: `It's a match — say hi to ${a.firstName || 'your match'}`,
-      html: matchEmailHTML({ youFirstName: b.firstName || 'there', theirName: shortName(a), reachLine: reachLineFor(a), eventName }),
+      html: matchEmailHTML({ youFirstName: b.firstName || 'there', theirName: shortName(a), reachLine: reachLineFor(a), eventName, refUid: bUid }),
     }));
     await Promise.all(sends);
     console.log(`[declare-connection] match notified: ${lockId}`);
