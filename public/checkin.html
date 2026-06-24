@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Internal door tool — never index. -->
     <meta name="robots" content="noindex, nofollow">
     <title>Check-in — SparkDate</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -17,24 +16,39 @@
         .evt { text-align: center; color: rgba(245,243,240,0.7); font-size: 14px; margin-bottom: 20px; }
         .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,107,107,0.2); border-radius: 10px; padding: 24px 20px; }
         label { display: block; font-size: 12px; font-weight: 700; color: rgba(245,243,240,0.85); margin: 14px 0 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-        input[type=email], input[type=text], input[type=tel] { width: 100%; padding: 14px 15px; background: #fff; border: 2px solid rgba(255,107,107,0.35); border-radius: 6px; color: #000; font-family: inherit; font-size: 16px; }
-        input:focus { outline: none; border-color: var(--coral); }
+        input[type=email], input[type=text], input[type=tel], input[type=number], select {
+            width: 100%; padding: 14px 15px; background: #fff; border: 2px solid rgba(255,107,107,0.35);
+            border-radius: 6px; color: #000; font-family: inherit; font-size: 16px;
+        }
+        select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; }
+        input:focus, select:focus { outline: none; border-color: var(--coral); }
         .seg { display: flex; gap: 10px; }
         .seg button { flex: 1; padding: 14px; background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.15); border-radius: 6px; color: var(--cream); font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
         .seg button.on { background: var(--coral); border-color: var(--coral); color: #fff; }
         .toggle-row { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
-        .toggle-row input { width: 22px; height: 22px; accent-color: var(--coral); flex-shrink: 0; }
+        .toggle-row input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--coral); flex-shrink: 0; }
         .toggle-row label { margin: 0; text-transform: none; font-size: 14px; font-weight: 500; letter-spacing: 0; }
         .submit { width: 100%; margin-top: 22px; padding: 17px; background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%); color: #fff; border: none; border-radius: 6px; font-weight: 700; font-size: 16px; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; }
         .submit:disabled { opacity: 0.6; cursor: not-allowed; }
         .msg { margin-top: 14px; font-size: 14px; text-align: center; min-height: 20px; }
-        .success-banner { text-align: center; padding: 32px 20px; }
-        .success-banner .check { font-size: 56px; margin-bottom: 12px; }
-        .success-banner h2 { font-family: 'Playfair Display', serif; font-size: 26px; margin-bottom: 8px; }
-        .success-banner p { font-size: 14px; color: rgba(245,243,240,0.7); margin-bottom: 20px; }
-        .back-btn { background: none; border: 1px solid rgba(255,107,107,0.4); color: var(--coral); padding: 10px 24px; border-radius: 6px; font-family: inherit; font-size: 14px; cursor: pointer; }
+        /* Success */
+        .success-banner { text-align: center; padding: 24px 20px 16px; }
+        .success-banner .check { font-size: 52px; margin-bottom: 10px; }
+        .success-banner h2 { font-family: 'Playfair Display', serif; font-size: 24px; margin-bottom: 6px; }
+        .success-banner p { font-size: 13px; color: rgba(245,243,240,0.65); }
+        /* Profile section */
+        .profile-section { border-top: 1px solid rgba(255,107,107,0.15); margin-top: 20px; padding-top: 20px; }
+        .profile-section h3 { font-family: 'Playfair Display', serif; font-size: 18px; margin-bottom: 4px; }
+        .profile-section .sub { font-size: 13px; color: rgba(245,243,240,0.6); margin-bottom: 4px; }
+        .hint { font-size: 11px; color: rgba(245,243,240,0.45); margin-top: 4px; }
+        .back-btn { display: block; width: 100%; margin-top: 14px; padding: 13px; background: none; border: 1px solid rgba(255,107,107,0.3); color: var(--coral); border-radius: 6px; font-family: inherit; font-size: 14px; cursor: pointer; text-align: center; }
         .no-event { text-align: center; padding: 40px 20px; }
         .no-event p { color: rgba(245,243,240,0.6); font-size: 15px; }
+        .buy-link { text-align: center; margin-top: 12px; font-size: 13px; }
+        .buy-link a { color: var(--coral); text-decoration: none; opacity: 0.75; }
+        .profile-done { text-align: center; padding: 16px 0; }
+        .profile-done .big { font-size: 36px; margin-bottom: 8px; }
+        .profile-done p { font-size: 14px; color: rgba(245,243,240,0.7); }
     </style>
 </head>
 <body>
@@ -73,21 +87,63 @@
 
                 <button type="submit" class="submit" id="ciSubmit">Check in →</button>
                 <div class="msg" id="ciMsg"></div>
+                <p class="buy-link" id="buyLinkWrap" style="display:none;"><a id="buyLink" href="#" target="_blank" rel="noopener">No ticket? Buy one here →</a></p>
             </form>
         </div>
 
-        <!-- Success state -->
-        <div class="card success-banner" id="successCard" style="display:none;">
-            <div class="check">✅</div>
-            <h2>You're checked in!</h2>
-            <p id="successName"></p>
-            <button class="back-btn" id="backBtn">Check in someone else</button>
+        <!-- Success + profile -->
+        <div class="card" id="successCard" style="display:none;">
+            <div class="success-banner">
+                <div class="check">✅</div>
+                <h2>You're checked in!</h2>
+                <p id="successSub"></p>
+            </div>
+
+            <!-- Inline profile form (shown when profileCompleted is false) -->
+            <div class="profile-section" id="profileSection" style="display:none;">
+                <h3>One more thing 👇</h3>
+                <p class="sub">Tell us a little about you so we can match you after tonight.</p>
+
+                <form id="profileForm" autocomplete="off">
+                    <label for="pAge">Age *</label>
+                    <input type="number" id="pAge" min="18" max="99" placeholder="e.g. 28" required>
+
+                    <label for="pIntent">Looking for *</label>
+                    <select id="pIntent" required>
+                        <option value="" disabled selected>Select one…</option>
+                        <option value="long_term">Long-term relationship</option>
+                        <option value="dating_around">Dating around</option>
+                        <option value="friends_first">Friends first</option>
+                    </select>
+
+                    <label for="pInterests">Interests</label>
+                    <input type="text" id="pInterests" placeholder="hiking, cooking, concerts…">
+                    <div class="hint">Comma-separated. Helps us pair you with someone compatible.</div>
+
+                    <label for="pVibes">Your vibe</label>
+                    <input type="text" id="pVibes" placeholder="adventurous, low-key, witty…">
+                    <div class="hint">How would your friends describe you?</div>
+
+                    <button type="submit" class="submit" id="pSubmit">Save my profile →</button>
+                    <div class="msg" id="pMsg"></div>
+                </form>
+            </div>
+
+            <!-- Profile already done / after profile submit -->
+            <div id="profileDone" style="display:none;" class="profile-done">
+                <div class="big">🎉</div>
+                <p id="profileDoneMsg">You're all set — we'll email you after the event.</p>
+            </div>
+
+            <button class="back-btn" id="backBtn" style="display:none;">Check in someone else</button>
         </div>
     </div>
 
     <script>
         let event = null;
         let gender = null;
+        let checkinUid = null;
+        let checkinToken = null;
 
         async function loadEvent() {
             const line = document.getElementById('evtLine');
@@ -99,6 +155,9 @@
                     const dt = d.event.date ? new Date(d.event.date) : null;
                     const when = dt ? dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
                     line.textContent = `${event.title}${when ? ' · ' + when : ''}`;
+                    const bl = document.getElementById('buyLink');
+                    bl.href = `/event?id=${encodeURIComponent(event.id)}`;
+                    document.getElementById('buyLinkWrap').style.display = '';
                 } else {
                     line.textContent = '';
                     document.getElementById('formCard').style.display = 'none';
@@ -116,43 +175,95 @@
             document.querySelectorAll('#genderSeg button').forEach(b => b.classList.toggle('on', b === btn));
         });
 
+        function showSuccess(firstName, profileCompleted, profileToken, uid) {
+            document.getElementById('formCard').style.display = 'none';
+            const sc = document.getElementById('successCard');
+            sc.style.display = '';
+            document.getElementById('successSub').textContent =
+                firstName ? `Welcome, ${firstName}!` : 'Welcome!';
+
+            if (!profileCompleted && profileToken && uid) {
+                checkinUid = uid;
+                checkinToken = profileToken;
+                document.getElementById('profileSection').style.display = '';
+            } else {
+                // Profile already done or token unavailable
+                const doneMsg = profileCompleted
+                    ? 'Your profile is already set — we\'ll email you after the event.'
+                    : 'Check your email for a link to complete your profile before matching.';
+                document.getElementById('profileDoneMsg').textContent = doneMsg;
+                document.getElementById('profileDone').style.display = '';
+                document.getElementById('backBtn').style.display = '';
+            }
+        }
+
+        function parseTags(str) {
+            return str.split(',').map(s => s.trim().toLowerCase()).filter(Boolean).slice(0, 20);
+        }
+
+        // Profile form submit
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const age = parseInt(document.getElementById('pAge').value, 10);
+            const intent = document.getElementById('pIntent').value;
+            const interests = parseTags(document.getElementById('pInterests').value);
+            const vibes = parseTags(document.getElementById('pVibes').value);
+            const pMsg = document.getElementById('pMsg');
+            const pSubmit = document.getElementById('pSubmit');
+
+            if (!age || age < 18 || age > 99) { pMsg.style.color = 'var(--danger)'; pMsg.textContent = 'Please enter a valid age.'; return; }
+            if (!intent) { pMsg.style.color = 'var(--danger)'; pMsg.textContent = 'Please select what you\'re looking for.'; return; }
+
+            pSubmit.disabled = true; pSubmit.textContent = 'Saving…'; pMsg.textContent = '';
+            try {
+                const res = await fetch('/api/lead-signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'complete_profile', uid: checkinUid, t: checkinToken, age, intent, interests, vibes }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not save profile');
+                document.getElementById('profileSection').style.display = 'none';
+                document.getElementById('profileDoneMsg').textContent = '🎉 Profile saved! We\'ll email you after the event with your matches.';
+                document.getElementById('profileDone').style.display = '';
+                document.getElementById('backBtn').style.display = '';
+            } catch (err) {
+                pMsg.style.color = 'var(--danger)';
+                pMsg.textContent = err.message || 'Something went wrong. Try again.';
+            } finally {
+                pSubmit.disabled = false; pSubmit.textContent = 'Save my profile →';
+            }
+        });
+
+        function resetAll() {
+            document.getElementById('successCard').style.display = 'none';
+            document.getElementById('profileSection').style.display = 'none';
+            document.getElementById('profileDone').style.display = 'none';
+            document.getElementById('backBtn').style.display = 'none';
+            document.getElementById('profileForm').reset();
+            document.getElementById('pMsg').textContent = '';
+            document.getElementById('formCard').style.display = '';
+            gender = null; checkinUid = null; checkinToken = null;
+            document.getElementById('checkinForm').reset();
+            document.getElementById('ciMsg').textContent = '';
+            document.querySelectorAll('#genderSeg button').forEach(b => b.classList.remove('on'));
+            document.getElementById('ciEmail').focus();
+        }
+
+        document.getElementById('backBtn').addEventListener('click', resetAll);
+
         const form = document.getElementById('checkinForm');
         const submitBtn = document.getElementById('ciSubmit');
         const msg = document.getElementById('ciMsg');
 
-        function showSuccess(name) {
-            document.getElementById('formCard').style.display = 'none';
-            const sc = document.getElementById('successCard');
-            sc.style.display = '';
-            document.getElementById('successName').textContent =
-                name ? `Welcome, ${name}! Check your email for a link to rate your matches after tonight.` :
-                'Check your email after the event for a link to rate your matches.';
-        }
-
-        function resetForm() {
-            form.reset();
-            gender = null;
-            document.querySelectorAll('#genderSeg button').forEach(b => b.classList.remove('on'));
-            msg.textContent = '';
-            document.getElementById('ciEmail').focus();
-        }
-
-        document.getElementById('backBtn').addEventListener('click', () => {
-            document.getElementById('successCard').style.display = 'none';
-            document.getElementById('formCard').style.display = '';
-            resetForm();
-        });
-
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!event) { msg.style.color = 'var(--danger)'; msg.textContent = 'Event not loaded yet. Try refreshing.'; return; }
+            if (!event) { msg.style.color = 'var(--danger)'; msg.textContent = 'Event not loaded. Try refreshing.'; return; }
             const email = document.getElementById('ciEmail').value.trim();
             const firstName = document.getElementById('ciName').value.trim();
             const firstTime = document.getElementById('ciFirstTime').checked;
             const photoConsent = document.getElementById('ciPhoto').checked;
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Checking in…';
-            msg.textContent = '';
+            submitBtn.disabled = true; submitBtn.textContent = 'Checking in…'; msg.textContent = '';
             try {
                 const res = await fetch('/api/lead-signup', {
                     method: 'POST',
@@ -161,13 +272,12 @@
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Check-in failed');
-                showSuccess(firstName);
+                showSuccess(firstName, data.profileCompleted, data.profileToken, data.uid);
             } catch (err) {
                 msg.style.color = 'var(--danger)';
                 msg.textContent = err.message || 'Something went wrong. Try again.';
             } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Check in →';
+                submitBtn.disabled = false; submitBtn.textContent = 'Check in →';
             }
         });
 

@@ -11,7 +11,7 @@ const { admin, requireAdmin } = require('../lib/auth');
 const { makeUnsubscribeUrl } = require('../lib/unsubscribe');
 const { buildUtmUrl } = require('../lib/utm');
 const { getNextEvent, eventCardHtml, ctaButtonHtml, shell, h1, p } = require('../lib/next-event');
-const { verifyProfileToken, makeProfileUrl } = require('../lib/profile-link');
+const { verifyProfileToken, makeProfileUrl, sign: signProfileToken } = require('../lib/profile-link');
 
 const db = admin.firestore();
 
@@ -488,7 +488,12 @@ async function handleCheckin(req, res) {
     }
   }
 
-  return res.status(200).json({ success: true, uid, createdUser, alreadyRegistered, emailSent });
+  let profileToken = null;
+  try { profileToken = signProfileToken(uid); } catch (_) {}
+  return res.status(200).json({
+    success: true, uid, createdUser, alreadyRegistered, emailSent,
+    profileCompleted: alreadyCompleted, profileToken,
+  });
 }
 
 module.exports = async function handler(req, res) {
