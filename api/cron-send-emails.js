@@ -168,11 +168,14 @@ async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event)
   const errors = [];
 
   for (const leadDoc of leads) {
-    // One nurture email per lead per run — a backlogged lead gets day2
-    // today, day5 tomorrow, etc., instead of all four at once.
-    if (emailedThisRun.has(leadDoc.id)) { skipped++; continue; }
-
     const lead = leadDoc.data();
+    const email = (lead.email || '').toLowerCase().trim();
+
+    // One email per person per run, shared across ALL passes and keyed by
+    // email (not doc id) so the same human can't be hit by nurture +
+    // newsletter + post-nurture in a single run. No email → can't send.
+    if (!email) { skipped++; continue; }
+    if (emailedThisRun.has(email)) { skipped++; continue; }
 
     // Already sent? A MISSING `${emailKey}_sent` field reads as falsy
     // here, so leads created before those fields existed are picked up.
@@ -216,7 +219,7 @@ async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event)
           [`${emailKey}_sent_at`]:   new Date().toISOString(),
           [`${emailKey}_resend_id`]: result.data?.id || null
         });
-        emailedThisRun.add(leadDoc.id);
+        emailedThisRun.add(email);
         sent++;
         // Log doc id only, not email — avoids PII in Vercel logs.
         console.log(`✅ ${emailKey} → lead/${leadDoc.id}`);
@@ -262,7 +265,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 </div></body></html>`;
 }
 
-async function sendProfileReminders(nowMs) {
+async function sendProfileReminders(nowMs, emailedThisRun) {
   let sent = 0, skipped = 0;
   try {
     const horizon = new Date(nowMs + PROFILE_REMINDER_WINDOW_DAYS * 86400000);
@@ -295,6 +298,7 @@ async function sendProfileReminders(nowMs) {
           });
           if (!result.error) {
             await uref.update({ profileReminderSent: true, profileReminderSentAt: new Date().toISOString() });
+            if (emailedThisRun) emailedThisRun.add(String(u.email).toLowerCase().trim());
             sent++;
             console.log(`✅ profile reminder → users/${t.firebaseUid}`);
           } else { skipped++; }
@@ -340,7 +344,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 </div></body></html>`;
 }
 
-async function sendPostEventPrompts(nowMs) {
+async function sendPostEventPrompts(nowMs, emailedThisRun) {
   let sent = 0, skipped = 0;
   try {
     const since = new Date(nowMs - POST_EVENT_LOOKBACK_DAYS * 86400000);
@@ -376,6 +380,7 @@ async function sendPostEventPrompts(nowMs) {
           });
           if (!result.error) {
             await tk.ref.update({ postEventPromptSent: true, postEventPromptSentAt: new Date().toISOString() });
+            if (emailedThisRun) emailedThisRun.add(String(email).toLowerCase().trim());
             sent++;
             console.log(`✅ post-event prompt → tickets/${tk.id}`);
           } else { skipped++; }
@@ -392,33 +397,35 @@ async function sendPostEventPrompts(nowMs) {
 // ── Bi-weekly newsletter (separate from nurture sequence) ───────────────────
 // Sends to ALL subscribed leads (independent of nurture day/status).
 // Tracks lastNewsletterSentAt; resends every 14+ days. Uses rotating templates.
-async function sendBiweeklyNewsletter(leads, nowMs, event) {
+async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun) {
   let sent = 0, skipped = 0;
-  const emailedThisRun = new Set();
+
+  // ONE issue for everyone this fortnight. A GLOBAL index that advances every
+  // 14 days — so the whole list receives the same newsletter in sequence,
+  // instead of each lead getting a different issue seeded off their own signup
+  // date (which is what made the sends look scattershot / out of order).
+  const issueIndex = Math.floor(nowMs / (14 * 86400000)) % NEWSLETTER_EMAILS.length;
+  const tpl = NEWSLETTER_EMAILS[issueIndex];
+  const ctaUrl = buildUtmUrl('/events', 'email', 'newsletter', 'biweekly');
 
   for (const leadDoc of leads) {
-    if (emailedThisRun.has(leadDoc.id)) { skipped++; continue; }
-
     const lead = leadDoc.data();
-    if (!lead.email) { skipped++; continue; }
+    const email = (lead.email || '').toLowerCase().trim();
+    if (!email) { skipped++; continue; }
 
-    // Eligibility: no email sent yet, or last sent > 14 days ago
+    // Lowest-priority pass: yield to anyone already emailed this run.
+    if (emailedThisRun.has(email)) { skipped++; continue; }
+
+    // Per-lead 14-day cooldown (belt-and-suspenders with the fortnightly gate).
     const lastSent = lead.lastNewsletterSentAt
       ? (new Date(lead.lastNewsletterSentAt).getTime())
       : null;
-    const fourteenDaysMs = 14 * 86400000;
-    if (lastSent && (nowMs - lastSent) < fourteenDaysMs) { skipped++; continue; }
+    if (lastSent && (nowMs - lastSent) < 14 * 86400000) { skipped++; continue; }
 
     if (!event) { skipped++; continue; } // Need event for card
 
     try {
-      // Rotate through 6 newsletter templates based on (created + send count) % 6
-      const created = lead.createdAt?.toDate ? lead.createdAt.toDate() : new Date(lead.createdAt || 0);
-      const emailIndex = Math.floor((created.getTime() + (lead.newsletterSendCount || 0) * 86400000) / 86400000) % NEWSLETTER_EMAILS.length;
-      const tpl = NEWSLETTER_EMAILS[emailIndex];
-
-      const ctaUrl = buildUtmUrl('/events', { source: 'email', medium: 'newsletter', campaign: 'biweekly' });
-      const html = tpl.html(lead.firstName || lead.name || 'there', event, ctaUrl);
+      const html = tpl.html(esc(lead.firstName || lead.name || 'there'), event, ctaUrl);
 
       const result = await resend.emails.send({
         from: 'SparkDate <hello@mail.sparkdate.date>',
@@ -426,19 +433,19 @@ async function sendBiweeklyNewsletter(leads, nowMs, event) {
         subject: tpl.subject,
         html,
         headers: {
-          'List-Unsubscribe': `<${makeUnsubscribeUrl(leadDoc.id)}>`,
+          'List-Unsubscribe': `<${makeUnsubscribeUrl(leadDoc.id, lead.email)}>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       });
 
       if (!result.error) {
-        await db.collection('leads').doc(leadDoc.id).update({
+        await leadDoc.ref.update({
           lastNewsletterSentAt: new Date().toISOString(),
           newsletterSendCount: (lead.newsletterSendCount || 0) + 1,
         });
-        emailedThisRun.add(leadDoc.id);
+        emailedThisRun.add(email);
         sent++;
-        console.log(`✅ newsletter → leads/${leadDoc.id}`);
+        console.log(`✅ newsletter[${issueIndex}] → leads/${leadDoc.id}`);
       } else {
         skipped++;
       }
@@ -448,21 +455,22 @@ async function sendBiweeklyNewsletter(leads, nowMs, event) {
     }
   }
 
-  return { sent, skipped };
+  return { sent, skipped, issueIndex };
 }
 
 // ── Post-nurture event campaigns (2-week cadence after Day 25) ──────────────
 // Sends to leads with day25_sent=true, every 14+ days, max 12 times.
 // Tracks lastEventEmailSentAt + eventEmailsCount.
-async function sendPostNurtureEventCampaign(leads, nowMs, event) {
+async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun) {
   let sent = 0, skipped = 0;
-  const emailedThisRun = new Set();
 
   for (const leadDoc of leads) {
-    if (emailedThisRun.has(leadDoc.id)) { skipped++; continue; }
-
     const lead = leadDoc.data();
-    if (!lead.email || lead.day25_sent !== true) { skipped++; continue; }
+    const email = (lead.email || '').toLowerCase().trim();
+    if (!email || lead.day25_sent !== true) { skipped++; continue; }
+
+    // Yield to higher-priority passes already run this cycle.
+    if (emailedThisRun.has(email)) { skipped++; continue; }
 
     // Max 12 emails (6 months of bi-weekly)
     const count = lead.eventEmailsCount || 0;
@@ -472,20 +480,16 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event) {
     const lastSent = lead.lastEventEmailSentAt
       ? (new Date(lead.lastEventEmailSentAt).getTime())
       : null;
-    const fourteenDaysMs = 14 * 86400000;
-    if (lastSent && (nowMs - lastSent) < fourteenDaysMs) { skipped++; continue; }
+    if (lastSent && (nowMs - lastSent) < 14 * 86400000) { skipped++; continue; }
 
     if (!event) { skipped++; continue; } // Need event for card
 
     try {
-      const ctaUrl = buildUtmUrl(
-        `/event?id=${event.id}`,
-        { source: 'email', medium: 'event_campaign', campaign: 'post_nurture' }
-      );
+      const ctaUrl = buildUtmUrl('/event?id=' + event.id, 'email', 'event_campaign', 'post_nurture');
 
       const html = shell(
         h1('Our next mixer is coming') +
-        p(`${lead.firstName || lead.name || 'There'}, we're hosting our next mixer soon.`) +
+        p(`${esc(lead.firstName || lead.name || 'There')}, we're hosting our next mixer soon.`) +
         p('Same format: short conversations, real connections, no app swiping.') +
         eventCardHtml(event) +
         ctaButtonHtml(ctaUrl, 'Reserve your spot') +
@@ -498,17 +502,17 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event) {
         subject: `${event.title} is coming up`,
         html,
         headers: {
-          'List-Unsubscribe': `<${makeUnsubscribeUrl(leadDoc.id)}>`,
+          'List-Unsubscribe': `<${makeUnsubscribeUrl(leadDoc.id, lead.email)}>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       });
 
       if (!result.error) {
-        await db.collection('leads').doc(leadDoc.id).update({
+        await leadDoc.ref.update({
           lastEventEmailSentAt: new Date().toISOString(),
           eventEmailsCount: count + 1,
         });
-        emailedThisRun.add(leadDoc.id);
+        emailedThisRun.add(email);
         sent++;
         console.log(`✅ post-nurture event → leads/${leadDoc.id}`);
       } else {
@@ -559,26 +563,36 @@ module.exports = async function handler(req, res) {
     const snap = await db.collection('leads').where('subscribed', '==', true).get();
     const leads = snap.docs;
     const nowMs = Date.now();
+    const dayNum = Math.floor(nowMs / 86400000); // UTC day index, for fortnight gates
 
-    // Buckets evaluated in order, sharing one `emailedThisRun` set so a
-    // single lead never gets more than one nurture email per run.
+    // ONE email per person per run, shared across EVERY pass and keyed by
+    // (lowercased) email. Passes run in priority order below; whichever sends
+    // first claims the address and the rest yield — no more double-emailing.
     const emailedThisRun = new Set();
+
+    // 1) Transactional, time-sensitive — always send, and claim the address so
+    //    marketing yields to them. (These run over ticket-holders, not leads.)
+    const profileReminders = await sendProfileReminders(nowMs, emailedThisRun);
+    const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun);
+
+    // 2) Nurture sequence (day 2/5/14/25) — one bucket-email per lead per run.
     const results = [];
-    for (const [dayNum, key] of [[2, 'day2'], [5, 'day5'], [14, 'day14'], [25, 'day25']]) {
-      results.push(await sendBucket(leads, dayNum, key, nowMs, emailedThisRun, event));
+    for (const [d, key] of [[2, 'day2'], [5, 'day5'], [14, 'day14'], [25, 'day25']]) {
+      results.push(await sendBucket(leads, d, key, nowMs, emailedThisRun, event));
     }
 
-    // Pre-event chemistry-profile reminders to confirmed ticket-holders.
-    const profileReminders = await sendProfileReminders(nowMs);
+    // 3) Post-nurture event campaign — fortnightly, offset one week from the
+    //    newsletter (dayNum % 14 === 7) so the two marketing tracks never blast
+    //    on the same day. `force` (manual trigger) bypasses the cadence gate.
+    const postNurtureEvents = (force || dayNum % 14 === 7)
+      ? await sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun)
+      : { sent: 0, skipped: 0, gated: true };
 
-    // Post-event "who did you click with" prompts to recent attendees.
-    const postEventPrompts = await sendPostEventPrompts(nowMs);
-
-    // Bi-weekly newsletter (separate from nurture sequence).
-    const newsletter = await sendBiweeklyNewsletter(leads, nowMs, event);
-
-    // Post-nurture event campaigns (every 2 weeks after Day 25).
-    const postNurtureEvents = await sendPostNurtureEventCampaign(leads, nowMs, event);
+    // 4) Bi-weekly newsletter — fortnightly issue day (dayNum % 14 === 0),
+    //    lowest priority so it yields to all of the above.
+    const newsletter = (force || dayNum % 14 === 0)
+      ? await sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun)
+      : { sent: 0, skipped: 0, gated: true };
 
     console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders), 'postEventPrompts=', JSON.stringify(postEventPrompts), 'newsletter=', JSON.stringify(newsletter), 'postNurtureEvents=', JSON.stringify(postNurtureEvents));
     return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, postEventPrompts, newsletter, postNurtureEvents, ts: new Date().toISOString() });
