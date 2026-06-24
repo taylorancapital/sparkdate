@@ -42,6 +42,12 @@
         .profile-section .sub { font-size: 13px; color: rgba(245,243,240,0.6); margin-bottom: 4px; }
         .hint { font-size: 11px; color: rgba(245,243,240,0.45); margin-top: 4px; }
         .back-btn { display: block; width: 100%; margin-top: 14px; padding: 13px; background: none; border: 1px solid rgba(255,107,107,0.3); color: var(--coral); border-radius: 6px; font-family: inherit; font-size: 14px; cursor: pointer; text-align: center; }
+        /* Event banner */
+        .evt-banner { background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.35); border-radius: 10px; padding: 16px 18px; margin-bottom: 18px; display: flex; align-items: center; gap: 14px; }
+        .evt-banner .flame { font-size: 28px; flex-shrink: 0; }
+        .evt-banner .info { min-width: 0; }
+        .evt-banner .evt-title { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 700; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .evt-banner .evt-meta { font-size: 12px; color: rgba(245,243,240,0.65); margin-top: 3px; }
         .no-event { text-align: center; padding: 40px 20px; }
         .no-event p { color: rgba(245,243,240,0.6); font-size: 15px; }
         .buy-link { text-align: center; margin-top: 12px; font-size: 13px; }
@@ -54,7 +60,15 @@
 <body>
     <div class="wrap">
         <div class="logo">Spark<span>Date</span></div>
-        <div class="evt" id="evtLine">Loading…</div>
+
+        <!-- Event banner -->
+        <div class="evt-banner" id="evtBanner" style="display:none;">
+            <div class="flame">🔥</div>
+            <div class="info">
+                <div class="evt-title" id="evtTitle">Loading…</div>
+                <div class="evt-meta" id="evtMeta"></div>
+            </div>
+        </div>
 
         <!-- No-event state -->
         <div id="noEvent" style="display:none;" class="card no-event">
@@ -146,25 +160,28 @@
         let checkinToken = null;
 
         async function loadEvent() {
-            const line = document.getElementById('evtLine');
             try {
                 const r = await fetch('/api/next-event');
                 const d = await r.json();
                 if (d && d.event && d.event.id) {
                     event = { id: d.event.id, title: d.event.title || 'SparkDate event' };
                     const dt = d.event.date ? new Date(d.event.date) : null;
-                    const when = dt ? dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
-                    line.textContent = `${event.title}${when ? ' · ' + when : ''}`;
+                    const dateStr = dt ? dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
+                    const timeStr = d.event.time || '';
+                    const venue = [d.event.venue, d.event.neighborhood].filter(Boolean).join(', ');
+                    document.getElementById('evtTitle').textContent = event.title;
+                    document.getElementById('evtMeta').textContent = [dateStr + (timeStr ? ' · ' + timeStr : ''), venue].filter(Boolean).join(' · ');
+                    document.getElementById('evtBanner').style.display = '';
                     const bl = document.getElementById('buyLink');
                     bl.href = `/event?id=${encodeURIComponent(event.id)}`;
                     document.getElementById('buyLinkWrap').style.display = '';
                 } else {
-                    line.textContent = '';
                     document.getElementById('formCard').style.display = 'none';
                     document.getElementById('noEvent').style.display = '';
                 }
             } catch (_) {
-                line.textContent = 'Could not load event. Check connection.';
+                document.getElementById('evtTitle').textContent = 'Could not load event — check connection.';
+                document.getElementById('evtBanner').style.display = '';
             }
         }
 
