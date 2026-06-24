@@ -370,7 +370,7 @@ async function handleEventbriteEnroll(req, res) {
 }
 
 // ── Door check-in (folded in here to stay under Vercel's 12-function cap) ────
-// Admin-only. The /checkin page POSTs action:'checkin' per attendee. Find or
+// Public — attendees self-check-in via QR code, no auth required. Find or
 // create the Auth user (passwordless — no door email; matching reaches them via
 // a magic link), merge firstTimeAttendee/photoConsent/checkedInAt onto the user
 // doc, and upsert an idempotent CONFIRMED event_registration for (uid, eventId)
@@ -378,7 +378,6 @@ async function handleEventbriteEnroll(req, res) {
 // walk-ins alike. Native buyers already have a registration → just mark checked
 // in, never duplicate.
 async function handleCheckin(req, res) {
-  await requireAdmin(req); // throws 401/403 if not an admin
 
   const b = req.body || {};
   const email = clean(b.email, MAX_EMAIL).toLowerCase();
