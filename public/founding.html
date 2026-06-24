@@ -741,6 +741,13 @@
             toggle.textContent = answer.classList.contains('active') ? '−' : '+';
         }
 
+        // Persist an inbound referral code so it survives navigation before
+        // the visitor actually signs up (the submit handler reads it back).
+        try {
+            const _ref = new URLSearchParams(window.location.search).get('ref');
+            if (_ref) localStorage.setItem('sparkdate_ref', _ref);
+        } catch (_) {}
+
         // Form submission to webhook
         const form = document.getElementById('cohortForm');
         const submitBtn = document.querySelector('.form-submit');
@@ -764,10 +771,12 @@
                 let ref = new URLSearchParams(window.location.search).get('ref');
                 try { ref = ref || localStorage.getItem('sparkdate_ref'); } catch (_) {}
                 ref = ref || null;
+                // A referred lead is its own channel in the Funnel tab.
+                const source = ref ? 'referral' : 'founding_form';
                 const response = await fetch('/api/lead-signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, ref, source: 'founding_form', website })
+                    body: JSON.stringify({ email, ref, source, website })
                 });
                 
                 const data = await response.json();
@@ -805,5 +814,49 @@
             }
         });
     </script>
+<!-- Exit-intent / scroll email capture (once per visitor) -->
+<div id="sdExit" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,14,39,0.82);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#0a0e27;border:1px solid rgba(255,107,107,0.35);border-radius:14px;max-width:420px;width:100%;padding:34px 28px;text-align:center;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <button id="sdExitClose" aria-label="Close" style="position:absolute;top:10px;right:14px;background:none;border:none;color:rgba(245,243,240,0.5);font-size:26px;line-height:1;cursor:pointer;">×</button>
+    <h3 style="font-family:'Playfair Display',Georgia,serif;font-size:24px;color:#fff;margin:0 0 10px;">Before you go…</h3>
+    <p style="font-size:14px;color:rgba(245,243,240,0.75);margin:0 0 18px;line-height:1.6;">Get first dibs on Philadelphia mixers + dating tips. No spam — unsubscribe anytime.</p>
+    <form id="sdExitForm" style="display:flex;gap:8px;flex-wrap:wrap;">
+      <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+      <input type="email" id="sdExitEmail" required placeholder="you@email.com" aria-label="Email address" style="flex:1;min-width:180px;padding:12px 14px;background:#fff;border:2px solid rgba(255,107,107,0.4);border-radius:4px;color:#000;font-size:14px;">
+      <button type="submit" style="padding:12px 22px;background:linear-gradient(135deg,#ff6b6b,#ff5252);color:#fff;border:none;border-radius:4px;font-weight:700;cursor:pointer;font-size:13px;text-transform:uppercase;letter-spacing:1px;">Join</button>
+    </form>
+    <div id="sdExitMsg" style="margin-top:12px;font-size:13px;display:none;"></div>
+  </div>
+</div>
+<script>
+(function(){
+  var KEY='sd_exit_shown';
+  try{ if(localStorage.getItem(KEY)==='1') return; }catch(_){}
+  var modal=document.getElementById('sdExit'); if(!modal) return;
+  var shown=false;
+  function show(){ if(shown) return; shown=true; try{localStorage.setItem(KEY,'1');}catch(_){}
+    modal.style.display='flex'; document.removeEventListener('mouseout',onOut); window.removeEventListener('scroll',onScroll); }
+  function close(){ modal.style.display='none'; }
+  function onOut(e){ if(e.clientY<=0) show(); }
+  function onScroll(){ var h=document.documentElement; if((h.scrollTop)/((h.scrollHeight-h.clientHeight)||1)>=0.5) show(); }
+  document.addEventListener('mouseout',onOut);
+  window.addEventListener('scroll',onScroll,{passive:true});
+  document.getElementById('sdExitClose').addEventListener('click',close);
+  modal.addEventListener('click',function(e){ if(e.target===modal) close(); });
+  document.getElementById('sdExitForm').addEventListener('submit',async function(e){
+    e.preventDefault();
+    var emailEl=document.getElementById('sdExitEmail'), msg=document.getElementById('sdExitMsg'), btn=this.querySelector('button[type="submit"]');
+    var email=(emailEl.value||'').trim(); if(!email) return;
+    var orig=btn.textContent; btn.textContent='…'; btn.disabled=true; msg.style.display='none';
+    try{
+      var ref=null; try{ref=localStorage.getItem('sparkdate_ref');}catch(_){}
+      var res=await fetch('/api/lead-signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,source:'exit_intent',ref:ref,website:(this.querySelector('input[name="website"]')||{}).value||''})});
+      if(res.ok){msg.style.display='block';msg.style.color='#4ade80';msg.textContent='✓ You’re on the list.';if(window.gtag)gtag('event','generate_lead',{lead_type:'exit_intent'});this.reset();setTimeout(close,1200);}
+      else{msg.style.display='block';msg.style.color='#ff6b6b';msg.textContent='✕ Something went wrong.';}
+    }catch(_){msg.style.display='block';msg.style.color='#ff6b6b';msg.textContent='✕ Network error.';}
+    finally{btn.textContent=orig;btn.disabled=false;}
+  });
+})();
+</script>
 </body>
 </html>

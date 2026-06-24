@@ -147,6 +147,37 @@
         </div>
     </div>
 
+    <section style="max-width:680px;margin:0 auto;padding:0 40px 60px;">
+      <div style="background:rgba(255,107,107,0.06);border:1px solid rgba(255,107,107,0.2);border-radius:10px;padding:32px 28px;text-align:center;">
+        <h3 style="font-family:'Fraunces',serif;font-size:22px;color:#fff;margin:0 0 8px;font-weight:600;">Get dating tips + first dibs on events</h3>
+        <p style="font-size:14px;color:rgba(245,243,240,0.7);margin:0 0 18px;">Occasional emails from SparkDate. No spam, unsubscribe anytime.</p>
+        <form id="blogSignup" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;max-width:420px;margin:0 auto;">
+          <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+          <input type="email" id="blogEmail" required placeholder="you@email.com" aria-label="Email address" style="flex:1;min-width:200px;padding:13px 15px;background:#fff;border:2px solid rgba(255,107,107,0.4);border-radius:4px;color:#000;font-family:inherit;font-size:14px;">
+          <button type="submit" style="padding:13px 26px;background:linear-gradient(135deg,#ff6b6b,#ff5252);color:#fff;border:none;border-radius:4px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px;text-transform:uppercase;letter-spacing:1px;">Join</button>
+        </form>
+        <div id="blogMsg" style="margin-top:14px;font-size:14px;display:none;"></div>
+      </div>
+    </section>
+    <script>
+      (function(){
+        var form=document.getElementById('blogSignup'); if(!form) return;
+        form.addEventListener('submit',async function(e){
+          e.preventDefault();
+          var emailEl=document.getElementById('blogEmail'), msg=document.getElementById('blogMsg'), btn=form.querySelector('button[type="submit"]');
+          var email=(emailEl.value||'').trim(); if(!email) return;
+          var orig=btn.textContent; btn.textContent='…'; btn.disabled=true; msg.style.display='none';
+          try{
+            var ref=null; try{ref=localStorage.getItem('sparkdate_ref');}catch(_){}
+            var res=await fetch('/api/lead-signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,source:'blog',ref:ref,website:(form.querySelector('input[name="website"]')||{}).value||''})});
+            if(res.ok){msg.style.display='block';msg.style.color='#4ade80';msg.textContent='✓ You’re on the list.';if(window.gtag)gtag('event','generate_lead',{lead_type:'blog'});form.reset();}
+            else{msg.style.display='block';msg.style.color='#ff6b6b';msg.textContent='✕ Something went wrong. Try again.';}
+          }catch(_){msg.style.display='block';msg.style.color='#ff6b6b';msg.textContent='✕ Network error. Try again.';}
+          finally{btn.textContent=orig;btn.disabled=false;}
+        });
+      })();
+    </script>
+
     <footer>
         <p>SparkDate · Philadelphia · 2026</p>
         <p style="margin-top: 10px;">
