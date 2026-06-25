@@ -354,21 +354,32 @@ async function sendPostEventPrompts(nowMs, emailedThisRun) {
       .get();
     for (const evDoc of evSnap.docs) {
       const eventName = evDoc.data().title || 'your SparkDate event';
-      // Single-field query (eventId auto-indexed); filter status in code to
-      // avoid a composite index (mirrors sendProfileReminders).
-      const tkSnap = await db.collection('tickets').where('eventId', '==', evDoc.id).get();
+      // Query BOTH tickets and event_registrations — QR check-in only writes
+      // to event_registrations (not tickets), so tickets alone misses everyone
+      // who checked in at the door. Anyone confirmed in either collection gets
+      // the email; dedup by uid so native buyers (who have both) get it once.
+      const [tkSnap, erSnap] = await Promise.all([
+        db.collection('tickets').where('eventId', '==', evDoc.id).get(),
+        db.collection('event_registrations').where('eventId', '==', evDoc.id).get(),
+      ]);
       const seen = new Set();
+      const candidates = [];
       for (const tk of tkSnap.docs) {
         const t = tk.data();
-        if (t.status !== 'confirmed' || !t.firebaseUid) { skipped++; continue; }
-        if (t.postEventPromptSent === true) { skipped++; continue; }
-        if (!t.firebaseUid) {
-          console.warn(`[post-event-prompt] skipping tickets/${tk.id} — no firebaseUid`);
-          skipped++; continue;
-        }
-        if (seen.has(t.firebaseUid)) { skipped++; continue; } // one prompt per person per event
+        if (t.status !== 'confirmed' || !t.firebaseUid || t.postEventPromptSent) { skipped++; continue; }
+        if (seen.has(t.firebaseUid)) { skipped++; continue; }
         seen.add(t.firebaseUid);
-        const usnap = await db.collection('users').doc(t.firebaseUid).get();
+        candidates.push({ uid: t.firebaseUid, ref: tk.ref, src: 'ticket' });
+      }
+      for (const er of erSnap.docs) {
+        const r = er.data();
+        if (r.status !== 'confirmed' || !r.userId || r.postEventPromptSent) { skipped++; continue; }
+        if (seen.has(r.userId)) { skipped++; continue; }
+        seen.add(r.userId);
+        candidates.push({ uid: r.userId, ref: er.ref, src: 'reg' });
+      }
+      for (const cand of candidates) {
+        const usnap = await db.collection('users').doc(cand.uid).get();
         const email = usnap.exists ? usnap.data().email : null;
         if (!email) { skipped++; continue; }
         try {
@@ -376,15 +387,15 @@ async function sendPostEventPrompts(nowMs, emailedThisRun) {
             from: 'SparkDate <hello@mail.sparkdate.date>',
             to: email,
             subject: `Who did you click with at ${eventName}?`,
-            html: postEventPromptHTML({ eventName, matchUrl: makeMatchUrl(t.firebaseUid) }),
+            html: postEventPromptHTML({ eventName, matchUrl: makeMatchUrl(cand.uid) }),
           });
           if (!result.error) {
-            await tk.ref.update({ postEventPromptSent: true, postEventPromptSentAt: new Date().toISOString() });
+            await cand.ref.update({ postEventPromptSent: true, postEventPromptSentAt: new Date().toISOString() });
             if (emailedThisRun) emailedThisRun.add(String(email).toLowerCase().trim());
             sent++;
-            console.log(`✅ post-event prompt → tickets/${tk.id}`);
+            console.log(`✅ post-event prompt → ${cand.src}/${cand.ref.id}`);
           } else { skipped++; }
-        } catch (e) { console.error('[post-event-prompt]', tk.id, e.message); skipped++; }
+        } catch (e) { console.error('[post-event-prompt]', cand.ref.id, e.message); skipped++; }
       }
     }
   } catch (e) {

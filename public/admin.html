@@ -1364,14 +1364,13 @@
                     Paste your Eventbrite attendee list below. Each buyer gets a Firebase account, a ticket record, and a welcome email with their magic profile link.
                 </p>
 
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:16px;">
-                    <div>
-                        <label style="display:block;font-size:12px;color:rgba(245,243,240,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Event Name</label>
-                        <input id="eb-event-name" type="text" placeholder="Founders Mixer" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px 12px;color:#f5f3f0;font-size:14px;box-sizing:border-box;">
-                    </div>
-                    <div>
-                        <label style="display:block;font-size:12px;color:rgba(245,243,240,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Event ID <span style="font-weight:400;text-transform:none;">(Firestore events doc ID)</span></label>
-                        <input id="eb-event-id" type="text" placeholder="79nTqQ0WEtkVOdBr0vbA" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px 12px;color:#f5f3f0;font-size:14px;box-sizing:border-box;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:16px;">
+                    <div style="grid-column:1/-1;">
+                        <label style="display:block;font-size:12px;color:rgba(245,243,240,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Event</label>
+                        <select id="eb-event-id" onchange="window.enrollEventPicked(this)" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px 12px;color:#f5f3f0;font-size:14px;box-sizing:border-box;">
+                            <option value="">— Select event —</option>
+                        </select>
+                        <input id="eb-event-name" type="hidden" value="">
                     </div>
                     <div>
                         <label style="display:block;font-size:12px;color:rgba(245,243,240,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Ticket Price (USD) <span style="font-weight:400;text-transform:none;">(face value each)</span></label>
@@ -3304,6 +3303,33 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             if (id === 'events') populateVenuePicker();
             if (id === 'retention') loadRetention();
             if (id === 'funnel') loadFunnel();
+            if (id === 'enroll') populateEventDropdown();
+        };
+
+        // ─── Enrollment event dropdown ─────────────────────
+        function populateEventDropdown() {
+            const sel = document.getElementById('eb-event-id');
+            if (!sel || !allEvents || !allEvents.length) return;
+            const current = sel.value;
+            const sorted = [...allEvents].sort((a, b) => {
+                const da = a.date && a.date.toDate ? a.date.toDate() : new Date(a.date || 0);
+                const db2 = b.date && b.date.toDate ? b.date.toDate() : new Date(b.date || 0);
+                return db2 - da; // newest first so current event is at top
+            });
+            sel.innerHTML = '<option value="">— Select event —</option>'
+                + sorted.map(e => {
+                    const d = e.date && e.date.toDate ? e.date.toDate() : new Date(e.date || 0);
+                    const label = (e.title || 'Untitled') + ' — '
+                        + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    return `<option value="${e.id}" data-title="${(e.title || '').replace(/"/g, '&quot;')}">${label}</option>`;
+                }).join('');
+            if (current) sel.value = current; // preserve selection on refresh
+        }
+
+        window.enrollEventPicked = (sel) => {
+            const opt = sel.options[sel.selectedIndex];
+            const name = opt ? (opt.dataset.title || '') : '';
+            document.getElementById('eb-event-name').value = name;
         };
 
         // ─── LEADS ─────────────────────────────────────────

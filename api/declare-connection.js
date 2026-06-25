@@ -121,12 +121,18 @@ async function notifyMatch(aUid, bUid, eventId) {
 
 // ── GET: caller's past events + co-attendees + per-attendee match state ──
 async function handleGet(req, res, uid) {
-  // The caller's own confirmed registrations → unique event ids (reading your
-  // OWN registrations is allowed by the rules, but we use Admin SDK anyway).
-  const myRegSnap = await db.collection('event_registrations').where('userId', '==', uid).get();
-  const myEventIds = [...new Set(
-    myRegSnap.docs.map(d => d.data()).filter(r => r.status === 'confirmed').map(r => r.eventId)
-  )];
+  // The caller's own confirmed registrations → unique event ids. Read both
+  // event_registrations (check-in / enrolled guests) AND tickets (native
+  // buyers) so someone who bought a ticket but never scanned the QR can still
+  // see their co-attendees. Dedup by eventId across both collections.
+  const [myRegSnap, myTkSnap] = await Promise.all([
+    db.collection('event_registrations').where('userId', '==', uid).get(),
+    db.collection('tickets').where('firebaseUid', '==', uid).get(),
+  ]);
+  const myEventIds = [...new Set([
+    ...myRegSnap.docs.map(d => d.data()).filter(r => r.status === 'confirmed').map(r => r.eventId),
+    ...myTkSnap.docs.map(d => d.data()).filter(t => t.status === 'confirmed').map(t => t.eventId),
+  ])];
   if (myEventIds.length === 0) return res.status(200).json({ events: [] });
 
   // Keep only PAST events (date < now) — matching is a post-event action.
@@ -153,11 +159,14 @@ async function handleGet(req, res, uid) {
   const events = [];
   for (const ev of pastEvents) {
     const regSnap = await db.collection('event_registrations').where('eventId', '==', ev.id).get();
-    const otherIds = [...new Set(
-      regSnap.docs.map(d => d.data())
-        .filter(r => r.status === 'confirmed' && r.userId && r.userId !== uid)
-        .map(r => r.userId)
-    )];
+    const regs = regSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(r => r.status === 'confirmed' && r.userId !== uid);
+
+    // Split into uid-backed (full profile lookup) and null-userId guests
+    // (guest checkout whose account was never finalized — show by reg name only).
+    const otherIds = [...new Set(regs.filter(r => r.userId).map(r => r.userId))];
+    const guestRegs = regs.filter(r => !r.userId);
+
     const uDocs = await Promise.all(otherIds.map(id => db.collection('users').doc(id).get()));
     const attendees = [];
     uDocs.forEach((d) => {
@@ -178,6 +187,18 @@ async function handleGet(req, res, uid) {
       if (matched) att.contact = { name: shortName(u), phone: u.phone || null, email: u.email || null };
       attendees.push(att);
     });
+    // Guest attendees without a finalized account — show name, no interaction.
+    const seenUids = new Set(otherIds);
+    for (const r of guestRegs) {
+      const guestName = (r.name || 'Guest').trim().split(' ');
+      const displayName = guestName[0] + (guestName[1] ? ' ' + guestName[1].charAt(0) + '.' : '');
+      attendees.push({
+        uid: r.id,
+        displayName,
+        age: null, gender: r.gender || null, intent: null,
+        state: 'none',
+      });
+    }
     events.push({ eventId: ev.id, title: ev.title, date: ev.date, attendees });
   }
   return res.status(200).json({ events });
