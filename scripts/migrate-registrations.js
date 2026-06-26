@@ -148,9 +148,15 @@ const REPORT_MISS  = process.argv.includes('--report-missing');
         for (const f of KEEP) {
           if (existing[f] == null && source[f] != null) patch[f] = source[f];
         }
+        // Confirmed-wins: never let a confirmed attendee get dropped because the
+        // canonical doc happened to be a pending/abandoned-3DS row. A confirmed
+        // source upgrades a non-confirmed target.
+        if (source.status === 'confirmed' && existing.status !== 'confirmed') {
+          patch.status = 'confirmed';
+        }
         if (Object.keys(patch).length) await targetRef.set(patch, { merge: true });
         await doc.ref.delete();
-        console.log(`  ✓ merged + deleted ${doc.id} → ${targetId}`);
+        console.log(`  ✓ merged + deleted ${doc.id} → ${targetId}${patch.status ? ' (status→confirmed)' : ''}`);
       } else {
         // Simple rename: write to new ID, delete old
         await targetRef.set(doc.data());

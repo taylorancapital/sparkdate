@@ -60,12 +60,14 @@ if (!eventId) {
 const ms = (ts) => (ts && typeof ts.toMillis === 'function') ? ts.toMillis()
   : (ts ? new Date(ts).getTime() || 0 : 0);
 
-// Higher score = better keeper. Prefer the new deterministic id, then a
+// Higher score = better keeper. Prefer the canonical deterministic id, then a
 // checked-in row, then a confirmed row; earliest createdAt breaks ties.
+// (Legacy `ci_` ids are still preferred too, for data not yet migrated.)
 function score(doc) {
   const d = doc.data();
   let s = 0;
-  if (doc.id === `ci_${d.userId}_${eventId}`) s += 1000;
+  if (doc.id === `reg_${d.userId}_${eventId}`) s += 1000;
+  else if (doc.id === `ci_${d.userId}_${eventId}`) s += 500;
   if (d.checkedInAt) s += 100;
   if (d.status === 'confirmed') s += 10;
   return s;
