@@ -344,7 +344,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 </div></body></html>`;
 }
 
-async function sendPostEventPrompts(nowMs, emailedThisRun) {
+async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null) {
   let sent = 0, skipped = 0;
   try {
     const since = new Date(nowMs - POST_EVENT_LOOKBACK_DAYS * 86400000);
@@ -389,6 +389,9 @@ async function sendPostEventPrompts(nowMs, emailedThisRun) {
         candidates.push({ uid: r.userId, ref: er.ref, src: 'reg' });
       }
       for (const cand of candidates) {
+        // Single-recipient dry-run: ?testUid=<uid> sends only to that person so
+        // an admin can verify the whole loop in prod before the real blast.
+        if (testUid && cand.uid !== testUid) { skipped++; continue; }
         const usnap = await db.collection('users').doc(cand.uid).get();
         const email = usnap.exists ? usnap.data().email : null;
         if (!email) { skipped++; continue; }
@@ -598,11 +601,13 @@ module.exports = async function handler(req, res) {
 
     // Scoped trigger: run ONLY the post-event prompt pass and return. Lets an
     // admin (re)send the morning-after match links on demand without touching
-    // the marketing passes below.
+    // the marketing passes below. `?testUid=<uid>` restricts the send to one
+    // person (a production dry-run before the real blast).
     if (only === 'postevent') {
-      const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun);
-      console.log('✅ Cron (only=postevent):', JSON.stringify(postEventPrompts));
-      return res.status(200).json({ success: true, only: 'postevent', postEventPrompts, ts: new Date().toISOString() });
+      const testUid = req.query?.testUid || req.body?.testUid || null;
+      const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun, testUid);
+      console.log(`✅ Cron (only=postevent${testUid ? `, testUid=${testUid}` : ''}):`, JSON.stringify(postEventPrompts));
+      return res.status(200).json({ success: true, only: 'postevent', testUid: testUid || null, postEventPrompts, ts: new Date().toISOString() });
     }
 
     // 1) Transactional, time-sensitive — always send, and claim the address so
