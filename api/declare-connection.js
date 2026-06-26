@@ -36,10 +36,19 @@ function shortName(u) {
   return (u.firstName || 'Member') + ' ' + (u.lastName || '').charAt(0) + (u.lastName ? '.' : '');
 }
 
-// CONFIRMED registration present for this user? (audit H1: failed / expired /
-// pending_3ds rows must not count as "attended".)
-function attended(regDocs, userId) {
-  return regDocs.some(d => { const r = d.data(); return r.userId === userId && r.status === 'confirmed'; });
+// Has this user a CONFIRMED record for the event in EITHER collection?
+// event_registrations covers check-ins / enrolled guests; tickets covers native
+// buyers whose registration row may be missing or dirty. Used as an ADVISORY
+// signal only — see the POST handler: a missing record logs a warning but never
+// blocks, because messy check-in can leave a real attendee without a clean row,
+// and the mutual-match requirement is what actually protects contact info.
+async function attendedEvent(uid, eventId) {
+  const [regs, tks] = await Promise.all([
+    db.collection('event_registrations').where('userId', '==', uid).where('eventId', '==', eventId).get(),
+    db.collection('tickets').where('firebaseUid', '==', uid).where('eventId', '==', eventId).get(),
+  ]);
+  return regs.docs.some(d => d.data().status === 'confirmed')
+      || tks.docs.some(d => d.data().status === 'confirmed');
 }
 
 // ── It's-a-match email ───────────────────────────────────────────────
@@ -158,20 +167,33 @@ async function handleGet(req, res, uid) {
 
   const events = [];
   for (const ev of pastEvents) {
-    const regSnap = await db.collection('event_registrations').where('eventId', '==', ev.id).get();
+    // Co-attendees from BOTH collections so a ticket buyer whose registration
+    // row is missing/dirty is still visible to everyone else (mirrors the
+    // caller-side fix above and the cron's union).
+    const [regSnap, tkSnap] = await Promise.all([
+      db.collection('event_registrations').where('eventId', '==', ev.id).get(),
+      db.collection('tickets').where('eventId', '==', ev.id).get(),
+    ]);
     const regs = regSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       .filter(r => r.status === 'confirmed' && r.userId !== uid);
 
-    // Split into uid-backed (full profile lookup) and null-userId guests
-    // (guest checkout whose account was never finalized — show by reg name only).
-    const otherIds = [...new Set(regs.filter(r => r.userId).map(r => r.userId))];
+    // uid-backed co-attendees (full profile lookup), deduped across collections.
+    const otherIds = [...new Set([
+      ...regs.filter(r => r.userId).map(r => r.userId),
+      ...tkSnap.docs.map(d => d.data())
+        .filter(t => t.status === 'confirmed' && t.firebaseUid && t.firebaseUid !== uid)
+        .map(t => t.firebaseUid),
+    ])];
+    // Null-userId guests (account never finalized) — registration rows only.
     const guestRegs = regs.filter(r => !r.userId);
 
     const uDocs = await Promise.all(otherIds.map(id => db.collection('users').doc(id).get()));
     const attendees = [];
+    const shownEmails = new Set();
     uDocs.forEach((d) => {
       if (!d.exists) return;
       const u = d.data();
+      if (u.email) shownEmails.add(String(u.email).toLowerCase().trim());
       const key = `${d.id}_${ev.id}`;
       const sent = sentSet.has(key), received = recvSet.has(key);
       const matched = sent && received;
@@ -187,17 +209,15 @@ async function handleGet(req, res, uid) {
       if (matched) att.contact = { name: shortName(u), phone: u.phone || null, email: u.email || null };
       attendees.push(att);
     });
-    // Guest attendees without a finalized account — show name, no interaction.
-    const seenUids = new Set(otherIds);
+    // Guests without a finalized account — display-only (state 'info', no pick
+    // button, since they have no real uid to match against). Skip any already
+    // shown via a uid-backed row (matched by email).
     for (const r of guestRegs) {
-      const guestName = (r.name || 'Guest').trim().split(' ');
-      const displayName = guestName[0] + (guestName[1] ? ' ' + guestName[1].charAt(0) + '.' : '');
-      attendees.push({
-        uid: r.id,
-        displayName,
-        age: null, gender: r.gender || null, intent: null,
-        state: 'none',
-      });
+      const remail = r.email ? String(r.email).toLowerCase().trim() : '';
+      if (remail && shownEmails.has(remail)) continue;
+      const parts = (r.name || 'Guest').trim().split(' ');
+      const displayName = parts[0] + (parts[1] ? ' ' + parts[1].charAt(0) + '.' : '');
+      attendees.push({ uid: r.id, displayName, age: null, gender: r.gender || null, intent: null, state: 'info' });
     }
     events.push({ eventId: ev.id, title: ev.title, date: ev.date, attendees });
   }
@@ -246,20 +266,28 @@ module.exports = async function handler(req, res) {
   if (toUserId === fromUserId) return res.status(400).json({ error: "Can't connect to yourself" });
 
   try {
-    // Both parties must have a CONFIRMED registration for this event.
-    const [myRegSnap, theirRegSnap] = await Promise.all([
-      db.collection('event_registrations').where('userId', '==', fromUserId).where('eventId', '==', eventId).get(),
-      db.collection('event_registrations').where('userId', '==', toUserId).where('eventId', '==', eventId).get(),
+    // Advisory attendance check — never blocks. Messy check-in (cross-event
+    // contamination, missed scans, manual enrolls) can leave a real attendee
+    // without a clean registration row; rejecting them here is worse than the
+    // residual risk, because contact info is only revealed on a MUTUAL match
+    // (both must pick each other) — an unverified single pick leaks nothing.
+    const [meAttended, themAttended] = await Promise.all([
+      attendedEvent(fromUserId, eventId),
+      attendedEvent(toUserId, eventId),
     ]);
-    if (!attended(myRegSnap.docs, fromUserId)) return res.status(403).json({ error: 'You did not attend this event' });
-    if (!attended(theirRegSnap.docs, toUserId)) return res.status(404).json({ error: 'That person did not attend this event' });
+    if (!meAttended) console.warn(`[declare-connection] caller ${fromUserId} unverified for ${eventId} — allowing (advisory)`);
+    if (!themAttended) console.warn(`[declare-connection] target ${toUserId} unverified for ${eventId} — allowing (advisory)`);
 
-    // Idempotent insert of my "like".
-    const existing = await db.collection('connection_intents')
-      .where('fromUserId', '==', fromUserId).where('toUserId', '==', toUserId).where('eventId', '==', eventId)
-      .limit(1).get();
-    if (existing.empty) {
-      await db.collection('connection_intents').add({ fromUserId, toUserId, eventId, createdAt: FieldValue.serverTimestamp() });
+    // Idempotent "like" via a deterministic doc id (from_to_event) so a
+    // double-tap can't create duplicate intent rows (TOCTOU). create() + the
+    // ALREADY_EXISTS no-op preserves the original createdAt (mirrors the
+    // matches lock pattern below).
+    const intentId = `${fromUserId}_${toUserId}_${eventId}`;
+    try {
+      await db.collection('connection_intents').doc(intentId)
+        .create({ fromUserId, toUserId, eventId, createdAt: FieldValue.serverTimestamp() });
+    } catch (e) {
+      if (!(e.code === 6 || /already exists/i.test(e.message || ''))) throw e;
     }
 
     // Mutual? If the reverse like exists, it's a match — notify both once.

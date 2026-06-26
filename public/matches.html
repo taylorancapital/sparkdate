@@ -110,6 +110,9 @@
             var c = a.contact || {};
             var reach = c.phone ? ('📞 ' + esc(c.phone)) : (c.email ? ('✉️ ' + esc(c.email)) : 'Reconnect at the next event');
             extra = '<div class="match-contact">You both clicked! Reach ' + esc(c.name || a.displayName) + ': ' + reach + '</div>';
+          } else if (a.state === 'info') {
+            // Guest with no account — visible but not selectable (no uid to match).
+            action = '<div class="connect-state sent">Attended</div>';
           } else if (a.state === 'sent') {
             action = '<div class="connect-state sent">Saved</div>';
           } else if (a.state === 'received') {

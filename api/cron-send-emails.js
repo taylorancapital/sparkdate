@@ -312,12 +312,12 @@ async function sendProfileReminders(nowMs, emailedThisRun) {
 }
 
 // ── Post-event "who did you click with" prompt ──────────────────────────────
-// The morning after an event, email every confirmed attendee a link to their
-// /account Connections section so they can pick who they clicked with. (Login
-// required per product decision; password-less guests set one via the existing
-// reset-password link.) Idempotent via `postEventPromptSent` on the ticket doc
-// (per attendee × event, so a second event still prompts). Best-effort: a
-// failure here never breaks the nurture or profile-reminder passes.
+// The morning after an event, email every confirmed attendee (from tickets OR
+// event_registrations) a no-login magic link (makeMatchUrl) to the /matches
+// page where they pick who they clicked with. Idempotent via `postEventPromptSent`
+// (per attendee × event, deduped by uid across both collections, so a person is
+// emailed once even with docs in both). Best-effort: a failure here never breaks
+// the nurture or profile-reminder passes.
 const POST_EVENT_LOOKBACK_DAYS = 3;
 
 function postEventPromptHTML({ eventName, matchUrl }) {
@@ -362,19 +362,29 @@ async function sendPostEventPrompts(nowMs, emailedThisRun) {
         db.collection('tickets').where('eventId', '==', evDoc.id).get(),
         db.collection('event_registrations').where('eventId', '==', evDoc.id).get(),
       ]);
+
+      // A person can appear in BOTH collections (every native/Eventbrite buyer
+      // has a ticket AND a registration). We mark `postEventPromptSent` on only
+      // ONE doc per send, so gather every uid that already has ANY marked doc
+      // across both collections — otherwise the unmarked sibling re-sends on the
+      // next day's run inside the 3-day lookback (a person would get 2–3 copies).
+      const alreadySent = new Set();
+      for (const tk of tkSnap.docs) { const t = tk.data(); if (t.postEventPromptSent && t.firebaseUid) alreadySent.add(t.firebaseUid); }
+      for (const er of erSnap.docs) { const r = er.data(); if (r.postEventPromptSent && r.userId) alreadySent.add(r.userId); }
+
       const seen = new Set();
       const candidates = [];
       for (const tk of tkSnap.docs) {
         const t = tk.data();
-        if (t.status !== 'confirmed' || !t.firebaseUid || t.postEventPromptSent) { skipped++; continue; }
-        if (seen.has(t.firebaseUid)) { skipped++; continue; }
+        if (t.status !== 'confirmed' || !t.firebaseUid) { skipped++; continue; }
+        if (alreadySent.has(t.firebaseUid) || seen.has(t.firebaseUid)) { skipped++; continue; }
         seen.add(t.firebaseUid);
         candidates.push({ uid: t.firebaseUid, ref: tk.ref, src: 'ticket' });
       }
       for (const er of erSnap.docs) {
         const r = er.data();
-        if (r.status !== 'confirmed' || !r.userId || r.postEventPromptSent) { skipped++; continue; }
-        if (seen.has(r.userId)) { skipped++; continue; }
+        if (r.status !== 'confirmed' || !r.userId) { skipped++; continue; }
+        if (alreadySent.has(r.userId) || seen.has(r.userId)) { skipped++; continue; }
         seen.add(r.userId);
         candidates.push({ uid: r.userId, ref: er.ref, src: 'reg' });
       }
@@ -551,6 +561,11 @@ module.exports = async function handler(req, res) {
   // `?force=1` skips the guard, for manual admin triggers at any hour.
   const force = req.query?.force === '1' || req.query?.force === 'true'
     || req.body?.force === true;
+  // Scoped manual trigger. `?only=postevent` runs ONLY the post-event prompt
+  // pass — so an admin can (re)send the morning-after match links WITHOUT also
+  // firing the fortnightly newsletter / nurture sequence to the whole leads
+  // list (which a bare `?force=1` would do, since force bypasses those gates).
+  const only = req.query?.only || req.body?.only || null;
   if (!force) {
     const easternHour = parseInt(
       new Date().toLocaleString('en-US', {
@@ -580,6 +595,15 @@ module.exports = async function handler(req, res) {
     // (lowercased) email. Passes run in priority order below; whichever sends
     // first claims the address and the rest yield — no more double-emailing.
     const emailedThisRun = new Set();
+
+    // Scoped trigger: run ONLY the post-event prompt pass and return. Lets an
+    // admin (re)send the morning-after match links on demand without touching
+    // the marketing passes below.
+    if (only === 'postevent') {
+      const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun);
+      console.log('✅ Cron (only=postevent):', JSON.stringify(postEventPrompts));
+      return res.status(200).json({ success: true, only: 'postevent', postEventPrompts, ts: new Date().toISOString() });
+    }
 
     // 1) Transactional, time-sensitive — always send, and claim the address so
     //    marketing yields to them. (These run over ticket-holders, not leads.)
