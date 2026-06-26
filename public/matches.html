@@ -125,25 +125,25 @@
         }
 
         async function load() {
-          content.innerHTML = ‘<div class="empty">Loading…</div>’;
+          content.innerHTML = '<div class="empty">Loading…</div>';
           var ctrl = new AbortController();
           var timer = setTimeout(function () { ctrl.abort(); }, 15000);
           try {
             var res = await fetch(
-              ‘/api/declare-connection?uid=’ + encodeURIComponent(uid) + ‘&t=’ + encodeURIComponent(token),
+              '/api/declare-connection?uid=' + encodeURIComponent(uid) + '&t=' + encodeURIComponent(token),
               { signal: ctrl.signal }
             );
             clearTimeout(timer);
             var data = await res.json();
-            if (!res.ok) throw new Error(data.error || ‘load failed’);
+            if (!res.ok) throw new Error(data.error || 'load failed');
             render(data.events);
           } catch (e) {
             clearTimeout(timer);
             var msg = ctrl.signal.aborted
-              ? ‘Connection timed out — check your signal and try again.’
-              : (e.message || ‘Could not load. Please try the latest link from your email.’);
-            content.innerHTML = ‘<h1>Something went wrong.</h1><p class="bad">’ + esc(msg) + ‘</p>’
-              + ‘<button class="connect-btn" onclick="load()" style="display:block;margin:16px auto 0;">Retry</button>’;
+              ? 'Connection timed out — check your signal and try again.'
+              : (e.message || 'Could not load. Please try the latest link from your email.');
+            content.innerHTML = '<h1>Something went wrong.</h1><p class="bad">' + esc(msg) + '</p>'
+              + '<button class="connect-btn" onclick="load()" style="display:block;margin:16px auto 0;">Retry</button>';
           }
         }
 
