@@ -312,12 +312,12 @@ async function sendProfileReminders(nowMs, emailedThisRun) {
 }
 
 // ── Post-event "who did you click with" prompt ──────────────────────────────
-// The morning after an event, email every confirmed attendee a link to their
-// /account Connections section so they can pick who they clicked with. (Login
-// required per product decision; password-less guests set one via the existing
-// reset-password link.) Idempotent via `postEventPromptSent` on the ticket doc
-// (per attendee × event, so a second event still prompts). Best-effort: a
-// failure here never breaks the nurture or profile-reminder passes.
+// The morning after an event, email every confirmed attendee (from tickets OR
+// event_registrations) a no-login magic link (makeMatchUrl) to the /matches
+// page where they pick who they clicked with. Idempotent via `postEventPromptSent`
+// (per attendee × event, deduped by uid across both collections, so a person is
+// emailed once even with docs in both). Best-effort: a failure here never breaks
+// the nurture or profile-reminder passes.
 const POST_EVENT_LOOKBACK_DAYS = 3;
 
 function postEventPromptHTML({ eventName, matchUrl }) {
@@ -344,7 +344,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 </div></body></html>`;
 }
 
-async function sendPostEventPrompts(nowMs, emailedThisRun) {
+async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null) {
   let sent = 0, skipped = 0;
   try {
     const since = new Date(nowMs - POST_EVENT_LOOKBACK_DAYS * 86400000);
@@ -354,21 +354,45 @@ async function sendPostEventPrompts(nowMs, emailedThisRun) {
       .get();
     for (const evDoc of evSnap.docs) {
       const eventName = evDoc.data().title || 'your SparkDate event';
-      // Single-field query (eventId auto-indexed); filter status in code to
-      // avoid a composite index (mirrors sendProfileReminders).
-      const tkSnap = await db.collection('tickets').where('eventId', '==', evDoc.id).get();
+      // Query BOTH tickets and event_registrations — QR check-in only writes
+      // to event_registrations (not tickets), so tickets alone misses everyone
+      // who checked in at the door. Anyone confirmed in either collection gets
+      // the email; dedup by uid so native buyers (who have both) get it once.
+      const [tkSnap, erSnap] = await Promise.all([
+        db.collection('tickets').where('eventId', '==', evDoc.id).get(),
+        db.collection('event_registrations').where('eventId', '==', evDoc.id).get(),
+      ]);
+
+      // A person can appear in BOTH collections (every native/Eventbrite buyer
+      // has a ticket AND a registration). We mark `postEventPromptSent` on only
+      // ONE doc per send, so gather every uid that already has ANY marked doc
+      // across both collections — otherwise the unmarked sibling re-sends on the
+      // next day's run inside the 3-day lookback (a person would get 2–3 copies).
+      const alreadySent = new Set();
+      for (const tk of tkSnap.docs) { const t = tk.data(); if (t.postEventPromptSent && t.firebaseUid) alreadySent.add(t.firebaseUid); }
+      for (const er of erSnap.docs) { const r = er.data(); if (r.postEventPromptSent && r.userId) alreadySent.add(r.userId); }
+
       const seen = new Set();
+      const candidates = [];
       for (const tk of tkSnap.docs) {
         const t = tk.data();
         if (t.status !== 'confirmed' || !t.firebaseUid) { skipped++; continue; }
-        if (t.postEventPromptSent === true) { skipped++; continue; }
-        if (!t.firebaseUid) {
-          console.warn(`[post-event-prompt] skipping tickets/${tk.id} — no firebaseUid`);
-          skipped++; continue;
-        }
-        if (seen.has(t.firebaseUid)) { skipped++; continue; } // one prompt per person per event
+        if (alreadySent.has(t.firebaseUid) || seen.has(t.firebaseUid)) { skipped++; continue; }
         seen.add(t.firebaseUid);
-        const usnap = await db.collection('users').doc(t.firebaseUid).get();
+        candidates.push({ uid: t.firebaseUid, ref: tk.ref, src: 'ticket' });
+      }
+      for (const er of erSnap.docs) {
+        const r = er.data();
+        if (r.status !== 'confirmed' || !r.userId) { skipped++; continue; }
+        if (alreadySent.has(r.userId) || seen.has(r.userId)) { skipped++; continue; }
+        seen.add(r.userId);
+        candidates.push({ uid: r.userId, ref: er.ref, src: 'reg' });
+      }
+      for (const cand of candidates) {
+        // Single-recipient dry-run: ?testUid=<uid> sends only to that person so
+        // an admin can verify the whole loop in prod before the real blast.
+        if (testUid && cand.uid !== testUid) { skipped++; continue; }
+        const usnap = await db.collection('users').doc(cand.uid).get();
         const email = usnap.exists ? usnap.data().email : null;
         if (!email) { skipped++; continue; }
         try {
@@ -376,15 +400,15 @@ async function sendPostEventPrompts(nowMs, emailedThisRun) {
             from: 'SparkDate <hello@mail.sparkdate.date>',
             to: email,
             subject: `Who did you click with at ${eventName}?`,
-            html: postEventPromptHTML({ eventName, matchUrl: makeMatchUrl(t.firebaseUid) }),
+            html: postEventPromptHTML({ eventName, matchUrl: makeMatchUrl(cand.uid) }),
           });
           if (!result.error) {
-            await tk.ref.update({ postEventPromptSent: true, postEventPromptSentAt: new Date().toISOString() });
+            await cand.ref.update({ postEventPromptSent: true, postEventPromptSentAt: new Date().toISOString() });
             if (emailedThisRun) emailedThisRun.add(String(email).toLowerCase().trim());
             sent++;
-            console.log(`✅ post-event prompt → tickets/${tk.id}`);
+            console.log(`✅ post-event prompt → ${cand.src}/${cand.ref.id}`);
           } else { skipped++; }
-        } catch (e) { console.error('[post-event-prompt]', tk.id, e.message); skipped++; }
+        } catch (e) { console.error('[post-event-prompt]', cand.ref.id, e.message); skipped++; }
       }
     }
   } catch (e) {
@@ -540,6 +564,11 @@ module.exports = async function handler(req, res) {
   // `?force=1` skips the guard, for manual admin triggers at any hour.
   const force = req.query?.force === '1' || req.query?.force === 'true'
     || req.body?.force === true;
+  // Scoped manual trigger. `?only=postevent` runs ONLY the post-event prompt
+  // pass — so an admin can (re)send the morning-after match links WITHOUT also
+  // firing the fortnightly newsletter / nurture sequence to the whole leads
+  // list (which a bare `?force=1` would do, since force bypasses those gates).
+  const only = req.query?.only || req.body?.only || null;
   if (!force) {
     const easternHour = parseInt(
       new Date().toLocaleString('en-US', {
@@ -569,6 +598,17 @@ module.exports = async function handler(req, res) {
     // (lowercased) email. Passes run in priority order below; whichever sends
     // first claims the address and the rest yield — no more double-emailing.
     const emailedThisRun = new Set();
+
+    // Scoped trigger: run ONLY the post-event prompt pass and return. Lets an
+    // admin (re)send the morning-after match links on demand without touching
+    // the marketing passes below. `?testUid=<uid>` restricts the send to one
+    // person (a production dry-run before the real blast).
+    if (only === 'postevent') {
+      const testUid = req.query?.testUid || req.body?.testUid || null;
+      const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun, testUid);
+      console.log(`✅ Cron (only=postevent${testUid ? `, testUid=${testUid}` : ''}):`, JSON.stringify(postEventPrompts));
+      return res.status(200).json({ success: true, only: 'postevent', testUid: testUid || null, postEventPrompts, ts: new Date().toISOString() });
+    }
 
     // 1) Transactional, time-sensitive — always send, and claim the address so
     //    marketing yields to them. (These run over ticket-holders, not leads.)

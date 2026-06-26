@@ -161,7 +161,15 @@
 
         async function loadEvent() {
             try {
-                const r = await fetch('/api/next-event');
+                // Pin to a specific event when ?eventId= is in the URL (QR code
+                // encodes the event ID so check-ins don't drift to the next event
+                // once the current event's date passes midnight UTC).
+                const qs = new URLSearchParams(location.search);
+                const eventIdParam = qs.get('eventId') || qs.get('event');
+                const url = eventIdParam
+                    ? '/api/next-event?id=' + encodeURIComponent(eventIdParam)
+                    : '/api/next-event';
+                const r = await fetch(url);
                 const d = await r.json();
                 if (d && d.event && d.event.id) {
                     event = { id: d.event.id, title: d.event.title || 'SparkDate event' };

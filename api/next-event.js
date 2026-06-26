@@ -182,6 +182,33 @@ module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'public, s-maxage=120, max-age=60');
 
   try {
+    // Specific-event lookup: check-in page passes ?id= so it stays pinned to
+    // the right event even after the event date passes (the "next upcoming"
+    // path would switch to the next event once the date crosses midnight UTC).
+    if (req.query && req.query.id) {
+      const doc = await db.collection('events').doc(String(req.query.id)).get();
+      if (!doc.exists) return res.status(200).json({ event: null });
+      const e = doc.data();
+      const dt = e.date?.toDate ? e.date.toDate() : (e.date ? new Date(e.date) : null);
+      const ep = effectivePrice(e, 'any');
+      return res.status(200).json({
+        event: {
+          id: doc.id,
+          title: e.title || 'SparkDate Event',
+          date: dt ? dt.toISOString() : null,
+          time: e.time || '',
+          venue: e.venue || '',
+          neighborhood: e.neighborhood || '',
+          price: ep.price,
+          regularPrice: ep.regularPrice,
+          isEarlyBird: ep.isEarlyBird,
+          earlyBirdEnds: ep.earlyBirdEnds,
+          blurb: e.blurb || '',
+          status: e.status || 'open',
+        },
+      });
+    }
+
     // The events collection is small — fetch ordered by date and pick the
     // first one that's still upcoming and not sold out. Filtering in code
     // keeps this a single-field query (no composite index needed).

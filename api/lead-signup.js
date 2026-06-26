@@ -442,29 +442,24 @@ async function handleCheckin(req, res) {
   }
 
   // 3. Idempotent CONFIRMED event_registration for (uid, eventId).
-  const regSnap = await db.collection('event_registrations')
-    .where('userId', '==', uid).where('eventId', '==', eventId).limit(1).get();
-  let alreadyRegistered = false;
-  if (!regSnap.empty) {
-    alreadyRegistered = true;
-    await regSnap.docs[0].ref.set({
-      status: 'confirmed',
-      checkedInAt: FieldValue.serverTimestamp(),
-      firstTimeAttendee: firstTime,
-      photoConsent,
-    }, { merge: true });
-  } else {
-    const monthKey = new Date().toISOString().slice(0, 7);
-    await db.collection('event_registrations').add({
-      userId: uid, email, name: firstName, phone, gender,
-      eventId, eventTitle, ticketId: null, paymentIntentId: null,
-      status: 'confirmed', source: 'checkin',
-      firstTimeAttendee: firstTime, photoConsent, month: monthKey,
-      checkedInAt: FieldValue.serverTimestamp(),
+  // Deterministic doc ID means concurrent check-ins for the same person
+  // merge into one doc instead of racing to .add() duplicates (TOCTOU).
+  const regId = `ci_${uid}_${eventId}`;
+  const regRef = db.collection('event_registrations').doc(regId);
+  const regSnap = await regRef.get();
+  const alreadyRegistered = regSnap.exists;
+  const monthKey = new Date().toISOString().slice(0, 7);
+  await regRef.set({
+    userId: uid, email, name: firstName, phone, gender,
+    eventId, eventTitle, ticketId: null, paymentIntentId: null,
+    status: 'confirmed', source: 'checkin',
+    firstTimeAttendee: firstTime, photoConsent, month: monthKey,
+    checkedInAt: FieldValue.serverTimestamp(),
+    ...(!alreadyRegistered ? {
       registeredAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
-    });
-  }
+    } : {}),
+  }, { merge: true });
 
   // 4. Profile-completion nudge (best-effort — NEVER abort check-in on failure;
   //    the registration above is what the door needs). Skip if the profile is
