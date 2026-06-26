@@ -275,21 +275,21 @@ async function sendProfileReminders(nowMs, emailedThisRun) {
       .get();
     for (const evDoc of evSnap.docs) {
       const eventName = evDoc.data().title || 'your SparkDate event';
-      // Single-field query (eventId is auto-indexed); filter status in code to
-      // avoid needing a composite index (mirrors purchase-ticket sweepStale3ds).
-      const tkSnap = await db.collection('tickets').where('eventId', '==', evDoc.id).get();
+      // event_registrations is the single source of truth for attendance —
+      // covers ticket buyers, check-ins, and admin-enrolled guests in one query.
+      const regSnap = await db.collection('event_registrations').where('eventId', '==', evDoc.id).get();
       const seen = new Set();
-      for (const tk of tkSnap.docs) {
-        const t = tk.data();
-        if (t.status !== 'confirmed' || !t.firebaseUid || seen.has(t.firebaseUid)) { skipped++; continue; }
-        seen.add(t.firebaseUid);
-        const uref = db.collection('users').doc(t.firebaseUid);
+      for (const reg of regSnap.docs) {
+        const r = reg.data();
+        if (r.status !== 'confirmed' || !r.userId || seen.has(r.userId)) { skipped++; continue; }
+        seen.add(r.userId);
+        const uref = db.collection('users').doc(r.userId);
         const usnap = await uref.get();
         if (!usnap.exists) { skipped++; continue; }
         const u = usnap.data();
         if (u.profileCompleted === true || u.profileReminderSent === true || !u.email) { skipped++; continue; }
         try {
-          const profileUrl = makeProfileUrl(t.firebaseUid);
+          const profileUrl = makeProfileUrl(r.userId);
           const result = await resend.emails.send({
             from: 'SparkDate <hello@mail.sparkdate.date>',
             to: u.email,
@@ -300,9 +300,9 @@ async function sendProfileReminders(nowMs, emailedThisRun) {
             await uref.update({ profileReminderSent: true, profileReminderSentAt: new Date().toISOString() });
             if (emailedThisRun) emailedThisRun.add(String(u.email).toLowerCase().trim());
             sent++;
-            console.log(`✅ profile reminder → users/${t.firebaseUid}`);
+            console.log(`✅ profile reminder → users/${r.userId}`);
           } else { skipped++; }
-        } catch (e) { console.error('[profile-reminder]', t.firebaseUid, e.message); skipped++; }
+        } catch (e) { console.error('[profile-reminder]', r.userId, e.message); skipped++; }
       }
     }
   } catch (e) {
@@ -344,7 +344,35 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 </div></body></html>`;
 }
 
-async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null) {
+async function auditPostEventPrompts(nowMs, eventId) {
+  const candidates = [];
+  try {
+    const since = new Date(nowMs - POST_EVENT_LOOKBACK_DAYS * 86400000);
+    const evQuery = eventId
+      ? await db.collection('events').doc(eventId).get().then(d => d.exists ? [d] : [])
+      : await db.collection('events').where('date', '>=', since).where('date', '<=', new Date(nowMs)).get().then(s => s.docs);
+    for (const evDoc of evQuery) {
+      const erSnap = await db.collection('event_registrations').where('eventId', '==', evDoc.id).get();
+      const seen = new Set();
+      for (const er of erSnap.docs) {
+        const r = er.data();
+        if (r.status !== 'confirmed' || !r.userId || seen.has(r.userId)) continue;
+        seen.add(r.userId);
+        const usnap = await db.collection('users').doc(r.userId).get();
+        const email = usnap.exists ? usnap.data().email : null;
+        const phone = usnap.exists ? usnap.data().phone : null;
+        candidates.push({
+          uid: r.userId, email: email || null, hasPhone: !!(phone && phone.trim()),
+          alreadySent: !!r.postEventPromptSent, src: r.source || 'reg',
+          eventId: evDoc.id, eventTitle: evDoc.data().title || evDoc.id,
+        });
+      }
+    }
+  } catch (e) { console.error('[post-event-audit] failed:', e.message); }
+  return candidates;
+}
+
+async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resendUids = null) {
   let sent = 0, skipped = 0;
   try {
     const since = new Date(nowMs - POST_EVENT_LOOKBACK_DAYS * 86400000);
@@ -354,33 +382,22 @@ async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null) {
       .get();
     for (const evDoc of evSnap.docs) {
       const eventName = evDoc.data().title || 'your SparkDate event';
-      // Query BOTH tickets and event_registrations — QR check-in only writes
-      // to event_registrations (not tickets), so tickets alone misses everyone
-      // who checked in at the door. Anyone confirmed in either collection gets
-      // the email; dedup by uid so native buyers (who have both) get it once.
-      const [tkSnap, erSnap] = await Promise.all([
-        db.collection('tickets').where('eventId', '==', evDoc.id).get(),
-        db.collection('event_registrations').where('eventId', '==', evDoc.id).get(),
-      ]);
+      // event_registrations is the single source of truth for attendance.
+      // Every confirmed attendee — ticket buyer, check-in, or admin-enrolled —
+      // has exactly one reg_{uid}_{eventId} doc here. No need to query tickets.
+      const erSnap = await db.collection('event_registrations').where('eventId', '==', evDoc.id).get();
 
-      // A person can appear in BOTH collections (every native/Eventbrite buyer
-      // has a ticket AND a registration). We mark `postEventPromptSent` on only
-      // ONE doc per send, so gather every uid that already has ANY marked doc
-      // across both collections — otherwise the unmarked sibling re-sends on the
-      // next day's run inside the 3-day lookback (a person would get 2–3 copies).
+      // resendUids bypasses alreadySent for listed uids — used to resend to
+      // specific attendees who were missed without re-sending to everyone.
+      const resendSet = resendUids ? new Set(resendUids) : null;
       const alreadySent = new Set();
-      for (const tk of tkSnap.docs) { const t = tk.data(); if (t.postEventPromptSent && t.firebaseUid) alreadySent.add(t.firebaseUid); }
-      for (const er of erSnap.docs) { const r = er.data(); if (r.postEventPromptSent && r.userId) alreadySent.add(r.userId); }
+      for (const er of erSnap.docs) {
+        const r = er.data();
+        if (r.postEventPromptSent && r.userId && !(resendSet && resendSet.has(r.userId))) alreadySent.add(r.userId);
+      }
 
       const seen = new Set();
       const candidates = [];
-      for (const tk of tkSnap.docs) {
-        const t = tk.data();
-        if (t.status !== 'confirmed' || !t.firebaseUid) { skipped++; continue; }
-        if (alreadySent.has(t.firebaseUid) || seen.has(t.firebaseUid)) { skipped++; continue; }
-        seen.add(t.firebaseUid);
-        candidates.push({ uid: t.firebaseUid, ref: tk.ref, src: 'ticket' });
-      }
       for (const er of erSnap.docs) {
         const r = er.data();
         if (r.status !== 'confirmed' || !r.userId) { skipped++; continue; }
@@ -389,9 +406,10 @@ async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null) {
         candidates.push({ uid: r.userId, ref: er.ref, src: 'reg' });
       }
       for (const cand of candidates) {
-        // Single-recipient dry-run: ?testUid=<uid> sends only to that person so
-        // an admin can verify the whole loop in prod before the real blast.
+        // testUid: single-recipient dry-run before the real blast
+        // resendUids: restrict to listed uids only
         if (testUid && cand.uid !== testUid) { skipped++; continue; }
+        if (resendSet && !resendSet.has(cand.uid)) { skipped++; continue; }
         const usnap = await db.collection('users').doc(cand.uid).get();
         const email = usnap.exists ? usnap.data().email : null;
         if (!email) { skipped++; continue; }
@@ -601,13 +619,27 @@ module.exports = async function handler(req, res) {
 
     // Scoped trigger: run ONLY the post-event prompt pass and return. Lets an
     // admin (re)send the morning-after match links on demand without touching
-    // the marketing passes below. `?testUid=<uid>` restricts the send to one
-    // person (a production dry-run before the real blast).
+    // the marketing passes below.
+    // ?testUid=<uid>          — dry-run to one person before the real blast
+    // ?resendUids=uid1,uid2   — resend to specific uids (bypasses alreadySent)
+    // ?audit=1&eventId=X      — preview who WOULD receive the email (no sends)
     if (only === 'postevent') {
-      const testUid = req.query?.testUid || req.body?.testUid || null;
-      const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun, testUid);
-      console.log(`✅ Cron (only=postevent${testUid ? `, testUid=${testUid}` : ''}):`, JSON.stringify(postEventPrompts));
-      return res.status(200).json({ success: true, only: 'postevent', testUid: testUid || null, postEventPrompts, ts: new Date().toISOString() });
+      const testUid    = req.query?.testUid    || req.body?.testUid    || null;
+      const resendRaw  = req.query?.resendUids || req.body?.resendUids || null;
+      const resendUids = resendRaw ? String(resendRaw).split(',').map(s => s.trim()).filter(Boolean) : null;
+      const audit      = (req.query?.audit === '1' || req.body?.audit === '1');
+      const auditEventId = req.query?.eventId || req.body?.eventId || null;
+
+      if (audit) {
+        // Return the candidate list without sending anything
+        const candidates = await auditPostEventPrompts(nowMs, auditEventId);
+        console.log(`✅ Cron audit (only=postevent, eventId=${auditEventId}):`, candidates.length, 'candidates');
+        return res.status(200).json({ success: true, audit: true, eventId: auditEventId, candidates, ts: new Date().toISOString() });
+      }
+
+      const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun, testUid, resendUids);
+      console.log(`✅ Cron (only=postevent${testUid ? `, testUid=${testUid}` : ''}${resendUids ? `, resendUids=${resendUids.join(',')}` : ''}):`, JSON.stringify(postEventPrompts));
+      return res.status(200).json({ success: true, only: 'postevent', testUid: testUid || null, resendUids: resendUids || null, postEventPrompts, ts: new Date().toISOString() });
     }
 
     // 1) Transactional, time-sensitive — always send, and claim the address so
