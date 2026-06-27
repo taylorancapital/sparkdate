@@ -273,7 +273,7 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
   // wasNewUserDoc / alreadyCompleted drive which welcome email goes out below.
   // Set inside the txn (reset on each retry) so they reflect the final state.
   const ticketId = `eb_${uid}_${eventId}`;
-  const regId    = `eb_reg_${uid}_${eventId}`;
+  const regId    = `reg_${uid}_${eventId}`;
   let wasNewUserDoc = false;
   let alreadyCompleted = false;
   await db.runTransaction(async (txn) => {
@@ -442,9 +442,9 @@ async function handleCheckin(req, res) {
   }
 
   // 3. Idempotent CONFIRMED event_registration for (uid, eventId).
-  // Deterministic doc ID means concurrent check-ins for the same person
-  // merge into one doc instead of racing to .add() duplicates (TOCTOU).
-  const regId = `ci_${uid}_${eventId}`;
+  // Canonical reg_{uid}_{eventId} ID matches purchase + enroll paths so all
+  // three paths merge into one doc instead of creating duplicates (TOCTOU fix).
+  const regId = `reg_${uid}_${eventId}`;
   const regRef = db.collection('event_registrations').doc(regId);
   const regSnap = await regRef.get();
   const alreadyRegistered = regSnap.exists;

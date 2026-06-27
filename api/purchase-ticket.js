@@ -345,14 +345,29 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
     });
     userDocCreated = true;
 
-    // Backfill userId on the event_registration created during checkout
-    // (it was null because the user didn't exist yet at payment time).
+    // Backfill: find the guest temp reg doc (reg_guest_{paymentIntentId}_{eventId})
+    // and promote it to the canonical reg_{uid}_{eventId} ID.
     if (eventId) {
-      await db.collection('event_registrations')
-        .where('email', '==', norm).where('eventId', '==', eventId).where('userId', '==', null)
-        .limit(1).get()
-        .then(snap => { if (!snap.empty) return snap.docs[0].ref.update({ userId: userRecord.uid }); })
-        .catch(e => console.error('[auto-enroll] reg backfill failed:', e.message));
+      try {
+        const canonicalId = `reg_${userRecord.uid}_${eventId}`;
+        const canonicalRef = db.collection('event_registrations').doc(canonicalId);
+        // Find the guest temp doc by email+eventId+null userId
+        const guestSnap = await db.collection('event_registrations')
+          .where('email', '==', norm).where('eventId', '==', eventId).where('userId', '==', null)
+          .limit(1).get();
+        if (!guestSnap.empty) {
+          const guestDoc = guestSnap.docs[0];
+          // Write to canonical ID (merge in case a checkin already created it)
+          await canonicalRef.set({ ...guestDoc.data(), userId: userRecord.uid }, { merge: true });
+          // Delete the temp doc only if it's different from canonical
+          if (guestDoc.id !== canonicalId) await guestDoc.ref.delete();
+        } else {
+          // Guest doc not found — just ensure canonical doc has userId set
+          await canonicalRef.set({ userId: userRecord.uid }, { merge: true });
+        }
+      } catch (e) {
+        console.error('[auto-enroll] reg backfill failed:', e.message);
+      }
     }
 
     // Password-reset link doubles as the "set initial password" link
@@ -669,7 +684,12 @@ module.exports = async function handler(req, res) {
     const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     const ticketRef = db.collection('tickets').doc();
-    const regRef    = db.collection('event_registrations').doc();
+    // Deterministic reg ID so any write path (purchase, checkin, enroll) for the
+    // same person+event merges into one doc instead of creating duplicates.
+    // Guests have no uid yet — use a payment-keyed temp ID; enrollGuestAsMember
+    // will copy it to reg_{uid}_{eventId} once the account is created.
+    const regId  = firebaseUid ? `reg_${firebaseUid}_${eventId}` : `reg_guest_${paymentIntent.id}_${eventId}`;
+    const regRef = db.collection('event_registrations').doc(regId);
     const batch = db.batch();
     batch.set(ticketRef, {
       firebaseUid: firebaseUid || null,
@@ -699,7 +719,7 @@ module.exports = async function handler(req, res) {
       month: monthKey,
       registeredAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
-    });
+    }, { merge: true });
     await batch.commit();
 
     // ── 3-D Secure: hand the clientSecret back to the browser. ─────
