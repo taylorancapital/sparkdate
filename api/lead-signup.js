@@ -108,16 +108,19 @@ async function handleProfileCompletion(req, res) {
   }
   const interests = splitTags(req.body?.interests);
   const vibes = splitTags(req.body?.vibes);
+  const phone = clean(req.body?.phone, MAX_PHONE);
 
   const ref = db.collection('users').doc(uid);
   const snap = await ref.get();
   if (!snap.exists) return res.status(404).json({ error: 'Account not found.' });
 
-  await ref.update({
+  const update = {
     age, intent, interests, vibes,
     profileCompleted: true,
     profileCompletedAt: new Date().toISOString(),
-  });
+  };
+  if (phone) update.phone = phone;
+  await ref.update(update);
   console.log('✅ chemistry profile completed for users/' + uid);
   return res.status(200).json({ success: true });
 }
