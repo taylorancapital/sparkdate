@@ -705,6 +705,22 @@
             margin-top: 14px;
         }
 
+        /* Rotation schedule */
+        .schedule-wrap { overflow-x: auto; padding-bottom: 8px; }
+        .sched-table { border-collapse: collapse; min-width: max-content; font-size: 12px; }
+        .sched-table th, .sched-table td { padding: 8px 10px; border: 1px solid rgba(255,107,107,0.12); text-align: center; }
+        .sched-round-label { font-size: 11px; font-weight: 700; color: rgba(245,243,240,0.5); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; text-align: left !important; padding-right: 14px; }
+        .sched-th { font-size: 11px; font-weight: 700; color: rgba(245,243,240,0.5); text-transform: uppercase; letter-spacing: 0.5px; }
+        .sched-cell { min-width: 160px; vertical-align: middle; }
+        .sched-cell.high { background: rgba(74,222,128,0.07); }
+        .sched-cell.low  { background: rgba(255,107,107,0.05); opacity: 0.6; }
+        .sched-names { display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap; }
+        .sched-w { font-weight: 600; color: var(--coral); }
+        .sched-m { font-weight: 600; color: #7eb8f7; }
+        .sched-sep { color: rgba(245,243,240,0.3); font-size: 10px; }
+        .sched-score { font-size: 10px; font-weight: 700; color: rgba(245,243,240,0.4); margin-top: 3px; }
+        .sched-cell.high .sched-score { color: var(--success); }
+
         /* Grouped chemistry cards */
         .chem-cards {
             display: flex;
@@ -1221,6 +1237,7 @@
             <div class="chem-toggle">
                 <button class="chem-toggle-btn active" id="viewChemBtn" onclick="switchChemView('chemistry')">Chemistry</button>
                 <button class="chem-toggle-btn" id="viewIntrosBtn" onclick="switchChemView('intros')">Intro order</button>
+                <button class="chem-toggle-btn" id="viewScheduleBtn" onclick="switchChemView('schedule')">Schedule</button>
             </div>
             <div id="chemView">
                 <div class="chem-cards" id="candidateTable"></div>
@@ -1233,6 +1250,7 @@
                     <button class="action-btn" onclick="printIntros()">⎙ Print cheat sheet</button>
                 </div>
             </div>
+            <div id="scheduleView" style="display:none;"></div>
         </div>
     </div>
         </div>
@@ -2207,12 +2225,14 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
         // ── View toggle ───────────────────────────────────────
         window.switchChemView = (view) => {
-            const isIntros = view === 'intros';
-            document.getElementById('chemView').style.display   = isIntros ? 'none' : '';
-            document.getElementById('introsView').style.display = isIntros ? '' : 'none';
-            document.getElementById('viewChemBtn').classList.toggle('active', !isIntros);
-            document.getElementById('viewIntrosBtn').classList.toggle('active',  isIntros);
-            if (isIntros) renderIntros();
+            document.getElementById('chemView').style.display      = view === 'chemistry' ? '' : 'none';
+            document.getElementById('introsView').style.display    = view === 'intros'    ? '' : 'none';
+            document.getElementById('scheduleView').style.display  = view === 'schedule'  ? '' : 'none';
+            document.getElementById('viewChemBtn').classList.toggle('active',     view === 'chemistry');
+            document.getElementById('viewIntrosBtn').classList.toggle('active',   view === 'intros');
+            document.getElementById('viewScheduleBtn').classList.toggle('active', view === 'schedule');
+            if (view === 'intros')    renderIntros();
+            if (view === 'schedule')  renderSchedule();
         };
 
         // ── Intro cheat sheet state ───────────────────────────
@@ -2284,6 +2304,222 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             }).join('\n\n');
             const w = window.open('', '_blank');
             w.document.write(`<pre style="font-family:monospace;font-size:14px;padding:24px;white-space:pre-wrap;">${lines}</pre>`);
+            w.document.close();
+            w.print();
+        };
+
+        // ── Rotation schedule ──────────────────────────────────────────────────────
+        let _scheduleData = null;
+
+        function generateRotationSchedule() {
+            const women = _chemWomen, men = _chemMen, pairs = _chemPairs;
+            if (!women.length || !men.length) return null;
+
+            const N = Math.min(women.length, men.length);
+            const wFixed = women.slice(0, N);
+            const mPool  = men.slice(0, N);
+
+            // O(1) score lookup
+            const scoreMap = new Map();
+            for (const p of pairs) {
+                scoreMap.set(p.a.id + '|' + p.b.id, p.score);
+                scoreMap.set(p.b.id + '|' + p.a.id, p.score);
+            }
+            const ps = (wId, mId) => scoreMap.get(wId + '|' + mId) || PAIR_SCORE.BASE;
+
+            // Score a starting assignment: earlier rounds are weighted higher so
+            // the best pairs appear in round 1 rather than being spread randomly.
+            const scoreAssign = (perm) => {
+                let total = 0;
+                for (let r = 0; r < N; r++) {
+                    const w = N - r;
+                    for (let t = 0; t < N; t++)
+                        total += w * ps(wFixed[t].id, perm[((t - r) % N + N) % N].id);
+                }
+                return total;
+            };
+
+            let bestPerm = mPool.slice(), bestScore = scoreAssign(bestPerm);
+
+            if (N <= 8) {
+                // Brute-force all N! permutations (max 40 320 for N=8, fast in JS)
+                const arr = mPool.slice();
+                const perm = (l) => {
+                    if (l === arr.length - 1) {
+                        const s = scoreAssign(arr);
+                        if (s > bestScore) { bestScore = s; bestPerm = arr.slice(); }
+                        return;
+                    }
+                    for (let i = l; i < arr.length; i++) {
+                        [arr[l], arr[i]] = [arr[i], arr[l]];
+                        perm(l + 1);
+                        [arr[l], arr[i]] = [arr[i], arr[l]];
+                    }
+                };
+                perm(0);
+            } else {
+                // Greedy: assign to each starting position the highest-scoring man
+                // for that table's woman (maximises round-0 chemistry as a proxy).
+                const avail = new Set(mPool.map((_, i) => i));
+                const assign = new Array(N);
+                for (let t = 0; t < N; t++) {
+                    let bi = -1, bs = -Infinity;
+                    for (const i of avail) {
+                        const s = ps(wFixed[t].id, mPool[i].id);
+                        if (s > bs) { bs = s; bi = i; }
+                    }
+                    assign[t] = mPool[bi];
+                    avail.delete(bi);
+                }
+                bestPerm = assign;
+            }
+
+            // Build round-by-round grid
+            const rounds = Array.from({ length: N }, (_, r) =>
+                Array.from({ length: N }, (_, t) => {
+                    const man = bestPerm[((t - r) % N + N) % N];
+                    const woman = wFixed[t];
+                    return { table: t + 1, woman, man, score: ps(woman.id, man.id) };
+                })
+            );
+
+            return {
+                rounds, N, bestPerm, wFixed,
+                extraMen:   men.slice(N),
+                extraWomen: women.slice(N),
+            };
+        }
+
+        function renderSchedule() {
+            const container = document.getElementById('scheduleView');
+            _scheduleData = generateRotationSchedule();
+
+            if (!_scheduleData) {
+                container.innerHTML = '<div class="empty" style="padding:24px;text-align:center;">No opposite-gender pairs yet.</div>';
+                return;
+            }
+
+            const { rounds, N, extraMen, extraWomen } = _scheduleData;
+
+            const headerCells = Array.from({ length: N }, (_, i) =>
+                `<th class="sched-th">Table ${i + 1}</th>`).join('');
+
+            const bodyRows = rounds.map((seats, r) => {
+                const cells = seats.map(s => {
+                    const cls = s.score >= 70 ? 'high' : s.score < 45 ? 'low' : '';
+                    return `<td class="sched-cell ${cls}">
+                        <div class="sched-names">
+                            <span class="sched-w">${safe(_chemShortName(s.woman))}</span>
+                            <span class="sched-sep">↔</span>
+                            <span class="sched-m">${safe(_chemShortName(s.man))}</span>
+                        </div>
+                        <div class="sched-score">${s.score}</div>
+                    </td>`;
+                }).join('');
+                return `<tr><th class="sched-round-label">Round ${r + 1}</th>${cells}</tr>`;
+            }).join('');
+
+            const extrasHtml = (extraMen.length || extraWomen.length) ? `
+                <div style="margin-top:10px;font-size:12px;color:var(--coral);opacity:0.85;">
+                    ${extraMen.length   ? `⚠ Extra men sitting out each round: ${extraMen.map(m => safe(_chemShortName(m))).join(', ')}` : ''}
+                    ${extraWomen.length ? `⚠ Extra women without a partner each round: ${extraWomen.map(w => safe(_chemShortName(w))).join(', ')}` : ''}
+                </div>` : '';
+
+            container.innerHTML = `
+                <div class="schedule-wrap">
+                    <table class="sched-table">
+                        <thead><tr><th class="sched-round-label"></th>${headerCells}</tr></thead>
+                        <tbody>${bodyRows}</tbody>
+                    </table>
+                </div>
+                ${extrasHtml}
+                <div class="intros-print-btn">
+                    <button class="action-btn" onclick="printSchedule()">⎙ Print schedule</button>
+                </div>`;
+        }
+
+        window.printSchedule = () => {
+            if (!_scheduleData) return;
+            const { rounds, N, bestPerm, wFixed, extraMen, extraWomen } = _scheduleData;
+            const sn = _chemShortName;
+
+            // Master grid HTML
+            const headerCells = Array.from({ length: N }, (_, i) => `<th>Table ${i + 1}</th>`).join('');
+            const bodyRows = rounds.map((seats, r) => {
+                const cells = seats.map(s => {
+                    const hi = s.score >= 70 ? 'color:#1a7a3a;font-weight:700;' : s.score < 45 ? 'color:#aaa;' : '';
+                    return `<td style="${hi}">
+                        <div><strong>${sn(s.woman)}</strong> ↔ <strong>${sn(s.man)}</strong></div>
+                        <div style="font-size:11px;color:#888;">${s.score}</div>
+                    </td>`;
+                }).join('');
+                return `<tr><th style="text-align:left;padding-right:16px;white-space:nowrap;color:#555;font-size:12px;">Round ${r + 1}</th>${cells}</tr>`;
+            }).join('');
+
+            // Per-person rotation cards
+            // Women (fixed): show their partner each round
+            const womenCards = wFixed.map(w => {
+                const rows = rounds.map((seats, r) => {
+                    const seat = seats.find(s => s.woman.id === w.id);
+                    const hi = seat.score >= 70 ? 'color:#1a7a3a;font-weight:600;' : seat.score < 45 ? 'color:#aaa;' : '';
+                    return `<li style="${hi}">Round ${r + 1}: <strong>${sn(seat.man)}</strong> <span style="color:#888;font-size:11px;">(${seat.score})</span></li>`;
+                }).join('');
+                return `<div class="pcard">
+                    <div class="pcard-name">${sn(w)} <span class="pcard-role">stays at her table</span></div>
+                    <ol>${rows}</ol>
+                </div>`;
+            }).join('');
+
+            // Men (rotating): show their table each round
+            const menCards = bestPerm.map((man, startPos) => {
+                const rows = rounds.map((seats, r) => {
+                    const t = (startPos + r) % N;
+                    const seat = seats[t];
+                    const hi = seat.score >= 70 ? 'color:#1a7a3a;font-weight:600;' : seat.score < 45 ? 'color:#aaa;' : '';
+                    return `<li style="${hi}">Round ${r + 1}: Table ${t + 1} → <strong>${sn(seat.woman)}</strong> <span style="color:#888;font-size:11px;">(${seat.score})</span></li>`;
+                }).join('');
+                return `<div class="pcard">
+                    <div class="pcard-name">${sn(man)} <span class="pcard-role">rotates →</span></div>
+                    <ol>${rows}</ol>
+                </div>`;
+            }).join('');
+
+            const extrasNote = (extraMen.length || extraWomen.length)
+                ? `<p style="color:#c00;margin-top:16px;">
+                    ${extraMen.length   ? `⚠ Sitting out each round (extra men): ${extraMen.map(sn).join(', ')}` : ''}
+                    ${extraWomen.length ? `⚠ No partner each round (extra women): ${extraWomen.map(sn).join(', ')}` : ''}
+                   </p>`
+                : '';
+
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Rotation Schedule</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; padding: 24px; color: #111; }
+  h2 { margin: 0 0 16px; font-size: 18px; }
+  h3 { margin: 32px 0 12px; font-size: 15px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }
+  th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: center; vertical-align: middle; }
+  thead th { background: #f5f5f5; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  .pcards { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; }
+  .pcard { border: 1px solid #ddd; border-radius: 6px; padding: 12px 14px; min-width: 220px; max-width: 260px; page-break-inside: avoid; }
+  .pcard-name { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+  .pcard-role { font-weight: 400; font-size: 11px; color: #888; }
+  ol { margin: 0; padding-left: 20px; }
+  ol li { padding: 3px 0; }
+  @media print { body { padding: 12px; } }
+</style></head><body>
+<h2>Rotation Schedule</h2>
+<table>
+  <thead><tr><th></th>${headerCells}</tr></thead>
+  <tbody>${bodyRows}</tbody>
+</table>
+${extrasNote}
+<h3>Individual rotation cards</h3>
+<div class="pcards">${womenCards}${menCards}</div>
+</body></html>`;
+
+            const w = window.open('', '_blank');
+            w.document.write(html);
             w.document.close();
             w.print();
         };
