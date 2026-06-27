@@ -90,6 +90,9 @@
                     <button type="button" data-g="man">Man</button>
                 </div>
 
+                <label for="ciPhone">Phone <span style="opacity:0.5;font-weight:400;">(optional — for your matches)</span></label>
+                <input type="tel" id="ciPhone" placeholder="e.g. 215-555-0100" maxlength="20" autocomplete="tel">
+
                 <div class="toggle-row">
                     <input type="checkbox" id="ciFirstTime">
                     <label for="ciFirstTime">First time at a SparkDate event?</label>
@@ -137,6 +140,9 @@
                     <label for="pVibes">Your vibe</label>
                     <input type="text" id="pVibes" placeholder="adventurous, low-key, witty…">
                     <div class="hint">How would your friends describe you?</div>
+
+                    <label for="pPhone">Phone <span style="opacity:0.5;font-weight:400;">(optional — shared only with mutual matches)</span></label>
+                    <input type="tel" id="pPhone" placeholder="e.g. 215-555-0100" maxlength="20" autocomplete="tel">
 
                     <button type="submit" class="submit" id="pSubmit">Save my profile →</button>
                     <div class="msg" id="pMsg"></div>
@@ -244,7 +250,7 @@
                 const res = await fetch('/api/lead-signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'complete_profile', uid: checkinUid, t: checkinToken, age, intent, interests, vibes }),
+                    body: JSON.stringify({ action: 'complete_profile', uid: checkinUid, t: checkinToken, age, intent, interests, vibes, phone: document.getElementById('pPhone').value }),
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Could not save profile');
@@ -293,7 +299,7 @@
                 const res = await fetch('/api/lead-signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'checkin', email, firstName, gender, firstTime, photoConsent, eventId: event.id, eventTitle: event.title }),
+                    body: JSON.stringify({ action: 'checkin', email, firstName, gender, phone: document.getElementById('ciPhone').value, firstTime, photoConsent, eventId: event.id, eventTitle: event.title }),
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Check-in failed');
