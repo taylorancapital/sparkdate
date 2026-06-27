@@ -352,7 +352,11 @@ async function auditPostEventPrompts(nowMs, eventId) {
       ? await db.collection('events').doc(eventId).get().then(d => d.exists ? [d] : [])
       : await db.collection('events').where('date', '>=', since).where('date', '<=', new Date(nowMs)).get().then(s => s.docs);
     for (const evDoc of evQuery) {
-      const erSnap = await db.collection('event_registrations').where('eventId', '==', evDoc.id).get();
+      const [erSnap, lockSnap] = await Promise.all([
+        db.collection('event_registrations').where('eventId', '==', evDoc.id).get(),
+        db.collection('post_event_prompts').where('eventId', '==', evDoc.id).get(),
+      ]);
+      const sentLock = new Set(lockSnap.docs.map(d => d.data().userId).filter(Boolean));
       const seen = new Set();
       for (const er of erSnap.docs) {
         const r = er.data();
@@ -363,7 +367,7 @@ async function auditPostEventPrompts(nowMs, eventId) {
         const phone = usnap.exists ? usnap.data().phone : null;
         candidates.push({
           uid: r.userId, email: email || null, hasPhone: !!(phone && phone.trim()),
-          alreadySent: !!r.postEventPromptSent, src: r.source || 'reg',
+          alreadySent: sentLock.has(r.userId) || !!r.postEventPromptSent, src: r.source || 'reg',
           eventId: evDoc.id, eventTitle: evDoc.data().title || evDoc.id,
         });
       }
@@ -390,7 +394,17 @@ async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resen
       // resendUids bypasses alreadySent for listed uids — used to resend to
       // specific attendees who were missed without re-sending to everyone.
       const resendSet = resendUids ? new Set(resendUids) : null;
+
+      // Primary idempotency lock lives in a dedicated collection that is ONLY
+      // written by this code and never touched by migration scripts, check-in
+      // handlers, or enrollment flows. Belt-and-suspenders: also honour the
+      // legacy postEventPromptSent field on event_registrations docs.
+      const lockSnap = await db.collection('post_event_prompts').where('eventId', '==', evDoc.id).get();
       const alreadySent = new Set();
+      for (const lockDoc of lockSnap.docs) {
+        const d = lockDoc.data();
+        if (d.userId && !(resendSet && resendSet.has(d.userId))) alreadySent.add(d.userId);
+      }
       for (const er of erSnap.docs) {
         const r = er.data();
         if (r.postEventPromptSent && r.userId && !(resendSet && resendSet.has(r.userId))) alreadySent.add(r.userId);
@@ -421,7 +435,12 @@ async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resen
             html: postEventPromptHTML({ eventName, matchUrl: makeMatchUrl(cand.uid) }),
           });
           if (!result.error) {
-            await cand.ref.update({ postEventPromptSent: true, postEventPromptSentAt: new Date().toISOString() });
+            const sentAt = new Date().toISOString();
+            const lockRef = db.collection('post_event_prompts').doc(`${cand.uid}_${evDoc.id}`);
+            await Promise.all([
+              lockRef.set({ userId: cand.uid, eventId: evDoc.id, sentAt }),
+              cand.ref.update({ postEventPromptSent: true, postEventPromptSentAt: sentAt }),
+            ]);
             if (emailedThisRun) emailedThisRun.add(String(email).toLowerCase().trim());
             sent++;
             console.log(`✅ post-event prompt → ${cand.src}/${cand.ref.id}`);
