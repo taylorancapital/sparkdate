@@ -153,6 +153,16 @@ service cloud.firestore {
       allow write: if false; // server-only
     }
 
+    // ── post_event_prompts/{uid_eventId} ─────────────────────────
+    // Idempotency lock for the morning-after "who did you click with" email.
+    // Written exclusively by /api/cron-send-emails (Admin SDK bypasses rules).
+    // Lives in a separate collection so migration/enrollment scripts can never
+    // accidentally clear it (unlike postEventPromptSent on event_registrations).
+    match /post_event_prompts/{promptId} {
+      allow read: if isAdmin();
+      allow write: if false; // server-only
+    }
+
     // ── Default deny ─────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
