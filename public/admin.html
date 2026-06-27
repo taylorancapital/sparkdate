@@ -705,21 +705,21 @@
             margin-top: 14px;
         }
 
-        /* Rotation schedule */
-        .schedule-wrap { overflow-x: auto; padding-bottom: 8px; }
-        .sched-table { border-collapse: collapse; min-width: max-content; font-size: 12px; }
-        .sched-table th, .sched-table td { padding: 8px 10px; border: 1px solid rgba(255,107,107,0.12); text-align: center; }
-        .sched-round-label { font-size: 11px; font-weight: 700; color: rgba(245,243,240,0.5); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; text-align: left !important; padding-right: 14px; }
-        .sched-th { font-size: 11px; font-weight: 700; color: rgba(245,243,240,0.5); text-transform: uppercase; letter-spacing: 0.5px; }
-        .sched-cell { min-width: 160px; vertical-align: middle; }
-        .sched-cell.high { background: rgba(74,222,128,0.07); }
-        .sched-cell.low  { background: rgba(255,107,107,0.05); opacity: 0.6; }
-        .sched-names { display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap; }
-        .sched-w { font-weight: 600; color: var(--coral); }
-        .sched-m { font-weight: 600; color: #7eb8f7; }
-        .sched-sep { color: rgba(245,243,240,0.3); font-size: 10px; }
-        .sched-score { font-size: 10px; font-weight: 700; color: rgba(245,243,240,0.4); margin-top: 3px; }
-        .sched-cell.high .sched-score { color: var(--success); }
+        /* Priority intro list */
+        .prio-list { display: flex; flex-direction: column; }
+        .prio-item { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: opacity 0.15s; }
+        .prio-item:last-child { border-bottom: none; }
+        .prio-item.done { opacity: 0.35; }
+        .prio-item.done .prio-names { text-decoration: line-through; }
+        .prio-item.done .intro-check { background: var(--success); border-color: var(--success); }
+        .prio-item.done .intro-check::after { content: '✓'; font-size: 10px; color: #fff; }
+        .prio-num { font-size: 11px; color: rgba(245,243,240,0.25); width: 20px; text-align: right; flex-shrink: 0; }
+        .prio-body { flex: 1; min-width: 0; }
+        .prio-names { font-size: 13px; font-weight: 600; }
+        .prio-w { color: var(--coral); }
+        .prio-m { color: #7eb8f7; }
+        .prio-sep { color: rgba(245,243,240,0.3); font-weight: 400; margin: 0 3px; }
+        .prio-details { font-size: 11px; color: rgba(245,243,240,0.4); margin-top: 2px; }
 
         /* Grouped chemistry cards */
         .chem-cards {
@@ -1237,7 +1237,7 @@
             <div class="chem-toggle">
                 <button class="chem-toggle-btn active" id="viewChemBtn" onclick="switchChemView('chemistry')">Chemistry</button>
                 <button class="chem-toggle-btn" id="viewIntrosBtn" onclick="switchChemView('intros')">Intro order</button>
-                <button class="chem-toggle-btn" id="viewScheduleBtn" onclick="switchChemView('schedule')">Schedule</button>
+                <button class="chem-toggle-btn" id="viewScheduleBtn" onclick="switchChemView('schedule')">Priority Intros</button>
             </div>
             <div id="chemView">
                 <div class="chem-cards" id="candidateTable"></div>
@@ -2221,6 +2221,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         window.closeCandidates = () => {
             document.getElementById('candidateModal').classList.remove('show');
             _introsDone = new Set();
+            _priorityDone = new Set();
         };
 
         // ── View toggle ───────────────────────────────────────
@@ -2232,7 +2233,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             document.getElementById('viewIntrosBtn').classList.toggle('active',   view === 'intros');
             document.getElementById('viewScheduleBtn').classList.toggle('active', view === 'schedule');
             if (view === 'intros')    renderIntros();
-            if (view === 'schedule')  renderSchedule();
+            if (view === 'schedule')  renderPriorityIntros();
         };
 
         // ── Intro cheat sheet state ───────────────────────────
@@ -2308,220 +2309,116 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             w.print();
         };
 
-        // ── Rotation schedule ──────────────────────────────────────────────────────
-        let _scheduleData = null;
+        // ── Priority intro list ─────────────────────────────────────────────────────
+        let _priorityDone = new Set();
 
-        function generateRotationSchedule() {
-            const women = _chemWomen, men = _chemMen, pairs = _chemPairs;
-            if (!women.length || !men.length) return null;
-
-            const N = Math.min(women.length, men.length);
-            const wFixed = women.slice(0, N);
-            const mPool  = men.slice(0, N);
-
-            // O(1) score lookup
-            const scoreMap = new Map();
-            for (const p of pairs) {
-                scoreMap.set(p.a.id + '|' + p.b.id, p.score);
-                scoreMap.set(p.b.id + '|' + p.a.id, p.score);
-            }
-            const ps = (wId, mId) => scoreMap.get(wId + '|' + mId) || PAIR_SCORE.BASE;
-
-            // Score a starting assignment: earlier rounds are weighted higher so
-            // the best pairs appear in round 1 rather than being spread randomly.
-            const scoreAssign = (perm) => {
-                let total = 0;
-                for (let r = 0; r < N; r++) {
-                    const w = N - r;
-                    for (let t = 0; t < N; t++)
-                        total += w * ps(wFixed[t].id, perm[((t - r) % N + N) % N].id);
-                }
-                return total;
-            };
-
-            let bestPerm = mPool.slice(), bestScore = scoreAssign(bestPerm);
-
-            if (N <= 8) {
-                // Brute-force all N! permutations (max 40 320 for N=8, fast in JS)
-                const arr = mPool.slice();
-                const perm = (l) => {
-                    if (l === arr.length - 1) {
-                        const s = scoreAssign(arr);
-                        if (s > bestScore) { bestScore = s; bestPerm = arr.slice(); }
-                        return;
-                    }
-                    for (let i = l; i < arr.length; i++) {
-                        [arr[l], arr[i]] = [arr[i], arr[l]];
-                        perm(l + 1);
-                        [arr[l], arr[i]] = [arr[i], arr[l]];
-                    }
-                };
-                perm(0);
-            } else {
-                // Greedy: assign to each starting position the highest-scoring man
-                // for that table's woman (maximises round-0 chemistry as a proxy).
-                const avail = new Set(mPool.map((_, i) => i));
-                const assign = new Array(N);
-                for (let t = 0; t < N; t++) {
-                    let bi = -1, bs = -Infinity;
-                    for (const i of avail) {
-                        const s = ps(wFixed[t].id, mPool[i].id);
-                        if (s > bs) { bs = s; bi = i; }
-                    }
-                    assign[t] = mPool[bi];
-                    avail.delete(bi);
-                }
-                bestPerm = assign;
-            }
-
-            // Build round-by-round grid
-            const rounds = Array.from({ length: N }, (_, r) =>
-                Array.from({ length: N }, (_, t) => {
-                    const man = bestPerm[((t - r) % N + N) % N];
-                    const woman = wFixed[t];
-                    return { table: t + 1, woman, man, score: ps(woman.id, man.id) };
-                })
-            );
-
-            return {
-                rounds, N, bestPerm, wFixed,
-                extraMen:   men.slice(N),
-                extraWomen: women.slice(N),
-            };
-        }
-
-        function renderSchedule() {
+        function renderPriorityIntros() {
             const container = document.getElementById('scheduleView');
-            _scheduleData = generateRotationSchedule();
+            const pairs = _chemPairs;
 
-            if (!_scheduleData) {
-                container.innerHTML = '<div class="empty" style="padding:24px;text-align:center;">No opposite-gender pairs yet.</div>';
+            if (!pairs.length) {
+                container.innerHTML = '<div class="empty" style="padding:24px;text-align:center;">No pairs scored yet.</div>';
                 return;
             }
 
-            const { rounds, N, extraMen, extraWomen } = _scheduleData;
+            const rows = pairs.map((p, i) => {
+                const w = p.a, m = p.b;
+                const key = w.id + '|' + m.id;
+                const done = _priorityDone.has(key);
+                const scoreCls = p.score >= 70 ? 'high' : p.score < 45 ? 'low' : '';
 
-            const headerCells = Array.from({ length: N }, (_, i) =>
-                `<th class="sched-th">Table ${i + 1}</th>`).join('');
+                const details = [
+                    ...(p.sharedInterests  || []).slice(0, 2),
+                    ...(p.partialInterests || []).slice(0, 1).map(([a, b]) => `~${a}/${b}`),
+                    ...(p.sharedVibes      || []).slice(0, 1),
+                ];
+                let intentNote = '';
+                if (w.intent && m.intent) {
+                    if (w.intent === m.intent) intentNote = 'Same intent';
+                    else if ((w.intent === 'long_term' && m.intent === 'dating_around') ||
+                             (m.intent === 'long_term' && w.intent === 'dating_around')) intentNote = 'Near intent';
+                }
+                if (p.ageGap != null) details.push(`Δ${p.ageGap} yrs`);
+                if (intentNote) details.push(intentNote);
+                const allDetails = details.filter(Boolean).join(' · ');
 
-            const bodyRows = rounds.map((seats, r) => {
-                const cells = seats.map(s => {
-                    const cls = s.score >= 70 ? 'high' : s.score < 45 ? 'low' : '';
-                    return `<td class="sched-cell ${cls}">
-                        <div class="sched-names">
-                            <span class="sched-w">${safe(_chemShortName(s.woman))}</span>
-                            <span class="sched-sep">↔</span>
-                            <span class="sched-m">${safe(_chemShortName(s.man))}</span>
+                return `<div class="prio-item${done ? ' done' : ''}" onclick="togglePrio('${safe(w.id)}','${safe(m.id)}')">
+                    <div class="prio-num">${i + 1}</div>
+                    <div class="intro-check"></div>
+                    <div class="intro-score ${scoreCls}">${p.score}</div>
+                    <div class="prio-body">
+                        <div class="prio-names">
+                            <span class="prio-w">${safe(_chemShortName(w))}</span>
+                            <span class="prio-sep">↔</span>
+                            <span class="prio-m">${safe(_chemShortName(m))}</span>
                         </div>
-                        <div class="sched-score">${s.score}</div>
-                    </td>`;
-                }).join('');
-                return `<tr><th class="sched-round-label">Round ${r + 1}</th>${cells}</tr>`;
+                        ${allDetails ? `<div class="prio-details">${safe(allDetails)}</div>` : ''}
+                    </div>
+                </div>`;
             }).join('');
 
-            const extrasHtml = (extraMen.length || extraWomen.length) ? `
-                <div style="margin-top:10px;font-size:12px;color:var(--coral);opacity:0.85;">
-                    ${extraMen.length   ? `⚠ Extra men sitting out each round: ${extraMen.map(m => safe(_chemShortName(m))).join(', ')}` : ''}
-                    ${extraWomen.length ? `⚠ Extra women without a partner each round: ${extraWomen.map(w => safe(_chemShortName(w))).join(', ')}` : ''}
-                </div>` : '';
-
-            container.innerHTML = `
-                <div class="schedule-wrap">
-                    <table class="sched-table">
-                        <thead><tr><th class="sched-round-label"></th>${headerCells}</tr></thead>
-                        <tbody>${bodyRows}</tbody>
-                    </table>
-                </div>
-                ${extrasHtml}
+            container.innerHTML = `<div class="prio-list">${rows}</div>
                 <div class="intros-print-btn">
-                    <button class="action-btn" onclick="printSchedule()">⎙ Print schedule</button>
+                    <button class="action-btn" onclick="printPriorityIntros()">⎙ Print intro list</button>
                 </div>`;
         }
 
-        window.printSchedule = () => {
-            if (!_scheduleData) return;
-            const { rounds, N, bestPerm, wFixed, extraMen, extraWomen } = _scheduleData;
+        window.togglePrio = (wId, mId) => {
+            const key = wId + '|' + mId;
+            if (_priorityDone.has(key)) _priorityDone.delete(key);
+            else _priorityDone.add(key);
+            renderPriorityIntros();
+        };
+
+        window.printPriorityIntros = () => {
+            const pairs = _chemPairs;
+            if (!pairs.length) return;
             const sn = _chemShortName;
 
-            // Master grid HTML
-            const headerCells = Array.from({ length: N }, (_, i) => `<th>Table ${i + 1}</th>`).join('');
-            const bodyRows = rounds.map((seats, r) => {
-                const cells = seats.map(s => {
-                    const hi = s.score >= 70 ? 'color:#1a7a3a;font-weight:700;' : s.score < 45 ? 'color:#aaa;' : '';
-                    return `<td style="${hi}">
-                        <div><strong>${sn(s.woman)}</strong> ↔ <strong>${sn(s.man)}</strong></div>
-                        <div style="font-size:11px;color:#888;">${s.score}</div>
-                    </td>`;
-                }).join('');
-                return `<tr><th style="text-align:left;padding-right:16px;white-space:nowrap;color:#555;font-size:12px;">Round ${r + 1}</th>${cells}</tr>`;
-            }).join('');
+            const rows = pairs.map((p, i) => {
+                const w = p.a, m = p.b;
+                const details = [
+                    ...(p.sharedInterests  || []).slice(0, 3),
+                    ...(p.partialInterests || []).slice(0, 1).map(([a, b]) => `~${a}/${b}`),
+                    ...(p.sharedVibes      || []).slice(0, 2),
+                ].filter(Boolean).join(', ');
 
-            // Per-person rotation cards
-            // Women (fixed): show their partner each round
-            const womenCards = wFixed.map(w => {
-                const rows = rounds.map((seats, r) => {
-                    const seat = seats.find(s => s.woman.id === w.id);
-                    const hi = seat.score >= 70 ? 'color:#1a7a3a;font-weight:600;' : seat.score < 45 ? 'color:#aaa;' : '';
-                    return `<li style="${hi}">Round ${r + 1}: <strong>${sn(seat.man)}</strong> <span style="color:#888;font-size:11px;">(${seat.score})</span></li>`;
-                }).join('');
-                return `<div class="pcard">
-                    <div class="pcard-name">${sn(w)} <span class="pcard-role">stays at her table</span></div>
-                    <ol>${rows}</ol>
-                </div>`;
-            }).join('');
+                let intentNote = '';
+                if (w.intent && m.intent) {
+                    if (w.intent === m.intent) intentNote = ' · Same intent';
+                    else if ((w.intent === 'long_term' && m.intent === 'dating_around') ||
+                             (m.intent === 'long_term' && w.intent === 'dating_around')) intentNote = ' · Near intent';
+                }
 
-            // Men (rotating): show their table each round
-            const menCards = bestPerm.map((man, startPos) => {
-                const rows = rounds.map((seats, r) => {
-                    const t = (startPos + r) % N;
-                    const seat = seats[t];
-                    const hi = seat.score >= 70 ? 'color:#1a7a3a;font-weight:600;' : seat.score < 45 ? 'color:#aaa;' : '';
-                    return `<li style="${hi}">Round ${r + 1}: Table ${t + 1} → <strong>${sn(seat.woman)}</strong> <span style="color:#888;font-size:11px;">(${seat.score})</span></li>`;
-                }).join('');
-                return `<div class="pcard">
-                    <div class="pcard-name">${sn(man)} <span class="pcard-role">rotates →</span></div>
-                    <ol>${rows}</ol>
-                </div>`;
+                const ss = p.score >= 70 ? 'color:#1a7a3a;font-weight:700;' : p.score < 45 ? 'color:#aaa;' : 'color:#555;font-weight:600;';
+                return `<tr>
+                    <td style="width:30px;text-align:center;"><div style="width:18px;height:18px;border:1.5px solid #ccc;border-radius:50%;display:inline-block;"></div></td>
+                    <td style="width:38px;${ss}font-size:15px;text-align:center;">${p.score}</td>
+                    <td style="font-size:15px;font-weight:600;">${safe(sn(w))} <span style="color:#aaa;font-weight:400;">↔</span> ${safe(sn(m))}</td>
+                    <td style="font-size:12px;color:#888;">${safe(details)}${intentNote}</td>
+                </tr>`;
             }).join('');
-
-            const extrasNote = (extraMen.length || extraWomen.length)
-                ? `<p style="color:#c00;margin-top:16px;">
-                    ${extraMen.length   ? `⚠ Sitting out each round (extra men): ${extraMen.map(sn).join(', ')}` : ''}
-                    ${extraWomen.length ? `⚠ No partner each round (extra women): ${extraWomen.map(sn).join(', ')}` : ''}
-                   </p>`
-                : '';
 
             const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Rotation Schedule</title>
+<title>Intro Priority List</title>
 <style>
-  body { font-family: Arial, sans-serif; font-size: 13px; padding: 24px; color: #111; }
-  h2 { margin: 0 0 16px; font-size: 18px; }
-  h3 { margin: 32px 0 12px; font-size: 15px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
-  table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }
-  th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: center; vertical-align: middle; }
-  thead th { background: #f5f5f5; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
-  .pcards { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; }
-  .pcard { border: 1px solid #ddd; border-radius: 6px; padding: 12px 14px; min-width: 220px; max-width: 260px; page-break-inside: avoid; }
-  .pcard-name { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
-  .pcard-role { font-weight: 400; font-size: 11px; color: #888; }
-  ol { margin: 0; padding-left: 20px; }
-  ol li { padding: 3px 0; }
+  body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
+  h2 { margin: 0 0 4px; font-size: 20px; }
+  .sub { color: #888; font-size: 13px; margin-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; }
+  tr { border-bottom: 1px solid #eee; }
+  td { padding: 10px 8px; vertical-align: middle; }
   @media print { body { padding: 12px; } }
 </style></head><body>
-<h2>Rotation Schedule</h2>
-<table>
-  <thead><tr><th></th>${headerCells}</tr></thead>
-  <tbody>${bodyRows}</tbody>
-</table>
-${extrasNote}
-<h3>Individual rotation cards</h3>
-<div class="pcards">${womenCards}${menCards}</div>
+<h2>Intro Priority List</h2>
+<p class="sub">Highest chemistry first — check off as you go.</p>
+<table><tbody>${rows}</tbody></table>
 </body></html>`;
 
-            const w = window.open('', '_blank');
-            w.document.write(html);
-            w.document.close();
-            w.print();
+            const win = window.open('', '_blank');
+            win.document.write(html);
+            win.document.close();
+            win.print();
         };
 
         // Close modal on backdrop click
