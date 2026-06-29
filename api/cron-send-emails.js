@@ -108,50 +108,94 @@ const EMAILS = {
   },
 };
 
-// ── Newsletter templates (bi-weekly, rotating 6-week cycle) ───────────
-// Each returns HTML for a bi-weekly newsletter with curated content.
+// ── Newsletter templates (bi-weekly, rotating 12-week cycle) ──────────
+// Value-first content that stands on its own (a tip, a reframe, a story) —
+// deliberately distinct from the day2/5/14/25 nurture hooks (the 70% stat,
+// the scarcity nudge, the round-by-round format) so a lead who finished the
+// sequence never gets the same content twice. The event card sits at the
+// BOTTOM and degrades to an evergreen card when nothing is scheduled, so an
+// issue still reads like a newsletter — not an ad — in a gap week.
+const newsletterTip = (html) =>
+  `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:18px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">${html}</div>`;
+
 const NEWSLETTER_EMAILS = [
-  // Week 1: Conversation starters
+  // 1 — Conversation starters (practical, evergreen)
   {
-    subject: 'What makes a great conversation?',
+    subject: 'The question that always gets a real answer',
     html: (firstName, event, ctaUrl) => shell(
-      h1('What makes a great conversation?') +
-      p(`${firstName}, here's the truth: you already know how to have a great conversation. You do it all the time — with your best friend, your sibling, that barista who remembers your order.`) +
-      p('The only difference at a mixer is you\'re talking to someone new. And the best way to start? Ask something genuine.') +
-      p(`Instead of "What do you do?" try "What have you been excited about lately?" or "If you could move anywhere tomorrow, where would you go?"`) +
-      p('Real questions lead to real conversations. Real conversations lead to real connections.') +
+      h1('Skip the interview. Get curious.') +
+      p(`${firstName}, most first conversations stall for one reason: they turn into a job interview. "What do you do?" "Where are you from?" "How was your week?" Polite — and forgettable.`) +
+      p('The fix is to trade the résumé questions for genuinely curious ones. You already do this with people you love; you just forget to at the start with someone new.') +
+      newsletterTip(`<strong>Try one of these:</strong><br>• "What have you been weirdly into lately?"<br>• "What's something you'd happily talk about for an hour?"<br>• "If you could teleport to dinner anywhere tonight, where?"`) +
+      p("Real questions get real answers. That's where the spark actually lives.") +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Put it into practice') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 2 — Chemistry > checklist (reframe; NOT the day2 numbers hook)
+  {
+    subject: 'Chemistry beats the checklist',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('Perfect on paper, nothing in person?') +
+      p(`${firstName}, almost everyone has met someone who ticked every box — right job, right height, right taste in music — and felt absolutely nothing across the table.`) +
+      p("That's not a flaw in you. Attraction is something you feel in person: a laugh at the same moment, the way a conversation speeds up. No profile can predict it, which is exactly why scrolling one tells you so little.") +
+      p('Meeting face to face just skips to the part that actually decides things.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Meet someone in person') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 3 — Venue / regional spotlight (Lancaster & Philadelphia)
+  {
+    subject: 'Why we obsess over the room',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('The room does half the work.') +
+      p(`${firstName}, a good night isn't an accident — it's mostly the room. Too loud and you're shouting. Too cavernous and it feels like a conference. Too dim and nobody can read the moment.`) +
+      p('So we\'re picky. Across Lancaster and Philadelphia we look for the same things: warm lighting, corners you can actually talk in, a bar that\'s busy but not a scrum, and staff who get what we\'re doing.') +
+      p("Show up, and the hardest part — feeling at ease — is already handled.") +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'See where we\'re headed next') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 4 — Nerves reassurance (emotional angle; NOT the day14 format breakdown)
+  {
+    subject: 'Everyone there is a little nervous too',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('The secret nobody says out loud.') +
+      p(`${firstName}, the number one thing people worry about before a mixer: "What if it's awkward?"`) +
+      p("Here's the part that changes everything — everyone in the room is feeling exactly that, and everyone chose to come anyway. Nobody's hiding behind a screen, nobody's half-watching their phone. You're all there for the same honest reason.") +
+      p('That shared little flutter of nerves? It\'s the great equalizer. Ten minutes in, it\'s gone — and you\'re just two people talking.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Come as you are') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 5 — What happens after you click (the matching loop)
+  {
+    subject: 'The best part happens the next morning',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('No awkward Instagram hunt.') +
+      p(`${firstName}, the night itself is fun — but the best part is the morning after.`) +
+      p("You tell us, privately, who you'd like to see again. If they pick you too, we share contact info so you can actually meet up. No guessing whether they felt it. No tracking anyone down. No missed signals.") +
+      p('It\'s the closure the apps never give you: you find out, and if it\'s mutual, you\'re connected.') +
       eventCardHtml(event) +
       ctaButtonHtml(ctaUrl, 'Find your next connection') +
-      p('See you there,<br>The SparkDate Team')
+      p('Talk soon,<br>The SparkDate Team')
     ),
   },
-  // Week 2: Dating reality check
+  // 6 — The case for IRL (warm, no stats dump)
   {
-    subject: 'One night vs. six months (the numbers)',
+    subject: 'One evening vs. another month of swiping',
     html: (firstName, event, ctaUrl) => shell(
-      h1('One night vs. six months') +
-      p(`${firstName}, let's talk about efficiency.`) +
-      p('On the apps: 6 months, 12 matches, 3 unmatchable conversations, 0 dates.') +
-      p('At a mixer: one night, 12 real conversations, instant chemistry (or lack thereof), a couple of genuine connections.') +
-      p('You already know who you click with in the first 30 seconds. Why wait six months to find out?') +
+      h1('Put the phone down (lovingly).') +
+      p(`${firstName}, you could spend the next month swiping — sorting people into yes and no piles, scheduling dates that fall through, decoding three-word replies.`) +
+      p('Or you could spend one evening in a room full of people who also decided they\'d rather just meet someone. Same goal, wildly different odds.') +
+      p("The apps are a waiting room. This is the actual appointment.") +
       eventCardHtml(event) +
-      ctaButtonHtml(ctaUrl, 'Skip the app limbo') +
-      p('See you there,<br>The SparkDate Team')
-    ),
-  },
-  // Week 3: Event insights
-  {
-    subject: 'What to expect at your next mixer',
-    html: (firstName, event, ctaUrl) => shell(
-      h1('What to expect at your next mixer') +
-      p(`${firstName}, new to mixers? Here's the format:`) +
-      p(`<strong>4 rounds × 7 minutes</strong>. You'll chat with 4 different people, bell signals the change, you move on.`) +
-      p(`<strong>Open mingling</strong> after rounds wrap. If you clicked with someone, you can swap contact info and chat longer.`) +
-      p(`<strong>Real people</strong>. No bots, no catfish, no dudes with fish photos. Just humans looking to meet humans.`) +
-      p('Arrive early (check-in takes 2 min). Bring a phone or paper to swap numbers. Be yourself.') +
-      eventCardHtml(event) +
-      ctaButtonHtml(ctaUrl, 'See what the vibe is') +
-      p('See you there,<br>The SparkDate Team')
+      ctaButtonHtml(ctaUrl, 'Trade swiping for meeting') +
+      p('Talk soon,<br>The SparkDate Team')
     ),
   },
 ];
@@ -574,7 +618,13 @@ async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun) {
   // date (which is what made the sends look scattershot / out of order).
   const issueIndex = Math.floor(nowMs / (14 * 86400000)) % NEWSLETTER_EMAILS.length;
   const tpl = NEWSLETTER_EMAILS[issueIndex];
-  const ctaUrl = buildUtmUrl('/events', 'email', 'newsletter', 'biweekly');
+  // CTA → the specific next event when one's scheduled, else the events page.
+  // The newsletter sends regardless: the templates lead with evergreen content
+  // and eventCardHtml(null) degrades to an evergreen card, so a gap week still
+  // gets a real issue instead of silence.
+  const ctaUrl = event
+    ? buildUtmUrl('/event?id=' + event.id, 'email', 'newsletter', 'biweekly')
+    : buildUtmUrl('/events', 'email', 'newsletter', 'biweekly');
 
   for (const leadDoc of leads) {
     const lead = leadDoc.data();
@@ -589,8 +639,6 @@ async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun) {
       ? (new Date(lead.lastNewsletterSentAt).getTime())
       : null;
     if (lastSent && (nowMs - lastSent) < 14 * 86400000) { skipped++; continue; }
-
-    if (!event) { skipped++; continue; } // Need event for card
 
     try {
       const html = tpl.html(esc(lead.firstName || lead.name || 'there'), event, ctaUrl);
