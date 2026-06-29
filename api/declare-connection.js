@@ -91,7 +91,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 <p>Go say hi — we'll leave the rest to you. 💫</p>
 <p style="font-size:13px;color:#666;border-top:1px solid #eee;padding-top:16px;margin-top:20px;">Know someone who'd love a night like this? <a href="https://sparkdate.date/founding?ref=${esc(refUid)}" style="color:#ff6b6b;font-weight:600;text-decoration:none;">Send them your invite link →</a></p>
 </div>
-<div class="footer"><p>SparkDate · Philadelphia · Real people. Real venues.</p>
+<div class="footer"><p>SparkDate · Lancaster &amp; Philadelphia · Real people. Real venues.</p>
 <p><a href="https://sparkdate.date">sparkdate.date</a></p></div>
 </div></body></html>`;
 }
