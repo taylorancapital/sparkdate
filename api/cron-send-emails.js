@@ -162,7 +162,7 @@ const NEWSLETTER_EMAILS = [
 const MAX_LATE_DAYS = 21;
 
 // ── Send one day-bucket's email to every eligible lead ───────────────
-async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event) {
+async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event, attendedEmails) {
   let sent = 0;
   let skipped = 0;
   const errors = [];
@@ -176,6 +176,13 @@ async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event)
     // newsletter + post-nurture in a single run. No email → can't send.
     if (!email) { skipped++; continue; }
     if (emailedThisRun.has(email)) { skipped++; continue; }
+
+    // Already attended a mixer? The day2/5/14/25 sequence is first-timer
+    // education ("nervous? here's what to expect") — wrong audience for someone
+    // who's already walked in the door. They get the returning-attendee invite
+    // + newsletter instead. (attendedEmails is built from confirmed
+    // event_registrations, the single source of truth for attendance.)
+    if (attendedEmails && attendedEmails.has(email)) { skipped++; continue; }
 
     // Already sent? A MISSING `${emailKey}_sent` field reads as falsy
     // here, so leads created before those fields existed are picked up.
@@ -464,6 +471,96 @@ async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resen
   return { sent, skipped };
 }
 
+// ── Returning-attendee invite ───────────────────────────────────────────────
+// The retention engine: when a new event is on the calendar, invite everyone
+// who attended a PAST mixer (and isn't already signed up for the next one) to
+// come back. Warm, familiar-faces framing — NOT the first-timer nurture.
+//
+// Idempotent per (attendee × upcoming event): we stamp `returningInviteEventId`
+// on the attendee's lead doc, so each person is invited at most once per event.
+// As new people attend before the event, later runs pick them up.
+//
+// Why route through a `leads` doc: the unsubscribe endpoint writes leads/{id},
+// so a marketing email legally needs one for a working one-click unsubscribe.
+// Attendance is an existing business relationship, so we lazily create a
+// subscribed lead (source:'attendee') for any attendee who isn't on the list —
+// which also folds them into the newsletter audience. dayN_sent are pre-set so
+// the first-timer sequence never fires at someone who's already attended.
+async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAttendeeUids, registeredForNextUids, attendeeNameByUid) {
+  let sent = 0, skipped = 0;
+  if (!event) return { sent, skipped, gated: true };
+  try {
+    for (const uid of pastAttendeeUids) {
+      if (registeredForNextUids.has(uid)) { skipped++; continue; } // already coming
+      const usnap = await db.collection('users').doc(uid).get();
+      if (!usnap.exists) { skipped++; continue; }
+      const u = usnap.data();
+      const email = u.email ? String(u.email).toLowerCase().trim() : null;
+      if (!email) { skipped++; continue; }
+      if (emailedThisRun.has(email)) { skipped++; continue; }
+
+      // Name: users.firstName, else the reg `name` (source of truth post-
+      // consolidation), parsed to first word. Same fallback as the matches flow.
+      const regName = attendeeNameByUid && attendeeNameByUid.get(uid);
+      const firstNameRaw = u.firstName || (regName ? String(regName).trim().split(/\s+/)[0] : '') || '';
+
+      // Find (or lazily create) the marketing lead for this attendee.
+      const leadQ = await db.collection('leads').where('email', '==', email).limit(1).get();
+      let leadRef, lead;
+      if (!leadQ.empty) {
+        leadRef = leadQ.docs[0].ref;
+        lead = leadQ.docs[0].data();
+      } else {
+        leadRef = db.collection('leads').doc();
+        lead = {
+          email, name: firstNameRaw, source: 'attendee', subscribed: true,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          welcome_sent: true, day2_sent: true, day5_sent: true, day14_sent: true, day25_sent: true,
+        };
+        await leadRef.set(lead);
+      }
+      if (lead.subscribed === false) { skipped++; continue; }           // respect opt-out
+      if (lead.returningInviteEventId === event.id) { skipped++; continue; } // already invited to this event
+
+      const firstName = esc(firstNameRaw || lead.name || 'there');
+      const unsubUrl = makeUnsubscribeUrl(leadRef.id, email);
+      const ctaUrl = buildUtmUrl('/event?id=' + event.id, 'email', 'returning', 'next_mixer');
+      const html = shell(
+        h1('Round two?') +
+        p(`${firstName}, it was great having you at a SparkDate night. We're lining up the next one — and the room's always better with familiar faces.`) +
+        eventCardHtml(event) +
+        ctaButtonHtml(ctaUrl, 'Save my spot') +
+        p('Hope to see you again,<br>The SparkDate Team')
+      ).replace(/__UNSUB__/g, unsubUrl);
+
+      try {
+        const result = await resend.emails.send({
+          from: 'SparkDate <hello@mail.sparkdate.date>',
+          to: u.email,
+          subject: `Round two? ${event.title} is coming up`,
+          html,
+          headers: {
+            'List-Unsubscribe': `<${unsubUrl}>, <mailto:hello@sparkdate.date?subject=Unsubscribe>`,
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          },
+        });
+        if (!result.error) {
+          await leadRef.update({
+            returningInviteEventId: event.id,
+            returningInviteSentAt: new Date().toISOString(),
+          });
+          emailedThisRun.add(email);
+          sent++;
+          console.log(`✅ returning-attendee invite → users/${uid}`);
+        } else { skipped++; }
+      } catch (e) { console.error('[returning-invite]', uid, e.message); skipped++; }
+    }
+  } catch (e) {
+    console.error('[returning-invite] pass failed:', e.message);
+  }
+  return { sent, skipped };
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 // ── Bi-weekly newsletter (separate from nurture sequence) ───────────────────
 // Sends to ALL subscribed leads (independent of nurture day/status).
@@ -532,13 +629,19 @@ async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun) {
 // ── Post-nurture event campaigns (2-week cadence after Day 25) ──────────────
 // Sends to leads with day25_sent=true, every 14+ days, max 12 times.
 // Tracks lastEventEmailSentAt + eventEmailsCount.
-async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun) {
+// This is the event-promo channel for COLD leads who finished nurture and
+// never attended. Attendees have their own (returning-attendee invite) track,
+// so they're suppressed here to avoid two "come to the next one" emails.
+async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun, attendedEmails) {
   let sent = 0, skipped = 0;
 
   for (const leadDoc of leads) {
     const lead = leadDoc.data();
     const email = (lead.email || '').toLowerCase().trim();
     if (!email || lead.day25_sent !== true) { skipped++; continue; }
+
+    // Attendees get the returning-attendee invite instead — don't double up.
+    if (attendedEmails && attendedEmails.has(email)) { skipped++; continue; }
 
     // Yield to higher-priority passes already run this cycle.
     if (emailedThisRun.has(email)) { skipped++; continue; }
@@ -671,22 +774,59 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ success: true, only: 'postevent', testUid: testUid || null, resendUids: resendUids || null, postEventPrompts, ts: new Date().toISOString() });
     }
 
+    // Attendance index (confirmed event_registrations = single source of truth).
+    // Built once and reused: drives (a) nurture suppression for anyone who has
+    // already attended, and (b) the returning-attendee invite. Best-effort —
+    // wrapped so an index failure degrades gracefully rather than killing the run.
+    const attendedEmails = new Set();        // lowercased — first-timer nurture suppression
+    const pastAttendeeUids = new Set();      // attended a PAST event — invite-back audience
+    const registeredForNextUids = new Set(); // already signed up for the next event — don't re-invite
+    const attendeeNameByUid = new Map();     // uid → reg `name` (source of truth post-consolidation)
+    try {
+      const [regSnap, evAllSnap] = await Promise.all([
+        db.collection('event_registrations').where('status', '==', 'confirmed').get(),
+        db.collection('events').get(),
+      ]);
+      const pastIds = new Set();
+      for (const d of evAllSnap.docs) {
+        const e = d.data();
+        const dt = e.date?.toDate ? e.date.toDate() : (e.date ? new Date(e.date) : null);
+        if (dt && !isNaN(dt.getTime()) && dt.getTime() < nowMs) pastIds.add(d.id);
+      }
+      for (const d of regSnap.docs) {
+        const r = d.data();
+        if (r.email) attendedEmails.add(String(r.email).toLowerCase().trim());
+        if (r.userId && r.name && !attendeeNameByUid.has(r.userId)) attendeeNameByUid.set(r.userId, r.name);
+        if (r.userId && pastIds.has(r.eventId)) pastAttendeeUids.add(r.userId);
+        if (r.userId && event && r.eventId === event.id) registeredForNextUids.add(r.userId);
+      }
+    } catch (e) {
+      console.error('[attendance-index] build failed:', e.message);
+    }
+
     // 1) Transactional, time-sensitive — always send, and claim the address so
     //    marketing yields to them. (These run over ticket-holders, not leads.)
     const profileReminders = await sendProfileReminders(nowMs, emailedThisRun);
     const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun, null, null, event);
 
+    // 1.5) Returning-attendee invite — warm, targeted, high priority (claims the
+    //    address before the marketing passes). Self-limiting via the per-event
+    //    stamp, so it can run every day without re-emailing the same person.
+    const returningInvites = await sendReturningAttendeeInvites(
+      nowMs, event, emailedThisRun, pastAttendeeUids, registeredForNextUids, attendeeNameByUid);
+
     // 2) Nurture sequence (day 2/5/14/25) — one bucket-email per lead per run.
+    //    Suppressed for anyone who has already attended (wrong audience).
     const results = [];
     for (const [d, key] of [[2, 'day2'], [5, 'day5'], [14, 'day14'], [25, 'day25']]) {
-      results.push(await sendBucket(leads, d, key, nowMs, emailedThisRun, event));
+      results.push(await sendBucket(leads, d, key, nowMs, emailedThisRun, event, attendedEmails));
     }
 
     // 3) Post-nurture event campaign — fortnightly, offset one week from the
     //    newsletter (dayNum % 14 === 7) so the two marketing tracks never blast
     //    on the same day. `force` (manual trigger) bypasses the cadence gate.
     const postNurtureEvents = (force || dayNum % 14 === 7)
-      ? await sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun)
+      ? await sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun, attendedEmails)
       : { sent: 0, skipped: 0, gated: true };
 
     // 4) Bi-weekly newsletter — fortnightly issue day (dayNum % 14 === 0),
@@ -695,8 +835,8 @@ module.exports = async function handler(req, res) {
       ? await sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun)
       : { sent: 0, skipped: 0, gated: true };
 
-    console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders), 'postEventPrompts=', JSON.stringify(postEventPrompts), 'newsletter=', JSON.stringify(newsletter), 'postNurtureEvents=', JSON.stringify(postNurtureEvents));
-    return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, postEventPrompts, newsletter, postNurtureEvents, ts: new Date().toISOString() });
+    console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders), 'postEventPrompts=', JSON.stringify(postEventPrompts), 'returningInvites=', JSON.stringify(returningInvites), 'newsletter=', JSON.stringify(newsletter), 'postNurtureEvents=', JSON.stringify(postNurtureEvents));
+    return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, postEventPrompts, returningInvites, newsletter, postNurtureEvents, ts: new Date().toISOString() });
 
   } catch (err) {
     console.error('❌ Cron error:', err.message);
