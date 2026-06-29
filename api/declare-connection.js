@@ -32,8 +32,20 @@ const FieldValue = admin.firestore.FieldValue;
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // "Sarah M." — first name + last initial, never the full surname.
-function shortName(u) {
-  return (u.firstName || 'Member') + ' ' + (u.lastName || '').charAt(0) + (u.lastName ? '.' : '');
+// After the data-model consolidation, event_registrations is the source of
+// truth for attendance and carries a `name` field; some users docs (check-in
+// or imported accounts) have no `firstName`. Pass the reg `name` as
+// `fallbackFull` so a present name is never lost just because it lives on the
+// reg doc instead of the user doc.
+function shortName(u, fallbackFull) {
+  if (u && u.firstName) {
+    return u.firstName + (u.lastName ? ' ' + u.lastName.charAt(0) + '.' : '');
+  }
+  const parts = String(fallbackFull || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length) {
+    return parts[0] + (parts[1] ? ' ' + parts[1].charAt(0) + '.' : '');
+  }
+  return 'Member';
 }
 
 // Has this user a CONFIRMED record for the event in EITHER collection?
@@ -102,24 +114,32 @@ async function notifyMatch(aUid, bUid, eventId) {
     return;
   }
   try {
-    const [aSnap, bSnap, evSnap] = await Promise.all([
+    const [aSnap, bSnap, evSnap, aRegSnap, bRegSnap] = await Promise.all([
       db.collection('users').doc(aUid).get(),
       db.collection('users').doc(bUid).get(),
       db.collection('events').doc(eventId).get(),
+      db.collection('event_registrations').doc(`reg_${aUid}_${eventId}`).get(),
+      db.collection('event_registrations').doc(`reg_${bUid}_${eventId}`).get(),
     ]);
     if (!aSnap.exists || !bSnap.exists) return;
     const a = aSnap.data(), b = bSnap.data();
+    // Reg `name` is the consolidated source of truth; fall back to it when the
+    // users doc has no firstName so the match email isn't impersonal.
+    const aRegName = aRegSnap.exists ? aRegSnap.data().name : null;
+    const bRegName = bRegSnap.exists ? bRegSnap.data().name : null;
+    const aFirst = a.firstName || (aRegName ? String(aRegName).trim().split(/\s+/)[0] : '');
+    const bFirst = b.firstName || (bRegName ? String(bRegName).trim().split(/\s+/)[0] : '');
     const eventName = (evSnap.exists && evSnap.data().title) || 'your SparkDate event';
     const sends = [];
     if (a.email) sends.push(resend.emails.send({
       from: 'SparkDate <hello@mail.sparkdate.date>', to: a.email,
-      subject: `It's a match — say hi to ${b.firstName || 'your match'}`,
-      html: matchEmailHTML({ youFirstName: a.firstName || 'there', theirName: shortName(b), reachLine: reachLineFor(b), eventName, refUid: aUid }),
+      subject: `It's a match — say hi to ${bFirst || 'your match'}`,
+      html: matchEmailHTML({ youFirstName: aFirst || 'there', theirName: shortName(b, bRegName), reachLine: reachLineFor(b), eventName, refUid: aUid }),
     }));
     if (b.email) sends.push(resend.emails.send({
       from: 'SparkDate <hello@mail.sparkdate.date>', to: b.email,
-      subject: `It's a match — say hi to ${a.firstName || 'your match'}`,
-      html: matchEmailHTML({ youFirstName: b.firstName || 'there', theirName: shortName(a), reachLine: reachLineFor(a), eventName, refUid: bUid }),
+      subject: `It's a match — say hi to ${aFirst || 'your match'}`,
+      html: matchEmailHTML({ youFirstName: bFirst || 'there', theirName: shortName(a, aRegName), reachLine: reachLineFor(a), eventName, refUid: bUid }),
     }));
     await Promise.all(sends);
     console.log(`[declare-connection] match notified: ${lockId}`);
@@ -187,6 +207,10 @@ async function handleGet(req, res, uid) {
     // Null-userId guests (account never finalized) — registration rows only.
     const guestRegs = regs.filter(r => !r.userId);
 
+    // uid → name from the reg doc (source of truth post-consolidation), used as
+    // a fallback when the users doc has no firstName.
+    const regNameByUid = new Map(regs.filter(r => r.userId && r.name).map(r => [r.userId, r.name]));
+
     const uDocs = await Promise.all(otherIds.map(id => db.collection('users').doc(id).get()));
     const attendees = [];
     const shownEmails = new Set();
@@ -197,16 +221,17 @@ async function handleGet(req, res, uid) {
       const key = `${d.id}_${ev.id}`;
       const sent = sentSet.has(key), received = recvSet.has(key);
       const matched = sent && received;
+      const name = shortName(u, regNameByUid.get(d.id));
       const att = {
         uid: d.id,
-        displayName: shortName(u),
+        displayName: name,
         age: u.age || null,
         gender: u.gender || null,
         intent: u.intent || null,
         state: matched ? 'matched' : (sent ? 'sent' : (received ? 'received' : 'none')),
       };
       // Reveal contact ONLY on a mutual match (both opted in).
-      if (matched) att.contact = { name: shortName(u), phone: u.phone || null, email: u.email || null };
+      if (matched) att.contact = { name, phone: u.phone || null, email: u.email || null };
       attendees.push(att);
     });
     // Guests without a finalized account — display-only (state 'info', no pick
