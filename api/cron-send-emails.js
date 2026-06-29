@@ -320,7 +320,7 @@ async function sendProfileReminders(nowMs, emailedThisRun) {
 // the nurture or profile-reminder passes.
 const POST_EVENT_LOOKBACK_DAYS = 3;
 
-function postEventPromptHTML({ eventName, matchUrl }) {
+function postEventPromptHTML({ eventName, matchUrl, nextEventHtml }) {
   const s = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
@@ -330,6 +330,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .content{padding:36px 30px}h1{font-family:Georgia,serif;font-size:24px;margin:0 0 16px}
 p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 .cta{display:inline-block;background:#ff6b6b;color:#fff!important;font-weight:800;padding:14px 34px;border-radius:4px;text-decoration:none;margin:6px 0 18px}
+.next-h{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#8a8fa3;margin:32px 0 0;border-top:1px solid #eee;padding-top:24px}
 .footer{background:#0a0e27;padding:22px;text-align:center;color:#888;font-size:12px}.footer a{color:#ff6b6b;text-decoration:none}
 </style></head><body><div class="container">
 <div class="header"><div class="logo">Spark<span>Date</span></div></div>
@@ -338,6 +339,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 <p>Tell us who you'd like to see again. If they pick you too, we'll share contact info so you can meet up — no missed signals, no awkward Instagram hunt.</p>
 <p style="text-align:center;"><a class="cta" href="${s(matchUrl)}">Pick your matches</a></p>
 <p>No login needed — this link is just for you.</p>
+${nextEventHtml || ''}
 </div>
 <div class="footer"><p>SparkDate · Lancaster &amp; Philadelphia · Real people. Real venues.</p>
 <p><a href="https://sparkdate.date">sparkdate.date</a></p></div>
@@ -376,7 +378,7 @@ async function auditPostEventPrompts(nowMs, eventId) {
   return candidates;
 }
 
-async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resendUids = null) {
+async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resendUids = null, nextEvent = null) {
   let sent = 0, skipped = 0;
   try {
     const since = new Date(nowMs - POST_EVENT_LOOKBACK_DAYS * 86400000);
@@ -386,6 +388,14 @@ async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resen
       .get();
     for (const evDoc of evSnap.docs) {
       const eventName = evDoc.data().title || 'your SparkDate event';
+      // Secondary "while you're here — our next mixer" block. getNextEvent only
+      // returns FUTURE events, so it can never be the event they just attended.
+      // Drives rebooking off the highest-engagement email of the cycle.
+      const nextEventHtml = (nextEvent && nextEvent.id !== evDoc.id)
+        ? `<p class="next-h">While you're here — our next mixer</p>`
+          + eventCardHtml(nextEvent)
+          + ctaButtonHtml(buildUtmUrl('/event?id=' + nextEvent.id, 'email', 'postevent', 'next_mixer'), 'Reserve your spot')
+        : '';
       // event_registrations is the single source of truth for attendance.
       // Every confirmed attendee — ticket buyer, check-in, or admin-enrolled —
       // has exactly one reg_{uid}_{eventId} doc here. No need to query tickets.
@@ -432,7 +442,7 @@ async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resen
             from: 'SparkDate <hello@mail.sparkdate.date>',
             to: email,
             subject: `Who did you click with at ${eventName}?`,
-            html: postEventPromptHTML({ eventName, matchUrl: makeMatchUrl(cand.uid) }),
+            html: postEventPromptHTML({ eventName, matchUrl: makeMatchUrl(cand.uid), nextEventHtml }),
           });
           if (!result.error) {
             const sentAt = new Date().toISOString();
@@ -656,7 +666,7 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({ success: true, audit: true, eventId: auditEventId, candidates, ts: new Date().toISOString() });
       }
 
-      const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun, testUid, resendUids);
+      const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun, testUid, resendUids, event);
       console.log(`✅ Cron (only=postevent${testUid ? `, testUid=${testUid}` : ''}${resendUids ? `, resendUids=${resendUids.join(',')}` : ''}):`, JSON.stringify(postEventPrompts));
       return res.status(200).json({ success: true, only: 'postevent', testUid: testUid || null, resendUids: resendUids || null, postEventPrompts, ts: new Date().toISOString() });
     }
@@ -664,7 +674,7 @@ module.exports = async function handler(req, res) {
     // 1) Transactional, time-sensitive — always send, and claim the address so
     //    marketing yields to them. (These run over ticket-holders, not leads.)
     const profileReminders = await sendProfileReminders(nowMs, emailedThisRun);
-    const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun);
+    const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun, null, null, event);
 
     // 2) Nurture sequence (day 2/5/14/25) — one bucket-email per lead per run.
     const results = [];
