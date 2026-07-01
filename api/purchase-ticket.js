@@ -218,7 +218,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
     <p style="text-align:center;"><a href="${escEmail(resetLink)}" style="color:#ff6b6b;font-weight:600;text-decoration:none;">Set my password →</a></p>
   </div>
   <div class="footer">
-    <p>SparkDate · Philadelphia · Real people. Real venues.</p>
+    <p>SparkDate · Lancaster &amp; Philadelphia · Real people. Real venues.</p>
     <p><a href="https://sparkdate.date">sparkdate.date</a></p>
   </div>
 </div></body></html>`;
@@ -252,7 +252,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
     <p style="text-align:center;"><a class="cta" href="https://sparkdate.date/account">Log in to my account</a></p>`}
   </div>
   <div class="footer">
-    <p>SparkDate · Philadelphia · Real people. Real venues.</p>
+    <p>SparkDate · Lancaster &amp; Philadelphia · Real people. Real venues.</p>
     <p><a href="https://sparkdate.date">sparkdate.date</a></p>
   </div>
 </div></body></html>`;
