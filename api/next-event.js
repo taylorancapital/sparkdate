@@ -199,6 +199,7 @@ module.exports = async function handler(req, res) {
           time: e.time || '',
           venue: e.venue || '',
           neighborhood: e.neighborhood || '',
+          city: e.city || '',
           price: ep.price,
           regularPrice: ep.regularPrice,
           isEarlyBird: ep.isEarlyBird,
@@ -239,6 +240,7 @@ module.exports = async function handler(req, res) {
         time: e.time || '',
         venue: e.venue || '',
         neighborhood: e.neighborhood || '',
+        city: e.city || '',
         // Early-bird-aware price (lib/seat-model effectivePrice) — the checkout
         // charges this exact number. regularPrice/isEarlyBird/earlyBirdEnds let
         // the landing "Get Tickets" block render "early bird $X · then $Y".
