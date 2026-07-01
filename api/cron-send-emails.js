@@ -363,12 +363,15 @@ async function sendProfileReminders(nowMs, emailedThisRun) {
 }
 
 // ── Post-event "who did you click with" prompt ──────────────────────────────
-// The morning after an event, email every confirmed attendee (from tickets OR
-// event_registrations) a no-login magic link (makeMatchUrl) to the /matches
+// Fires the same evening (9 PM ET, via the dedicated ?only=postevent cron —
+// see the handler's Eastern-hour guard) for any event whose date has already
+// passed that day. Emails every confirmed attendee (event_registrations is the
+// single source of truth) a no-login magic link (makeMatchUrl) to the /matches
 // page where they pick who they clicked with. Idempotent via `postEventPromptSent`
-// (per attendee × event, deduped by uid across both collections, so a person is
-// emailed once even with docs in both). Best-effort: a failure here never breaks
-// the nurture or profile-reminder passes.
+// (per attendee × event). The general 9 AM pass also calls this as a same-day
+// safety net for anyone missed by the evening run — the lock makes re-running
+// it a no-op for everyone already sent. Best-effort: a failure here never
+// breaks the nurture or profile-reminder passes.
 const POST_EVENT_LOOKBACK_DAYS = 3;
 
 function postEventPromptHTML({ eventName, matchUrl, nextEventHtml }) {
@@ -754,27 +757,31 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  // ── 9 AM Eastern guard ───────────────────────────────────────────
-  // vercel.json fires this at both 13:00 and 14:00 UTC so one of them is
-  // always 9 AM in New York (EDT or EST). The off-hour invocation lands
-  // here, sees it's not 9, and no-ops. Returns 200 — a non-200 would
-  // make Vercel treat the cron as failed and retry.
+  // ── Eastern-hour guard ───────────────────────────────────────────
+  // vercel.json fires the general pass at both 13:00 and 14:00 UTC so one of
+  // them is always 9 AM in New York (EDT or EST), and fires the post-event
+  // pass at both 01:00 and 02:00 UTC so one of them is always 9 PM Eastern.
+  // The off-hour invocation lands here, sees the wrong hour, and no-ops.
+  // Returns 200 — a non-200 would make Vercel treat the cron as failed and retry.
   // `?force=1` skips the guard, for manual admin triggers at any hour.
   const force = req.query?.force === '1' || req.query?.force === 'true'
     || req.body?.force === true;
   // Scoped manual trigger. `?only=postevent` runs ONLY the post-event prompt
-  // pass — so an admin can (re)send the morning-after match links WITHOUT also
-  // firing the fortnightly newsletter / nurture sequence to the whole leads
-  // list (which a bare `?force=1` would do, since force bypasses those gates).
+  // pass — so it can fire the SAME evening (9 PM ET) an event happens, rather
+  // than waiting for the general 9 AM pass the next day. Also lets an admin
+  // (re)send the match links on demand without firing the fortnightly
+  // newsletter / nurture sequence to the whole leads list (which a bare
+  // `?force=1` would do, since force bypasses those gates).
   const only = req.query?.only || req.body?.only || null;
   if (!force) {
     const easternHour = parseInt(
       new Date().toLocaleString('en-US', {
         timeZone: 'America/New_York', hour: '2-digit', hour12: false,
       }), 10);
-    if (easternHour !== 9) {
-      console.log(`⏰ cron skipped — ${easternHour}:00 America/New_York, not 9 (other UTC schedule covers today)`);
-      return res.status(200).json({ skipped: true, reason: `not 9 AM Eastern (hour=${easternHour})` });
+    const targetHour = only === 'postevent' ? 21 : 9;
+    if (easternHour !== targetHour) {
+      console.log(`⏰ cron skipped — ${easternHour}:00 America/New_York, not ${targetHour} (other UTC schedule covers today)`);
+      return res.status(200).json({ skipped: true, reason: `not ${targetHour === 21 ? '9 PM' : '9 AM'} Eastern (hour=${easternHour})` });
     }
   }
 
@@ -797,9 +804,9 @@ module.exports = async function handler(req, res) {
     // first claims the address and the rest yield — no more double-emailing.
     const emailedThisRun = new Set();
 
-    // Scoped trigger: run ONLY the post-event prompt pass and return. Lets an
-    // admin (re)send the morning-after match links on demand without touching
-    // the marketing passes below.
+    // Scoped trigger: run ONLY the post-event prompt pass and return. This is
+    // what the dedicated 9 PM ET cron hits, and also lets an admin (re)send
+    // the match links on demand without touching the marketing passes below.
     // ?testUid=<uid>          — dry-run to one person before the real blast
     // ?resendUids=uid1,uid2   — resend to specific uids (bypasses alreadySent)
     // ?audit=1&eventId=X      — preview who WOULD receive the email (no sends)

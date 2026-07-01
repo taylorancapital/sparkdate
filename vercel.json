@@ -15,6 +15,14 @@
     {
       "path": "/api/cron-send-emails",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron-send-emails?only=postevent",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron-send-emails?only=postevent",
+      "schedule": "0 2 * * *"
     }
   ],
   "headers": [
