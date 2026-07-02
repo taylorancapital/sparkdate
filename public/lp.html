@@ -74,7 +74,18 @@
         <h1>Your app matched you.<br>We <span class="hl">host the date.</span></h1>
         <p class="sub" id="lpSub">Real, curated dating events at Lancaster &amp; Philadelphia's best venues. Skip the endless texting — meet in person.</p>
 
-        <!-- Primary CTA: email capture (lowest friction) -->
+        <!-- Primary CTA: dynamic next-event ticket card (real revenue action) -->
+        <div class="event">
+            <div class="eyebrow" id="lpEyebrow">Upcoming Mixer</div>
+            <h3 id="lpTitle">SparkDate Mixer</h3>
+            <div class="meta" id="lpMeta">📍 Venue announced soon</div>
+            <a class="ticket" id="lpTicketBtn" href="/events">🎟️ Get Tickets</a>
+            <div class="fine">Secure checkout · no account needed</div>
+        </div>
+
+        <div class="divider">Not ready yet? Get on the waitlist</div>
+
+        <!-- Secondary CTA: email capture (lowest friction, for people not ready to book) -->
         <div class="capture">
             <h2>Get on the list</h2>
             <p id="lpWaitlistCopy">Be first to hear about our next mixer. No spam, unsubscribe anytime.</p>
@@ -84,17 +95,6 @@
                 <button type="submit" id="leadBtn">Notify Me</button>
             </form>
             <div class="msg" id="leadMsg"></div>
-        </div>
-
-        <div class="divider">— or grab a ticket now —</div>
-
-        <!-- Secondary CTA: dynamic next-event ticket card -->
-        <div class="event">
-            <div class="eyebrow" id="lpEyebrow">Upcoming Mixer</div>
-            <h3 id="lpTitle">SparkDate Mixer</h3>
-            <div class="meta" id="lpMeta">📍 Venue announced soon</div>
-            <a class="ticket" id="lpTicketBtn" href="/events">🎟️ Get Tickets</a>
-            <div class="fine">Secure checkout · no account needed</div>
         </div>
 
         <div class="foot">
@@ -122,8 +122,26 @@
           if (d) { var diff = Math.ceil((d.getTime() - Date.now()) / 86400000); away = diff <= 0 ? 'Today' : (diff === 1 ? 'Tomorrow' : 'in ' + diff + ' days'); }
           var venue = ev.venue ? ('📍 ' + ev.venue + (ev.neighborhood ? ', ' + ev.neighborhood : '')) : '';
           if ($('lpMeta')) $('lpMeta').textContent = [venue, dl ? ('📅 ' + dl + (away ? ' · ' + away : '')) : ''].filter(Boolean).join('    ');
+          // Eyebrow priority: early-bird deadline beats scarcity signal beats
+          // the neutral fallback. Never show both at once. Scarcity copy is
+          // deliberately non-numeric ("Filling up", not "Only 5 left") —
+          // printing the exact remaining count risks the opposite effect on
+          // a small event: a low absolute number reads as exclusive, but a
+          // near-empty ratio (e.g. "23 of 25 left") reads as unpopular, and
+          // there's no way to know in advance which side of that line an
+          // event will land on. event.html's checkout page already follows
+          // this precedent — it only ever shows the static word "Limited."
           if (ev.isEarlyBird && ev.earlyBirdEnds && $('lpEyebrow')) {
             $('lpEyebrow').textContent = 'Early-bird · ends ' + new Date(ev.earlyBirdEnds).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          } else if ($('lpEyebrow') && ev.spotsTotal != null && ev.spotsRemaining != null) {
+            var total = Number(ev.spotsTotal), remaining = Number(ev.spotsRemaining);
+            // OR, not AND: an absolute floor (small/medium events feel urgent
+            // early) plus a ratio ceiling (large-capacity events don't wait
+            // until 90% sold to feel scarce). Never trigger at 0 — the cached
+            // endpoint (s-maxage=120) could lag the last sale by up to 2 min,
+            // and treating "sold out" as "urgent" is actively wrong.
+            var scarce = total > 0 && remaining > 0 && (remaining <= 10 || remaining / total <= 0.25);
+            if (scarce) $('lpEyebrow').textContent = 'Filling up';
           }
           if (ev.price != null) {
             var html = '🎟️ Get Tickets — ' + fmt(ev.price);

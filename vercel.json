@@ -51,6 +51,12 @@
   ],
   "redirects": [
     {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.sparkdate.date" }],
+      "destination": "https://sparkdate.date/:path*",
+      "permanent": true
+    },
+    {
       "source": "/flyer",
       "destination": "/lp?utm_source=flyer&utm_medium=offline&utm_campaign=week1_math",
       "permanent": false
