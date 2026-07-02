@@ -18,7 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const { admin } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
-const { effectivePrice } = require('../lib/seat-model');
+const { effectivePrice, spotsRemaining } = require('../lib/seat-model');
 
 const db = admin.firestore();
 
@@ -191,6 +191,7 @@ module.exports = async function handler(req, res) {
       const e = doc.data();
       const dt = e.date?.toDate ? e.date.toDate() : (e.date ? new Date(e.date) : null);
       const ep = effectivePrice(e, 'any');
+      const sr = spotsRemaining(e);
       return res.status(200).json({
         event: {
           id: doc.id,
@@ -204,6 +205,8 @@ module.exports = async function handler(req, res) {
           regularPrice: ep.regularPrice,
           isEarlyBird: ep.isEarlyBird,
           earlyBirdEnds: ep.earlyBirdEnds,
+          spotsRemaining: sr ? sr.remaining : null,
+          spotsTotal: sr ? sr.total : null,
           blurb: e.blurb || '',
           status: e.status || 'open',
         },
@@ -232,6 +235,7 @@ module.exports = async function handler(req, res) {
 
     const { id, e, dt } = picked;
     const ep = effectivePrice(e, 'any');
+    const sr = spotsRemaining(e);
     return res.status(200).json({
       event: {
         id,
@@ -248,6 +252,10 @@ module.exports = async function handler(req, res) {
         regularPrice: ep.regularPrice,
         isEarlyBird: ep.isEarlyBird,
         earlyBirdEnds: ep.earlyBirdEnds,
+        // Used only to decide whether to show a vague "Filling up" signal —
+        // never rendered as an exact count (see public/lp.html).
+        spotsRemaining: sr ? sr.remaining : null,
+        spotsTotal: sr ? sr.total : null,
         blurb: e.blurb || '',
         status: e.status || 'open',
       },

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isSinglePool, seatFields, ticketPriceDollars, effectivePrice } from '../lib/seat-model.js';
+import { isSinglePool, seatFields, ticketPriceDollars, effectivePrice, spotsRemaining } from '../lib/seat-model.js';
 
 describe('effectivePrice', () => {
   const future = new Date(Date.now() + 86400000).toISOString();
@@ -65,6 +65,29 @@ describe('seatFields', () => {
       .toEqual({ capField: 'spotsWomen', counterField: 'confirmedWomen' });
     expect(seatFields({ spotsWomen: 15, spotsMen: 15 }, 'man'))
       .toEqual({ capField: 'spotsMen', counterField: 'confirmedMen' });
+  });
+});
+
+describe('spotsRemaining', () => {
+  it('computes remaining for a single-pool event', () => {
+    expect(spotsRemaining({ spots: 50, confirmed: 40 })).toEqual({ total: 50, remaining: 10 });
+  });
+  it('treats a missing confirmed count as zero sold', () => {
+    expect(spotsRemaining({ spots: 50 })).toEqual({ total: 50, remaining: 50 });
+  });
+  it('sums both pools for a legacy gender-split event', () => {
+    expect(spotsRemaining({ spotsWomen: 15, spotsMen: 15, confirmedWomen: 10, confirmedMen: 12 }))
+      .toEqual({ total: 30, remaining: 8 });
+  });
+  it('returns null when the event has no capacity fields', () => {
+    expect(spotsRemaining({})).toBe(null);
+    expect(spotsRemaining(null)).toBe(null);
+  });
+  it('returns null for a zero-capacity single-pool event', () => {
+    expect(spotsRemaining({ spots: 0, confirmed: 0 })).toBe(null);
+  });
+  it('clamps an oversold event to zero remaining, never negative', () => {
+    expect(spotsRemaining({ spots: 20, confirmed: 25 })).toEqual({ total: 20, remaining: 0 });
   });
 });
 
