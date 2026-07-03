@@ -3,7 +3,7 @@
 // Post-event matching: an attendee signals which other attendees from a past
 // event they'd like to see again ("I clicked with them"). When two attendees
 // pick each other it's a mutual match, and we email both their contact info —
-// the "morning after… if they tell us the same about you, we exchange your
+// the "that night at 9pm… if they tell us the same about you, we exchange your
 // contact info" promise on /about.
 //
 // Open to ALL confirmed ticket-holders. (Memberships are paused; this is the

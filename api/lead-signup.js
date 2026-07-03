@@ -207,7 +207,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 }
 
 // Check-in (walk-in / door) profile nudge. Sent right after check-in to people
-// whose profile isn't complete, so the Thursday "who did you click with"
+// whose profile isn't complete, so the same-night 9pm "who did you click with"
 // matching has real data. NO password-reset link — matching is a no-login magic
 // link, and a reset link reads like phishing to a walk-in who never signed up.
 function checkinProfileHTML({ firstName, eventName, profileUrl }) {
