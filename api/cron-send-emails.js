@@ -174,10 +174,10 @@ const NEWSLETTER_EMAILS = [
   },
   // 5 — What happens after you click (the matching loop)
   {
-    subject: 'The best part happens the next morning',
+    subject: 'The best part happens later that night',
     html: (firstName, event, ctaUrl) => shell(
       h1('No awkward Instagram hunt.') +
-      p(`${firstName}, the night itself is fun — but the best part is the morning after.`) +
+      p(`${firstName}, the night itself is fun — but the best part comes at 9pm, once you're home.`) +
       p("You tell us, privately, who you'd like to see again. If they pick you too, we share contact info so you can actually meet up. No guessing whether they felt it. No tracking anyone down. No missed signals.") +
       p('It\'s the closure the apps never give you: you find out, and if it\'s mutual, you\'re connected.') +
       eventCardHtml(event) +
