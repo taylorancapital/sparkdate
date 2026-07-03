@@ -49,6 +49,10 @@
         .divider { font-size: 13px; color: rgba(245,243,240,0.5); margin: 24px 0 18px; text-transform: uppercase; letter-spacing: 1px; }
         .foot { margin-top: 40px; font-size: 12px; color: rgba(245,243,240,0.45); }
         .foot a { color: rgba(245,243,240,0.6); }
+        .iab-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; background: rgba(255,107,107,0.12); border: 1px solid rgba(255,107,107,0.35); border-radius: 8px; padding: 10px 14px; margin-bottom: 20px; font-size: 13px; text-align: left; }
+        .iab-banner span { flex: 1; min-width: 200px; }
+        .iab-banner button { padding: 6px 12px; font-size: 12px; border-radius: 4px; }
+        .iab-banner #iabDismiss { background: transparent; color: var(--cream); opacity: 0.6; padding: 4px 8px; }
     </style>
     <!-- Meta Pixel Code -->
     <script>
@@ -71,6 +75,18 @@
 <body>
     <div class="wrap">
         <div class="logo">Spark<span>Date</span></div>
+
+        <!-- In-app browsers (Instagram/Facebook/TikTok's built-in webview)
+             restrict third-party storage, which breaks Stripe's 3D-Secure
+             iframe at checkout — a limitation enforced by the host app, not
+             fixable in our Stripe integration. Non-blocking: the rest of the
+             page works normally underneath. -->
+        <div class="iab-banner" id="iabBanner" style="display:none">
+            <span>Having trouble? Tap <strong>⋮</strong> or <strong>•••</strong> and choose "Open in Browser" for a smoother checkout.</span>
+            <button type="button" id="iabCopyLink">Copy link</button>
+            <button type="button" id="iabDismiss" aria-label="Dismiss">×</button>
+        </div>
+
         <h1>Your app matched you.<br>We <span class="hl">host the date.</span></h1>
         <p class="sub" id="lpSub">Real, curated dating events at Lancaster &amp; Philadelphia's best venues. Skip the endless texting — meet in person.</p>
 
@@ -109,6 +125,38 @@
         var fmt = function (n) { n = Number(n); return '$' + (n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)); };
         var carry = (function () { var qs = location.search; return (qs && qs.indexOf('utm_') !== -1) ? '&' + qs.replace(/^\?/, '') : ''; })();
         var refOf = function () { try { return new URLSearchParams(location.search).get('ref') || localStorage.getItem('sparkdate_ref'); } catch (_) { return null; } };
+
+        // In-app browser (Instagram/Facebook/TikTok/etc.) detection. Their
+        // built-in webviews commonly restrict third-party storage, which
+        // breaks Stripe's 3D-Secure iframe at checkout — a host-app
+        // limitation, not something our Stripe integration can work around.
+        // The banner is a non-blocking nudge; nothing on the page is gated.
+        function isInAppBrowser() {
+          return /FBAN|FBAV|Instagram|Line\/|TikTok|BytedanceWebview|Twitter/i.test(navigator.userAgent);
+        }
+        (function () {
+          if (!isInAppBrowser()) return;
+          var dismissed; try { dismissed = sessionStorage.getItem('iabDismissed'); } catch (_) { dismissed = null; }
+          if (dismissed) return;
+          var banner = $('iabBanner');
+          if (!banner) return;
+          banner.style.display = 'flex';
+          if (typeof gtag === 'function') gtag('event', 'in_app_browser_detected', { source: 'lp' });
+          var dismissBtn = $('iabDismiss');
+          if (dismissBtn) dismissBtn.addEventListener('click', function () {
+            banner.style.display = 'none';
+            try { sessionStorage.setItem('iabDismissed', '1'); } catch (_) {}
+            if (typeof gtag === 'function') gtag('event', 'in_app_browser_banner_dismissed');
+          });
+          var copyBtn = $('iabCopyLink');
+          if (copyBtn) copyBtn.addEventListener('click', function () {
+            try {
+              navigator.clipboard.writeText(location.href);
+              copyBtn.textContent = 'Copied!';
+              setTimeout(function () { copyBtn.textContent = 'Copy link'; }, 2000);
+            } catch (_) {}
+          });
+        })();
 
         // Dynamic next-event card
         var btn = $('lpTicketBtn');

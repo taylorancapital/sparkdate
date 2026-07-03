@@ -297,6 +297,12 @@
             .event-title { font-size: 32px; }
             .booking-card { position: static; }
         }
+
+        .iab-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; max-width: 1100px; margin: 20px auto 0; padding: 10px 40px; }
+        .iab-banner-inner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: rgba(255,107,107,0.12); border: 1px solid rgba(255,107,107,0.35); border-radius: 8px; padding: 10px 14px; font-size: 13px; width: 100%; }
+        .iab-banner-inner span { flex: 1; min-width: 200px; }
+        .iab-banner-inner button { padding: 6px 12px; font-size: 12px; border-radius: 4px; background: var(--coral); color: #fff; border: none; cursor: pointer; font-family: inherit; }
+        .iab-banner-inner #iabDismiss { background: transparent; color: var(--cream); opacity: 0.6; padding: 4px 8px; }
     </style>
     <!-- Meta Pixel Code -->
     <script>
@@ -329,6 +335,19 @@
             </ul>
         </div>
     </nav>
+
+    <!-- In-app browsers (Instagram/Facebook/TikTok's built-in webview)
+         restrict third-party storage, which breaks Stripe's 3D-Secure
+         iframe here at checkout — a limitation enforced by the host app,
+         not fixable in our Stripe integration. Non-blocking: the card form
+         below still works normally underneath. -->
+    <div class="iab-banner">
+        <div class="iab-banner-inner" id="iabBanner" style="display:none">
+            <span>Having trouble? Tap <strong>⋮</strong> or <strong>•••</strong> and choose "Open in Browser" for a smoother checkout.</span>
+            <button type="button" id="iabCopyLink">Copy link</button>
+            <button type="button" id="iabDismiss" aria-label="Dismiss">×</button>
+        </div>
+    </div>
 
     <div class="container">
         <a href="/events" class="back-link">← All events</a>
@@ -486,6 +505,40 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
         import { getFirestore, collection, doc, getDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+        // In-app browser (Instagram/Facebook/TikTok/etc.) detection. Their
+        // built-in webviews commonly restrict third-party storage, which
+        // breaks Stripe's 3D-Secure iframe at checkout — a host-app
+        // limitation, not something our Stripe integration can work around.
+        // The banner is a non-blocking nudge; the card form below is never
+        // gated. Also used to tag the checkout-funnel gtag events below so
+        // we can confirm/quantify the pattern instead of leaving it theoretical.
+        function isInAppBrowser() {
+          return /FBAN|FBAV|Instagram|Line\/|TikTok|BytedanceWebview|Twitter/i.test(navigator.userAgent);
+        }
+        (function () {
+          if (!isInAppBrowser()) return;
+          var dismissed; try { dismissed = sessionStorage.getItem('iabDismissed'); } catch (_) { dismissed = null; }
+          if (dismissed) return;
+          var banner = document.getElementById('iabBanner');
+          if (!banner) return;
+          banner.style.display = 'flex';
+          if (typeof gtag === 'function') gtag('event', 'in_app_browser_detected', { source: 'event' });
+          var dismissBtn = document.getElementById('iabDismiss');
+          if (dismissBtn) dismissBtn.addEventListener('click', function () {
+            banner.style.display = 'none';
+            try { sessionStorage.setItem('iabDismissed', '1'); } catch (_) {}
+            if (typeof gtag === 'function') gtag('event', 'in_app_browser_banner_dismissed');
+          });
+          var copyBtn = document.getElementById('iabCopyLink');
+          if (copyBtn) copyBtn.addEventListener('click', function () {
+            try {
+              navigator.clipboard.writeText(location.href);
+              copyBtn.textContent = 'Copied!';
+              setTimeout(function () { copyBtn.textContent = 'Copy link'; }, 2000);
+            } catch (_) {}
+          });
+        })();
 
         const firebaseConfig = {
             apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
@@ -899,6 +952,10 @@
                 // promote the server-written ticket from `pending_3ds`
                 // to `confirmed` once Stripe sees success.
                 if (result.requiresAction) {
+                    // Instrumentation only (see isInAppBrowser above) — closes
+                    // the loop on whether in-app-browser sessions are the ones
+                    // getting stuck here, rather than leaving it theoretical.
+                    gtag('event', 'checkout_3ds_required', { in_app_browser: isInAppBrowser() });
                     const { error: confirmError, paymentIntent } =
                         await stripe.confirmCardPayment(result.clientSecret);
                     if (confirmError) {
@@ -907,6 +964,7 @@
                     if (paymentIntent && paymentIntent.status !== 'succeeded') {
                         throw new Error('Payment did not complete. Please try again.');
                     }
+                    gtag('event', 'checkout_3ds_completed', { in_app_browser: isInAppBrowser() });
                 }
 
                 // Ticket + event_registrations rows are written server-side
@@ -950,6 +1008,7 @@
             } catch (err) {
                 console.error('[event] checkout error', err);
                 const msg = (err.message || '').toLowerCase();
+                gtag('event', 'checkout_error', { in_app_browser: isInAppBrowser(), reason: msg.slice(0, 100) });
                 let friendly;
                 if (msg.includes('limit') || msg.includes('full on') || msg.includes('event is full')) {
                     friendly = err.message; // capacity/limit messages are already user-friendly
