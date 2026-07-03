@@ -41,11 +41,32 @@ async function unsubscribeLead(leadId, sig) {
     return { ok: false, reason: 'invalid' };
   }
 
-  await ref.update({
+  const patch = {
     subscribed: false,
     unsubscribed_at: new Date().toISOString(),
-  });
-  return { ok: true, email: data.email };
+  };
+
+  // Suppress EVERY lead doc that shares this address, not just the one whose
+  // token was clicked. If a duplicate lead row exists for the same email (the
+  // signup/purchase paths dedupe by email, but nothing enforces uniqueness),
+  // flipping only the clicked doc leaves the other subscribed:true — and the
+  // marketing cron queries `subscribed == true`, so that duplicate keeps
+  // sending after the person unsubscribed. Query by the exact stored email so
+  // the token holder can only ever unsubscribe their own address.
+  const email = data.email || '';
+  if (email) {
+    const dupSnap = await db.collection('leads').where('email', '==', email).get();
+    if (!dupSnap.empty) {
+      const batch = db.batch();
+      dupSnap.docs.forEach((d) => batch.update(d.ref, patch));
+      await batch.commit();
+      return { ok: true, email, flipped: dupSnap.size };
+    }
+  }
+
+  // No email to dedupe on — flip just the verified doc.
+  await ref.update(patch);
+  return { ok: true, email: data.email, flipped: 1 };
 }
 
 const SUCCESS_HTML = (emailHint) => `<!DOCTYPE html>
