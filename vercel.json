@@ -73,10 +73,6 @@
       "destination": "/index.html"
     },
     {
-      "source": "/founding",
-      "destination": "/founding.html"
-    },
-    {
       "source": "/signup",
       "destination": "/signup.html"
     },

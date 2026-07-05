@@ -20,7 +20,7 @@ const { parseToken, verifySignature } = require('../lib/unsubscribe');
 const db = admin.firestore();
 
 // HTML-escape — the success page interpolates a (masked) email derived
-// from the lead's stored address, which the public founding form set.
+// from the lead's stored address, which one of the public signup forms set.
 // The unsubscribe token is HMAC-gated so this isn't practically
 // reachable, but escaping it is correct defense-in-depth.
 function esc(s) {

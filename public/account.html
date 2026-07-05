@@ -1302,12 +1302,15 @@
         }
 
         // Referral: build the member's personal invite link and wire the
-        // copy + share-to buttons. The ?ref=<uid> param is captured by the
-        // founding/landing forms and stored on the resulting lead.
+        // copy + share-to buttons. The ?ref=<uid> param is captured by
+        // index.html (writes it to localStorage as sparkdate_ref) and stored
+        // on the resulting lead. Points at the homepage, not /events —
+        // events.html has no equivalent capture logic, so a ref landing
+        // there would be silently dropped.
         function setupInvite() {
             try {
                 if (!currentUser) return;
-                const link = `https://sparkdate.date/founding?ref=${encodeURIComponent(currentUser.uid)}&utm_source=referral&utm_medium=referral&utm_campaign=member_invite`;
+                const link = `https://sparkdate.date/?ref=${encodeURIComponent(currentUser.uid)}&utm_source=referral&utm_medium=referral&utm_campaign=member_invite`;
                 const input = document.getElementById('inviteLink');
                 if (input) input.value = link;
 

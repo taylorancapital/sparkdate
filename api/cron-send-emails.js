@@ -510,7 +510,10 @@ async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resen
               eventName, matchUrl: makeMatchUrl(cand.uid), nextEventHtml,
               // Same link-building convention as account.html's setupInvite()
               // — no new attribution logic, just a new place it's surfaced.
-              referralUrl: `https://sparkdate.date/founding?ref=${encodeURIComponent(cand.uid)}&utm_source=referral&utm_medium=email&utm_campaign=post_event`,
+              // Points at the homepage, not /events — index.html captures an
+              // incoming ?ref= into localStorage (sparkdate_ref); events.html
+              // has no equivalent capture logic, so attribution would be lost.
+              referralUrl: `https://sparkdate.date/?ref=${encodeURIComponent(cand.uid)}&utm_source=referral&utm_medium=email&utm_campaign=post_event`,
             }),
           });
           if (!result.error) {

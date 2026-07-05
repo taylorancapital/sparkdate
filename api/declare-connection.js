@@ -72,6 +72,9 @@ function reachLineFor(u) {
   return 'No direct contact on file yet — reconnect at the next event.';
 }
 
+// The referral link below points at the homepage, not /events — index.html
+// captures an incoming ?ref= param into localStorage (sparkdate_ref) so it's
+// still attributed at checkout; events.html has no equivalent capture logic.
 function matchEmailHTML({ youFirstName, theirName, reachLine, eventName, refUid }) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
@@ -89,7 +92,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 <p>${esc(youFirstName)}, you and <strong>${esc(theirName)}</strong> both wanted to stay in touch after ${esc(eventName)}.</p>
 <div class="reach">Reach ${esc(theirName)}: <strong>${reachLine}</strong></div>
 <p>Go say hi — we'll leave the rest to you. 💫</p>
-<p style="font-size:13px;color:#666;border-top:1px solid #eee;padding-top:16px;margin-top:20px;">Know someone who'd love a night like this? <a href="https://sparkdate.date/founding?ref=${esc(refUid)}" style="color:#ff6b6b;font-weight:600;text-decoration:none;">Send them your invite link →</a></p>
+<p style="font-size:13px;color:#666;border-top:1px solid #eee;padding-top:16px;margin-top:20px;">Know someone who'd love a night like this? <a href="https://sparkdate.date/?ref=${esc(refUid)}" style="color:#ff6b6b;font-weight:600;text-decoration:none;">Send them your invite link →</a></p>
 </div>
 <div class="footer"><p>SparkDate · Lancaster &amp; Philadelphia · Real people. Real venues.</p>
 <p><a href="https://sparkdate.date">sparkdate.date</a></p></div>

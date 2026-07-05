@@ -1119,7 +1119,7 @@
                         <div class="form-grid">
                             <div class="form-group">
                                 <label class="form-label">Title</label>
-                                <input type="text" class="form-input" id="evTitle" placeholder="e.g. Founders Mixer">
+                                <input type="text" class="form-input" id="evTitle" placeholder="e.g. Rooftop Mixer">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Status</label>
@@ -1319,7 +1319,7 @@
                     <span style="font-size: 12px; color: rgba(245,243,240,0.5);" id="leadCount">—</span>
                 </div>
                 <p style="font-size: 13px; color: rgba(245,243,240,0.55); margin: -6px 0 16px; line-height: 1.6;">
-                    Signups from the founding form (<code>/founding</code>). Welcome email + the 4-touch nurture sequence (day 2, 5, 14, 25) auto-fire from <code>/api/cron-send-emails</code>. Unsubscribes flip the row to red.
+                    Signups from the site's lead-capture forms (newsletter, blog, exit-intent, etc). Welcome email + the 4-touch nurture sequence (day 2, 5, 14, 25) auto-fire from <code>/api/cron-send-emails</code>. Unsubscribes flip the row to red.
                 </p>
                 <table>
                     <thead>
@@ -3205,8 +3205,12 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // email (same lowercase join key as Retention). Read-only: no
         // schema, no writes. `allPayments` is loaded on init; `allLeads`
         // only when the Leads tab opens, so ensure both are present.
+        // NB: the 'founding_form' key matches the historical `source` value
+        // still stored on existing lead docs (see api/lead-signup.js's
+        // ALLOWED_SOURCES) — only the display label changes here, since the
+        // dedicated /founding page is gone but old lead records aren't.
         const FUNNEL_SOURCE_LABELS = {
-            founding_form: 'Founding form',
+            founding_form: 'Website signup',
             newsletter: 'Newsletter',
             ad_landing: 'Ad landing',
             referral: 'Referral',
@@ -3278,7 +3282,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         function renderFunnel(d) {
             const root = document.getElementById('funnelBody');
             if (!d.totalLeads) {
-                root.innerHTML = '<p class="empty">No leads yet. This populates once the founding form / newsletter captures signups.</p>';
+                root.innerHTML = '<p class="empty">No leads yet. This populates once the site\'s signup forms / newsletter capture leads.</p>';
                 return;
             }
             const money = (n) => '$' + (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -3472,7 +3476,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         };
 
         // ─── LEADS ─────────────────────────────────────────
-        // Email-marketing pipeline: founding-form signups + nurture-sequence status.
+        // Email-marketing pipeline: signup-form leads + nurture-sequence status.
         let allLeads = [];
 
         async function loadLeads() {
@@ -3495,7 +3499,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             countEl.textContent = `${allLeads.length} lead${allLeads.length !== 1 ? 's' : ''}`;
 
             if (allLeads.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="11" class="empty">No leads yet. Founding-form signups will appear here.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="11" class="empty">No leads yet. Signups from the site\'s forms will appear here.</td></tr>';
                 return;
             }
 
