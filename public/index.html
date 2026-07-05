@@ -384,6 +384,42 @@
             color: rgba(245, 243, 240, 0.6);
         }
 
+        /* Testimonials */
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 40px;
+        }
+
+        .testimonial-card {
+            background: rgba(255, 107, 107, 0.05);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            padding: 40px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+
+        .testimonial-card:hover {
+            background: rgba(255, 107, 107, 0.1);
+            border-color: var(--coral);
+            transform: translateY(-5px);
+        }
+
+        .testimonial-quote {
+            font-size: 16px;
+            font-style: italic;
+            color: rgba(245, 243, 240, 0.85);
+            line-height: 1.7;
+            margin-bottom: 16px;
+        }
+
+        .testimonial-attribution {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--coral);
+        }
+
         /* CTA Section */
         .cta-section {
             background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
@@ -776,6 +812,27 @@
                     <li>Real accountability & vibe check</li>
                     <li>Low pressure, high authenticity</li>
                 </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials -->
+    <!-- PLACEHOLDER CONTENT: every quote below must be replaced with a real,
+         permission-obtained testimonial before this ships to production. -->
+    <section class="section testimonials" id="testimonials">
+        <h2 class="section-title">What People Are <span class="highlight">Saying</span></h2>
+        <div class="testimonials-grid">
+            <div class="testimonial-card">
+                <p class="testimonial-quote">[PLACEHOLDER — replace with a real quote before shipping]</p>
+                <div class="testimonial-attribution">— First name, City</div>
+            </div>
+            <div class="testimonial-card">
+                <p class="testimonial-quote">[PLACEHOLDER — replace with a real quote before shipping]</p>
+                <div class="testimonial-attribution">— First name, City</div>
+            </div>
+            <div class="testimonial-card">
+                <p class="testimonial-quote">[PLACEHOLDER — replace with a real quote before shipping]</p>
+                <div class="testimonial-attribution">— First name, City</div>
             </div>
         </div>
     </section>
