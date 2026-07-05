@@ -145,6 +145,14 @@
       "destination": "/blog/first-timer-guide.html"
     },
     {
+      "source": "/blog/first-timer-guide-lancaster",
+      "destination": "/blog/first-timer-guide-lancaster.html"
+    },
+    {
+      "source": "/blog/philly-date-night-spots",
+      "destination": "/blog/philly-date-night-spots.html"
+    },
+    {
       "source": "/philadelphia",
       "destination": "/city.html?city=philadelphia"
     },

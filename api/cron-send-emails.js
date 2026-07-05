@@ -376,8 +376,16 @@ async function sendProfileReminders(nowMs, emailedThisRun) {
 // breaks the nurture or profile-reminder passes.
 const POST_EVENT_LOOKBACK_DAYS = 3;
 
-function postEventPromptHTML({ eventName, matchUrl, nextEventHtml }) {
+function postEventPromptHTML({ eventName, matchUrl, nextEventHtml, referralUrl }) {
   const s = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Referral block: the highest-engagement email in the system (recipient
+  // just got excited about a match), so it's the best moment to surface the
+  // already-built referral link (same account.html invite-link convention —
+  // no new tracking, just a new surface). No incentive attached yet — this
+  // is purely a visibility push, not a reward program.
+  const referralHtml = referralUrl ? `
+<p class="next-h">Know someone who'd love this?</p>
+<p>Bring a friend next time — <a href="${s(referralUrl)}">send them your invite link</a>.</p>` : '';
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
 .container{max-width:600px;margin:0 auto;background:#fff}
@@ -395,7 +403,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 <p>Tell us who you'd like to see again. If they pick you too, we'll share contact info so you can meet up — no missed signals, no awkward Instagram hunt.</p>
 <p style="text-align:center;"><a class="cta" href="${s(matchUrl)}">Pick your matches</a></p>
 <p>No login needed — this link is just for you.</p>
-${nextEventHtml || ''}
+${nextEventHtml || ''}${referralHtml}
 </div>
 <div class="footer"><p>SparkDate · Lancaster &amp; Philadelphia · Real people. Real venues.</p>
 <p><a href="https://sparkdate.date">sparkdate.date</a></p></div>
@@ -498,7 +506,12 @@ async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resen
             from: 'SparkDate <hello@mail.sparkdate.date>',
             to: email,
             subject: `Who did you click with at ${eventName}?`,
-            html: postEventPromptHTML({ eventName, matchUrl: makeMatchUrl(cand.uid), nextEventHtml }),
+            html: postEventPromptHTML({
+              eventName, matchUrl: makeMatchUrl(cand.uid), nextEventHtml,
+              // Same link-building convention as account.html's setupInvite()
+              // — no new attribution logic, just a new place it's surfaced.
+              referralUrl: `https://sparkdate.date/founding?ref=${encodeURIComponent(cand.uid)}&utm_source=referral&utm_medium=email&utm_campaign=post_event`,
+            }),
           });
           if (!result.error) {
             const sentAt = new Date().toISOString();

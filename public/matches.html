@@ -45,6 +45,15 @@
         .match-contact { margin-top: 6px; font-size: 13px; color: var(--success); line-height: 1.5; }
         .empty, .bad { color: rgba(245,243,240,0.6); font-size: 14px; text-align: center; padding: 24px 0; }
         a { color: var(--coral); }
+        .invite-block { margin-top: 30px; padding: 20px 18px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,107,107,0.25); border-radius: 8px; text-align: center; }
+        .invite-block h3 { font-family: 'Playfair Display', serif; font-size: 16px; margin-bottom: 6px; }
+        .invite-block p { font-size: 13px; color: rgba(245,243,240,0.7); margin-bottom: 14px; }
+        .invite-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .invite-row input { flex: 1; min-width: 160px; padding: 9px 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: var(--cream); font-family: inherit; font-size: 12px; }
+        .invite-row button, .invite-share a { padding: 9px 14px; font-size: 12px; font-weight: 600; border-radius: 4px; text-decoration: none; font-family: inherit; cursor: pointer; }
+        .invite-row button { background: var(--coral); color: #fff; border: none; }
+        .invite-share { margin-top: 10px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .invite-share a { color: var(--coral); border: 1px solid rgba(255,107,107,0.4); background: transparent; }
     </style>
 </head>
 <body>
@@ -52,6 +61,20 @@
         <div class="logo">Spark<span>Date</span></div>
         <div id="content">
             <div class="empty">Loading…</div>
+        </div>
+
+        <!-- Bring-a-friend: the already-built referral link (same convention
+             as account.html's invite section), surfaced here since this is
+             the highest-intent moment — right after someone engaged with
+             matching. No incentive attached, just visibility. -->
+        <div class="invite-block" id="inviteBlock" style="display:none">
+            <h3>Know someone who'd love this?</h3>
+            <p>Bring a friend next time — share your invite link.</p>
+            <div class="invite-row">
+                <input type="text" id="inviteLink" readonly aria-label="Your invite link">
+                <button type="button" id="copyInviteBtn">Copy</button>
+            </div>
+            <div class="invite-share" id="inviteShare"></div>
         </div>
     </div>
 
@@ -71,6 +94,51 @@
         if (!uid || !token) {
           content.innerHTML = '<h1>This link isn’t valid.</h1><p class="bad">It may have expired or been mistyped. Check your most recent SparkDate email for the latest link.</p>';
           return;
+        }
+
+        // Bring-a-friend: same link-building convention as account.html's
+        // setupInvite() (ref=<uid> attribution, no new tracking logic) —
+        // just a new surface. Doesn't need the match data to load first.
+        function setupInvite() {
+          try {
+            var link = 'https://sparkdate.date/founding?ref=' + encodeURIComponent(uid) + '&utm_source=referral&utm_medium=referral&utm_campaign=matches_page';
+            var block = document.getElementById('inviteBlock');
+            var input = document.getElementById('inviteLink');
+            if (input) input.value = link;
+            if (block) block.style.display = 'block';
+
+            var copyBtn = document.getElementById('copyInviteBtn');
+            if (copyBtn) copyBtn.addEventListener('click', async function () {
+              try { await navigator.clipboard.writeText(link); }
+              catch (_) { input.focus(); input.select(); document.execCommand('copy'); }
+              var orig = copyBtn.textContent;
+              copyBtn.textContent = 'Copied!';
+              if (typeof gtag === 'function') gtag('event', 'share', { method: 'copy_link', content_type: 'referral' });
+              setTimeout(function () { copyBtn.textContent = orig; }, 1800);
+            });
+
+            var msg = 'Come to a SparkDate event with me — real people, real venues:';
+            var enc = encodeURIComponent(link);
+            var encMsg = encodeURIComponent(msg);
+            var targets = [
+              { label: 'Text', href: 'sms:?&body=' + encMsg + '%20' + enc },
+              { label: 'WhatsApp', href: 'https://wa.me/?text=' + encMsg + '%20' + enc },
+              { label: 'Email', href: 'mailto:?subject=' + encodeURIComponent('Come to a SparkDate event with me') + '&body=' + encMsg + '%20' + enc },
+            ];
+            var wrap = document.getElementById('inviteShare');
+            if (wrap) {
+              wrap.innerHTML = targets.map(function (t) {
+                return '<a href="' + t.href + '" target="_blank" rel="noopener" data-share="' + esc(t.label) + '">' + esc(t.label) + '</a>';
+              }).join('');
+              wrap.querySelectorAll('[data-share]').forEach(function (a) {
+                a.addEventListener('click', function () {
+                  if (typeof gtag === 'function') gtag('event', 'share', { method: a.dataset.share, content_type: 'referral' });
+                });
+              });
+            }
+          } catch (e) {
+            console.error('[invite] setup failed', e);
+          }
         }
 
         function render(events) {
@@ -165,6 +233,7 @@
         }
 
         load();
+        setupInvite();
       })();
     </script>
 </body>
