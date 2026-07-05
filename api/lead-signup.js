@@ -12,6 +12,7 @@ const { makeUnsubscribeUrl } = require('../lib/unsubscribe');
 const { buildUtmUrl } = require('../lib/utm');
 const { getNextEvent, eventCardHtml, ctaButtonHtml, shell, h1, p } = require('../lib/next-event');
 const { verifyProfileToken, makeProfileUrl, sign: signProfileToken } = require('../lib/profile-link');
+const { logEventAttended } = require('../lib/activity-log');
 
 const db = admin.firestore();
 
@@ -463,6 +464,14 @@ async function handleCheckin(req, res) {
       createdAt: FieldValue.serverTimestamp(),
     } : {}),
   }, { merge: true });
+
+  // 3.5. Real "attended" activity-feed entry — check-in is the person
+  // physically at the door right now, so this is a genuine attendance
+  // signal (unlike the old purchase-time write). Best-effort, awaited per
+  // the same rationale as every other activity write in this codebase.
+  await logEventAttended(db, FieldValue, {
+    uid, email, name: firstName, eventId, eventName: eventTitle, method: 'checkin',
+  }).catch((e) => console.error('[checkin] attendance log failed:', e.message));
 
   // 4. Profile-completion nudge (best-effort — NEVER abort check-in on failure;
   //    the registration above is what the door needs). Skip if the profile is

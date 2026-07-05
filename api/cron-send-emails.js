@@ -16,6 +16,7 @@ const { Resend } = require('resend');
 const { admin } = require('../lib/auth');
 const { makeUnsubscribeUrl } = require('../lib/unsubscribe');
 const { resolveLeadName } = require('../lib/lead-name');
+const { logEventAttended } = require('../lib/activity-log');
 const { makeProfileUrl, makeMatchUrl } = require('../lib/profile-link');
 const { EMAIL_CAMPAIGNS: UTM, buildUtmUrl } = require('../lib/utm');
 const { getNextEvent, eventCardHtml, ctaButtonHtml, urgencyBox, shell, h1, p, esc } = require('../lib/next-event');
@@ -519,6 +520,46 @@ async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resen
   return { sent, skipped };
 }
 
+// ── Real "attended" activity-feed logging ───────────────────────────────────
+// Covers confirmed registrants who never used the digital check-in flow
+// (lib/activity-log.js's other trigger). Deliberately scoped to the SAME
+// past-event window as sendPostEventPrompts above — this can only ever run
+// for events whose date has already passed, which is the whole point: it
+// replaces the old purchase-time event_attended write that could fire days
+// or weeks before the event happened. logEventAttended no-ops for anyone
+// already logged via check-in, so re-running this is always safe.
+async function logPastEventAttendance(nowMs) {
+  let logged = 0, skipped = 0;
+  try {
+    const since = new Date(nowMs - POST_EVENT_LOOKBACK_DAYS * 86400000);
+    const evSnap = await db.collection('events')
+      .where('date', '>=', since)
+      .where('date', '<=', new Date(nowMs))
+      .get();
+    for (const evDoc of evSnap.docs) {
+      const eventName = evDoc.data().title || 'a SparkDate event';
+      const erSnap = await db.collection('event_registrations').where('eventId', '==', evDoc.id).get();
+      for (const er of erSnap.docs) {
+        const r = er.data();
+        if (r.status !== 'confirmed' || !r.userId) { skipped++; continue; }
+        try {
+          const result = await logEventAttended(db, admin.firestore.FieldValue, {
+            uid: r.userId, email: r.email, name: r.name,
+            eventId: evDoc.id, eventName, method: 'post_event_pass',
+          });
+          if (result.logged) logged++; else skipped++;
+        } catch (e) {
+          console.error('[attendance-log]', er.id, e.message);
+          skipped++;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[attendance-log] pass failed:', e.message);
+  }
+  return { logged, skipped };
+}
+
 // ── Returning-attendee invite ───────────────────────────────────────────────
 // The retention engine: when a new event is on the calendar, invite everyone
 // who attended a PAST mixer (and isn't already signed up for the next one) to
@@ -826,8 +867,9 @@ module.exports = async function handler(req, res) {
       }
 
       const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun, testUid, resendUids, event);
-      console.log(`✅ Cron (only=postevent${testUid ? `, testUid=${testUid}` : ''}${resendUids ? `, resendUids=${resendUids.join(',')}` : ''}):`, JSON.stringify(postEventPrompts));
-      return res.status(200).json({ success: true, only: 'postevent', testUid: testUid || null, resendUids: resendUids || null, postEventPrompts, ts: new Date().toISOString() });
+      const attendanceLog = await logPastEventAttendance(nowMs);
+      console.log(`✅ Cron (only=postevent${testUid ? `, testUid=${testUid}` : ''}${resendUids ? `, resendUids=${resendUids.join(',')}` : ''}):`, JSON.stringify(postEventPrompts), 'attendanceLog=', JSON.stringify(attendanceLog));
+      return res.status(200).json({ success: true, only: 'postevent', testUid: testUid || null, resendUids: resendUids || null, postEventPrompts, attendanceLog, ts: new Date().toISOString() });
     }
 
     // Attendance index (confirmed event_registrations = single source of truth).
@@ -868,6 +910,11 @@ module.exports = async function handler(req, res) {
     //    marketing yields to them. (These run over ticket-holders, not leads.)
     const profileReminders = await sendProfileReminders(nowMs, emailedThisRun);
     const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun, null, null, event);
+    // Same-day safety net for the real "attended" log, mirroring
+    // sendPostEventPrompts above: the dedicated 9pm ET cron already covers
+    // this via the only==='postevent' branch, but re-running it here for
+    // anyone the evening pass missed is a no-op for everyone already logged.
+    const attendanceLog = await logPastEventAttendance(nowMs);
 
     // 1.5) Returning-attendee invite — warm, targeted, high priority (claims the
     //    address before the marketing passes). Self-limiting via the per-event
@@ -895,8 +942,8 @@ module.exports = async function handler(req, res) {
       ? await sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByEmail)
       : { sent: 0, skipped: 0, gated: true };
 
-    console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders), 'postEventPrompts=', JSON.stringify(postEventPrompts), 'returningInvites=', JSON.stringify(returningInvites), 'newsletter=', JSON.stringify(newsletter), 'postNurtureEvents=', JSON.stringify(postNurtureEvents));
-    return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, postEventPrompts, returningInvites, newsletter, postNurtureEvents, ts: new Date().toISOString() });
+    console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders), 'postEventPrompts=', JSON.stringify(postEventPrompts), 'attendanceLog=', JSON.stringify(attendanceLog), 'returningInvites=', JSON.stringify(returningInvites), 'newsletter=', JSON.stringify(newsletter), 'postNurtureEvents=', JSON.stringify(postNurtureEvents));
+    return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, postEventPrompts, attendanceLog, returningInvites, newsletter, postNurtureEvents, ts: new Date().toISOString() });
 
   } catch (err) {
     console.error('❌ Cron error:', err.message);
