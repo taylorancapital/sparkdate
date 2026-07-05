@@ -7,12 +7,6 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://sparkdate.date/founding</loc>
-    <lastmod>2026-05-31</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
     <loc>https://sparkdate.date/events</loc>
     <lastmod>2026-05-31</lastmod>
     <changefreq>daily</changefreq>

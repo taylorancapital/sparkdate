@@ -356,10 +356,10 @@
             <!-- Event Details -->
             <div>
                 <div class="event-hero">
-                    <span class="event-tag">Founding Event · Spots Filling Fast</span>
+                    <span class="event-tag" id="eventTag">Upcoming Mixer</span>
                 </div>
 
-                <h1 class="event-title" id="eventTitle">Founders Mixer</h1>
+                <h1 class="event-title" id="eventTitle">SparkDate Mixer</h1>
                 <p class="event-tagline" id="eventTagline">An intimate evening of conversation and connection.</p>
 
                 <div class="event-meta">
@@ -392,7 +392,7 @@
 
                 <div class="event-description">
                     <h2>What to Expect</h2>
-                    <p>This isn't a speed dating event, and it isn't a singles bar. SparkDate's Founders Mixer is a curated evening designed for adults who'd rather meet in person than keep texting.</p>
+                    <p>This isn't a speed dating event, and it isn't a singles bar. It's a curated evening designed for adults who'd rather meet in person than keep texting.</p>
                     <ul>
                         <li><strong>Pre-screened guest list.</strong> Every attendee is verified.</li>
                         <li><strong>Trained host on-site.</strong> Natural introductions, no awkward icebreakers.</li>
@@ -404,7 +404,7 @@
                     <p>Smart casual. Think first-date confidence — not job interview.</p>
 
                     <h2 style="margin-top: 30px;">Cancellation Policy</h2>
-                    <p>All ticket sales are final. Can't make it? You can transfer your ticket to a friend (single, of course).</p>
+                    <p>Tickets aren't refundable, but you're always welcome to transfer yours to a friend if your plans change.</p>
                 </div>
             </div>
 
@@ -445,6 +445,7 @@
                         <div class="form-group" id="cardFormGroup">
                             <label>Payment Card</label>
                             <div id="card-element"></div>
+                            <div style="font-size: 12px; color: rgba(245,243,240,0.5); margin-top: 8px;">🔒 Payments processed securely by Stripe</div>
                         </div>
 
                         <div class="form-group" id="cardOnFileNotice" style="display: none;">
@@ -637,9 +638,49 @@
                 document.getElementById('venueRatingItem').style.display = '';
             }
 
+            updateEventTag(ev);
+
             // SEO: dynamic page meta + schema.org Event JSON-LD so this page
             // is eligible for Google event rich results / event carousels.
             injectEventSeo(ev);
+        }
+
+        // Real price/scarcity signal in the hero tag — replaces the old
+        // static "Founding Event" badge. Priority mirrors the exact pattern
+        // already built for lp.html: early-bird deadline beats non-numeric
+        // scarcity beats a plain price fallback. Scarcity is deliberately
+        // never a number ("Filling up", not "Only 5 left") — a low absolute
+        // count reads exclusive, a near-empty ratio reads unpopular, and
+        // there's no way to know in advance which side of that line a given
+        // event lands on. Event docs are publicly readable (firestore.rules),
+        // so this uses data the page has already fetched — no new request.
+        function updateEventTag(ev) {
+            const tag = document.getElementById('eventTag');
+            if (!tag) return;
+
+            const now = Date.now();
+            const ends = ev.earlyBirdEnds;
+            const endsMs = ends ? (ends.toDate ? ends.toDate().getTime() : new Date(ends).getTime()) : NaN;
+            const eb = Number(ev.earlyBirdPrice);
+            if (Number.isFinite(eb) && eb > 0 && Number.isFinite(endsMs) && now < endsMs) {
+                tag.textContent = 'Early-bird · ends ' + new Date(endsMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                return;
+            }
+
+            // Single shared pool (new events) vs. legacy gender-split capacity
+            // — same isSinglePool distinction lib/seat-model.js makes server-side.
+            const isSinglePool = Number.isFinite(Number(ev.spots));
+            const total = isSinglePool ? Number(ev.spots) : ((Number(ev.spotsMen) || 0) + (Number(ev.spotsWomen) || 0));
+            const sold = isSinglePool ? (Number(ev.confirmed) || 0) : ((Number(ev.confirmedMen) || 0) + (Number(ev.confirmedWomen) || 0));
+            const remaining = Math.max(0, total - sold);
+            const scarce = total > 0 && remaining > 0 && (remaining <= 10 || remaining / total <= 0.25);
+            if (scarce) {
+                tag.textContent = 'Filling up';
+                return;
+            }
+
+            const price = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+            tag.textContent = price > 0 ? `🎟️ $${price % 1 === 0 ? price.toFixed(0) : price.toFixed(2)}` : 'Upcoming Mixer';
         }
 
         // Build per-event <title>, meta description, canonical, Open Graph
@@ -848,6 +889,16 @@
 
         document.getElementById('ticketGender').addEventListener('change', updatePricing);
 
+        // Funnel visibility: fires once per page load on the first interaction
+        // with any checkout field, so GA4 can measure true form-abandonment
+        // rate (started-but-never-submitted), not just final purchase/error.
+        let checkoutStartTracked = false;
+        document.getElementById('checkoutForm').addEventListener('focusin', () => {
+            if (checkoutStartTracked) return;
+            checkoutStartTracked = true;
+            gtag('event', 'checkout_form_started', { in_app_browser: isInAppBrowser() });
+        });
+
         document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -883,7 +934,7 @@
 
                 const ticket = ticketPrice();
                 const total = (ticket + SERVICE_FEE) * 100;
-                const evName = eventData?.title || 'Founders Mixer';
+                const evName = eventData?.title || 'SparkDate Mixer';
                 const evId = eventData?.id || eventId;
 
                 // Cheap pre-flight: if event already advertises 0 spots, fail fast
@@ -1008,19 +1059,31 @@
             } catch (err) {
                 console.error('[event] checkout error', err);
                 const msg = (err.message || '').toLowerCase();
-                gtag('event', 'checkout_error', { in_app_browser: isInAppBrowser(), reason: msg.slice(0, 100) });
-                let friendly;
-                if (msg.includes('limit') || msg.includes('full on') || msg.includes('event is full')) {
+                let friendly, category;
+                if (msg.includes('enter your name')) {
+                    friendly = err.message;
+                    category = 'name_missing';
+                } else if (msg.includes('limit') || msg.includes('full on') || msg.includes('event is full')) {
                     friendly = err.message; // capacity/limit messages are already user-friendly
+                    category = 'capacity';
                 } else if (msg.includes('declin')) {
                     friendly = 'Your card was declined. Please try a different payment method.';
+                    category = 'card_declined';
                 } else if (msg.includes('network')) {
                     friendly = 'Network error. Please check your connection and try again.';
+                    category = 'network';
                 } else if (msg.includes('incomplete')) {
                     friendly = 'Please complete all payment details.';
+                    category = 'card_incomplete';
                 } else {
                     friendly = 'We could not complete your purchase. Please try again, or contact support@sparkdate.date.';
+                    category = 'other';
                 }
+                // Bucketed category (same classification the friendly-message
+                // logic above already computes) + the raw reason text, so GA4
+                // can show which specific checkout field is costing conversions
+                // without needing a separate validation-error event per field.
+                gtag('event', 'checkout_error', { in_app_browser: isInAppBrowser(), category, reason: msg.slice(0, 100) });
                 errorMsg.textContent = friendly;
                 errorMsg.style.display = 'block';
                 btn.disabled = false;

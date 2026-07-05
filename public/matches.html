@@ -99,9 +99,12 @@
         // Bring-a-friend: same link-building convention as account.html's
         // setupInvite() (ref=<uid> attribution, no new tracking logic) —
         // just a new surface. Doesn't need the match data to load first.
+        // Points at the homepage, not /events — index.html captures an
+        // incoming ?ref= into localStorage (sparkdate_ref); events.html
+        // doesn't, so a ref landing there would be silently dropped.
         function setupInvite() {
           try {
-            var link = 'https://sparkdate.date/founding?ref=' + encodeURIComponent(uid) + '&utm_source=referral&utm_medium=referral&utm_campaign=matches_page';
+            var link = 'https://sparkdate.date/?ref=' + encodeURIComponent(uid) + '&utm_source=referral&utm_medium=referral&utm_campaign=matches_page';
             var block = document.getElementById('inviteBlock');
             var input = document.getElementById('inviteLink');
             if (input) input.value = link;

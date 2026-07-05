@@ -1,7 +1,7 @@
 // api/next-event.js
 //
 // Public, read-only endpoint that powers the "event-first Get Tickets"
-// block on the marketing landing pages (/founding and /). It returns the
+// block on the homepage (/) and the ad landing page (/lp). It returns the
 // single soonest upcoming event so the block can render a real
 // date/venue/price + a link into the in-app checkout (/event?id=...).
 //

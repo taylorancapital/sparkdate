@@ -664,8 +664,7 @@
          Promotional copy is hardcoded so the page renders the full CTA on
          first paint (no loading flash). The checkout link target is filled
          in asynchronously from /api/next-event so clicking deep-links to
-         the right event page; falls back to /events if the API errors.
-         Matches the equivalent block in founding.html — keep them in sync. -->
+         the right event page; falls back to /events if the API errors. -->
     <section class="event-cta" id="eventCta">
         <div class="event-cta-inner">
             <div class="event-cta-eyebrow" id="eventCtaEyebrow">Upcoming Mixer</div>
@@ -748,7 +747,7 @@
             <h1>Your app matched you.<br>We <span class="highlight">host the date.</span></h1>
             <p class="hero-subtitle">Curated dating events for singles who want real connections — in Lancaster &amp; Philadelphia.</p>
             <div class="hero-buttons">
-                <a href="/founding#signup" class="btn btn-primary">Claim Your Spot</a>
+                <a href="/events" class="btn btn-primary">Claim Your Spot</a>
                 <a href="#how-it-works" class="btn btn-secondary">How It Works</a>
             </div>
         </div>
@@ -766,7 +765,7 @@
             <div class="step-card">
                 <div class="step-number">2</div>
                 <h3>Get Curated</h3>
-                <p>We handpick 25-35 people for each event. No algorithm tricks. Just real humans who match your energy.</p>
+                <p>We handpick 20-30 people for each event. No algorithm tricks. Just real humans who match your energy.</p>
             </div>
             <div class="step-card">
                 <div class="step-number">3</div>
@@ -834,8 +833,8 @@
     <!-- CTA Section -->
     <section class="cta-section">
         <h2>Ready to meet in person?</h2>
-        <p>Join our founding member cohort. Get your first month free, lifetime founding status, and a real say in what we build.</p>
-        <a href="/founding#signup" class="btn-cta">Claim Your Spot</a>
+        <p>Real venues, curated guest lists, no algorithm — just people who showed up. Grab your ticket to the next mixer.</p>
+        <a href="/events" class="btn-cta">Claim Your Spot</a>
     </section>
 
     <!-- Newsletter capture -->
@@ -858,7 +857,7 @@
                 <h4>SparkDate</h4>
                 <a href="/">Home</a>
                 <a href="#how-it-works">How It Works</a>
-                <a href="/founding">Founding Members</a>
+                <a href="/events">Events</a>
             </div>
             <div class="footer-section">
                 <h4>Legal</h4>
@@ -893,7 +892,7 @@
 
     <script>
       // Newsletter capture — reuses the lead-signup endpoint with a
-      // 'newsletter' source so these are distinguishable from founding leads.
+      // 'newsletter' source so these are distinguishable from other lead sources.
       (function () {
         var form = document.getElementById('newsletterForm');
         if (!form) return;

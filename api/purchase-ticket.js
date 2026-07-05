@@ -404,7 +404,7 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
 // Upserts by email (case-insensitive). Existing leads get the latest
 // ticket info MERGED in — we deliberately don't reset nurture flags,
 // don't touch `source` or `subscribed`, and don't overwrite a name /
-// phone the user previously provided. This way a founding-form lead who
+// phone the user previously provided. This way an existing lead who
 // later buys a ticket keeps their original signup history AND picks up
 // the ticket-purchase metadata.
 //

@@ -663,19 +663,15 @@
                 injectEventsListSchema(events);
             } catch (err) {
                 console.error('[events] load error:', err);
-                // Fallback: show the hardcoded Founders Mixer
-                renderEvents([{
-                    id: 'founders-mixer-001',
-                    title: 'Founders Mixer',
-                    date: { toDate: () => new Date('2026-06-12T19:30:00') },
-                    time: '7:30 PM',
-                    venue: 'a.kitchen + a.bar',
-                    neighborhood: 'Rittenhouse',
-                    spots: 30,
-                    price: 24.99,
-                    blurb: 'An intimate evening of conversation and connection at Philadelphia\'s most stylish venue. Curated guest list, real people only.',
-                    status: 'open',
-                }], grid);
+                // Fail soft with an honest "couldn't load" message rather than
+                // a fake specific event — the previous hardcoded fallback event
+                // had a hardcoded date that eventually landed in the past,
+                // meaning it could show an already-happened event as bookable.
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <h3>Could not load events</h3>
+                        <p>Please refresh the page, or check back in a moment.</p>
+                    </div>`;
             }
         }
 

@@ -1,7 +1,8 @@
 // api/lead-signup.js
 // (Formerly api/webhook-formspree.js — renamed in audit L6 because it
-// no longer talks to Formspree. This endpoint receives the founding-
-// cohort signup form and writes the new lead + sends the welcome email.)
+// no longer talks to Formspree. This endpoint receives the site's various
+// lead-capture forms (newsletter, blog, exit-intent, etc.) and writes the
+// new lead + sends the welcome email.)
 //
 // SYNCHRONOUS — awaits all operations before responding.
 // Previous version used fire-and-forget which Vercel kills after res.send().
@@ -64,8 +65,8 @@ async function withinRateLimit(ip) {
 }
 
 // Length/shape limits — this endpoint is unauthenticated by necessity
-// (founding form is public). Tightens the spam surface without breaking
-// real submissions.
+// (called from public marketing pages). Tightens the spam surface without
+// breaking real submissions.
 const MAX_NAME = 120;
 const MAX_EMAIL = 254; // RFC 5321 max
 const MAX_PHONE = 40;
