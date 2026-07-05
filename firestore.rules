@@ -163,6 +163,18 @@ service cloud.firestore {
       allow write: if false; // server-only
     }
 
+    // ── event_attendance_logged/{uid_eventId} ────────────────────
+    // Idempotency lock for the REAL "attended" activity-feed entry (see
+    // lib/activity-log.js) — written at door check-in or by the post-event
+    // cron pass, both of which only fire once the person is actually known
+    // to have attended. Never written at ticket-purchase time. Written
+    // exclusively by server code (Admin SDK bypasses these rules). Same
+    // separate-collection rationale as post_event_prompts.
+    match /event_attendance_logged/{lockId} {
+      allow read: if isAdmin();
+      allow write: if false; // server-only
+    }
+
     // ── Default deny ─────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

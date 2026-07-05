@@ -2778,6 +2778,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 subscription_canceled: { class: 'cancel', emoji: '✕' },
                 trial_ending_soon: { class: 'event', emoji: '⏰' },
                 match: { class: 'match', emoji: '💫' },
+                ticket_purchased: { class: 'payment', emoji: '🎟️' },
                 event_attended: { class: 'event', emoji: '🎉' },
             };
             return map[type] || { class: 'event', emoji: '•' };
@@ -2806,7 +2807,12 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     return `${name}'s trial is ending soon`;
                 case 'match':
                     return `${name} matched with <strong>${safe(item.details?.matchedWith || 'someone')}</strong>`;
+                case 'ticket_purchased':
+                    return `${name} bought a ticket to <span class="accent">${safe(item.details?.eventName || 'an event')}</span>${typeof item.details?.amount === 'number' ? ` (${safe(amount)})` : ''}`;
                 case 'event_attended':
+                    // Only ever logged at door check-in or by the post-event cron
+                    // pass (both gated on the event already having happened) — see
+                    // lib/activity-log.js. Never fires at ticket-purchase time.
                     return `${name} attended <span class="accent">${safe(item.details?.eventName || 'an event')}</span>`;
                 default:
                     return `${name} — ${safe(item.type)}`;

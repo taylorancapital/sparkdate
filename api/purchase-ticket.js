@@ -767,9 +767,17 @@ module.exports = async function handler(req, res) {
     // silently lost activity entries on cold starts / slow Firestore.
     // The try/catch keeps the response success-only — a Firestore hiccup
     // on the log write must not fail a real ticket sale.
+    //
+    // NB: this is `ticket_purchased`, not `event_attended` — a purchase
+    // just means the ticket was bought, which can be days or weeks before
+    // the event happens. The admin Activity feed used to label this entry
+    // "attended", so buying a ticket for a future event showed up as having
+    // already attended it. The real "attended" signal (lib/activity-log.js)
+    // fires at door check-in or via the post-event cron pass instead —
+    // both of which can only be true once the event has actually occurred.
     try {
       await db.collection('activity').add({
-        type: 'event_attended',
+        type: 'ticket_purchased',
         userId: firebaseUid || null,
         userEmail: email,
         userName: firebaseUid ? cleanName : (cleanName || email),
