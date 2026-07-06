@@ -70,6 +70,11 @@
       "source": "/card",
       "destination": "/lp?utm_source=qr&utm_medium=offline&utm_campaign=business_card",
       "permanent": false
+    },
+    {
+      "source": "/founding",
+      "destination": "/",
+      "permanent": true
     }
   ],
   "rewrites": [
