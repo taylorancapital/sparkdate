@@ -123,8 +123,29 @@
       (function () {
         var $ = function (id) { return document.getElementById(id); };
         var fmt = function (n) { n = Number(n); return '$' + (n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)); };
-        var carry = (function () { var qs = location.search; return (qs && qs.indexOf('utm_') !== -1) ? '&' + qs.replace(/^\?/, '') : ''; })();
+        // Referral capture: persist an incoming ?ref=<uid> across navigation,
+        // same pattern as index.html -- so a referral link that lands
+        // directly on /lp (not the homepage) still attributes correctly.
+        try {
+          var refParam = new URLSearchParams(location.search).get('ref');
+          if (refParam) localStorage.setItem('sparkdate_ref', refParam.slice(0, 80));
+        } catch (e) {}
+
         var refOf = function () { try { return new URLSearchParams(location.search).get('ref') || localStorage.getItem('sparkdate_ref'); } catch (_) { return null; } };
+        // carry: utm_* from the URL, plus `ref` (from the URL or the capture
+        // above) so the Get Tickets button's outbound link to /event?id=...
+        // preserves referral attribution end-to-end. Previously only utm_*
+        // survived this hop -- the email waitlist form already threads
+        // refOf() through (see the lead-signup POST below), but a referred
+        // visitor who clicked straight to Get Tickets, skipping that form,
+        // silently lost attribution.
+        var carry = (function () {
+          var qs = location.search;
+          var s = (qs && qs.indexOf('utm_') !== -1) ? '&' + qs.replace(/^\?/, '') : '';
+          var ref = refOf();
+          if (ref && s.indexOf('ref=') === -1) s += '&ref=' + encodeURIComponent(ref);
+          return s;
+        })();
 
         // In-app browser (Instagram/Facebook/TikTok/etc.) detection. Their
         // built-in webviews commonly restrict third-party storage, which
