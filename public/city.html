@@ -411,8 +411,11 @@
                 // Use the event's own city for structured data — never the page's
                 // city. In fallback mode (no local events) the list is events from
                 // OTHER cities, so tagging them with this page's city would emit
-                // misleading schema that contradicts the visible banner.
-                const evCity = ev.city || config.name;
+                // misleading schema that contradicts the visible banner. This used
+                // to fall back to config.name (the page's city) when ev.city was
+                // unset -- exactly the bug this comment warns against. Matches the
+                // fix already applied in event.html/events.html: omit
+                // addressLocality entirely rather than guess when we don't know.
                 const obj = {
                     '@type': 'Event',
                     name: ev.title || 'SparkDate Event',
@@ -422,10 +425,10 @@
                     image: ['https://sparkdate.date/og-image.svg'],
                     location: {
                         '@type': 'Place',
-                        name: ev.venue || `${evCity} venue`,
+                        name: ev.venue || (ev.city ? `${ev.city} venue` : 'SparkDate venue'),
                         address: {
                             '@type': 'PostalAddress',
-                            addressLocality: evCity,
+                            ...(ev.city ? { addressLocality: ev.city } : {}),
                             addressRegion: config.state || 'PA',
                             addressCountry: 'US'
                         }

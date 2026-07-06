@@ -1566,6 +1566,13 @@
                         const c = a.contact || {};
                         const reach = c.phone ? `📞 ${safe(c.phone)}` : (c.email ? `✉️ ${safe(c.email)}` : 'Reconnect at the next event');
                         extra = `<div style="margin-top: 6px; font-size: 13px; color: var(--success); line-height: 1.5;">You both clicked! Reach ${safe(c.name || a.displayName)}: ${reach}</div>`;
+                    } else if (a.state === 'info') {
+                        // Guest with no account — visible but not selectable (no uid to
+                        // match). Same pattern as matches.html's renderAttendee(); this
+                        // branch was missing here, so guests fell through to the bare
+                        // else below and got a clickable button whose data-uid was the
+                        // registration doc ID, not a real uid — it could never match.
+                        action = `<div class="connect-state sent">Attended</div>`;
                     } else if (a.state === 'sent') {
                         action = `<div class="connect-state sent">Saved</div>`;
                     } else if (a.state === 'received') {
