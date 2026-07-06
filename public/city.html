@@ -181,7 +181,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-        import { getFirestore, collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, collection, query, where, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
@@ -480,7 +480,20 @@
             const grid = document.getElementById('eventsGrid');
             const fallbackNote = document.getElementById('fallbackNote');
             try {
-                const snap = await getDocs(query(collection(db, 'events'), orderBy('date', 'asc')));
+                // where('date','>=',...) on the SAME field as orderBy is a plain
+                // range query (no composite index needed) -- pushes the
+                // future-only filter into Firestore instead of fetching every
+                // past event ever created just to discard it client-side. That
+                // client-side filter used to be the only thing keeping past
+                // events out, so this read kept growing unbounded over the
+                // site's whole history (audit finding: unfiltered read here
+                // was one of the drivers behind a Firestore quota exhaustion).
+                const snap = await getDocs(query(
+                    collection(db, 'events'),
+                    where('date', '>=', new Date()),
+                    orderBy('date', 'asc'),
+                    limit(20)
+                ));
                 const now = Date.now();
                 const all = snap.docs
                     .map(d => ({ id: d.id, ...d.data() }))

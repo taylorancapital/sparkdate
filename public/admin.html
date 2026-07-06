@@ -811,13 +811,14 @@
                 <span class="live-dot"></span>
                 <span>Live · <span id="lastUpdate">just now</span></span>
             </div>
+            <button id="dashboardRefreshBtn" onclick="loadDashboard()" title="Reload dashboard data now" style="margin-left:12px;background:rgba(255,255,255,0.08);color:#f5f3f0;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;">↻ Refresh</button>
             <button id="adminLogoutBtn" onclick="adminLogout()" style="margin-left:16px;background:rgba(255,255,255,0.08);color:#f5f3f0;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;">Log out</button>
         </div>
     </header>
 
     <div class="container">
         <h1 class="page-title">Dashboard</h1>
-        <p class="page-subtitle">Real-time view of SparkDate operations · auto-refreshes every 30s</p>
+        <p class="page-subtitle">Real-time view of SparkDate operations · auto-refreshes every 5 min · click ↻ Refresh above for the latest</p>
 
         <!-- KPI Cards -->
         <div class="kpi-grid">
@@ -1500,9 +1501,17 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         };
 
         // Single auto-refresh timer. Tracked so we never stack duplicate
-        // 30s loops if onAuthStateChanged fires more than once (e.g. a correct
+        // loops if onAuthStateChanged fires more than once (e.g. a correct
         // admin login right after a rejected non-admin attempt), and so we can
         // stop polling on logout.
+        //
+        // 5 minutes, not 30s (audit finding): loadUsers()/loadAdminEvents()
+        // read the ENTIRE users and event_registrations collections with no
+        // limit every tick. At real data volumes that's easily 500-1000+
+        // document reads per refresh; at 30s that's 2,880 ticks/day from a
+        // single open tab -- enough on its own to exhaust a Spark-tier daily
+        // Firestore quota in hours. The ↻ Refresh button covers the "I need
+        // this second's numbers" case without paying that cost continuously.
         let refreshTimer = null;
         function stopRefresh() {
             if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
@@ -1533,7 +1542,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             document.getElementById('loginOverlay').style.display = 'none';
             loadDashboard();
             stopRefresh();
-            refreshTimer = setInterval(loadDashboard, 30000);
+            refreshTimer = setInterval(loadDashboard, 300000);
         });
 
         // ─── Data Loaders ──────────────────────────────────

@@ -573,7 +573,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getFirestore, collection, doc, getDoc, query, orderBy, getDocs, where } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, getDoc, query, orderBy, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
@@ -655,8 +655,17 @@
         async function loadEvents() {
             const grid = document.getElementById('eventsGrid');
             try {
+                // where('date','>=',...) on the same field as orderBy is a
+                // plain range query (no composite index needed). Two bugs
+                // this fixes at once: (1) renderEvents() never filtered past
+                // events, so this page could show already-happened events
+                // ahead of the real upcoming one in the date-ascending list;
+                // (2) the unbounded read grew with the site's entire event
+                // history forever, one of the drivers behind a Firestore
+                // quota exhaustion (this page has no auth wall, so it reads
+                // on every visit from every visitor).
                 const snap = await getDocs(
-                    query(collection(db, 'events'), orderBy('date', 'asc'))
+                    query(collection(db, 'events'), where('date', '>=', new Date()), orderBy('date', 'asc'), limit(20))
                 );
                 const events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderEvents(events, grid);
