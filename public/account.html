@@ -1303,14 +1303,17 @@
 
         // Referral: build the member's personal invite link and wire the
         // copy + share-to buttons. The ?ref=<uid> param is captured by
-        // index.html (writes it to localStorage as sparkdate_ref) and stored
-        // on the resulting lead. Points at the homepage, not /events —
-        // events.html has no equivalent capture logic, so a ref landing
-        // there would be silently dropped.
+        // lp.html (writes it to localStorage as sparkdate_ref) and stored
+        // on the resulting lead. Points at /lp, not the homepage or /events —
+        // a referred friend is cold traffic with the same profile lp.html is
+        // built for (focused single CTA, no nav to get lost in), and it's the
+        // only page besides index.html with equivalent ref capture, so
+        // attribution survives whether they buy immediately or fill the
+        // waitlist form first.
         function setupInvite() {
             try {
                 if (!currentUser) return;
-                const link = `https://sparkdate.date/?ref=${encodeURIComponent(currentUser.uid)}&utm_source=referral&utm_medium=referral&utm_campaign=member_invite`;
+                const link = `https://sparkdate.date/lp?ref=${encodeURIComponent(currentUser.uid)}&utm_source=referral&utm_medium=referral&utm_campaign=member_invite`;
                 const input = document.getElementById('inviteLink');
                 if (input) input.value = link;
 
