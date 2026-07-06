@@ -403,6 +403,20 @@ function postEventPromptHTML({ eventName, matchUrl, nextEventHtml, referralUrl }
   const referralHtml = referralUrl ? `
 <p class="next-h">Know someone who'd love this?</p>
 <p>Bring a friend next time — <a href="${s(referralUrl)}">send them your invite link</a>.</p>` : '';
+  // Same reasoning as the referral block above (highest-engagement moment,
+  // reuse what already exists) applied to two gaps found in this session's
+  // traffic research: nothing anywhere asks an attendee to post about their
+  // own night (only the friend-invite above exists), and nothing collects
+  // reviews/testimonials beyond the 3 already hardcoded on the homepage
+  // (Alex/Molly/Quang), all sourced manually. "Just reply" mirrors the exact
+  // pattern already used in day2's nurture email ("Questions? Just reply —
+  // we read every message") -- zero new infrastructure, replies feed the
+  // same manual-curation pipeline that produced those 3 testimonials. The
+  // @sparkdate.date handle is the real Instagram profile already linked in
+  // index.html's footer/schema, not a placeholder.
+  const shareHtml = `
+<p class="next-h">Had a great night?</p>
+<p>Share a story and tag <a href="https://www.instagram.com/sparkdate.date">@sparkdate.date</a> — or just reply and tell us about it. We love featuring real ones.</p>`;
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
 .container{max-width:600px;margin:0 auto;background:#fff}
@@ -420,7 +434,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 <p>Tell us who you'd like to see again. If they pick you too, we'll share contact info so you can meet up — no missed signals, no awkward Instagram hunt.</p>
 <p style="text-align:center;"><a class="cta" href="${s(matchUrl)}">Pick your matches</a></p>
 <p>No login needed — this link is just for you.</p>
-${nextEventHtml || ''}${referralHtml}
+${nextEventHtml || ''}${referralHtml}${shareHtml}
 </div>
 <div class="footer"><p>SparkDate · Lancaster &amp; Philadelphia · Real people. Real venues.</p>
 <p><a href="https://sparkdate.date">sparkdate.date</a></p></div>
