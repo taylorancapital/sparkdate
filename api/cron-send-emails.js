@@ -19,7 +19,7 @@ const { resolveLeadName } = require('../lib/lead-name');
 const { logEventAttended } = require('../lib/activity-log');
 const { makeProfileUrl, makeMatchUrl } = require('../lib/profile-link');
 const { EMAIL_CAMPAIGNS: UTM, buildUtmUrl } = require('../lib/utm');
-const { getNextEvent, eventCardHtml, ctaButtonHtml, urgencyBox, shell, h1, p, esc } = require('../lib/next-event');
+const { getNextEvent, eventCardHtml, ctaButtonHtml, ctaLinkHtml, urgencyBox, shell, h1, p, esc } = require('../lib/next-event');
 
 const db = admin.firestore();
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -45,6 +45,7 @@ const EMAILS = {
       p('One night beats six months. Every time.') +
       eventCardHtml(event) +
       ctaButtonHtml(ctaUrl, 'Get Tickets') +
+      cantMakeItLine('nurture', 'day2_browse_all') +
       p('Questions? Just reply — we read every message.') +
       p('See you there,<br>The SparkDate Team')
     ),
@@ -61,6 +62,7 @@ const EMAILS = {
       eventCardHtml(event) +
       urgencyBox('⏰ <strong>We cap every event on purpose.</strong> Lock in your seat while there\'s room.') +
       ctaButtonHtml(ctaUrl, 'Reserve Your Spot') +
+      cantMakeItLine('nurture', 'day5_browse_all') +
       p('See you there,<br>The SparkDate Team')
     ),
   },
@@ -83,6 +85,7 @@ const EMAILS = {
         p('Bring yourself and an open mind. Leave the expectations (and the nerves — everyone\'s a little nervous) at the door.') +
         eventCardHtml(event) +
         ctaButtonHtml(ctaUrl, 'Get Tickets') +
+        cantMakeItLine('nurture', 'day14_browse_all') +
         p('See you there,<br>The SparkDate Team')
       );
     },
@@ -120,6 +123,14 @@ const EMAILS = {
 const newsletterTip = (html) =>
   `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:18px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">${html}</div>`;
 
+// Secondary, low-commitment path for a reader who can't make the ONE
+// specific event ctaButtonHtml points at (dated to a single next mixer).
+// Takes its own (medium, campaign) — same shape as the primary CTA's
+// buildUtmUrl call in each pass — so a nurture-email click isn't misattributed
+// to utm_medium=newsletter in GA4, and each day-bucket/issue tracks separately.
+const cantMakeItLine = (medium, campaign) =>
+  p(`Can't make this one? ${ctaLinkHtml(buildUtmUrl('/events', 'email', medium, campaign), 'See all upcoming events')}.`);
+
 const NEWSLETTER_EMAILS = [
   // 1 — Conversation starters (practical, evergreen)
   {
@@ -132,6 +143,7 @@ const NEWSLETTER_EMAILS = [
       p("Real questions get real answers. That's where the spark actually lives.") +
       eventCardHtml(event) +
       ctaButtonHtml(ctaUrl, 'Put it into practice') +
+      cantMakeItLine('newsletter', 'browse_all') +
       p('Talk soon,<br>The SparkDate Team')
     ),
   },
@@ -145,6 +157,7 @@ const NEWSLETTER_EMAILS = [
       p('Meeting face to face just skips to the part that actually decides things.') +
       eventCardHtml(event) +
       ctaButtonHtml(ctaUrl, 'Meet someone in person') +
+      cantMakeItLine('newsletter', 'browse_all') +
       p('Talk soon,<br>The SparkDate Team')
     ),
   },
@@ -158,6 +171,7 @@ const NEWSLETTER_EMAILS = [
       p("Show up, and the hardest part — feeling at ease — is already handled.") +
       eventCardHtml(event) +
       ctaButtonHtml(ctaUrl, 'See where we\'re headed next') +
+      cantMakeItLine('newsletter', 'browse_all') +
       p('Talk soon,<br>The SparkDate Team')
     ),
   },
@@ -171,6 +185,7 @@ const NEWSLETTER_EMAILS = [
       p('That shared little flutter of nerves? It\'s the great equalizer. Ten minutes in, it\'s gone — and you\'re just two people talking.') +
       eventCardHtml(event) +
       ctaButtonHtml(ctaUrl, 'Come as you are') +
+      cantMakeItLine('newsletter', 'browse_all') +
       p('Talk soon,<br>The SparkDate Team')
     ),
   },
@@ -184,6 +199,7 @@ const NEWSLETTER_EMAILS = [
       p('It\'s the closure the apps never give you: you find out, and if it\'s mutual, you\'re connected.') +
       eventCardHtml(event) +
       ctaButtonHtml(ctaUrl, 'Find your next connection') +
+      cantMakeItLine('newsletter', 'browse_all') +
       p('Talk soon,<br>The SparkDate Team')
     ),
   },
@@ -197,6 +213,7 @@ const NEWSLETTER_EMAILS = [
       p("The apps are a waiting room. This is the actual appointment.") +
       eventCardHtml(event) +
       ctaButtonHtml(ctaUrl, 'Trade swiping for meeting') +
+      cantMakeItLine('newsletter', 'browse_all') +
       p('Talk soon,<br>The SparkDate Team')
     ),
   },
