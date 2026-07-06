@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Events - SparkDate</title>
-    <meta name="description" content="Upcoming SparkDate events in Philadelphia. Curated mixers, dinners, and gatherings.">
+    <title>Speed Dating Events in Philadelphia &amp; Lancaster, PA — SparkDate</title>
+    <meta name="description" content="Upcoming speed dating events and singles mixers in Philadelphia and Lancaster, PA. Curated venues, real conversations.">
     <link rel="canonical" href="https://sparkdate.date/events">
     <meta property="og:type" content="website">
-    <meta property="og:title" content="SparkDate Events — Philadelphia">
-    <meta property="og:description" content="Curated mixers, dinners, and gatherings at Philly's best venues. Real people, real conversations.">
+    <meta property="og:title" content="Speed Dating Events in Philadelphia &amp; Lancaster, PA">
+    <meta property="og:description" content="Curated speed dating mixers at Philadelphia and Lancaster's best venues. Real people, real conversations.">
     <meta property="og:image" content="https://sparkdate.date/og-image.svg">
     <meta property="og:url" content="https://sparkdate.date/events">
     <meta name="twitter:card" content="summary_large_image">
@@ -695,17 +695,28 @@
                             image: ['https://sparkdate.date/og-image.svg'],
                             location: {
                                 '@type': 'Place',
-                                name: ev.venue || 'Philadelphia venue',
+                                name: ev.venue || (ev.city ? `${ev.city} venue` : 'SparkDate venue'),
                                 address: {
                                     '@type': 'PostalAddress',
-                                    addressLocality: 'Philadelphia',
+                                    // addressLocality omitted when ev.city is unset --
+                                    // this page lists both Philadelphia and Lancaster
+                                    // events, so a hardcoded city here would misrepresent
+                                    // any event whose real city isn't Philadelphia.
+                                    ...(ev.city ? { addressLocality: ev.city } : {}),
                                     addressRegion: 'PA',
                                     addressCountry: 'US'
                                 }
                             },
                             organizer: { '@type': 'Organization', name: 'SparkDate', url: 'https://sparkdate.date/' }
                         };
-                        if (d) item.startDate = d.toISOString();
+                        if (d) {
+                            item.startDate = d.toISOString();
+                            // Same duration-fallback event.html's single-event schema
+                            // uses (durationHours field, else 3h) -- Google's Event
+                            // rich-result spec recommends endDate alongside startDate.
+                            const hrs = Number(ev.durationHours) > 0 ? Number(ev.durationHours) : 3;
+                            item.endDate = new Date(d.getTime() + hrs * 60 * 60 * 1000).toISOString();
+                        }
                         if (ev.blurb) item.description = ev.blurb;
                         const price = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
                         if (price > 0) {

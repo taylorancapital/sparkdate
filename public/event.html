@@ -696,10 +696,10 @@
             try {
                 const d = ev.date && ev.date.toDate ? ev.date.toDate() : (ev.date ? new Date(ev.date) : null);
                 const dateLabel = d ? d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
-                const venueLabel = ev.venue ? `${ev.venue}${ev.neighborhood ? ', ' + ev.neighborhood : ''}` : 'Philadelphia';
+                const venueLabel = ev.venue ? `${ev.venue}${ev.neighborhood ? ', ' + ev.neighborhood : ''}` : (ev.city || 'the venue');
                 const title = ev.title ? `${ev.title} — SparkDate` : 'Event Tickets — SparkDate';
                 const desc = (ev.blurb && ev.blurb.trim())
-                    || `${ev.title || 'A SparkDate event'} on ${dateLabel} at ${venueLabel}. Reserve your spot — real dates, real venues, real people in Philadelphia.`;
+                    || `${ev.title || 'A SparkDate event'} on ${dateLabel} at ${venueLabel}. Reserve your spot — real dates, real venues, real people${ev.city ? ' in ' + ev.city : ''}.`;
                 const pageUrl = `https://sparkdate.date/event?id=${encodeURIComponent(ev.id || eventId)}`;
                 const img = 'https://sparkdate.date/og-image.svg';
 
@@ -742,10 +742,15 @@
                     },
                     location: {
                         '@type': 'Place',
-                        name: ev.venue || 'Philadelphia venue',
+                        name: ev.venue || (ev.city ? `${ev.city} venue` : 'SparkDate venue'),
                         address: {
                             '@type': 'PostalAddress',
-                            addressLocality: 'Philadelphia',
+                            // addressLocality omitted (not hardcoded to a city) when
+                            // ev.city is unset -- it's an optional PostalAddress field,
+                            // and asserting a specific city we don't actually know
+                            // would misrepresent Lancaster events as Philadelphia (or
+                            // vice versa).
+                            ...(ev.city ? { addressLocality: ev.city } : {}),
                             addressRegion: 'PA',
                             addressCountry: 'US'
                         }
