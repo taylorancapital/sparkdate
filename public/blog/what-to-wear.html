@@ -22,6 +22,23 @@
       gtag('js', new Date());
       gtag('config', 'G-21YLCC35F1', { 'page_path': window.location.pathname });
     </script>
+    <!-- Meta Pixel Code -->
+    <script>
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', '1503657808164961');
+      fbq('track', 'PageView');
+    </script>
+    <noscript>
+      <img height="1" width="1" style="display:none"
+        src="https://www.facebook.com/tr?id=1503657808164961&ev=PageView&noscript=1" />
+    </noscript>
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -224,7 +241,7 @@
           try{
             var ref=null; try{ref=localStorage.getItem('sparkdate_ref');}catch(_){}
             var res=await fetch('/api/lead-signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,source:'blog',ref:ref,website:(form.querySelector('input[name="website"]')||{}).value||''})});
-            if(res.ok){msg.style.display='block';msg.style.color='#4ade80';msg.textContent='✓ You’re on the list.';if(window.gtag)gtag('event','generate_lead',{lead_type:'blog'});form.reset();}
+            if(res.ok){msg.style.display='block';msg.style.color='#4ade80';msg.textContent='✓ You’re on the list.';if(window.gtag)gtag('event','generate_lead',{lead_type:'blog'});if(typeof fbq!=='undefined')fbq('track','Lead');form.reset();}
             else{msg.style.display='block';msg.style.color='#ff6b6b';msg.textContent='✕ Something went wrong. Try again.';}
           }catch(_){msg.style.display='block';msg.style.color='#ff6b6b';msg.textContent='✕ Network error. Try again.';}
           finally{btn.textContent=orig;btn.disabled=false;}
