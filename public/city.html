@@ -21,6 +21,23 @@
       gtag('js', new Date());
       gtag('config', 'G-21YLCC35F1', { 'page_path': window.location.pathname + window.location.search });
     </script>
+    <!-- Meta Pixel Code -->
+    <script>
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', '1503657808164961');
+      fbq('track', 'PageView');
+    </script>
+    <noscript>
+      <img height="1" width="1" style="display:none"
+        src="https://www.facebook.com/tr?id=1503657808164961&ev=PageView&noscript=1" />
+    </noscript>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -595,6 +612,7 @@
                     msg.style.display = 'block'; msg.style.color = '#4ade80';
                     msg.textContent = "✓ You're on the list — we'll email you when the next event opens.";
                     if (window.gtag) gtag('event', 'generate_lead', { lead_type: 'city_page', city: cityParam });
+                    if (typeof fbq !== 'undefined') fbq('track', 'Lead');
                     e.target.reset();
                 } else {
                     msg.style.display = 'block'; msg.style.color = '#ff6b6b';
