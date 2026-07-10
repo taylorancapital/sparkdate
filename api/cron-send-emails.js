@@ -348,16 +348,28 @@ async function sendProfileReminders(nowMs, emailedThisRun) {
       // event_registrations is the single source of truth for attendance —
       // covers ticket buyers, check-ins, and admin-enrolled guests in one query.
       const regSnap = await db.collection('event_registrations').where('eventId', '==', evDoc.id).get();
+
+      // Idempotency lock lives in a dedicated collection keyed per (uid,
+      // eventId) — same pattern as post_event_prompts below, and for the
+      // same reason: a flag on the shared users/{uid} doc has no eventId
+      // in it, so once set for one event it silently blocks every future
+      // event too. Belt-and-suspenders: also honour the legacy
+      // profileReminderSent field on users/{uid} below via `u.profileCompleted`
+      // co-check — but the lock itself now determines "already sent."
+      const lockSnap = await db.collection('profile_reminders_sent').where('eventId', '==', evDoc.id).get();
+      const alreadySent = new Set(lockSnap.docs.map((d) => d.data().userId).filter(Boolean));
+
       const seen = new Set();
       for (const reg of regSnap.docs) {
         const r = reg.data();
         if (r.status !== 'confirmed' || !r.userId || seen.has(r.userId)) { skipped++; continue; }
         seen.add(r.userId);
+        if (alreadySent.has(r.userId)) { skipped++; continue; }
         const uref = db.collection('users').doc(r.userId);
         const usnap = await uref.get();
         if (!usnap.exists) { skipped++; continue; }
         const u = usnap.data();
-        if (u.profileCompleted === true || u.profileReminderSent === true || !u.email) { skipped++; continue; }
+        if (u.profileCompleted === true || !u.email) { skipped++; continue; }
         try {
           const profileUrl = makeProfileUrl(r.userId);
           const result = await resend.emails.send({
@@ -367,7 +379,12 @@ async function sendProfileReminders(nowMs, emailedThisRun) {
             html: profileReminderHTML({ eventName, profileUrl }),
           });
           if (!result.error) {
-            await uref.update({ profileReminderSent: true, profileReminderSentAt: new Date().toISOString() });
+            const sentAt = new Date().toISOString();
+            const lockRef = db.collection('profile_reminders_sent').doc(`${r.userId}_${evDoc.id}`);
+            await Promise.all([
+              lockRef.set({ userId: r.userId, eventId: evDoc.id, sentAt }),
+              uref.update({ profileReminderSent: true, profileReminderSentAt: sentAt }),
+            ]);
             if (emailedThisRun) emailedThisRun.add(String(u.email).toLowerCase().trim());
             sent++;
             console.log(`✅ profile reminder → users/${r.userId}`);

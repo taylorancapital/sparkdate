@@ -312,7 +312,56 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
     }, { merge: true });
   });
 
-  // 3. Magic profile link + welcome email (best-effort). New SparkDate users
+  // 3. Best-effort: create a `leads` doc so this person enters the
+  // engagement pipeline. day2/5/14/25 nurture, the newsletter, the
+  // post-nurture campaign, and the returning-attendee "Round two?" invite
+  // all read from `leads` and nothing else — without this, an
+  // Eventbrite-enrolled buyer is invisible to all of it, for this event
+  // and every future one. Wrapped in its own try/catch so a Firestore
+  // hiccup here can never break ticket enrollment.
+  try {
+    const leadDupe = await db.collection('leads').where('email', '==', norm).limit(1).get();
+    if (leadDupe.empty) {
+      let eventIsPast = false;
+      if (eventId) {
+        const evSnap = await db.collection('events').doc(String(eventId)).get();
+        if (evSnap.exists) {
+          const d = evSnap.data().date;
+          const dt = d && d.toDate ? d.toDate() : (d ? new Date(d) : null);
+          eventIsPast = !!dt && !isNaN(dt.getTime()) && dt.getTime() < Date.now();
+        }
+      }
+      await db.collection('leads').add({
+        name: String(name || '').trim(),
+        email: norm,
+        phone: '',
+        source: 'eventbrite_import',
+        referredBy: null,
+        createdAt: FieldValue.serverTimestamp(),
+        subscribed: true,
+        // Already welcomed via the ticket-confirmation email below — don't
+        // also send the generic "Your app matched you" welcome pitch.
+        welcome_sent: true,
+        // Already has a ticket, so skip the pre-purchase persuasion
+        // pitches (day2 "70% exchange contact info", day5 "spots are
+        // limited") — irrelevant to someone who already converted. day14
+        // ("what to expect") and day25 ("don't miss the next one") still
+        // apply while the event is upcoming. If the event already
+        // happened (common for backfilled past registrations), none of
+        // the day2-25 bucket applies — future re-engagement is
+        // sendReturningAttendeeInvites's job, which has its own
+        // independent per-event dedup.
+        day2_sent: true,
+        day5_sent: true,
+        day14_sent: eventIsPast,
+        day25_sent: eventIsPast,
+      });
+    }
+  } catch (e) {
+    console.error(`[enroll-eventbrite] leads doc creation failed for ${norm}:`, e.message);
+  }
+
+  // 4. Magic profile link + welcome email (best-effort). New SparkDate users
   // get account-creation copy + a set-password link; users who already had a
   // doc get a ticket-confirmation only (no "we made you an account", no reset
   // link), with the profile CTA only if they haven't completed it.
