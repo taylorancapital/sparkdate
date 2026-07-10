@@ -72,7 +72,12 @@ async function renderEventPage(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     return res.redirect(302, '/events');
   }
-  let headInject = '';
+  // Always assert a real canonical URL in the raw HTML, even before (or
+  // absent) a successful Firestore lookup below — a bare /event hit with no
+  // resolvable id previously shipped no canonical tag at all, which is as
+  // bad for indexing as pointing at the wrong URL. The per-event block
+  // below overwrites this with the real canonical when an event resolves.
+  let headInject = `\n    <link rel="canonical" href="https://sparkdate.date/event">\n`;
   let pageTitle = null;
 
   try {
@@ -168,6 +173,79 @@ async function renderEventPage(req, res) {
   return res.status(200).send(html);
 }
 
+// ── Server-rendered city page ─────────────────────────────────────────
+// Same problem as event pages, different cause: public/city.html is one
+// static file for every city, so its raw <head> ships a single hardcoded
+// canonical (pointing at the homepage) regardless of which city query
+// param loads. The correct per-city title/description/canonical are only
+// patched in client-side by city.html's own injectMeta() — too late for
+// Googlebot's first pass, which discounts JS-inserted canonicals. vercel.json
+// rewrites /philadelphia and /lancaster here with ?render=city&city=... instead
+// of straight to the static file, exactly like /event's ?render=page above.
+// No new function file: api/ is already at the Hobby plan's 12-function cap.
+
+let CITY_TEMPLATE = null;
+function loadCityTemplate() {
+  if (CITY_TEMPLATE) return CITY_TEMPLATE;
+  CITY_TEMPLATE = fs.readFileSync(path.join(process.cwd(), 'public', 'city.html'), 'utf8');
+  return CITY_TEMPLATE;
+}
+
+// SEO-relevant fields only. The full CITIES config (FAQs, venue copy, hero
+// text) stays client-side in public/city.html — duplicating that here would
+// create a second source of truth for content that has no bearing on what
+// Google needs from the raw HTML. Keep in sync with the `name`/`state` in
+// public/city.html's own CITIES config.
+const CITY_SEO = {
+  philadelphia: { name: 'Philadelphia', state: 'PA' },
+  lancaster: { name: 'Lancaster', state: 'PA' },
+};
+
+// City data is static (no Firestore read, unlike events) — just resolve the
+// known city, build the head injection, and return the full HTML. Fail-soft:
+// unknown/missing city serves the template unchanged, which preserves the
+// client-side DEFAULT_CITY fallback for that case.
+function renderCityPage(req, res) {
+  const citySlug = String((req.query && req.query.city) || '').toLowerCase().trim();
+  let html;
+  try {
+    html = loadCityTemplate();
+  } catch (e) {
+    console.error('[next-event] city template load failed:', e && e.message);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.redirect(302, '/events');
+  }
+
+  const city = CITY_SEO[citySlug];
+  if (city) {
+    // Same string templates as public/city.html's injectMeta() (title/
+    // description/canonical formulas) so the server-rendered head matches
+    // what the client-side JS would otherwise produce — zero visible change
+    // for real users.
+    const title = `Singles Mixers in ${city.name}, ${city.state} — SparkDate`;
+    const desc = `Curated singles mixers in ${city.name} — our take on speed dating, without the scorecard. Meet singles at ${city.name}'s best venues.`;
+    const canonicalUrl = `https://sparkdate.date/${citySlug}`;
+
+    // The template already carries a static <title>, <meta name="description">,
+    // and <link rel="canonical"> (city.html:7-9) — replace those in place
+    // rather than appending, so the response never carries two conflicting
+    // canonical tags at once.
+    html = html.replace(/<title>[\s\S]*?<\/title>/i, () => `<title>${escAttr(title)}</title>`);
+    html = html.replace(/<meta name="description"[^>]*>/i, () => `<meta name="description" content="${escAttr(desc)}">`);
+    html = html.replace(/<link rel="canonical"[^>]*>/i, () => `<link rel="canonical" href="${escAttr(canonicalUrl)}">`);
+
+    const headInject =
+      `\n    <meta property="og:title" content="${escAttr(title)}">` +
+      `\n    <meta property="og:description" content="${escAttr(desc)}">` +
+      `\n    <meta property="og:url" content="${escAttr(canonicalUrl)}">\n`;
+    html = html.replace(/<\/head>/i, () => `${headInject}</head>`);
+  }
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, s-maxage=120, max-age=60');
+  return res.status(200).send(html);
+}
+
 module.exports = async function handler(req, res) {
   if (applyCors(req, res)) return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
@@ -175,6 +253,11 @@ module.exports = async function handler(req, res) {
   // /event and /event/:id are rewritten here with ?render=page.
   if (req.query && req.query.render === 'page') {
     return renderEventPage(req, res);
+  }
+
+  // /philadelphia and /lancaster are rewritten here with ?render=city.
+  if (req.query && req.query.render === 'city') {
+    return renderCityPage(req, res);
   }
 
   // Events change rarely — let Vercel's edge cache absorb the traffic so
