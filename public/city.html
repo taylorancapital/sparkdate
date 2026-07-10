@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- title/description/canonical injected by JS once city is known -->
-    <title>Speed Dating Events — SparkDate</title>
-    <meta name="description" content="Curated speed dating events and singles mixers. Real people, real venues, real connections.">
+    <title>Singles Mixers — SparkDate</title>
+    <meta name="description" content="Curated singles mixer events — our take on speed dating, without the scorecard. Real people, real venues, real connections.">
     <link rel="canonical" id="canonicalTag" href="https://sparkdate.date/">
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://sparkdate.date/og-image.svg">
@@ -148,7 +148,7 @@
 
     <section class="hero">
         <div class="city-badge" id="cityBadge">Philadelphia, PA</div>
-        <h1 id="heroH1">Speed Dating Events in <span class="hl">Philadelphia</span></h1>
+        <h1 id="heroH1">Singles Mixers in <span class="hl">Philadelphia</span></h1>
         <p id="heroSub">Curated mixers at Philly's best venues. Real conversations, real connections — no swiping required.</p>
         <div class="cta-row">
             <a href="/events" class="btn" id="heroTicketBtn">Browse Events</a>
@@ -221,7 +221,7 @@
                 state: 'PA',
                 displayName: 'Philadelphia, PA',
                 canonicalSlug: 'philadelphia',
-                headline: 'Speed Dating Events in',
+                headline: 'Singles Mixers in',
                 headlineHighlight: 'Philadelphia',
                 subtitle: "Curated mixers at Philly's best venues. Real conversations, real connections — no swiping required.",
                 content: `
@@ -283,7 +283,7 @@
                 state: 'PA',
                 displayName: 'Lancaster, PA',
                 canonicalSlug: 'lancaster',
-                headline: 'Speed Dating Events in',
+                headline: 'Singles Mixers in',
                 headlineHighlight: 'Lancaster',
                 subtitle: 'Meet Lancaster singles at curated mixers. Skip the apps — show up in person.',
                 content: `
@@ -347,7 +347,7 @@
             state: '',
             displayName: 'Upcoming Events',
             canonicalSlug: '',
-            headline: 'Speed Dating',
+            headline: 'Singles Mixer',
             headlineHighlight: 'Events Near You',
             subtitle: 'Curated mixers, real conversations, real connections.',
             content: '',
@@ -375,11 +375,11 @@
             const ogUrl = document.querySelector('meta[property="og:url"]') || document.createElement('meta');
 
             const titleStr = config.canonicalSlug
-                ? `Speed Dating Events in ${config.name}, ${config.state} — SparkDate`
-                : 'Speed Dating Events — SparkDate';
+                ? `Singles Mixers in ${config.name}, ${config.state} — SparkDate`
+                : 'Singles Mixers — SparkDate';
             const descStr = config.canonicalSlug
-                ? `Curated speed dating mixers in ${config.name}. Meet singles at ${config.name}'s best venues. Real people, real conversations.`
-                : 'Curated dating events for singles. Real people, real venues, real connections.';
+                ? `Curated singles mixers in ${config.name} — our take on speed dating, without the scorecard. Meet singles at ${config.name}'s best venues.`
+                : 'Curated singles mixer events for real people. Real venues, real connections.';
             const canonicalUrl = config.canonicalSlug
                 ? `https://sparkdate.date/${config.canonicalSlug}`
                 : 'https://sparkdate.date/events';
@@ -488,7 +488,7 @@
                     '@type': 'EntertainmentBusiness',
                     name: 'SparkDate',
                     url: `https://sparkdate.date/${config.canonicalSlug}`,
-                    description: `Curated speed dating events in ${config.name}, ${config.state}`,
+                    description: `Curated singles mixer events in ${config.name}, ${config.state}`,
                     areaServed: { '@type': 'City', name: `${config.name}, ${config.state}` },
                     sameAs: ['https://sparkdate.date/']
                 });
