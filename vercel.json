@@ -160,11 +160,11 @@
     },
     {
       "source": "/philadelphia",
-      "destination": "/city.html?city=philadelphia"
+      "destination": "/api/next-event?render=city&city=philadelphia"
     },
     {
       "source": "/lancaster",
-      "destination": "/city.html?city=lancaster"
+      "destination": "/api/next-event?render=city&city=lancaster"
     }
   ]
 }
