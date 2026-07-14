@@ -20,6 +20,7 @@ const { logEventAttended } = require('../lib/activity-log');
 const { makeProfileUrl, makeMatchUrl } = require('../lib/profile-link');
 const { EMAIL_CAMPAIGNS: UTM, buildUtmUrl } = require('../lib/utm');
 const { getNextEvent, eventCardHtml, ctaButtonHtml, ctaLinkHtml, urgencyBox, shell, h1, p, esc } = require('../lib/next-event');
+const { buildAttendanceIndex } = require('../lib/attendance-index');
 
 const db = admin.firestore();
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -940,32 +941,23 @@ module.exports = async function handler(req, res) {
     // Built once and reused: drives (a) nurture suppression for anyone who has
     // already attended, and (b) the returning-attendee invite. Best-effort —
     // wrapped so an index failure degrades gracefully rather than killing the run.
-    const attendedEmails = new Set();        // lowercased — first-timer nurture suppression
-    const pastAttendeeUids = new Set();      // attended a PAST event — invite-back audience
-    const registeredForNextUids = new Set(); // already signed up for the next event — don't re-invite
-    const attendeeNameByUid = new Map();     // uid → reg `name` (source of truth post-consolidation)
-    const nameByEmail = new Map();           // lowercased email → reg `name` — personalizes marketing
-                                             // emails for ticket-holders whose leads doc has no name
+    // See lib/attendance-index.js: a confirmed registration only counts as
+    // "attended" when its event is in the past — an upcoming event's confirmed
+    // ticket-holders must stay eligible for the first-timer nurture sequence.
+    let attendedEmails = new Set();
+    let pastAttendeeUids = new Set();
+    let registeredForNextUids = new Set();
+    let attendeeNameByUid = new Map();
+    let nameByEmail = new Map();
     try {
       const [regSnap, evAllSnap] = await Promise.all([
         db.collection('event_registrations').where('status', '==', 'confirmed').get(),
         db.collection('events').get(),
       ]);
-      const pastIds = new Set();
-      for (const d of evAllSnap.docs) {
-        const e = d.data();
-        const dt = e.date?.toDate ? e.date.toDate() : (e.date ? new Date(e.date) : null);
-        if (dt && !isNaN(dt.getTime()) && dt.getTime() < nowMs) pastIds.add(d.id);
-      }
-      for (const d of regSnap.docs) {
-        const r = d.data();
-        const remail = r.email ? String(r.email).toLowerCase().trim() : null;
-        if (remail) attendedEmails.add(remail);
-        if (remail && r.name && !nameByEmail.has(remail)) nameByEmail.set(remail, r.name);
-        if (r.userId && r.name && !attendeeNameByUid.has(r.userId)) attendeeNameByUid.set(r.userId, r.name);
-        if (r.userId && pastIds.has(r.eventId)) pastAttendeeUids.add(r.userId);
-        if (r.userId && event && r.eventId === event.id) registeredForNextUids.add(r.userId);
-      }
+      const registrations = regSnap.docs.map((d) => d.data());
+      const events = evAllSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      ({ attendedEmails, pastAttendeeUids, registeredForNextUids, attendeeNameByUid, nameByEmail } =
+        buildAttendanceIndex(registrations, events, nowMs, event));
     } catch (e) {
       console.error('[attendance-index] build failed:', e.message);
     }
