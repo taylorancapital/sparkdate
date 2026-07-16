@@ -529,6 +529,15 @@
       (function () {
         var form = document.getElementById('newsletterForm');
         if (!form) return;
+        // Funnel visibility: fires once per page load on first interaction
+        // with the form, mirroring event.html's checkout_form_started, so
+        // GA4 can measure true abandonment (started-but-never-submitted).
+        var leadStartTracked = false;
+        form.addEventListener('focusin', function () {
+          if (leadStartTracked) return;
+          leadStartTracked = true;
+          if (typeof gtag === 'function') gtag('event', 'lead_form_started', { lead_type: 'newsletter' });
+        });
         form.addEventListener('submit', async function (e) {
           e.preventDefault();
           var emailEl = document.getElementById('newsletterEmail');

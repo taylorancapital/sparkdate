@@ -645,6 +645,15 @@
         }).catch(function () { /* keep /events fallback */ });
 
         var f = $('suLeadForm');
+        // Funnel visibility: fires once per page load on first interaction
+        // with the form, mirroring event.html's checkout_form_started, so
+        // GA4 can measure true abandonment (started-but-never-submitted).
+        var suLeadStartTracked = false;
+        if (f) f.addEventListener('focusin', function () {
+          if (suLeadStartTracked) return;
+          suLeadStartTracked = true;
+          if (typeof gtag === 'function') gtag('event', 'lead_form_started', { lead_type: 'signup_notify' });
+        });
         if (f) f.addEventListener('submit', async function (e) {
           e.preventDefault();
           var email = ($('suEmail') || {}).value || '';

@@ -78,6 +78,14 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // strings into our analytics. Keep in sync with the public forms.
 const ALLOWED_SOURCES = new Set(['founding_form', 'newsletter', 'referral', 'ad_landing', 'blog', 'exit_intent']);
 
+// city.html sends `city_${cityParam}` (e.g. 'city_philadelphia'), one per
+// live/future city — a regex instead of enumerating each one here, so a
+// new city added to city.html's CITIES config doesn't silently get its
+// signups mis-attributed to founding_form until this file is also updated.
+// Matches cityParam's own normalization (lowercased, trimmed) plus the
+// 'unknown' fallback city.html sends when no ?city= param is present.
+const CITY_SOURCE_RE = /^city_[a-z0-9-]+$/;
+
 function clean(value, max) {
   return String(value ?? '').trim().slice(0, max);
 }
@@ -599,7 +607,8 @@ module.exports = async function handler(req, res) {
     const phone = clean(req.body?.phone, MAX_PHONE);
     const ref   = clean(req.body?.ref,   MAX_REF) || null; // referrer uid/code
     const reqSource = clean(req.body?.source, 40);
-    const source = ALLOWED_SOURCES.has(reqSource) ? reqSource : 'founding_form';
+    const source = (ALLOWED_SOURCES.has(reqSource) || CITY_SOURCE_RE.test(reqSource))
+      ? reqSource : 'founding_form';
 
     // Honeypot: a hidden form field humans never see. Bots that auto-fill
     // every input populate it; real submissions leave it empty. Return 200

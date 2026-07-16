@@ -186,6 +186,15 @@
     <script>
       (function(){
         var form=document.getElementById('blogSignup'); if(!form) return;
+        // Funnel visibility: fires once per page load on first interaction
+        // with the form, mirroring event.html's checkout_form_started, so
+        // GA4 can measure true abandonment (started-but-never-submitted).
+        var leadStartTracked=false;
+        form.addEventListener('focusin',function(){
+          if(leadStartTracked) return;
+          leadStartTracked=true;
+          if(window.gtag)gtag('event','lead_form_started',{lead_type:'blog'});
+        });
         form.addEventListener('submit',async function(e){
           e.preventDefault();
           var emailEl=document.getElementById('blogEmail'), msg=document.getElementById('blogMsg'), btn=form.querySelector('button[type="submit"]');
@@ -194,7 +203,7 @@
           try{
             var ref=null; try{ref=localStorage.getItem('sparkdate_ref');}catch(_){}
             var res=await fetch('/api/lead-signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,source:'blog',ref:ref,website:(form.querySelector('input[name="website"]')||{}).value||''})});
-            if(res.ok){msg.style.display='block';msg.style.color='#4ade80';msg.textContent='✓ You’re on the list.';if(window.gtag)gtag('event','generate_lead',{lead_type:'blog'});form.reset();}
+            if(res.ok){msg.style.display='block';msg.style.color='#4ade80';msg.textContent='✓ You’re on the list.';if(window.gtag)gtag('event','generate_lead',{lead_type:'blog'});if(typeof fbq!=='undefined')fbq('track','Lead');form.reset();}
             else{msg.style.display='block';msg.style.color='#ff6b6b';msg.textContent='✕ Something went wrong. Try again.';}
           }catch(_){msg.style.display='block';msg.style.color='#ff6b6b';msg.textContent='✕ Network error. Try again.';}
           finally{btn.textContent=orig;btn.disabled=false;}

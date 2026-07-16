@@ -908,6 +908,15 @@
       (function () {
         var form = document.getElementById('newsletterForm');
         if (!form) return;
+        // Funnel visibility: fires once per page load on first interaction
+        // with the form, mirroring event.html's checkout_form_started, so
+        // GA4 can measure true abandonment (started-but-never-submitted).
+        var leadStartTracked = false;
+        form.addEventListener('focusin', function () {
+          if (leadStartTracked) return;
+          leadStartTracked = true;
+          if (typeof gtag === 'function') gtag('event', 'lead_form_started', { lead_type: 'newsletter' });
+        });
         form.addEventListener('submit', async function (e) {
           e.preventDefault();
           var emailEl = document.getElementById('newsletterEmail');
@@ -932,6 +941,7 @@
               msg.style.color = '#4ade80';
               msg.textContent = '✓ You’re on the list. Watch your inbox for the next event.';
               if (window.gtag) gtag('event', 'generate_lead', { lead_type: 'newsletter' });
+              if (typeof fbq !== 'undefined') fbq('track', 'Lead');
               form.reset();
             } else {
               msg.style.display = 'block';
@@ -978,6 +988,15 @@
   window.addEventListener('scroll',onScroll,{passive:true});
   document.getElementById('sdExitClose').addEventListener('click',close);
   modal.addEventListener('click',function(e){ if(e.target===modal) close(); });
+  // Funnel visibility: fires once per page load on first interaction with
+  // the form, mirroring event.html's checkout_form_started, so GA4 can
+  // measure true abandonment (started-but-never-submitted).
+  var sdExitStartTracked=false;
+  document.getElementById('sdExitForm').addEventListener('focusin',function(){
+    if(sdExitStartTracked) return;
+    sdExitStartTracked=true;
+    if(window.gtag)gtag('event','lead_form_started',{lead_type:'exit_intent'});
+  });
   document.getElementById('sdExitForm').addEventListener('submit',async function(e){
     e.preventDefault();
     var emailEl=document.getElementById('sdExitEmail'), msg=document.getElementById('sdExitMsg'), btn=this.querySelector('button[type="submit"]');
@@ -986,7 +1005,7 @@
     try{
       var ref=null; try{ref=localStorage.getItem('sparkdate_ref');}catch(_){}
       var res=await fetch('/api/lead-signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,source:'exit_intent',ref:ref,website:(this.querySelector('input[name="website"]')||{}).value||''})});
-      if(res.ok){msg.style.display='block';msg.style.color='#4ade80';msg.textContent='✓ You’re on the list.';if(window.gtag)gtag('event','generate_lead',{lead_type:'exit_intent'});this.reset();setTimeout(close,1200);}
+      if(res.ok){msg.style.display='block';msg.style.color='#4ade80';msg.textContent='✓ You’re on the list.';if(window.gtag)gtag('event','generate_lead',{lead_type:'exit_intent'});if(typeof fbq!=='undefined')fbq('track','Lead');this.reset();setTimeout(close,1200);}
       else{msg.style.display='block';msg.style.color='#ff6b6b';msg.textContent='✕ Something went wrong.';}
     }catch(_){msg.style.display='block';msg.style.color='#ff6b6b';msg.textContent='✕ Network error.';}
     finally{btn.textContent=orig;btn.disabled=false;}
