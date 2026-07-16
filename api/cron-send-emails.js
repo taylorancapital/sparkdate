@@ -20,6 +20,7 @@ const { logEventAttended } = require('../lib/activity-log');
 const { makeProfileUrl, makeMatchUrl } = require('../lib/profile-link');
 const { EMAIL_CAMPAIGNS: UTM, buildUtmUrl } = require('../lib/utm');
 const { getNextEvent, eventCardHtml, ctaButtonHtml, ctaLinkHtml, urgencyBox, shell, h1, p, esc } = require('../lib/next-event');
+const { buildAttendanceIndex } = require('../lib/attendance-index');
 
 const db = admin.firestore();
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -348,16 +349,28 @@ async function sendProfileReminders(nowMs, emailedThisRun) {
       // event_registrations is the single source of truth for attendance —
       // covers ticket buyers, check-ins, and admin-enrolled guests in one query.
       const regSnap = await db.collection('event_registrations').where('eventId', '==', evDoc.id).get();
+
+      // Idempotency lock lives in a dedicated collection keyed per (uid,
+      // eventId) — same pattern as post_event_prompts below, and for the
+      // same reason: a flag on the shared users/{uid} doc has no eventId
+      // in it, so once set for one event it silently blocks every future
+      // event too. Belt-and-suspenders: also honour the legacy
+      // profileReminderSent field on users/{uid} below via `u.profileCompleted`
+      // co-check — but the lock itself now determines "already sent."
+      const lockSnap = await db.collection('profile_reminders_sent').where('eventId', '==', evDoc.id).get();
+      const alreadySent = new Set(lockSnap.docs.map((d) => d.data().userId).filter(Boolean));
+
       const seen = new Set();
       for (const reg of regSnap.docs) {
         const r = reg.data();
         if (r.status !== 'confirmed' || !r.userId || seen.has(r.userId)) { skipped++; continue; }
         seen.add(r.userId);
+        if (alreadySent.has(r.userId)) { skipped++; continue; }
         const uref = db.collection('users').doc(r.userId);
         const usnap = await uref.get();
         if (!usnap.exists) { skipped++; continue; }
         const u = usnap.data();
-        if (u.profileCompleted === true || u.profileReminderSent === true || !u.email) { skipped++; continue; }
+        if (u.profileCompleted === true || !u.email) { skipped++; continue; }
         try {
           const profileUrl = makeProfileUrl(r.userId);
           const result = await resend.emails.send({
@@ -367,7 +380,12 @@ async function sendProfileReminders(nowMs, emailedThisRun) {
             html: profileReminderHTML({ eventName, profileUrl }),
           });
           if (!result.error) {
-            await uref.update({ profileReminderSent: true, profileReminderSentAt: new Date().toISOString() });
+            const sentAt = new Date().toISOString();
+            const lockRef = db.collection('profile_reminders_sent').doc(`${r.userId}_${evDoc.id}`);
+            await Promise.all([
+              lockRef.set({ userId: r.userId, eventId: evDoc.id, sentAt }),
+              uref.update({ profileReminderSent: true, profileReminderSentAt: sentAt }),
+            ]);
             if (emailedThisRun) emailedThisRun.add(String(u.email).toLowerCase().trim());
             sent++;
             console.log(`✅ profile reminder → users/${r.userId}`);
@@ -733,7 +751,13 @@ async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameB
     if (lastSent && (nowMs - lastSent) < 14 * 86400000) { skipped++; continue; }
 
     try {
-      const html = tpl.html(esc(resolveLeadName(lead, nameByEmail, 'there')), event, ctaUrl);
+      // shell()'s footer carries an __UNSUB__ placeholder — swap it for this
+      // recipient's signed URL, same as sendBucket does. Without the replace
+      // the body's Unsubscribe link goes out as a literal dead "__UNSUB__"
+      // href (only the header unsubscribe worked).
+      const unsubUrl = makeUnsubscribeUrl(leadDoc.id, lead.email);
+      const html = tpl.html(esc(resolveLeadName(lead, nameByEmail, 'there')), event, ctaUrl)
+        .replace(/__UNSUB__/g, unsubUrl);
 
       const result = await resend.emails.send({
         from: 'SparkDate <hello@mail.sparkdate.date>',
@@ -741,7 +765,7 @@ async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameB
         subject: tpl.subject,
         html,
         headers: {
-          'List-Unsubscribe': `<${makeUnsubscribeUrl(leadDoc.id, lead.email)}>`,
+          'List-Unsubscribe': `<${unsubUrl}>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       });
@@ -801,6 +825,9 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun,
     try {
       const ctaUrl = buildUtmUrl('/event?id=' + event.id, 'email', 'event_campaign', 'post_nurture');
 
+      // Same __UNSUB__ interpolation as sendBucket/newsletter — shell()'s
+      // footer link is a placeholder until this replace runs.
+      const unsubUrl = makeUnsubscribeUrl(leadDoc.id, lead.email);
       const html = shell(
         h1('Our next mixer is coming') +
         p(`${esc(resolveLeadName(lead, nameByEmail, 'There'))}, we're hosting our next mixer soon.`) +
@@ -808,7 +835,7 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun,
         eventCardHtml(event) +
         ctaButtonHtml(ctaUrl, 'Reserve your spot') +
         p('See you there,<br>The SparkDate Team')
-      );
+      ).replace(/__UNSUB__/g, unsubUrl);
 
       const result = await resend.emails.send({
         from: 'SparkDate <hello@mail.sparkdate.date>',
@@ -816,7 +843,7 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun,
         subject: `${event.title} is coming up`,
         html,
         headers: {
-          'List-Unsubscribe': `<${makeUnsubscribeUrl(leadDoc.id, lead.email)}>`,
+          'List-Unsubscribe': `<${unsubUrl}>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       });
@@ -923,32 +950,23 @@ module.exports = async function handler(req, res) {
     // Built once and reused: drives (a) nurture suppression for anyone who has
     // already attended, and (b) the returning-attendee invite. Best-effort —
     // wrapped so an index failure degrades gracefully rather than killing the run.
-    const attendedEmails = new Set();        // lowercased — first-timer nurture suppression
-    const pastAttendeeUids = new Set();      // attended a PAST event — invite-back audience
-    const registeredForNextUids = new Set(); // already signed up for the next event — don't re-invite
-    const attendeeNameByUid = new Map();     // uid → reg `name` (source of truth post-consolidation)
-    const nameByEmail = new Map();           // lowercased email → reg `name` — personalizes marketing
-                                             // emails for ticket-holders whose leads doc has no name
+    // See lib/attendance-index.js: a confirmed registration only counts as
+    // "attended" when its event is in the past — an upcoming event's confirmed
+    // ticket-holders must stay eligible for the first-timer nurture sequence.
+    let attendedEmails = new Set();
+    let pastAttendeeUids = new Set();
+    let registeredForNextUids = new Set();
+    let attendeeNameByUid = new Map();
+    let nameByEmail = new Map();
     try {
       const [regSnap, evAllSnap] = await Promise.all([
         db.collection('event_registrations').where('status', '==', 'confirmed').get(),
         db.collection('events').get(),
       ]);
-      const pastIds = new Set();
-      for (const d of evAllSnap.docs) {
-        const e = d.data();
-        const dt = e.date?.toDate ? e.date.toDate() : (e.date ? new Date(e.date) : null);
-        if (dt && !isNaN(dt.getTime()) && dt.getTime() < nowMs) pastIds.add(d.id);
-      }
-      for (const d of regSnap.docs) {
-        const r = d.data();
-        const remail = r.email ? String(r.email).toLowerCase().trim() : null;
-        if (remail) attendedEmails.add(remail);
-        if (remail && r.name && !nameByEmail.has(remail)) nameByEmail.set(remail, r.name);
-        if (r.userId && r.name && !attendeeNameByUid.has(r.userId)) attendeeNameByUid.set(r.userId, r.name);
-        if (r.userId && pastIds.has(r.eventId)) pastAttendeeUids.add(r.userId);
-        if (r.userId && event && r.eventId === event.id) registeredForNextUids.add(r.userId);
-      }
+      const registrations = regSnap.docs.map((d) => d.data());
+      const events = evAllSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      ({ attendedEmails, pastAttendeeUids, registeredForNextUids, attendeeNameByUid, nameByEmail } =
+        buildAttendanceIndex(registrations, events, nowMs, event));
     } catch (e) {
       console.error('[attendance-index] build failed:', e.message);
     }

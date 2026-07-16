@@ -175,6 +175,17 @@ service cloud.firestore {
       allow write: if false; // server-only
     }
 
+    // ── profile_reminders_sent/{uid_eventId} ──────────────────────
+    // Idempotency lock for the pre-event "complete your profile" reminder.
+    // Written exclusively by /api/cron-send-emails (Admin SDK bypasses
+    // rules). Lives in its own collection, per-event, so a reminder sent
+    // for one event never silently blocks the same reminder for a later
+    // event — same separate-collection rationale as post_event_prompts.
+    match /profile_reminders_sent/{lockId} {
+      allow read: if isAdmin();
+      allow write: if false; // server-only
+    }
+
     // ── Default deny ─────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
