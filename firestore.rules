@@ -186,6 +186,18 @@ service cloud.firestore {
       allow write: if false; // server-only
     }
 
+    // ── pre_event_emails/{regId_stage} ────────────────────────────
+    // Idempotency lock for the pre-event countdown emails (t7 "how the
+    // night works" + t1 "tomorrow night" logistics). Written exclusively
+    // by /api/cron-send-emails (Admin SDK bypasses rules). Keyed by
+    // registration doc id + stage — per-person-per-event by construction,
+    // and covers guest buyers who have no user doc. Same separate-
+    // collection rationale as post_event_prompts.
+    match /pre_event_emails/{lockId} {
+      allow read: if isAdmin();
+      allow write: if false; // server-only
+    }
+
     // ── Default deny ─────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

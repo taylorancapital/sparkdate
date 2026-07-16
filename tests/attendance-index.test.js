@@ -31,6 +31,15 @@ describe('buildAttendanceIndex', () => {
     const idx = buildAttendanceIndex(registrations, events, NOW, null);
     expect(idx.attendedEmails.has('newbuyer@example.com')).toBe(false);
     expect(idx.pastAttendeeUids.has('u2')).toBe(false);
+    // ...but it DOES suppress the buy-a-ticket pitches: they hold a ticket.
+    expect(idx.registeredUpcomingEmails.has('newbuyer@example.com')).toBe(true);
+  });
+
+  it('a past-event registration does not enter registeredUpcomingEmails', () => {
+    const events = [{ id: 'evt_past', date: past(10) }];
+    const registrations = [{ email: 'past@example.com', userId: 'u1', eventId: 'evt_past' }];
+    const idx = buildAttendanceIndex(registrations, events, NOW, null);
+    expect(idx.registeredUpcomingEmails.has('past@example.com')).toBe(false);
   });
 
   it('marks a uid as registered for the next event when eventId matches', () => {
@@ -59,8 +68,10 @@ describe('buildAttendanceIndex', () => {
     expect(idx.pastAttendeeUids.has('u4')).toBe(true);
     expect(idx.registeredForNextUids.has('u4')).toBe(true);
     // Still correctly "attended" overall via the past registration, even
-    // though they also have a separate upcoming one.
+    // though they also have a separate upcoming one — and the upcoming
+    // ticket independently lands them in the pitch-suppression set.
     expect(idx.attendedEmails.has('repeat@example.com')).toBe(true);
+    expect(idx.registeredUpcomingEmails.has('repeat@example.com')).toBe(true);
   });
 
   it('builds nameByEmail and attendeeNameByUid on first write, ignoring blank names', () => {
@@ -82,11 +93,14 @@ describe('buildAttendanceIndex', () => {
     const idx = buildAttendanceIndex(registrations, events, NOW, null);
     expect(idx.attendedEmails.has('orphan@example.com')).toBe(false);
     expect(idx.pastAttendeeUids.has('u7')).toBe(false);
+    // Orphaned regs suppress nothing in either direction.
+    expect(idx.registeredUpcomingEmails.has('orphan@example.com')).toBe(false);
   });
 
   it('handles an empty registrations/events list', () => {
     const idx = buildAttendanceIndex([], [], NOW, null);
     expect(idx.attendedEmails.size).toBe(0);
+    expect(idx.registeredUpcomingEmails.size).toBe(0);
     expect(idx.pastAttendeeUids.size).toBe(0);
     expect(idx.registeredForNextUids.size).toBe(0);
   });

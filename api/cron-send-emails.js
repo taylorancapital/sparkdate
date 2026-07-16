@@ -19,7 +19,7 @@ const { resolveLeadName } = require('../lib/lead-name');
 const { logEventAttended } = require('../lib/activity-log');
 const { makeProfileUrl, makeMatchUrl } = require('../lib/profile-link');
 const { EMAIL_CAMPAIGNS: UTM, buildUtmUrl } = require('../lib/utm');
-const { getNextEvent, eventCardHtml, ctaButtonHtml, ctaLinkHtml, urgencyBox, shell, h1, p, esc } = require('../lib/next-event');
+const { getNextEvent, normalizeEvent, eventCardHtml, ctaButtonHtml, ctaLinkHtml, urgencyBox, shell, h1, p, esc } = require('../lib/next-event');
 const { buildAttendanceIndex } = require('../lib/attendance-index');
 
 const db = admin.firestore();
@@ -226,7 +226,7 @@ const NEWSLETTER_EMAILS = [
 const MAX_LATE_DAYS = 21;
 
 // ── Send one day-bucket's email to every eligible lead ───────────────
-async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event, attendedEmails, nameByEmail) {
+async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event, attendedEmails, nameByEmail, registeredUpcomingEmails) {
   let sent = 0;
   let skipped = 0;
   const errors = [];
@@ -247,6 +247,14 @@ async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event,
     // + newsletter instead. (attendedEmails is built from confirmed
     // event_registrations, the single source of truth for attendance.)
     if (attendedEmails && attendedEmails.has(email)) { skipped++; continue; }
+
+    // Holding a ticket for an upcoming event? The whole sequence is wrong
+    // for them too — day2/5/25 pitch a ticket they already own, and day14's
+    // explainer reaches them better timed to their event via the pre-event
+    // countdown pass (sendPreEventEmails). State-based, so if the ticket is
+    // refunded this suppression lifts by itself and nurture resumes where
+    // the flags left off.
+    if (registeredUpcomingEmails && registeredUpcomingEmails.has(email)) { skipped++; continue; }
 
     // Already sent? A MISSING `${emailKey}_sent` field reads as falsy
     // here, so leads created before those fields existed are picked up.
@@ -395,6 +403,142 @@ async function sendProfileReminders(nowMs, emailedThisRun) {
     }
   } catch (e) {
     console.error('[profile-reminder] pass failed:', e.message);
+  }
+  return { sent, skipped };
+}
+
+// ── Pre-event countdown for ticket-holders ──────────────────────────────────
+// The buy-a-ticket pitches (day2/5/25 nurture + post-nurture campaign) are
+// suppressed for anyone holding a ticket to an upcoming event (see
+// lib/attendance-index.js), so this pass owns that audience instead: an
+// event-date-anchored countdown that gets them ready rather than re-sold.
+// Two stages per (registration × event):
+//   t7 — enters the window 7 days out: "here's how the night works" (the
+//        day14 explainer content, retimed to the event it's actually for).
+//   t1 — the day before (also catches day-of for overnight buyers):
+//        logistics + the 9pm matching explainer. The no-show killer.
+// Transactional (they bought this event), so like the profile reminder and
+// post-event prompt there's no unsubscribe footer. Sends to the
+// registration's own email, which also covers guest buyers with no user
+// doc. Idempotent via pre_event_emails/{regId}_{stage} (firestore.rules) —
+// keyed by registration doc id, so it's per-person-per-event by construction.
+const PRE_EVENT_WINDOW_DAYS = 7;
+const PRE_EVENT_T1_DAYS = 1.5;
+
+function preEventShellHTML({ heading, bodyHtml }) {
+  const s = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
+.container{max-width:600px;margin:0 auto;background:#fff}
+.header{background:#0a0e27;padding:36px 30px;text-align:center}
+.logo{font-family:Georgia,serif;font-size:30px;font-weight:900;color:#fff}.logo span{color:#ff6b6b}
+.content{padding:36px 30px}h1{font-family:Georgia,serif;font-size:24px;margin:0 0 16px}
+p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
+.footer{background:#0a0e27;padding:22px;text-align:center;color:#888;font-size:12px}.footer a{color:#ff6b6b;text-decoration:none}
+</style></head><body><div class="container">
+<div class="header"><div class="logo">Spark<span>Date</span></div></div>
+<div class="content"><h1>${s(heading)}</h1>${bodyHtml}</div>
+<div class="footer"><p>SparkDate · Lancaster &amp; Philadelphia · Real people. Real venues.</p>
+<p><a href="https://sparkdate.date">sparkdate.date</a></p></div>
+</div></body></html>`;
+}
+
+const infoBox = (html) =>
+  `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">${html}</div>`;
+
+// stage: 't7' | 't1'. `ev` is a normalizeEvent() result; `firstName` is
+// pre-escaped by the caller; `tonight` only matters for t1.
+function preEventEmailFor(stage, firstName, ev, tonight) {
+  const doors = ev.timeLabel ? esc(ev.timeLabel) : 'the listed start time';
+  if (stage === 't7') {
+    return {
+      subject: `You're in — here's how ${ev.title} works`,
+      html: preEventShellHTML({
+        heading: `${ev.title} is ${ev.daysAwayLabel || 'coming up'}.`,
+        bodyHtml:
+          p(`${firstName}, your spot is locked in. Here's exactly how the night runs:`) +
+          infoBox(`<strong>Doors at ${doors}.</strong> Check in, grab a name tag (first name only).<br>
+<strong>4 rounds, ~7 minutes each.</strong> A real conversation with a dozen-plus people.<br>
+<strong>A bell marks each switch.</strong> No scripts, no pressure.<br>
+<strong>Then: open mingling.</strong> Stay as long as you like.`) +
+          eventCardHtml(ev) +
+          p(`And the best part: at <strong>9pm that night</strong>, we'll email you a private link to tell us who you clicked with. If they pick you too, we swap contact info — no missed signals, no awkward Instagram hunt.`) +
+          p('Nothing to prep. Come as you are — everyone in the room chose to be there for the same reason.') +
+          p('See you soon,<br>The SparkDate Team'),
+      }),
+    };
+  }
+  const when = tonight ? 'tonight' : 'tomorrow night';
+  return {
+    subject: `${tonight ? 'Tonight' : 'Tomorrow night'}: ${ev.title}`,
+    html: preEventShellHTML({
+      heading: `${tonight ? 'Tonight' : 'Tomorrow night'} is the night.`,
+      bodyHtml:
+        p(`${firstName}, quick rundown so ${when} is effortless:`) +
+        infoBox(`<strong>Doors at ${doors}</strong> · ${esc(ev.venueLabel)}.<br>
+Arrive a few minutes early to check in and grab a name tag.<br>
+Just bring your phone — everything else is handled.`) +
+        eventCardHtml(ev) +
+        p(`At <strong>9pm ${when}</strong>, check your email: you'll get a private link to pick who you clicked with. Mutual picks swap contact info directly.`) +
+        p('See you there,<br>The SparkDate Team'),
+    }),
+  };
+}
+
+async function sendPreEventEmails(nowMs, emailedThisRun) {
+  let sent = 0, skipped = 0;
+  try {
+    const horizon = new Date(nowMs + PRE_EVENT_WINDOW_DAYS * 86400000);
+    const evSnap = await db.collection('events')
+      .where('date', '>', new Date(nowMs))
+      .where('date', '<=', horizon)
+      .get();
+    for (const evDoc of evSnap.docs) {
+      const ev = normalizeEvent(evDoc.id, evDoc.data());
+      if (!ev.dt) continue;
+      const daysUntil = (ev.dt.getTime() - nowMs) / 86400000;
+      const stage = daysUntil <= PRE_EVENT_T1_DAYS ? 't1' : 't7';
+      const tonight = daysUntil < 0.75;
+
+      const [erSnap, lockSnap] = await Promise.all([
+        db.collection('event_registrations').where('eventId', '==', evDoc.id).get(),
+        db.collection('pre_event_emails').where('eventId', '==', evDoc.id).get(),
+      ]);
+      const sentLocks = new Set(lockSnap.docs.map((d) => d.id));
+
+      const seenEmails = new Set();
+      for (const er of erSnap.docs) {
+        const r = er.data();
+        const email = r.email ? String(r.email).toLowerCase().trim() : null;
+        if (r.status !== 'confirmed' || !email) { skipped++; continue; }
+        if (seenEmails.has(email)) { skipped++; continue; }
+        seenEmails.add(email);
+        if (sentLocks.has(`${er.id}_${stage}`)) { skipped++; continue; }
+        if (emailedThisRun.has(email)) { skipped++; continue; }
+
+        const firstName = esc((r.name ? String(r.name).trim().split(/\s+/)[0] : '') || 'there');
+        const msg = preEventEmailFor(stage, firstName, ev, tonight);
+        try {
+          const result = await resend.emails.send({
+            from: 'SparkDate <hello@mail.sparkdate.date>',
+            to: r.email,
+            subject: msg.subject,
+            html: msg.html,
+          });
+          if (!result.error) {
+            await db.collection('pre_event_emails').doc(`${er.id}_${stage}`).set({
+              regId: er.id, userId: r.userId || null, email,
+              eventId: evDoc.id, stage, sentAt: new Date().toISOString(),
+            });
+            emailedThisRun.add(email);
+            sent++;
+            console.log(`✅ pre-event ${stage} → reg/${er.id}`);
+          } else { skipped++; }
+        } catch (e) { console.error('[pre-event]', er.id, e.message); skipped++; }
+      }
+    }
+  } catch (e) {
+    console.error('[pre-event] pass failed:', e.message);
   }
   return { sent, skipped };
 }
@@ -796,7 +940,7 @@ async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameB
 // This is the event-promo channel for COLD leads who finished nurture and
 // never attended. Attendees have their own (returning-attendee invite) track,
 // so they're suppressed here to avoid two "come to the next one" emails.
-async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun, attendedEmails, nameByEmail) {
+async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun, attendedEmails, nameByEmail, registeredUpcomingEmails) {
   let sent = 0, skipped = 0;
 
   for (const leadDoc of leads) {
@@ -806,6 +950,10 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun,
 
     // Attendees get the returning-attendee invite instead — don't double up.
     if (attendedEmails && attendedEmails.has(email)) { skipped++; continue; }
+
+    // Already holds a ticket for the upcoming event — nothing to pitch.
+    // The pre-event countdown pass owns this audience until the event passes.
+    if (registeredUpcomingEmails && registeredUpcomingEmails.has(email)) { skipped++; continue; }
 
     // Yield to higher-priority passes already run this cycle.
     if (emailedThisRun.has(email)) { skipped++; continue; }
@@ -954,6 +1102,7 @@ module.exports = async function handler(req, res) {
     // "attended" when its event is in the past — an upcoming event's confirmed
     // ticket-holders must stay eligible for the first-timer nurture sequence.
     let attendedEmails = new Set();
+    let registeredUpcomingEmails = new Set();
     let pastAttendeeUids = new Set();
     let registeredForNextUids = new Set();
     let attendeeNameByUid = new Map();
@@ -965,7 +1114,7 @@ module.exports = async function handler(req, res) {
       ]);
       const registrations = regSnap.docs.map((d) => d.data());
       const events = evAllSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      ({ attendedEmails, pastAttendeeUids, registeredForNextUids, attendeeNameByUid, nameByEmail } =
+      ({ attendedEmails, registeredUpcomingEmails, pastAttendeeUids, registeredForNextUids, attendeeNameByUid, nameByEmail } =
         buildAttendanceIndex(registrations, events, nowMs, event));
     } catch (e) {
       console.error('[attendance-index] build failed:', e.message);
@@ -974,6 +1123,7 @@ module.exports = async function handler(req, res) {
     // 1) Transactional, time-sensitive — always send, and claim the address so
     //    marketing yields to them. (These run over ticket-holders, not leads.)
     const profileReminders = await sendProfileReminders(nowMs, emailedThisRun);
+    const preEvent = await sendPreEventEmails(nowMs, emailedThisRun);
     const postEventPrompts = await sendPostEventPrompts(nowMs, emailedThisRun, null, null, event);
     // Same-day safety net for the real "attended" log, mirroring
     // sendPostEventPrompts above: the dedicated 9pm ET cron already covers
@@ -991,14 +1141,14 @@ module.exports = async function handler(req, res) {
     //    Suppressed for anyone who has already attended (wrong audience).
     const results = [];
     for (const [d, key] of [[2, 'day2'], [5, 'day5'], [14, 'day14'], [25, 'day25']]) {
-      results.push(await sendBucket(leads, d, key, nowMs, emailedThisRun, event, attendedEmails, nameByEmail));
+      results.push(await sendBucket(leads, d, key, nowMs, emailedThisRun, event, attendedEmails, nameByEmail, registeredUpcomingEmails));
     }
 
     // 3) Post-nurture event campaign — fortnightly, offset one week from the
     //    newsletter (dayNum % 14 === 7) so the two marketing tracks never blast
     //    on the same day. `force` (manual trigger) bypasses the cadence gate.
     const postNurtureEvents = (force || dayNum % 14 === 7)
-      ? await sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun, attendedEmails, nameByEmail)
+      ? await sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun, attendedEmails, nameByEmail, registeredUpcomingEmails)
       : { sent: 0, skipped: 0, gated: true };
 
     // 4) Bi-weekly newsletter — fortnightly issue day (dayNum % 14 === 0),
@@ -1007,8 +1157,8 @@ module.exports = async function handler(req, res) {
       ? await sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByEmail)
       : { sent: 0, skipped: 0, gated: true };
 
-    console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders), 'postEventPrompts=', JSON.stringify(postEventPrompts), 'attendanceLog=', JSON.stringify(attendanceLog), 'returningInvites=', JSON.stringify(returningInvites), 'newsletter=', JSON.stringify(newsletter), 'postNurtureEvents=', JSON.stringify(postNurtureEvents));
-    return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, postEventPrompts, attendanceLog, returningInvites, newsletter, postNurtureEvents, ts: new Date().toISOString() });
+    console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders), 'preEvent=', JSON.stringify(preEvent), 'postEventPrompts=', JSON.stringify(postEventPrompts), 'attendanceLog=', JSON.stringify(attendanceLog), 'returningInvites=', JSON.stringify(returningInvites), 'newsletter=', JSON.stringify(newsletter), 'postNurtureEvents=', JSON.stringify(postNurtureEvents));
+    return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, preEvent, postEventPrompts, attendanceLog, returningInvites, newsletter, postNurtureEvents, ts: new Date().toISOString() });
 
   } catch (err) {
     console.error('❌ Cron error:', err.message);
@@ -1016,5 +1166,6 @@ module.exports = async function handler(req, res) {
   }
 };
 
-// Exported for unit tests (tests/email-render.test.js).
+// Exported for render checks/tests.
 module.exports.EMAILS = EMAILS;
+module.exports.preEventEmailFor = preEventEmailFor;
