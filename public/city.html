@@ -596,6 +596,15 @@
         loadEvents();
 
         // ── Newsletter form ─────────────────────────────────────────────────
+        // Funnel visibility: fires once per page load on first interaction
+        // with the form, mirroring event.html's checkout_form_started, so
+        // GA4 can measure true abandonment (started-but-never-submitted).
+        let nlStartTracked = false;
+        document.getElementById('nlForm').addEventListener('focusin', () => {
+            if (nlStartTracked) return;
+            nlStartTracked = true;
+            if (window.gtag) gtag('event', 'lead_form_started', { lead_type: 'city_page', city: cityParam });
+        });
         document.getElementById('nlForm').addEventListener('submit', async e => {
             e.preventDefault();
             const email = document.getElementById('nlEmail').value.trim();

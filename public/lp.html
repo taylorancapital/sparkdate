@@ -288,6 +288,15 @@
 
         // Email capture
         var f = $('leadForm'), b = $('leadBtn'), msg = $('leadMsg');
+        // Funnel visibility: fires once per page load on first interaction
+        // with the form, mirroring event.html's checkout_form_started, so
+        // GA4 can measure true abandonment (started-but-never-submitted).
+        var leadStartTracked = false;
+        if (f) f.addEventListener('focusin', function () {
+          if (leadStartTracked) return;
+          leadStartTracked = true;
+          if (typeof gtag === 'function') gtag('event', 'lead_form_started', { lead_type: 'lp' });
+        });
         if (f) f.addEventListener('submit', async function (e) {
           e.preventDefault();
           b.disabled = true; b.textContent = 'Joining…'; msg.style.display = 'none';

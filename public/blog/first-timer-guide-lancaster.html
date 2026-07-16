@@ -259,6 +259,15 @@
     <script>
       (function(){
         var form=document.getElementById('blogSignup'); if(!form) return;
+        // Funnel visibility: fires once per page load on first interaction
+        // with the form, mirroring event.html's checkout_form_started, so
+        // GA4 can measure true abandonment (started-but-never-submitted).
+        var leadStartTracked=false;
+        form.addEventListener('focusin',function(){
+          if(leadStartTracked) return;
+          leadStartTracked=true;
+          if(window.gtag)gtag('event','lead_form_started',{lead_type:'blog'});
+        });
         form.addEventListener('submit',async function(e){
           e.preventDefault();
           var emailEl=document.getElementById('blogEmail'), msg=document.getElementById('blogMsg'), btn=form.querySelector('button[type="submit"]');
