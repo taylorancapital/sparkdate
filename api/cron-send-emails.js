@@ -751,7 +751,13 @@ async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameB
     if (lastSent && (nowMs - lastSent) < 14 * 86400000) { skipped++; continue; }
 
     try {
-      const html = tpl.html(esc(resolveLeadName(lead, nameByEmail, 'there')), event, ctaUrl);
+      // shell()'s footer carries an __UNSUB__ placeholder — swap it for this
+      // recipient's signed URL, same as sendBucket does. Without the replace
+      // the body's Unsubscribe link goes out as a literal dead "__UNSUB__"
+      // href (only the header unsubscribe worked).
+      const unsubUrl = makeUnsubscribeUrl(leadDoc.id, lead.email);
+      const html = tpl.html(esc(resolveLeadName(lead, nameByEmail, 'there')), event, ctaUrl)
+        .replace(/__UNSUB__/g, unsubUrl);
 
       const result = await resend.emails.send({
         from: 'SparkDate <hello@mail.sparkdate.date>',
@@ -759,7 +765,7 @@ async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameB
         subject: tpl.subject,
         html,
         headers: {
-          'List-Unsubscribe': `<${makeUnsubscribeUrl(leadDoc.id, lead.email)}>`,
+          'List-Unsubscribe': `<${unsubUrl}>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       });
@@ -819,6 +825,9 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun,
     try {
       const ctaUrl = buildUtmUrl('/event?id=' + event.id, 'email', 'event_campaign', 'post_nurture');
 
+      // Same __UNSUB__ interpolation as sendBucket/newsletter — shell()'s
+      // footer link is a placeholder until this replace runs.
+      const unsubUrl = makeUnsubscribeUrl(leadDoc.id, lead.email);
       const html = shell(
         h1('Our next mixer is coming') +
         p(`${esc(resolveLeadName(lead, nameByEmail, 'There'))}, we're hosting our next mixer soon.`) +
@@ -826,7 +835,7 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun,
         eventCardHtml(event) +
         ctaButtonHtml(ctaUrl, 'Reserve your spot') +
         p('See you there,<br>The SparkDate Team')
-      );
+      ).replace(/__UNSUB__/g, unsubUrl);
 
       const result = await resend.emails.send({
         from: 'SparkDate <hello@mail.sparkdate.date>',
@@ -834,7 +843,7 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun,
         subject: `${event.title} is coming up`,
         html,
         headers: {
-          'List-Unsubscribe': `<${makeUnsubscribeUrl(leadDoc.id, lead.email)}>`,
+          'List-Unsubscribe': `<${unsubUrl}>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       });
