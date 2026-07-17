@@ -494,6 +494,24 @@
                 });
                 document.head.appendChild(lb);
             }
+
+            // FAQPage — the FAQ accordion above (config.faqs) already has
+            // real, written content; this just wraps it in schema so it's
+            // eligible for FAQ rich results. Pure upside, no new copy.
+            if (config.faqs && config.faqs.length) {
+                const faqTag = document.createElement('script');
+                faqTag.type = 'application/ld+json';
+                faqTag.textContent = JSON.stringify({
+                    '@context': 'https://schema.org',
+                    '@type': 'FAQPage',
+                    mainEntity: config.faqs.map(f => ({
+                        '@type': 'Question',
+                        name: f.q,
+                        acceptedAnswer: { '@type': 'Answer', text: f.a }
+                    }))
+                });
+                document.head.appendChild(faqTag);
+            }
         }
 
         // ── Event card renderer ─────────────────────────────────────────────

@@ -88,10 +88,15 @@ async function renderEventPage(req, res) {
         const d = ev.date && ev.date.toDate ? ev.date.toDate()
                 : (ev.date ? new Date(ev.date) : null);
         const dateLabel = d ? d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
-        const venueLabel = ev.venue ? `${ev.venue}${ev.neighborhood ? ', ' + ev.neighborhood : ''}` : 'Philadelphia';
+        // Never hardcode a single city — this file serves both Philadelphia
+        // and Lancaster events. Fall back to the event's own city, then to
+        // a two-city phrase, rather than guessing wrong for half the site's
+        // events (matches the fix already applied in event.html/events.html
+        // /city.html: omit or use real data rather than assume Philadelphia).
+        const venueLabel = ev.venue ? `${ev.venue}${ev.neighborhood ? ', ' + ev.neighborhood : ''}` : (ev.city || 'your area');
         const title = ev.title ? `${ev.title} — SparkDate` : 'Event Tickets — SparkDate';
         const desc = (ev.blurb && ev.blurb.trim())
-          || `${ev.title || 'A SparkDate event'} on ${dateLabel} at ${venueLabel}. Reserve your spot — real dates, real venues, real people in Philadelphia.`;
+          || `${ev.title || 'A SparkDate event'} on ${dateLabel} at ${venueLabel}. Reserve your spot — real dates, real venues, real people in ${ev.city || 'Philadelphia & Lancaster'}.`;
         const pageUrl = `https://sparkdate.date/event?id=${encodeURIComponent(id)}`;
         const img = 'https://sparkdate.date/og-image.svg';
         const price = effectivePrice(ev, 'any').price;
@@ -110,10 +115,20 @@ async function renderEventPage(req, res) {
           performer: { '@type': 'Organization', name: 'SparkDate', url: 'https://sparkdate.date/' },
           location: {
             '@type': 'Place',
-            name: ev.venue || 'Philadelphia venue',
+            name: ev.venue || (ev.city ? `${ev.city} venue` : 'SparkDate venue'),
             address: {
               '@type': 'PostalAddress',
-              addressLocality: 'Philadelphia',
+              // Use the event's own city — never hardcode one. Omit
+              // entirely when unknown rather than guess (same fix already
+              // applied in event.html/events.html/city.html's schema).
+              ...(ev.city ? { addressLocality: ev.city } : {}),
+              // Full street address string as stored on the venue record
+              // (e.g. "200 S Broad St, Philadelphia, PA 19102") — not yet
+              // split into components, but present is far better than
+              // absent: missing streetAddress is Google's most-cited
+              // reason Event rich results don't qualify. Only events
+              // created via the admin venue picker carry this.
+              ...(ev.venueAddress ? { streetAddress: ev.venueAddress } : {}),
               addressRegion: 'PA',
               addressCountry: 'US',
             },

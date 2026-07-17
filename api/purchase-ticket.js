@@ -416,7 +416,7 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
 //
 // Best-effort: a lead-write failure must never affect the ticket response.
 
-async function recordLead({ email, name, phone, eventId, eventName }) {
+async function recordLead({ email, name, phone, eventId, eventName, ref }) {
   const norm = String(email || '').toLowerCase().trim();
   if (!norm) return;
   try {
@@ -427,6 +427,11 @@ async function recordLead({ email, name, phone, eventId, eventName }) {
         email:   norm,
         phone:   String(phone || '').trim().slice(0, 40),
         source:  'ticket_purchase',
+        // First-touch attribution, same as lead-signup.js — someone who
+        // clicks a referral link and buys a ticket directly, without ever
+        // touching a lead-capture form, was previously invisible as a
+        // referral conversion entirely.
+        referredBy: ref || null,
         createdAt: FieldValue.serverTimestamp(),
         // Ticket-purchase buyers got their welcome via the
         // enrollGuestAsMember email, not the cron — mark welcomed so
@@ -453,9 +458,11 @@ async function recordLead({ email, name, phone, eventId, eventName }) {
         ticket_count: FieldValue.increment(1),
       };
       // Only fill in name / phone if the existing row didn't already
-      // have one — we never overwrite the user's prior input.
+      // have one — we never overwrite the user's prior input. Same
+      // first-touch-wins rule for referredBy as lead-signup.js.
       if (!existing.name  && name)  patch.name  = String(name).trim().slice(0, 120);
       if (!existing.phone && phone) patch.phone = String(phone).trim().slice(0, 40);
+      if (!existing.referredBy && ref) patch.referredBy = ref;
       await doc.ref.update(patch);
       console.log(`[lead] existing lead updated for ${norm} (count=${(existing.ticket_count || 0) + 1})`);
     }
@@ -469,7 +476,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { paymentMethodId, email, name, phone, gender, eventId } = req.body || {};
+    const { paymentMethodId, email, name, phone, gender, eventId, ref } = req.body || {};
     let firebaseUid = null;
 
     // ── Basic input validation ─────────────────────────────────────
@@ -758,7 +765,10 @@ module.exports = async function handler(req, res) {
       // the nurture-email cron pick them up. recordLead upserts by email and
       // is fully best-effort (it never throws). Guests aren't otherwise
       // captured as leads; members already have a user doc.
-      await recordLead({ email, name: cleanName, phone: cleanPhone, eventId, eventName });
+      // Trim/cap inline (matches lead-signup.js's MAX_REF=80) — no shared
+      // helper in this file to import for one field.
+      const cleanRef = String(ref || '').trim().slice(0, 80) || null;
+      await recordLead({ email, name: cleanName, phone: cleanPhone, eventId, eventName, ref: cleanRef });
     }
 
     // ── Activity log (best-effort, doesn't block success). ─────────
