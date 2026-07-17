@@ -45,6 +45,6 @@
   <!-- Bottom URL bar -->
   <rect x="0" y="580" width="1200" height="50" fill="#ff6b6b"/>
   <text x="600" y="613" font-family="-apple-system, BlinkMacSystemFont, 'Inter', sans-serif" font-size="20" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="3">
-    SPARKDATE.DATE · PHILADELPHIA
+    SPARKDATE.DATE · PHILADELPHIA &amp; LANCASTER
   </text>
 </svg>

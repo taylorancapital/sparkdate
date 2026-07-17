@@ -8,7 +8,11 @@
     <meta name="description" content="Curated singles mixer events — our take on speed dating, without the scorecard. Real people, real venues, real connections.">
     <link rel="canonical" id="canonicalTag" href="https://sparkdate.date/">
     <meta property="og:type" content="website">
-    <meta property="og:image" content="https://sparkdate.date/og-image.svg">
+    <meta property="og:image" content="https://sparkdate.date/og-image.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="SparkDate — Real people. Real venues. Philadelphia &amp; Lancaster.">
+    <meta name="twitter:image" content="https://sparkdate.date/og-image.jpg">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -441,7 +445,7 @@
                     url,
                     eventStatus: 'https://schema.org/EventScheduled',
                     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-                    image: ['https://sparkdate.date/og-image.svg'],
+                    image: ['https://sparkdate.date/og-image.jpg'],
                     location: {
                         '@type': 'Place',
                         name: ev.venue || (ev.city ? `${ev.city} venue` : 'SparkDate venue'),
@@ -490,9 +494,27 @@
                     url: `https://sparkdate.date/${config.canonicalSlug}`,
                     description: `Curated singles mixer events in ${config.name}, ${config.state}`,
                     areaServed: { '@type': 'City', name: `${config.name}, ${config.state}` },
-                    sameAs: ['https://sparkdate.date/']
+                    sameAs: ['https://sparkdate.date/', 'https://share.google/VFb2VHvRIY2wQUhUG']
                 });
                 document.head.appendChild(lb);
+            }
+
+            // FAQPage — the FAQ accordion above (config.faqs) already has
+            // real, written content; this just wraps it in schema so it's
+            // eligible for FAQ rich results. Pure upside, no new copy.
+            if (config.faqs && config.faqs.length) {
+                const faqTag = document.createElement('script');
+                faqTag.type = 'application/ld+json';
+                faqTag.textContent = JSON.stringify({
+                    '@context': 'https://schema.org',
+                    '@type': 'FAQPage',
+                    mainEntity: config.faqs.map(f => ({
+                        '@type': 'Question',
+                        name: f.q,
+                        acceptedAnswer: { '@type': 'Answer', text: f.a }
+                    }))
+                });
+                document.head.appendChild(faqTag);
             }
         }
 

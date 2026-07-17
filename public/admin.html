@@ -2512,6 +2512,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const pickedVenue = venueId ? allVenues.find(v => v.id === venueId) : null;
             const venueStars = (pickedVenue && typeof pickedVenue.stars === 'number')
                 ? pickedVenue.stars : null;
+            // Surfaced in Event schema (api/next-event.js) as streetAddress —
+            // missing street-address data is Google's most-cited reason Event
+            // rich results don't qualify.
+            const venueAddress = (pickedVenue && pickedVenue.address) || null;
             const blurb = document.getElementById('evBlurb').value.trim();
             const amenities = document.getElementById('evAmenities').value.trim();
             const evStatus = document.getElementById('evStatus').value;
@@ -2549,6 +2553,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     priceTier,
                     venueId,
                     venueStars,
+                    venueAddress,
                     blurb,
                     amenities,
                     emoji,

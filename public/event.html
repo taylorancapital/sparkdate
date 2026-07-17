@@ -26,6 +26,18 @@
         'page_path': window.location.pathname + window.location.search
       });
     </script>
+    <!-- Referral capture — same convention as index.html/lp.html. A
+         referral link landing directly on a specific event (the most
+         common share target) previously lost attribution entirely, since
+         only the homepage and /lp captured ?ref= into localStorage. -->
+    <script>
+      (function () {
+        try {
+          var ref = new URLSearchParams(window.location.search).get('ref');
+          if (ref) localStorage.setItem('sparkdate_ref', ref.slice(0, 80));
+        } catch (e) {}
+      })();
+    </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -420,7 +432,7 @@
             <div>
                 <div class="booking-card">
                     <h3>Reserve Your Spot</h3>
-                    <p class="capacity"><span class="filled" id="spotsLeft">Limited</span> spots remaining</p>
+                    <p class="capacity"><span id="spotsLeft">Open</span> spots remaining</p>
 
                     <div class="success-message" id="successMessage"></div>
                     <div class="error-message" id="errorMessage"></div>
@@ -506,7 +518,7 @@
     </div>
 
     <footer>
-        <p>&copy; 2026 SparkDate. Philadelphia. Real people. Real venues.</p>
+        <p>&copy; 2026 SparkDate. <a href="/lancaster" style="color: inherit;">Lancaster</a> &amp; <a href="/philadelphia" style="color: inherit;">Philadelphia</a>. Real people. Real venues.</p>
     </footer>
 
     <script src="https://js.stripe.com/v3/"></script>
@@ -663,8 +675,47 @@
         // event lands on. Event docs are publicly readable (firestore.rules),
         // so this uses data the page has already fetched — no new request.
         function updateEventTag(ev) {
+            // Single shared pool (new events) vs. legacy gender-split capacity
+            // — same isSinglePool distinction lib/seat-model.js makes server-side.
+            // Computed up front (not just inside the hero-tag branch below) so
+            // the booking-card badge below gets the same real state regardless
+            // of which hero-tag branch (early-bird / scarce / price) applies.
+            const isSinglePool = Number.isFinite(Number(ev.spots));
+            const total = isSinglePool ? Number(ev.spots) : ((Number(ev.spotsMen) || 0) + (Number(ev.spotsWomen) || 0));
+            const sold = isSinglePool ? (Number(ev.confirmed) || 0) : ((Number(ev.confirmedMen) || 0) + (Number(ev.confirmedWomen) || 0));
+            const remaining = Math.max(0, total - sold);
+            const scarce = total > 0 && remaining > 0 && (remaining <= 10 || remaining / total <= 0.25);
+            // Distinct from `scarce` (which requires remaining > 0) --
+            // without this, both a fully sold-out event AND one with no
+            // capacity configured at all (total === 0, a data error) fell
+            // through to the "not scarce" branch on both the badge and the
+            // hero tag below, showing "Open spots remaining" / a price for
+            // an event with nothing left to buy. remaining is already
+            // clamped to >= 0 (Math.max(0, total - sold) above), so
+            // `remaining <= 0` alone covers both cases -- no need to
+            // separately require total > 0, since either way there's
+            // nothing to sell.
+            const soldOut = remaining <= 0;
+
+            // Booking-card badge: real inventory state instead of the old
+            // static "Limited" that never reflected actual data. "No" (not
+            // "Sold out") for the sold-out case -- has to fit the fixed
+            // "[badge] spots remaining" sentence in the markup below.
+            const spotsLeftEl = document.getElementById('spotsLeft');
+            if (spotsLeftEl) {
+                spotsLeftEl.textContent = soldOut ? 'No' : (scarce ? 'Limited' : 'Open');
+                spotsLeftEl.classList.toggle('filled', soldOut || scarce);
+            }
+
             const tag = document.getElementById('eventTag');
             if (!tag) return;
+
+            // Hero tag is a standalone phrase (not part of a larger
+            // sentence like the badge above), so "Sold out" reads fine as-is.
+            if (soldOut) {
+                tag.textContent = 'Sold out';
+                return;
+            }
 
             const now = Date.now();
             const ends = ev.earlyBirdEnds;
@@ -675,13 +726,6 @@
                 return;
             }
 
-            // Single shared pool (new events) vs. legacy gender-split capacity
-            // — same isSinglePool distinction lib/seat-model.js makes server-side.
-            const isSinglePool = Number.isFinite(Number(ev.spots));
-            const total = isSinglePool ? Number(ev.spots) : ((Number(ev.spotsMen) || 0) + (Number(ev.spotsWomen) || 0));
-            const sold = isSinglePool ? (Number(ev.confirmed) || 0) : ((Number(ev.confirmedMen) || 0) + (Number(ev.confirmedWomen) || 0));
-            const remaining = Math.max(0, total - sold);
-            const scarce = total > 0 && remaining > 0 && (remaining <= 10 || remaining / total <= 0.25);
             if (scarce) {
                 tag.textContent = 'Filling up';
                 return;
@@ -703,7 +747,7 @@
                 const desc = (ev.blurb && ev.blurb.trim())
                     || `${ev.title || 'A SparkDate event'} on ${dateLabel} at ${venueLabel}. Reserve your spot — real dates, real venues, real people${ev.city ? ' in ' + ev.city : ''}.`;
                 const pageUrl = `https://sparkdate.date/event?id=${encodeURIComponent(ev.id || eventId)}`;
-                const img = 'https://sparkdate.date/og-image.svg';
+                const img = 'https://sparkdate.date/og-image.jpg';
 
                 // <title> + meta description
                 document.title = title;
