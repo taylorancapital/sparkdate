@@ -579,6 +579,16 @@ function postEventPromptHTML({ eventName, matchUrl, nextEventHtml, referralUrl }
   const shareHtml = `
 <p class="next-h">Had a great night?</p>
 <p>Share a story and tag <a href="https://www.instagram.com/sparkdate.date">@sparkdate.date</a> — or just reply and tell us about it. We love featuring real ones.</p>`;
+  // Same reasoning as shareHtml above (highest-engagement moment, reuse
+  // what already exists) applied to a gap closed once a real Google
+  // Business Profile existed to point at: nothing anywhere asked for a
+  // Google review specifically, even though this is the email most likely
+  // to produce a genuine, enthusiastic one. Separate block from shareHtml
+  // (Instagram tag vs. Google review are different asks, different
+  // platforms) rather than merging the copy.
+  const reviewHtml = `
+<p class="next-h">Loved the night?</p>
+<p>A quick <a href="https://share.google/VFb2VHvRIY2wQUhUG">Google review</a> helps more people find us — takes 30 seconds, means a lot.</p>`;
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
 .container{max-width:600px;margin:0 auto;background:#fff}
@@ -596,7 +606,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 <p>Tell us who you'd like to see again. If they pick you too, we'll share contact info so you can meet up — no missed signals, no awkward Instagram hunt.</p>
 <p style="text-align:center;"><a class="cta" href="${s(matchUrl)}">Pick your matches</a></p>
 <p>No login needed — this link is just for you.</p>
-${nextEventHtml || ''}${referralHtml}${shareHtml}
+${nextEventHtml || ''}${referralHtml}${shareHtml}${reviewHtml}
 </div>
 <div class="footer"><p>SparkDate · Lancaster &amp; Philadelphia · Real people. Real venues.</p>
 <p><a href="https://sparkdate.date">sparkdate.date</a></p></div>
