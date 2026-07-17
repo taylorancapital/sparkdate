@@ -19,6 +19,7 @@ const path = require('path');
 const { admin } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
 const { effectivePrice, spotsRemaining } = require('../lib/seat-model');
+const { buildSitemapXml } = require('../lib/sitemap-xml');
 
 const db = admin.firestore();
 
@@ -79,15 +80,27 @@ async function renderEventPage(req, res) {
   // below overwrites this with the real canonical when an event resolves.
   let headInject = `\n    <link rel="canonical" href="https://sparkdate.date/event">\n`;
   let pageTitle = null;
+  let notFound = false;
 
   try {
     if (id) {
       const snap = await db.collection('events').doc(String(id)).get();
-      if (snap.exists) {
+      if (!snap.exists) {
+        // A provided id that resolves to no event (deleted or bogus) must
+        // be an honest 404, not a 200 with generic content — Google treats
+        // that as a soft-404 and keeps the dead URL in its crawl queue.
+        // The template is still served below: event.html's own JS redirects
+        // human visitors to /events when the id doesn't resolve.
+        notFound = true;
+      } else {
         const ev = snap.data();
         const d = ev.date && ev.date.toDate ? ev.date.toDate()
                 : (ev.date ? new Date(ev.date) : null);
         const dateLabel = d ? d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
+        // Mixers run ~3 hours; the event's own durationHours wins when set.
+        // Shared by the schema's endDate below and the is-it-over check.
+        const hrs = Number(ev.durationHours) > 0 ? Number(ev.durationHours) : 3;
+        const isPast = d ? d.getTime() + hrs * 60 * 60 * 1000 < Date.now() : false;
         // Never hardcode a single city — this file serves both Philadelphia
         // and Lancaster events. Fall back to the event's own city, then to
         // a two-city phrase, rather than guessing wrong for half the site's
@@ -98,62 +111,8 @@ async function renderEventPage(req, res) {
         const desc = (ev.blurb && ev.blurb.trim())
           || `${ev.title || 'A SparkDate event'} on ${dateLabel} at ${venueLabel}. Reserve your spot — real dates, real venues, real people in ${ev.city || 'Philadelphia & Lancaster'}.`;
         const pageUrl = `https://sparkdate.date/event?id=${encodeURIComponent(id)}`;
-        const img = 'https://sparkdate.date/og-image.svg';
+        const img = 'https://sparkdate.date/og-image.jpg';
         const price = effectivePrice(ev, 'any').price;
-
-        const ld = {
-          '@context': 'https://schema.org',
-          '@type': 'Event',
-          name: ev.title || 'SparkDate Event',
-          description: desc,
-          eventStatus: 'https://schema.org/EventScheduled',
-          eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-          url: pageUrl,
-          image: [img],
-          organizer: { '@type': 'Organization', name: 'SparkDate', url: 'https://sparkdate.date/' },
-          // SparkDate hosts/runs each mixer, so it is also the performer.
-          performer: { '@type': 'Organization', name: 'SparkDate', url: 'https://sparkdate.date/' },
-          location: {
-            '@type': 'Place',
-            name: ev.venue || (ev.city ? `${ev.city} venue` : 'SparkDate venue'),
-            address: {
-              '@type': 'PostalAddress',
-              // Use the event's own city — never hardcode one. Omit
-              // entirely when unknown rather than guess (same fix already
-              // applied in event.html/events.html/city.html's schema).
-              ...(ev.city ? { addressLocality: ev.city } : {}),
-              // Full street address string as stored on the venue record
-              // (e.g. "200 S Broad St, Philadelphia, PA 19102") — not yet
-              // split into components, but present is far better than
-              // absent: missing streetAddress is Google's most-cited
-              // reason Event rich results don't qualify. Only events
-              // created via the admin venue picker carry this.
-              ...(ev.venueAddress ? { streetAddress: ev.venueAddress } : {}),
-              addressRegion: 'PA',
-              addressCountry: 'US',
-            },
-          },
-        };
-        if (d) {
-          ld.startDate = d.toISOString();
-          // Mixers run ~3 hours; provide an endDate (recommended by Google).
-          // Use the event's own durationHours if set, else default to 3.
-          const hrs = Number(ev.durationHours) > 0 ? Number(ev.durationHours) : 3;
-          ld.endDate = new Date(d.getTime() + hrs * 60 * 60 * 1000).toISOString();
-        }
-        if (price > 0) {
-          ld.offers = {
-            '@type': 'Offer',
-            price: price.toFixed(2),
-            priceCurrency: 'USD',
-            url: pageUrl,
-            availability: 'https://schema.org/InStock',
-            // Tickets are on sale from when the event was created (else now).
-            validFrom: (ev.createdAt && ev.createdAt.toDate
-              ? ev.createdAt.toDate()
-              : new Date()).toISOString(),
-          };
-        }
 
         pageTitle = title;
         headInject =
@@ -167,8 +126,74 @@ async function renderEventPage(req, res) {
           `\n    <meta name="twitter:card" content="summary_large_image">` +
           `\n    <meta name="twitter:title" content="${escAttr(title)}">` +
           `\n    <meta name="twitter:description" content="${escAttr(desc)}">` +
-          `\n    <meta name="twitter:image" content="${escAttr(img)}">` +
-          `\n    <script type="application/ld+json" id="event-jsonld">${escapeJsonLd(ld)}</script>\n`;
+          `\n    <meta name="twitter:image" content="${escAttr(img)}">`;
+
+        if (isPast) {
+          // The event is over: drop the page from the index (a finished
+          // mixer has no search value) and ship NO Event JSON-LD — Google
+          // flags sites whose Event markup keeps presenting past events as
+          // scheduled. Meta/OG stay so previously shared links still unfurl.
+          headInject += `\n    <meta name="robots" content="noindex">\n`;
+        } else {
+          const ld = {
+            '@context': 'https://schema.org',
+            '@type': 'Event',
+            name: ev.title || 'SparkDate Event',
+            description: desc,
+            eventStatus: 'https://schema.org/EventScheduled',
+            eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+            url: pageUrl,
+            image: [img],
+            organizer: { '@type': 'Organization', name: 'SparkDate', url: 'https://sparkdate.date/' },
+            // SparkDate hosts/runs each mixer, so it is also the performer.
+            performer: { '@type': 'Organization', name: 'SparkDate', url: 'https://sparkdate.date/' },
+            location: {
+              '@type': 'Place',
+              name: ev.venue || (ev.city ? `${ev.city} venue` : 'SparkDate venue'),
+              address: {
+                '@type': 'PostalAddress',
+                // Use the event's own city — never hardcode one. Omit
+                // entirely when unknown rather than guess (same fix already
+                // applied in event.html/events.html/city.html's schema).
+                ...(ev.city ? { addressLocality: ev.city } : {}),
+                // Full street address string as stored on the venue record
+                // (e.g. "200 S Broad St, Philadelphia, PA 19102") — not yet
+                // split into components, but present is far better than
+                // absent: missing streetAddress is Google's most-cited
+                // reason Event rich results don't qualify. Only events
+                // created via the admin venue picker carry this.
+                ...(ev.venueAddress ? { streetAddress: ev.venueAddress } : {}),
+                addressRegion: 'PA',
+                addressCountry: 'US',
+              },
+            },
+          };
+          if (d) {
+            ld.startDate = d.toISOString();
+            // endDate is recommended by Google; hrs is shared with isPast.
+            ld.endDate = new Date(d.getTime() + hrs * 60 * 60 * 1000).toISOString();
+          }
+          if (price > 0) {
+            // Advertise real inventory: a full event (admin-set status or an
+            // exhausted seat pool) is SoldOut, not InStock. spotsRemaining
+            // returns null when the doc has no usable capacity fields —
+            // treat that as "unknown", never as sold out.
+            const sr = spotsRemaining(ev);
+            const soldOut = ev.status === 'full' || (sr != null && sr.remaining <= 0);
+            ld.offers = {
+              '@type': 'Offer',
+              price: price.toFixed(2),
+              priceCurrency: 'USD',
+              url: pageUrl,
+              availability: soldOut ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
+              // Tickets are on sale from when the event was created (else now).
+              validFrom: (ev.createdAt && ev.createdAt.toDate
+                ? ev.createdAt.toDate()
+                : new Date()).toISOString(),
+            };
+          }
+          headInject += `\n    <script type="application/ld+json" id="event-jsonld">${escapeJsonLd(ld)}</script>\n`;
+        }
       }
     }
   } catch (err) {
@@ -185,7 +210,9 @@ async function renderEventPage(req, res) {
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Cache-Control', 'public, s-maxage=120, max-age=60');
-  return res.status(200).send(html);
+  // 404 only for a lookup that positively found nothing; Firestore errors
+  // keep the fail-soft 200 (never break checkout because a read hiccuped).
+  return res.status(notFound ? 404 : 200).send(html);
 }
 
 // ── Server-rendered city page ─────────────────────────────────────────
@@ -261,6 +288,44 @@ function renderCityPage(req, res) {
   return res.status(200).send(html);
 }
 
+// ── Dynamic sitemap ───────────────────────────────────────────────────
+// /sitemap.xml is rewritten here (vercel.json) with ?render=sitemap; the
+// static public/sitemap.xml was deleted so the rewrite can fire. Reason:
+// event pages — the pages that actually sell tickets and carry Event
+// rich-result markup — never appeared in the static file, and no server-
+// rendered HTML anywhere links to them (every /event?id= link on the site
+// is built client-side after a Firestore read). This sitemap is the one
+// crawl path to event URLs that doesn't depend on Googlebot executing JS.
+// Same no-new-function trick as ?render=page/?render=city above.
+async function renderSitemap(req, res) {
+  let events = [];
+  try {
+    // Same single-field query as the landing-page JSON path below.
+    const snap = await db.collection('events').orderBy('date', 'asc').get();
+    const now = Date.now();
+    for (const doc of snap.docs) {
+      const e = doc.data();
+      const dt = e.date && e.date.toDate ? e.date.toDate()
+               : (e.date ? new Date(e.date) : null);
+      if (!dt || isNaN(dt.getTime())) continue;
+      // Past events are noindexed by renderEventPage — keep them out of
+      // the map too (same start-time cutoff as the "next event" picker).
+      if (dt.getTime() < now) continue;
+      const created = e.createdAt && e.createdAt.toDate ? e.createdAt.toDate() : null;
+      events.push({ id: doc.id, lastmod: created });
+    }
+  } catch (err) {
+    // Fail-soft like everything else in this file: a Firestore hiccup
+    // degrades to a static-pages-only sitemap, never a 500.
+    console.error('[next-event] sitemap error:', err && err.message);
+    events = [];
+  }
+
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, s-maxage=3600, max-age=600');
+  return res.status(200).send(buildSitemapXml(events));
+}
+
 module.exports = async function handler(req, res) {
   if (applyCors(req, res)) return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
@@ -273,6 +338,11 @@ module.exports = async function handler(req, res) {
   // /philadelphia and /lancaster are rewritten here with ?render=city.
   if (req.query && req.query.render === 'city') {
     return renderCityPage(req, res);
+  }
+
+  // /sitemap.xml is rewritten here with ?render=sitemap.
+  if (req.query && req.query.render === 'sitemap') {
+    return renderSitemap(req, res);
   }
 
   // Events change rarely — let Vercel's edge cache absorb the traffic so

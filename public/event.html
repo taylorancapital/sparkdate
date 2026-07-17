@@ -518,7 +518,7 @@
     </div>
 
     <footer>
-        <p>&copy; 2026 SparkDate. Lancaster &amp; Philadelphia. Real people. Real venues.</p>
+        <p>&copy; 2026 SparkDate. <a href="/lancaster" style="color: inherit;">Lancaster</a> &amp; <a href="/philadelphia" style="color: inherit;">Philadelphia</a>. Real people. Real venues.</p>
     </footer>
 
     <script src="https://js.stripe.com/v3/"></script>
@@ -747,7 +747,7 @@
                 const desc = (ev.blurb && ev.blurb.trim())
                     || `${ev.title || 'A SparkDate event'} on ${dateLabel} at ${venueLabel}. Reserve your spot — real dates, real venues, real people${ev.city ? ' in ' + ev.city : ''}.`;
                 const pageUrl = `https://sparkdate.date/event?id=${encodeURIComponent(ev.id || eventId)}`;
-                const img = 'https://sparkdate.date/og-image.svg';
+                const img = 'https://sparkdate.date/og-image.jpg';
 
                 // <title> + meta description
                 document.title = title;

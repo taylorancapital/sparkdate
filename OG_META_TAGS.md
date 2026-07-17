@@ -8,7 +8,7 @@ Insert it right after the existing `<title>` tag.
 <!-- Open Graph / social preview -->
 <meta property="og:title" content="SparkDate — Stop swiping. Start living.">
 <meta property="og:description" content="Real dates. Real venues. Real people. SparkDate is the IRL dating platform for Philadelphia.">
-<meta property="og:image" content="https://sparkdate.date/og-image.svg">
+<meta property="og:image" content="https://sparkdate.date/og-image.jpg">
 <meta property="og:url" content="https://sparkdate.date">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="SparkDate">
@@ -17,7 +17,7 @@ Insert it right after the existing `<title>` tag.
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="SparkDate — Stop swiping. Start living.">
 <meta name="twitter:description" content="Real dates. Real venues. Real people. The IRL dating platform for Philadelphia.">
-<meta name="twitter:image" content="https://sparkdate.date/og-image.svg">
+<meta name="twitter:image" content="https://sparkdate.date/og-image.jpg">
 
 <!-- Favicon -->
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -25,7 +25,7 @@ Insert it right after the existing `<title>` tag.
 
 ## Notes
 
-- For Twitter / iMessage, SVG works fine. For Facebook + LinkedIn, you may eventually want to convert to PNG (1200x630) — use https://cloudconvert.com/svg-to-png or any free converter.
+- og:image must be a raster format — Facebook, LinkedIn, iMessage, Slack, and WhatsApp all reject SVG (the share simply renders with no image). The live asset is `public/og-image.jpg` (1200×630, ~57 KB); `public/og-image.svg` is the editable design source it's rendered from. If you change the SVG, re-export the JPEG.
 - Each page can have a custom title/description if you want — these are defaults.
 - For specific pages, override like this:
 
