@@ -513,6 +513,17 @@
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 24px;
         }
+        /* With 7 cards, the last one is always alone on its row at any
+           column count above 1 -- span it across the row and cap its width
+           so it centers instead of hugging the left edge. */
+        @media (min-width: 640px) {
+            .getaway-card:last-child {
+                grid-column: 1 / -1;
+                justify-self: center;
+                width: 100%;
+                max-width: 340px;
+            }
+        }
         .getaway-card {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 107, 107, 0.15);
