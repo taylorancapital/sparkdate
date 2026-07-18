@@ -611,15 +611,17 @@
             font-family: inherit;
             width: 100%;
         }
-        .getaway-btn:hover:not(:disabled) {
+        .getaway-btn:hover {
             background: var(--coral);
             color: var(--white);
         }
-        .getaway-btn:disabled {
-            background: rgba(74, 222, 128, 0.1);
-            border-color: var(--success);
-            color: var(--success);
-            cursor: default;
+        /* Quick pulse each time a vote lands — repeat voting is allowed, so
+           this feedback replaces the old "locked in" disabled state. */
+        .getaway-btn.just-voted { animation: getawayVote 0.35s ease; }
+        @keyframes getawayVote {
+            0%   { transform: scale(1); }
+            40%  { transform: scale(1.08); background: var(--coral); color: var(--white); }
+            100% { transform: scale(1); }
         }
         @media (max-width: 768px) {
             .getaways-section { padding: 10px 20px 40px; }
@@ -1075,11 +1077,18 @@
             { id: 'taos-new-mexico',  name: 'Taos, New Mexico',         emoji: '🏔️', blurb: 'Adobe architecture, high-desert hikes, and art-town evenings.' },
         ];
 
-        function getawayClickedKey(id) { return 'sparkdate_getaway_' + id; }
+        // Getaway interest is a competitive vote, not a one-shot signal:
+        // repeat voting is allowed and each click adds one. The bar fills
+        // toward a fixed goal (GETAWAY_BAR_MAX) rather than relative to the
+        // current leader, so early numbers don't peg it at 100%.
+        const GETAWAY_BAR_MAX = 1000;
 
-        function getawayCardHtml(pkg, count, maxCount, seedCount) {
-            const pct = maxCount > 0 ? Math.max(4, Math.round((count / maxCount) * 100)) : 4;
-            const already = (() => { try { return !!localStorage.getItem(getawayClickedKey(pkg.id)); } catch (_) { return false; } })();
+        function getawayBarPct(count) {
+            return Math.min(100, Math.max(2, Math.round((count / GETAWAY_BAR_MAX) * 100)));
+        }
+
+        function getawayCardHtml(pkg, count, seedCount) {
+            const pct = getawayBarPct(count);
             // Only show the seed note when it's meaningfully distinct from a
             // just-launched, all-organic count -- avoids "seeded: 0" noise
             // before the seed script has run, or once organic clicks have
@@ -1097,7 +1106,7 @@
                     <div class="getaway-meta">
                         <span class="getaway-count"><strong class="getaway-count-num">${count}</strong> interested${seedNote}</span>
                     </div>
-                    <button type="button" class="getaway-btn" ${already ? 'disabled' : ''}>${already ? '✓ You\'re In' : "I'm Interested"}</button>
+                    <button type="button" class="getaway-btn">I'm Interested</button>
                 </div>`;
         }
 
@@ -1120,8 +1129,7 @@
                 console.error('[getaways] load error:', err);
                 GETAWAY_PACKAGES.forEach(pkg => { counts[pkg.id] = 0; seedCounts[pkg.id] = 0; });
             }
-            const maxCount = Math.max(1, ...Object.values(counts));
-            grid.innerHTML = GETAWAY_PACKAGES.map(pkg => getawayCardHtml(pkg, counts[pkg.id] || 0, maxCount, seedCounts[pkg.id] || 0)).join('');
+            grid.innerHTML = GETAWAY_PACKAGES.map(pkg => getawayCardHtml(pkg, counts[pkg.id] || 0, seedCounts[pkg.id] || 0)).join('');
             updateGetawaysTotal(counts);
 
             grid.querySelectorAll('.getaway-card').forEach(card => {
@@ -1143,7 +1151,7 @@
             const strong = document.createElement('strong');
             strong.textContent = total.toLocaleString();
             el.appendChild(strong);
-            el.appendChild(document.createTextNode(' people interested across all getaways'));
+            el.appendChild(document.createTextNode(' interested across all getaways'));
         }
 
         function recomputeGetawaysTotalFromDom() {
@@ -1156,27 +1164,24 @@
         }
 
         async function registerGetawayInterest(packageId, cardEl) {
-            const key = getawayClickedKey(packageId);
-            try { if (localStorage.getItem(key)) return; } catch (_) {}
-
             const btn = cardEl.querySelector('.getaway-btn');
             const countEl = cardEl.querySelector('.getaway-count-num');
             const barEl = cardEl.querySelector('.getaway-bar-fill');
 
             // Optimistic UI: reflect the click immediately rather than waiting
-            // on the round trip — this is a low-stakes interest signal, not a
-            // transaction, so a rare server-side failure isn't worth rolling
-            // the UI back over (and re-clicking is blocked either way once
-            // localStorage is set below).
-            btn.disabled = true;
-            btn.textContent = "✓ You're In";
+            // on the round trip. Repeat voting is allowed by design (a little
+            // competitive), so the button stays enabled — each click adds one
+            // and gets a quick pulse. A rare server-side failure isn't worth
+            // rolling the count back over.
             if (countEl) {
                 const newCount = (parseInt(countEl.textContent, 10) || 0) + 1;
                 countEl.textContent = newCount;
-                if (barEl) barEl.style.width = Math.min(100, parseFloat(barEl.style.width) + 3) + '%';
+                if (barEl) barEl.style.width = getawayBarPct(newCount) + '%';
             }
+            btn.classList.remove('just-voted');
+            void btn.offsetWidth; // restart the pulse on rapid re-clicks
+            btn.classList.add('just-voted');
             recomputeGetawaysTotalFromDom();
-            try { localStorage.setItem(key, '1'); } catch (_) {}
 
             if (typeof gtag === 'function') gtag('event', 'getaway_interest', { package_id: packageId });
             if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: 'getaway_' + packageId });
