@@ -56,6 +56,23 @@
         .profile-done .big { font-size: 36px; margin-bottom: 8px; }
         .profile-done p { font-size: 14px; color: rgba(245,243,240,0.7); }
     </style>
+    <!-- Meta Pixel Code -->
+    <script>
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', '4390442851170732');
+      fbq('track', 'PageView');
+    </script>
+    <noscript>
+      <img height="1" width="1" style="display:none"
+        src="https://www.facebook.com/tr?id=4390442851170732&ev=PageView&noscript=1" />
+    </noscript>
 </head>
 <body>
     <div class="wrap">
@@ -206,12 +223,19 @@
             document.querySelectorAll('#genderSeg button').forEach(b => b.classList.toggle('on', b === btn));
         });
 
-        function showSuccess(firstName, profileCompleted, profileToken, uid) {
+        function showSuccess(firstName, profileCompleted, profileToken, uid, createdUser) {
             document.getElementById('formCard').style.display = 'none';
             const sc = document.getElementById('successCard');
             sc.style.display = '';
             document.getElementById('successSub').textContent =
                 firstName ? `Welcome, ${firstName}!` : 'Welcome!';
+
+            // Meta Pixel: only a genuinely new account counts as a
+            // registration — a returning attendee checking in again
+            // shouldn't inflate the CompleteRegistration count.
+            if (createdUser && typeof fbq !== 'undefined') {
+                fbq('track', 'CompleteRegistration', { content_name: 'check-in' });
+            }
 
             if (!profileCompleted && profileToken && uid) {
                 checkinUid = uid;
@@ -303,7 +327,7 @@
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Check-in failed');
-                showSuccess(firstName, data.profileCompleted, data.profileToken, data.uid);
+                showSuccess(firstName, data.profileCompleted, data.profileToken, data.uid, data.createdUser);
             } catch (err) {
                 msg.style.color = 'var(--danger)';
                 msg.textContent = err.message || 'Something went wrong. Try again.';

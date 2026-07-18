@@ -660,6 +660,7 @@ module.exports = async function handler(req, res) {
           clientSecret: paymentIntent.client_secret,
           ticketId: dup.id,
           duplicate: true,
+          amount: dupData.amount,
         });
       }
       return res.status(200).json({
@@ -737,6 +738,7 @@ module.exports = async function handler(req, res) {
         requiresAction: true,
         clientSecret: paymentIntent.client_secret,
         ticketId: ticketRef.id,
+        amount,
       });
     }
 
