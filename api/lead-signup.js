@@ -71,7 +71,7 @@ async function withinRateLimit(ip) {
 // in its own bucket means clicking a few retreat cards can't accidentally
 // exhaust the budget meant for actual lead-capture submissions.
 const RL_GETAWAY_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const RL_GETAWAY_MAX = 20;                   // accepted clicks per IP per window
+const RL_GETAWAY_MAX = 100;                  // accepted votes per IP per window (repeat voting is allowed by design; this is the spam ceiling)
 
 async function withinGetawayRateLimit(ip) {
   if (!ip) return true; // can't identify the caller → don't block real users
