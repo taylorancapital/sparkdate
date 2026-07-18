@@ -1014,6 +1014,21 @@
                         currency: 'USD',
                         items: [{ item_name: tierInfo.name }]
                     });
+
+                    // Meta Pixel: Subscribe means the START of a paid
+                    // subscription — only fires on a genuine free-to-paid
+                    // transition, not a paid-to-paid tier change (e.g.
+                    // mid -> premium), which isn't "starting" anything and
+                    // has no matching standard event. userData still holds
+                    // the pre-upgrade tier here — the page reloads afterward
+                    // to pick up the new one.
+                    if (userData?.tier === 'free' && newTier !== 'free' && typeof fbq !== 'undefined') {
+                        fbq('track', 'Subscribe', {
+                            value: String(tierInfo.price),
+                            currency: 'USD',
+                            predicted_ltv: String(tierInfo.price)
+                        });
+                    }
                 }
 
                 setTimeout(() => window.location.reload(), 1500);

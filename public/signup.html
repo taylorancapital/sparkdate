@@ -1066,7 +1066,28 @@
 
                 // Track conversion in Google Analytics
                 gtag('event', 'sign_up', { method: 'email' });
-                if (typeof fbq !== 'undefined') fbq('track', 'CompleteRegistration');
+                if (typeof fbq !== 'undefined') {
+                    fbq('track', 'CompleteRegistration');
+                    // free tier is a 30-day trial (see msgs.free above); mid/premium
+                    // are a paid subscription starting today. predicted_ltv uses the
+                    // tier's monthly price as a conservative one-month baseline.
+                    const tierInfo = TIERS[tier];
+                    if (tierInfo) {
+                        if (tier === 'free') {
+                            fbq('track', 'StartTrial', {
+                                value: '0.00',
+                                currency: 'USD',
+                                predicted_ltv: String(tierInfo.price)
+                            });
+                        } else {
+                            fbq('track', 'Subscribe', {
+                                value: String(tierInfo.price),
+                                currency: 'USD',
+                                predicted_ltv: String(tierInfo.price)
+                            });
+                        }
+                    }
+                }
 
                 document.getElementById('signupForm').reset();
                 cardElement.clear();
