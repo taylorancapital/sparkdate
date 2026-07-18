@@ -663,6 +663,19 @@
             // SEO: dynamic page meta + schema.org Event JSON-LD so this page
             // is eligible for Google event rich results / event carousels.
             injectEventSeo(ev);
+
+            // Meta Pixel: this event's detail page was viewed. Fires exactly
+            // once per page load (applyEventData is only called once, from
+            // loadEvent()).
+            if (typeof fbq !== 'undefined') {
+                fbq('track', 'ViewContent', {
+                    content_ids: [ev.id],
+                    content_name: ev.title || 'SparkDate Mixer',
+                    content_type: 'product',
+                    value: ticketPrice(),
+                    currency: 'USD'
+                });
+            }
         }
 
         // Real price/scarcity signal in the hero tag — replaces the old
@@ -918,6 +931,8 @@
             return (isFinite(n) && n > 0) ? n : 0;
         }
 
+        let addToCartTracked = false;
+
         function updatePricing() {
             const gender = document.getElementById('ticketGender').value;
             const btn = document.getElementById('checkoutBtn');
@@ -930,6 +945,20 @@
                 btn.textContent = 'Select Gender';
                 btn.disabled = true;
                 return;
+            }
+
+            // Meta Pixel: a specific priced ticket just became concrete. Fires
+            // once per page load — flipping the gender select back and forth
+            // shouldn't refire it.
+            if (!addToCartTracked && eventData && typeof fbq !== 'undefined') {
+                addToCartTracked = true;
+                fbq('track', 'AddToCart', {
+                    content_ids: [eventData.id],
+                    content_name: eventData.title || 'SparkDate Mixer',
+                    content_type: 'product',
+                    value: ticketPrice(),
+                    currency: 'USD'
+                });
             }
 
             const ticket = ticketPrice();
@@ -1081,33 +1110,43 @@
                 successMsg.textContent = "You're confirmed. Check your email for event details.";
                 successMsg.style.display = 'block';
 
-                // Track ticket purchase in Google Analytics. `ticket` and
-                // SERVICE_FEE are already in DOLLARS (the charge sent to the
-                // server is (ticket + SERVICE_FEE) * 100 to get cents), so the
-                // GA value is just their sum — do NOT divide by 100.
+                // Track ticket purchase — but only once per real charge. A
+                // resubmit (double-click, or back-button then "buy" again)
+                // returns the SAME PaymentIntent with `duplicate: true`; firing
+                // analytics again would double-count one sale as two purchases.
+                //
+                // Value: the server is the source of truth for what was
+                // actually charged (early-bird-aware — see effectivePrice() in
+                // lib/seat-model.js), returned as `amount` in cents on every
+                // response including the 3DS one. `ticket + SERVICE_FEE` is a
+                // client-side recompute that does NOT apply early-bird pricing,
+                // so it's kept only as a defensive fallback.
                 // NB: do not name this `ticketPrice` — a block-scoped const of
                 // that name shadows the ticketPrice() function across this whole
                 // try block and makes the earlier `const ticket = ticketPrice()`
                 // throw a TDZ ReferenceError, breaking every checkout.
-                const purchaseValue = ticket + SERVICE_FEE;
-                gtag('event', 'purchase', {
-                    transaction_id: evId,
-                    value: parseFloat(purchaseValue.toFixed(2)),
-                    currency: 'USD',
-                    items: [{ item_name: evName, price: parseFloat(ticket.toFixed(2)) }]
-                });
+                if (!result.duplicate) {
+                    const purchaseValue = typeof result.amount === 'number'
+                        ? result.amount / 100
+                        : ticket + SERVICE_FEE;
 
-                // Mirror the same purchase to the Facebook Pixel. GA4 is already
-                // handled by the gtag('purchase') above — firing a second gtag
-                // here would double-count it (the duplicate lacks transaction_id
-                // so GA4 won't dedupe). Use the client-side purchaseValue so the
-                // Pixel value matches GA4 exactly, keeps the cents, and fires for
-                // 3DS buyers too (the requiresAction response carries no value).
-                if (typeof fbq !== 'undefined') {
-                    fbq('track', 'Purchase', {
+                    gtag('event', 'purchase', {
+                        transaction_id: evId,
                         value: parseFloat(purchaseValue.toFixed(2)),
-                        currency: 'USD'
+                        currency: 'USD',
+                        items: [{ item_name: evName, price: parseFloat(ticket.toFixed(2)) }]
                     });
+
+                    // Mirror the same purchase to the Facebook Pixel. GA4 is
+                    // already handled by the gtag('purchase') above — firing a
+                    // second gtag here would double-count it (the duplicate
+                    // lacks transaction_id so GA4 won't dedupe).
+                    if (typeof fbq !== 'undefined') {
+                        fbq('track', 'Purchase', {
+                            value: parseFloat(purchaseValue.toFixed(2)),
+                            currency: 'USD'
+                        });
+                    }
                 }
 
                 document.getElementById('checkoutForm').reset();

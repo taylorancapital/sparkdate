@@ -1066,6 +1066,7 @@
 
                 // Track conversion in Google Analytics
                 gtag('event', 'sign_up', { method: 'email' });
+                if (typeof fbq !== 'undefined') fbq('track', 'CompleteRegistration');
 
                 document.getElementById('signupForm').reset();
                 cardElement.clear();
