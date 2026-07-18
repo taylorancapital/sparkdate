@@ -491,6 +491,23 @@
             font-size: 15px;
             color: rgba(245, 243, 240, 0.7);
         }
+        .getaways-total {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 18px;
+            padding: 8px 18px;
+            background: rgba(212, 175, 55, 0.08);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 20px;
+            font-size: 13px;
+            color: rgba(245, 243, 240, 0.85);
+        }
+        .getaways-total strong {
+            color: var(--gold);
+            font-weight: 700;
+            font-size: 15px;
+        }
         .getaways-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -562,6 +579,12 @@
             color: rgba(245, 243, 240, 0.75);
         }
         .getaway-count strong { color: var(--white); font-weight: 700; }
+        .getaway-seed-note {
+            display: block;
+            font-size: 11px;
+            color: rgba(245, 243, 240, 0.4);
+            margin-top: 2px;
+        }
         .getaway-btn {
             background: transparent;
             border: 1px solid var(--coral);
@@ -615,11 +638,11 @@
             <a href="/" class="logo">Spark<span>Date</span></a>
             <ul class="nav-menu">
                 <li><a href="/">Home</a></li>
-                <li><a href="/about">About</a></li>
-                <li><a href="/blog">Blog</a></li>
-                <li><a href="/events" class="active">Events</a></li>
-                <li><a href="/account">Account</a></li>
                 <li><a href="/events" class="cta-nav">Join</a></li>
+                <li><a href="/events" class="active">Events</a></li>
+                <li><a href="/blog">Blog</a></li>
+                <li><a href="/account">Account</a></li>
+                <li><a href="/about">About</a></li>
             </ul>
         </div>
     </nav>
@@ -670,6 +693,7 @@
             <div class="getaways-eyebrow">Coming Soon</div>
             <h2>Getaways</h2>
             <p>Multi-day singles retreats are next. Tell us where you'd actually go — the packages with the most interest get built first.</p>
+            <div class="getaways-total" id="getawaysTotal" style="display:none;"></div>
         </div>
         <div class="getaways-grid" id="getawaysGrid">
             <!-- populated by loadGetaways() -->
@@ -1042,9 +1066,14 @@
 
         function getawayClickedKey(id) { return 'sparkdate_getaway_' + id; }
 
-        function getawayCardHtml(pkg, count, maxCount) {
+        function getawayCardHtml(pkg, count, maxCount, seedCount) {
             const pct = maxCount > 0 ? Math.max(4, Math.round((count / maxCount) * 100)) : 4;
             const already = (() => { try { return !!localStorage.getItem(getawayClickedKey(pkg.id)); } catch (_) { return false; } })();
+            // Only show the seed note when it's meaningfully distinct from a
+            // just-launched, all-organic count -- avoids "seeded: 0" noise
+            // before the seed script has run, or once organic clicks have
+            // long since dwarfed the starting number.
+            const seedNote = seedCount > 0 ? `<span class="getaway-seed-note">${seedCount} of these were seeded at launch</span>` : '';
             return `
                 <div class="getaway-card" data-package-id="${pkg.id}">
                     <div class="getaway-top">
@@ -1055,7 +1084,7 @@
                     <p class="getaway-blurb">${pkg.blurb}</p>
                     <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:${pct}%"></div></div>
                     <div class="getaway-meta">
-                        <span class="getaway-count"><strong class="getaway-count-num">${count}</strong> interested</span>
+                        <span class="getaway-count"><strong class="getaway-count-num">${count}</strong> interested${seedNote}</span>
                     </div>
                     <button type="button" class="getaway-btn" ${already ? 'disabled' : ''}>${already ? '✓ You\'re In' : "I'm Interested"}</button>
                 </div>`;
@@ -1065,25 +1094,54 @@
             const grid = document.getElementById('getawaysGrid');
             if (!grid) return;
             let counts = {};
+            let seedCounts = {};
             try {
                 const snaps = await Promise.all(
                     GETAWAY_PACKAGES.map(pkg => getDoc(doc(db, 'getaway_interest', pkg.id)))
                 );
                 snaps.forEach((snap, i) => {
-                    counts[GETAWAY_PACKAGES[i].id] = (snap.exists() && typeof snap.data().count === 'number') ? snap.data().count : 0;
+                    const id = GETAWAY_PACKAGES[i].id;
+                    const data = snap.exists() ? snap.data() : {};
+                    counts[id] = typeof data.count === 'number' ? data.count : 0;
+                    seedCounts[id] = typeof data.seedCount === 'number' ? data.seedCount : 0;
                 });
             } catch (err) {
                 console.error('[getaways] load error:', err);
-                GETAWAY_PACKAGES.forEach(pkg => { counts[pkg.id] = 0; });
+                GETAWAY_PACKAGES.forEach(pkg => { counts[pkg.id] = 0; seedCounts[pkg.id] = 0; });
             }
             const maxCount = Math.max(1, ...Object.values(counts));
-            grid.innerHTML = GETAWAY_PACKAGES.map(pkg => getawayCardHtml(pkg, counts[pkg.id] || 0, maxCount)).join('');
+            grid.innerHTML = GETAWAY_PACKAGES.map(pkg => getawayCardHtml(pkg, counts[pkg.id] || 0, maxCount, seedCounts[pkg.id] || 0)).join('');
+            updateGetawaysTotal(counts);
 
             grid.querySelectorAll('.getaway-card').forEach(card => {
                 const id = card.getAttribute('data-package-id');
                 const btn = card.querySelector('.getaway-btn');
                 btn.addEventListener('click', () => registerGetawayInterest(id, card));
             });
+        }
+
+        // Live aggregate across all 7 packages -- recomputed from the DOM's
+        // current per-card numbers so it stays in sync with the optimistic
+        // increment a click applies, without a second Firestore read.
+        function updateGetawaysTotal(counts) {
+            const el = document.getElementById('getawaysTotal');
+            if (!el) return;
+            const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+            el.textContent = '';
+            el.style.display = 'inline-flex';
+            const strong = document.createElement('strong');
+            strong.textContent = total.toLocaleString();
+            el.appendChild(strong);
+            el.appendChild(document.createTextNode(' people interested across all getaways'));
+        }
+
+        function recomputeGetawaysTotalFromDom() {
+            const counts = {};
+            document.querySelectorAll('.getaway-card').forEach(card => {
+                const id = card.getAttribute('data-package-id');
+                counts[id] = parseInt(card.querySelector('.getaway-count-num').textContent, 10) || 0;
+            });
+            updateGetawaysTotal(counts);
         }
 
         async function registerGetawayInterest(packageId, cardEl) {
@@ -1106,6 +1164,7 @@
                 countEl.textContent = newCount;
                 if (barEl) barEl.style.width = Math.min(100, parseFloat(barEl.style.width) + 3) + '%';
             }
+            recomputeGetawaysTotalFromDom();
             try { localStorage.setItem(key, '1'); } catch (_) {}
 
             if (typeof gtag === 'function') gtag('event', 'getaway_interest', { package_id: packageId });

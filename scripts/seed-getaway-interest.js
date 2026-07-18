@@ -5,8 +5,14 @@
  * One-time seed: writes a starting "interested" count for each coming-soon
  * retreat package (see lib/getaway-packages.js) into the getaway_interest
  * collection, so the new Getaways section on /events doesn't launch at
- * zero. After this runs, every real click just increments from here via
- * /api/lead-signup's getaway_interest action.
+ * zero. After this runs, every real click just increments `count` from
+ * here via /api/lead-signup's getaway_interest action.
+ *
+ * Writes TWO fields: `count` (live, incremented by real clicks) and
+ * `seedCount` (frozen at this seed value forever — the API's increment
+ * only ever touches `count`). events.html reads both so it can show a
+ * live aggregate total alongside each package's seed baseline, without
+ * the two being conflated into one number.
  *
  * Uses { merge: true } and only sets the count if the doc doesn't already
  * have one, so it's safe to re-run without clobbering real click activity
@@ -64,9 +70,9 @@ async function main() {
       continue;
     }
     const seed = SEED_COUNTS[pkg.id] ?? 0;
-    console.log(`+ ${pkg.id.padEnd(18)} → count=${seed}${DRY_RUN ? ' (dry run)' : ''}`);
+    console.log(`+ ${pkg.id.padEnd(18)} → count=${seed}, seedCount=${seed}${DRY_RUN ? ' (dry run)' : ''}`);
     if (!DRY_RUN) {
-      await ref.set({ count: seed, seededAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      await ref.set({ count: seed, seedCount: seed, seededAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
     }
   }
 
