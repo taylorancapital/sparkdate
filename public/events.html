@@ -605,15 +605,17 @@
             font-family: inherit;
             width: 100%;
         }
-        .getaway-btn:hover:not(:disabled) {
+        .getaway-btn:hover {
             background: var(--coral);
             color: var(--white);
         }
-        .getaway-btn:disabled {
-            background: rgba(74, 222, 128, 0.1);
-            border-color: var(--success);
-            color: var(--success);
-            cursor: default;
+        /* Quick pulse each time a vote lands — repeat voting is allowed, so
+           this feedback replaces the old "locked in" disabled state. */
+        .getaway-btn.just-voted { animation: getawayVote 0.35s ease; }
+        @keyframes getawayVote {
+            0%   { transform: scale(1); }
+            40%  { transform: scale(1.08); background: var(--coral); color: var(--white); }
+            100% { transform: scale(1); }
         }
         @media (max-width: 768px) {
             .getaways-section { padding: 10px 20px 40px; }
@@ -624,17 +626,15 @@
         .sp-social-proof { padding: 56px 24px; text-align: center; border-top: 1px solid rgba(255,107,107,0.1); border-bottom: 1px solid rgba(255,107,107,0.1); }
         .sp-proof-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--coral); margin-bottom: 10px; }
         .sp-proof-title { font-family: 'Playfair Display', serif; font-weight: 900; font-size: clamp(24px, 5vw, 36px); color: var(--white); margin-bottom: 36px; }
-        .sp-polaroid-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; max-width: 1100px; margin: 0 auto; }
-        .sp-polaroid { flex: 0 0 auto; background: #fff; border: 10px solid #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.4); width: 240px; transition: transform 0.25s ease; }
-        .sp-polaroid:nth-child(odd) { transform: rotate(-3deg); }
-        .sp-polaroid:nth-child(even) { transform: rotate(2deg); }
-        .sp-polaroid:hover { transform: rotate(0deg) scale(1.06); z-index: 2; }
-        .sp-polaroid img { display: block; width: 100%; height: 200px; object-fit: cover; }
+        /* Scattered-on-a-table pile, like real polaroids after a party --
+           positions/rotation are percentage-based (via the --r custom
+           property and left/top/width set inline per photo) so the whole
+           collage scales fluidly with container width, no breakpoints. */
+        .sp-polaroid-scatter { position: relative; width: 100%; max-width: 800px; margin: 0 auto; aspect-ratio: 800 / 450; }
+        .sp-polaroid { position: absolute; background: #fff; border: 10px solid #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.4); transform: rotate(var(--r, 0deg)); transition: transform 0.25s ease; }
+        .sp-polaroid:hover { transform: rotate(0deg) scale(1.08); z-index: 20 !important; }
+        .sp-polaroid img { display: block; width: 100%; aspect-ratio: 6 / 5; object-fit: cover; }
         .sp-polaroid-cap { padding: 16px; text-align: center; font-family: 'Caveat', cursive; font-size: 18px; font-weight: 700; color: #0a0e27; letter-spacing: 0.5px; line-height: 1.2; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
-        @media (max-width: 640px) {
-            .sp-polaroid { width: 160px; }
-            .sp-polaroid img { height: 140px; }
-        }
     </style>
     <!-- Meta Pixel Code -->
     <script>
@@ -674,21 +674,6 @@
         <p id="heroSub">Curated gatherings at top-rated venues. Reserve your spot, show up, meet real people.</p>
     </section>
 
-    <!-- Social proof: real photos from real mixers, no fabricated stats -->
-    <section class="sp-social-proof">
-        <div class="sp-proof-eyebrow">Straight From Our Mixers</div>
-        <h2 class="sp-proof-title">Real People. Real Nights.</h2>
-        <div class="sp-polaroid-row">
-            <div class="sp-polaroid"><img src="/images/social/rooftop-magic.jpg" alt="Rooftop mixer crowd" loading="lazy"><div class="sp-polaroid-cap">✨ ROOFTOP MAGIC ✨ @ Exchange – Stereo 01 Mixer</div></div>
-            <div class="sp-polaroid"><img src="/images/social/matched-house.jpg" alt="Group at a house mixer" loading="lazy"><div class="sp-polaroid-cap">💕 #MATCHED! 💕 House Mixer @ ABAG</div></div>
-            <div class="sp-polaroid"><img src="/images/social/fire-vibes.jpg" alt="Fire pit at a rooftop mixer" loading="lazy"><div class="sp-polaroid-cap">🔥 FIRE VIBES!!! 🔥 Stereo-01 Mixer @ Exchange Rooftop</div></div>
-            <div class="sp-polaroid"><img src="/images/social/party-vibes.jpg" alt="Crowd at a house mixer" loading="lazy"><div class="sp-polaroid-cap">✨ #PARTY VIBES ✨ 💕 House Mixer @ ABAG</div></div>
-            <div class="sp-polaroid"><img src="/images/social/buzzing.jpg" alt="Attendees mingling" loading="lazy"><div class="sp-polaroid-cap">✨✨ BUZZZZZING!</div></div>
-            <div class="sp-polaroid"><img src="/images/social/cheeky-peek.jpg" alt="Candid moment at a mixer" loading="lazy"><div class="sp-polaroid-cap">💕✨ CHEEKY PEEK!!!!</div></div>
-            <div class="sp-polaroid"><img src="/images/social/summer-nights.jpg" alt="Summer mixer moment" loading="lazy"><div class="sp-polaroid-cap">☀️ Summer Nights!!!</div></div>
-        </div>
-    </section>
-
     <section class="how-it-works">
         <div class="how-grid">
             <div class="how-step">
@@ -722,6 +707,23 @@
     <section class="events-container">
         <div class="events-grid" id="eventsGrid">
             <div class="spinner"></div>
+        </div>
+    </section>
+
+    <!-- Social proof: real photos from real mixers, no fabricated stats -->
+    <section class="sp-social-proof">
+        <div class="sp-proof-eyebrow">Straight From Our Mixers</div>
+        <h2 class="sp-proof-title">Real People. Real Nights.</h2>
+        <div class="sp-polaroid-scatter">
+            <div class="sp-polaroid" style="--r:-3deg; left:0%; top:0%; width:30%; z-index:5;"><img src="/images/social/rooftop-magic.jpg" alt="Rooftop mixer crowd" loading="lazy"><div class="sp-polaroid-cap">✨ ROOFTOP MAGIC ✨ @ Exchange – Stereo 01 Mixer</div></div>
+            <div class="sp-polaroid" style="--r:6deg; left:3%; top:14%; width:30%; z-index:2;"><img src="/images/social/cheeky-peek.jpg" alt="Candid moment at a mixer" loading="lazy"><div class="sp-polaroid-cap">💕✨ CHEEKY PEEK!!!!</div></div>
+            <div class="sp-polaroid" style="--r:-8deg; left:0%; top:28%; width:30%; z-index:1;"><img src="/images/social/summer-nights.jpg" alt="Summer mixer moment" loading="lazy"><div class="sp-polaroid-cap">☀️ Summer Nights!!!</div></div>
+
+            <div class="sp-polaroid" style="--r:4deg; left:30%; top:9%; width:30%; z-index:4;"><img src="/images/social/matched-house.jpg" alt="Group at a house mixer" loading="lazy"><div class="sp-polaroid-cap">💕 #MATCHED! 💕 House Mixer @ ABAG</div></div>
+            <div class="sp-polaroid" style="--r:-4deg; left:58%; top:20%; width:30%; z-index:4;"><img src="/images/social/party-vibes.jpg" alt="Crowd at a house mixer" loading="lazy"><div class="sp-polaroid-cap">✨ #PARTY VIBES ✨ 💕 House Mixer @ ABAG</div></div>
+
+            <div class="sp-polaroid" style="--r:-5deg; left:68%; top:6%; width:30%; z-index:5;"><img src="/images/social/fire-vibes.jpg" alt="Fire pit at a rooftop mixer" loading="lazy"><div class="sp-polaroid-cap">🔥 FIRE VIBES!!! 🔥 Stereo-01 Mixer @ Exchange Rooftop</div></div>
+            <div class="sp-polaroid" style="--r:7deg; left:70%; top:33%; width:30%; z-index:1;"><img src="/images/social/buzzing.jpg" alt="Attendees mingling" loading="lazy"><div class="sp-polaroid-cap">✨✨ BUZZZZZING!</div></div>
         </div>
     </section>
 
@@ -1101,11 +1103,18 @@
             { id: 'taos-new-mexico',  name: 'Taos, New Mexico',         emoji: '🏔️', blurb: 'Adobe architecture, high-desert hikes, and art-town evenings.' },
         ];
 
-        function getawayClickedKey(id) { return 'sparkdate_getaway_' + id; }
+        // Getaway interest is a competitive vote, not a one-shot signal:
+        // repeat voting is allowed and each click adds one. The bar fills
+        // toward a fixed goal (GETAWAY_BAR_MAX) rather than relative to the
+        // current leader, so early numbers don't peg it at 100%.
+        const GETAWAY_BAR_MAX = 1000;
 
-        function getawayCardHtml(pkg, count, maxCount) {
-            const pct = maxCount > 0 ? Math.max(4, Math.round((count / maxCount) * 100)) : 4;
-            const already = (() => { try { return !!localStorage.getItem(getawayClickedKey(pkg.id)); } catch (_) { return false; } })();
+        function getawayBarPct(count) {
+            return Math.min(100, Math.max(2, Math.round((count / GETAWAY_BAR_MAX) * 100)));
+        }
+
+        function getawayCardHtml(pkg, count) {
+            const pct = getawayBarPct(count);
             return `
                 <div class="getaway-card" data-package-id="${pkg.id}">
                     <div class="getaway-top">
@@ -1118,7 +1127,7 @@
                     <div class="getaway-meta">
                         <span class="getaway-count"><strong class="getaway-count-num">${count}</strong> interested</span>
                     </div>
-                    <button type="button" class="getaway-btn" ${already ? 'disabled' : ''}>${already ? '✓ You\'re In' : "I'm Interested"}</button>
+                    <button type="button" class="getaway-btn">I'm Interested</button>
                 </div>`;
         }
 
@@ -1139,8 +1148,7 @@
                 console.error('[getaways] load error:', err);
                 GETAWAY_PACKAGES.forEach(pkg => { counts[pkg.id] = 0; });
             }
-            const maxCount = Math.max(1, ...Object.values(counts));
-            grid.innerHTML = GETAWAY_PACKAGES.map(pkg => getawayCardHtml(pkg, counts[pkg.id] || 0, maxCount)).join('');
+            grid.innerHTML = GETAWAY_PACKAGES.map(pkg => getawayCardHtml(pkg, counts[pkg.id] || 0)).join('');
             updateGetawaysTotal(counts);
 
             grid.querySelectorAll('.getaway-card').forEach(card => {
@@ -1162,7 +1170,7 @@
             const strong = document.createElement('strong');
             strong.textContent = total.toLocaleString();
             el.appendChild(strong);
-            el.appendChild(document.createTextNode(' people interested across all getaways'));
+            el.appendChild(document.createTextNode(' interested across all getaways'));
         }
 
         function recomputeGetawaysTotalFromDom() {
@@ -1175,27 +1183,24 @@
         }
 
         async function registerGetawayInterest(packageId, cardEl) {
-            const key = getawayClickedKey(packageId);
-            try { if (localStorage.getItem(key)) return; } catch (_) {}
-
             const btn = cardEl.querySelector('.getaway-btn');
             const countEl = cardEl.querySelector('.getaway-count-num');
             const barEl = cardEl.querySelector('.getaway-bar-fill');
 
             // Optimistic UI: reflect the click immediately rather than waiting
-            // on the round trip — this is a low-stakes interest signal, not a
-            // transaction, so a rare server-side failure isn't worth rolling
-            // the UI back over (and re-clicking is blocked either way once
-            // localStorage is set below).
-            btn.disabled = true;
-            btn.textContent = "✓ You're In";
+            // on the round trip. Repeat voting is allowed by design (a little
+            // competitive), so the button stays enabled — each click adds one
+            // and gets a quick pulse. A rare server-side failure isn't worth
+            // rolling the count back over.
             if (countEl) {
                 const newCount = (parseInt(countEl.textContent, 10) || 0) + 1;
                 countEl.textContent = newCount;
-                if (barEl) barEl.style.width = Math.min(100, parseFloat(barEl.style.width) + 3) + '%';
+                if (barEl) barEl.style.width = getawayBarPct(newCount) + '%';
             }
+            btn.classList.remove('just-voted');
+            void btn.offsetWidth; // restart the pulse on rapid re-clicks
+            btn.classList.add('just-voted');
             recomputeGetawaysTotalFromDom();
-            try { localStorage.setItem(key, '1'); } catch (_) {}
 
             if (typeof gtag === 'function') gtag('event', 'getaway_interest', { package_id: packageId });
             if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: 'getaway_' + packageId });
