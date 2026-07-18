@@ -153,6 +153,26 @@
       "destination": "/blog/philly-date-night-spots.html"
     },
     {
+      "source": "/blog/how-same-night-matching-works",
+      "destination": "/blog/how-same-night-matching-works.html"
+    },
+    {
+      "source": "/blog/dating-app-burnout",
+      "destination": "/blog/dating-app-burnout.html"
+    },
+    {
+      "source": "/blog/signs-your-first-date-is-going-well",
+      "destination": "/blog/signs-your-first-date-is-going-well.html"
+    },
+    {
+      "source": "/blog/lancaster-date-night-spots",
+      "destination": "/blog/lancaster-date-night-spots.html"
+    },
+    {
+      "source": "/blog/how-to-ask-for-a-second-date",
+      "destination": "/blog/how-to-ask-for-a-second-date.html"
+    },
+    {
       "source": "/philadelphia",
       "destination": "/api/next-event?render=city&city=philadelphia"
     },

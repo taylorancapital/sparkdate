@@ -59,6 +59,8 @@
             transition: color 0.3s;
         }
         .nav-menu a:hover { color: var(--coral); }
+        .cta-nav { background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%); color: var(--white); padding: 10px 24px; border-radius: 4px; font-size: 12px; font-weight: 600; text-transform: uppercase; transition: all 0.3s; }
+        .cta-nav:hover { background: var(--white); color: var(--coral); transform: translateY(-2px); }
 
         main {
             flex: 1;
@@ -151,8 +153,10 @@
             <ul class="nav-menu">
                 <li><a href="/">Home</a></li>
                 <li><a href="/about">About</a></li>
+                <li><a href="/blog">Blog</a></li>
                 <li><a href="/events">Events</a></li>
-                <li><a href="/signup">Join</a></li>
+                <li><a href="/account">Account</a></li>
+                <li><a href="/events" class="cta-nav">Join</a></li>
             </ul>
         </div>
     </nav>

@@ -66,6 +66,8 @@
         .nav-menu { display: flex; gap: 40px; list-style: none; }
         .nav-menu a { color: var(--cream); text-decoration: none; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; transition: color 0.3s; }
         .nav-menu a:hover { color: var(--coral); }
+        .cta-nav { background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%); color: var(--white); padding: 10px 24px; border-radius: 4px; font-size: 12px; font-weight: 600; text-transform: uppercase; transition: all 0.3s; }
+        .cta-nav:hover { background: var(--white); color: var(--coral); transform: translateY(-2px); }
 
         .post-header { max-width: 720px; margin: 0 auto; padding: 70px 40px 40px; text-align: center; }
         .post-meta { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 18px; }
@@ -123,10 +125,12 @@
         <div class="nav-content">
             <a href="/" class="logo">Spark<span>Date</span></a>
             <ul class="nav-menu">
-                <li><a href="/blog">Blog</a></li>
-                <li><a href="/events">Events</a></li>
+                <li><a href="/">Home</a></li>
                 <li><a href="/about">About</a></li>
-                <li><a href="/events">Get Tickets</a></li>
+                <li><a href="/blog" class="active">Blog</a></li>
+                <li><a href="/events">Events</a></li>
+                <li><a href="/account">Account</a></li>
+                <li><a href="/events" class="cta-nav">Join</a></li>
             </ul>
         </div>
     </nav>
@@ -290,7 +294,7 @@
 
     <nav class="post-nav">
         <a href="/blog/philly-date-night-spots">← Philly date-night spots</a>
-        <a href="/blog">All posts →</a>
+        <a href="/blog/how-same-night-matching-works">Next: How same-night matching works →</a>
     </nav>
 
     <footer>

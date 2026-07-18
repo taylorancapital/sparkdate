@@ -98,6 +98,8 @@
             transition: color 0.3s;
         }
         .nav-menu a:hover { color: var(--coral); }
+        .cta-nav { background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%); color: var(--white); padding: 10px 24px; border-radius: 4px; font-size: 12px; font-weight: 600; text-transform: uppercase; transition: all 0.3s; }
+        .cta-nav:hover { background: var(--white); color: var(--coral); transform: translateY(-2px); }
 
         .hero {
             text-align: center;
@@ -456,6 +458,138 @@
             .events-container { padding: 20px; }
             .quota-banner { padding: 0 20px; }
         }
+
+        /* ── Getaways: coming-soon multi-day retreat interest section ── */
+        .getaways-section {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px 40px 60px;
+            border-top: 1px solid rgba(255, 107, 107, 0.1);
+        }
+        .getaways-header {
+            text-align: center;
+            max-width: 640px;
+            margin: 40px auto 40px;
+        }
+        .getaways-eyebrow {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-bottom: 12px;
+        }
+        .getaways-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            font-size: clamp(26px, 5vw, 38px);
+            color: var(--white);
+            margin-bottom: 12px;
+            letter-spacing: -1px;
+        }
+        .getaways-header p {
+            font-size: 15px;
+            color: rgba(245, 243, 240, 0.7);
+        }
+        .getaways-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+        .getaway-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 107, 107, 0.15);
+            border-radius: 8px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            transition: border-color 0.3s;
+        }
+        .getaway-card:hover { border-color: rgba(255, 107, 107, 0.4); }
+        .getaway-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .getaway-emoji { font-size: 32px; line-height: 1; }
+        .getaway-soon {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--gold);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            border-radius: 20px;
+            padding: 4px 10px;
+            white-space: nowrap;
+        }
+        .getaway-card h3 {
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            font-size: 19px;
+            color: var(--white);
+            margin-bottom: 6px;
+        }
+        .getaway-card p.getaway-blurb {
+            font-size: 13px;
+            color: rgba(245, 243, 240, 0.65);
+            margin-bottom: 18px;
+            flex: 1;
+        }
+        .getaway-bar-track {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            height: 6px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .getaway-bar-fill {
+            background: linear-gradient(90deg, var(--coral) 0%, var(--gold) 100%);
+            height: 100%;
+            border-radius: 20px;
+            transition: width 0.6s ease;
+        }
+        .getaway-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+        .getaway-count {
+            font-size: 13px;
+            color: rgba(245, 243, 240, 0.75);
+        }
+        .getaway-count strong { color: var(--white); font-weight: 700; }
+        .getaway-btn {
+            background: transparent;
+            border: 1px solid var(--coral);
+            color: var(--coral);
+            padding: 10px 16px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+            width: 100%;
+        }
+        .getaway-btn:hover:not(:disabled) {
+            background: var(--coral);
+            color: var(--white);
+        }
+        .getaway-btn:disabled {
+            background: rgba(74, 222, 128, 0.1);
+            border-color: var(--success);
+            color: var(--success);
+            cursor: default;
+        }
+        @media (max-width: 768px) {
+            .getaways-section { padding: 10px 20px 40px; }
+        }
     </style>
     <!-- Meta Pixel Code -->
     <script>
@@ -480,18 +614,19 @@
         <div class="nav-content">
             <a href="/" class="logo">Spark<span>Date</span></a>
             <ul class="nav-menu">
+                <li><a href="/">Home</a></li>
                 <li><a href="/about">About</a></li>
                 <li><a href="/blog">Blog</a></li>
-                <li><a href="/events">Events</a></li>
+                <li><a href="/events" class="active">Events</a></li>
                 <li><a href="/account">Account</a></li>
-                <li><a href="/signup">Join</a></li>
+                <li><a href="/events" class="cta-nav">Join</a></li>
             </ul>
         </div>
     </nav>
 
     <section class="hero">
         <h1>Upcoming <span class="highlight">Events</span></h1>
-        <p>Curated gatherings at Philly's best venues. Reserve your spot, show up, meet real people.</p>
+        <p id="heroSub">Curated gatherings at top-rated venues. Reserve your spot, show up, meet real people.</p>
     </section>
 
     <section class="how-it-works">
@@ -504,12 +639,12 @@
             <div class="how-step">
                 <div class="how-step-num">02 · During</div>
                 <h3>You just show up</h3>
-                <p>A balanced room of 20–30 pre-screened people, a curated Philly venue, a trained host making natural introductions. Talk to whoever you click with.</p>
+                <p id="showUpText">A balanced room of 20–30 pre-screened people, a curated venue, a trained host making natural introductions. Talk to whoever you click with.</p>
             </div>
             <div class="how-step">
                 <div class="how-step-num">03 · After</div>
-                <h3>We exchange contacts</h3>
-                <p>That night at 9pm, tell us who you'd like to keep in touch with. If they pick you too, we connect you — no awkward Instagram hunting required.</p>
+                <h3>You get matching access</h3>
+                <p>That night, we give you access to our matching system — mark who you'd like to hear from again from the people you met. If they picked you too, it's a match and we connect you directly. No awkward Instagram hunting required.</p>
             </div>
         </div>
     </section>
@@ -527,6 +662,17 @@
     <section class="events-container">
         <div class="events-grid" id="eventsGrid">
             <div class="spinner"></div>
+        </div>
+    </section>
+
+    <section class="getaways-section">
+        <div class="getaways-header">
+            <div class="getaways-eyebrow">Coming Soon</div>
+            <h2>Getaways</h2>
+            <p>Multi-day singles retreats are next. Tell us where you'd actually go — the packages with the most interest get built first.</p>
+        </div>
+        <div class="getaways-grid" id="getawaysGrid">
+            <!-- populated by loadGetaways() -->
         </div>
     </section>
 
@@ -700,6 +846,7 @@
                 const events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderEvents(events, grid);
                 injectEventsListSchema(events);
+                updateHeroForNextEvent(events);
             } catch (err) {
                 console.error('[events] load error:', err);
                 // Fail soft with an honest "couldn't load" message rather than
@@ -712,6 +859,21 @@
                         <p>Please refresh the page, or check back in a moment.</p>
                     </div>`;
             }
+        }
+
+        // This page lists events across every city we run (Philadelphia,
+        // Lancaster, and wherever comes next), so the hero copy can't name
+        // one city without misrepresenting the others. events is already
+        // sorted date-ascending, so events[0] is the soonest upcoming event
+        // -- if it has a city, we use it; otherwise the neutral default
+        // markup already in place stays as-is.
+        function updateHeroForNextEvent(events) {
+            const city = events && events[0] && events[0].city;
+            if (!city) return;
+            const heroSub = document.getElementById('heroSub');
+            const showUpText = document.getElementById('showUpText');
+            if (heroSub) heroSub.textContent = `Curated gatherings at ${city}'s best venues. Reserve your spot, show up, meet real people.`;
+            if (showUpText) showUpText.textContent = `A balanced room of 20–30 pre-screened people, a curated ${city} venue, a trained host making natural introductions. Talk to whoever you click with.`;
         }
 
         // schema.org ItemList of upcoming Events — lets Google understand
@@ -859,6 +1021,108 @@
                     </div>`;
             }).join('');
         }
+
+        // ── Getaways: coming-soon retreat packages ──────────────────
+        // Mirrors lib/getaway-packages.js (server-side validation source of
+        // truth) — there's no shared client/server JS bundle in this repo,
+        // so this list is kept in sync manually. Counts are a public read
+        // straight from Firestore (allowed by firestore.rules); the actual
+        // increment on click goes through /api/lead-signup's
+        // getaway_interest action, which validates packageId against its
+        // own copy of this same allowlist server-side.
+        const GETAWAY_PACKAGES = [
+            { id: 'island-paradise',  name: 'Remote Island Paradise',    emoji: '🏝️', blurb: 'A private-beach, off-grid escape for a small group of singles.' },
+            { id: 'cruise',           name: 'Singles Cruise',            emoji: '🚢', blurb: 'Multi-day voyage, curated guest list, a new port every morning.' },
+            { id: 'fiji-volcano',     name: 'Fiji & Volcano Adventure',  emoji: '🌋', blurb: 'Hot springs, volcanic hikes, and reef diving with a small group.' },
+            { id: 'spa-resort',       name: 'Spa Getaway & Resort',      emoji: '💆', blurb: 'A slower weekend — spa days, pools, and low-key mingling.' },
+            { id: 'cabin-retreat',    name: 'Cabin Retreat',             emoji: '🏕️', blurb: 'Fireplaces, board games, and a long weekend off the grid.' },
+            { id: 'palm-springs',     name: 'Palm Springs Desert Escape',emoji: '🌵', blurb: 'Poolside days and desert nights in a design-forward resort town.' },
+            { id: 'taos-new-mexico',  name: 'Taos, New Mexico',         emoji: '🏔️', blurb: 'Adobe architecture, high-desert hikes, and art-town evenings.' },
+        ];
+
+        function getawayClickedKey(id) { return 'sparkdate_getaway_' + id; }
+
+        function getawayCardHtml(pkg, count, maxCount) {
+            const pct = maxCount > 0 ? Math.max(4, Math.round((count / maxCount) * 100)) : 4;
+            const already = (() => { try { return !!localStorage.getItem(getawayClickedKey(pkg.id)); } catch (_) { return false; } })();
+            return `
+                <div class="getaway-card" data-package-id="${pkg.id}">
+                    <div class="getaway-top">
+                        <div class="getaway-emoji">${pkg.emoji}</div>
+                        <div class="getaway-soon">Coming Soon</div>
+                    </div>
+                    <h3>${pkg.name}</h3>
+                    <p class="getaway-blurb">${pkg.blurb}</p>
+                    <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:${pct}%"></div></div>
+                    <div class="getaway-meta">
+                        <span class="getaway-count"><strong class="getaway-count-num">${count}</strong> interested</span>
+                    </div>
+                    <button type="button" class="getaway-btn" ${already ? 'disabled' : ''}>${already ? '✓ You\'re In' : "I'm Interested"}</button>
+                </div>`;
+        }
+
+        async function loadGetaways() {
+            const grid = document.getElementById('getawaysGrid');
+            if (!grid) return;
+            let counts = {};
+            try {
+                const snaps = await Promise.all(
+                    GETAWAY_PACKAGES.map(pkg => getDoc(doc(db, 'getaway_interest', pkg.id)))
+                );
+                snaps.forEach((snap, i) => {
+                    counts[GETAWAY_PACKAGES[i].id] = (snap.exists() && typeof snap.data().count === 'number') ? snap.data().count : 0;
+                });
+            } catch (err) {
+                console.error('[getaways] load error:', err);
+                GETAWAY_PACKAGES.forEach(pkg => { counts[pkg.id] = 0; });
+            }
+            const maxCount = Math.max(1, ...Object.values(counts));
+            grid.innerHTML = GETAWAY_PACKAGES.map(pkg => getawayCardHtml(pkg, counts[pkg.id] || 0, maxCount)).join('');
+
+            grid.querySelectorAll('.getaway-card').forEach(card => {
+                const id = card.getAttribute('data-package-id');
+                const btn = card.querySelector('.getaway-btn');
+                btn.addEventListener('click', () => registerGetawayInterest(id, card));
+            });
+        }
+
+        async function registerGetawayInterest(packageId, cardEl) {
+            const key = getawayClickedKey(packageId);
+            try { if (localStorage.getItem(key)) return; } catch (_) {}
+
+            const btn = cardEl.querySelector('.getaway-btn');
+            const countEl = cardEl.querySelector('.getaway-count-num');
+            const barEl = cardEl.querySelector('.getaway-bar-fill');
+
+            // Optimistic UI: reflect the click immediately rather than waiting
+            // on the round trip — this is a low-stakes interest signal, not a
+            // transaction, so a rare server-side failure isn't worth rolling
+            // the UI back over (and re-clicking is blocked either way once
+            // localStorage is set below).
+            btn.disabled = true;
+            btn.textContent = "✓ You're In";
+            if (countEl) {
+                const newCount = (parseInt(countEl.textContent, 10) || 0) + 1;
+                countEl.textContent = newCount;
+                if (barEl) barEl.style.width = Math.min(100, parseFloat(barEl.style.width) + 3) + '%';
+            }
+            try { localStorage.setItem(key, '1'); } catch (_) {}
+
+            if (typeof gtag === 'function') gtag('event', 'getaway_interest', { package_id: packageId });
+            if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: 'getaway_' + packageId });
+
+            try {
+                await fetch('/api/lead-signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'getaway_interest', packageId: packageId, website: '' })
+                });
+            } catch (err) {
+                console.error('[getaways] interest click failed to save:', err);
+            }
+        }
+
+        loadGetaways(); // independent of auth state — public read, no need to wait
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
