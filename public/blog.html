@@ -51,6 +51,8 @@
         .nav-menu { display: flex; gap: 40px; list-style: none; }
         .nav-menu a { color: var(--cream); text-decoration: none; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; transition: color 0.3s; }
         .nav-menu a:hover { color: var(--coral); }
+        .cta-nav { background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%); color: var(--white); padding: 10px 24px; border-radius: 4px; font-size: 12px; font-weight: 600; text-transform: uppercase; transition: all 0.3s; }
+        .cta-nav:hover { background: var(--white); color: var(--coral); transform: translateY(-2px); }
 
         .hero { text-align: center; padding: 80px 40px 50px; max-width: 900px; margin: 0 auto; }
         .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 16px; }
@@ -118,10 +120,12 @@
         <div class="nav-content">
             <a href="/" class="logo">Spark<span>Date</span></a>
             <ul class="nav-menu">
+                <li><a href="/">Home</a></li>
                 <li><a href="/about">About</a></li>
+                <li><a href="/blog" class="active">Blog</a></li>
                 <li><a href="/events">Events</a></li>
-                <li><a href="/blog">Blog</a></li>
-                <li><a href="/events">Get Tickets</a></li>
+                <li><a href="/account">Account</a></li>
+                <li><a href="/events" class="cta-nav">Join</a></li>
             </ul>
         </div>
     </nav>
@@ -179,6 +183,56 @@
                 <div class="post-meta">Guide · 6 min read</div>
                 <div class="post-title">First-timer's guide to singles mixers in Lancaster, PA</div>
                 <div class="post-excerpt">Never been to a singles mixer? Here's exactly what happens at a SparkDate Lancaster mixer — from the moment you walk in to the same-night matching.</div>
+                <span class="post-cta">Read more →</span>
+            </div>
+        </a>
+
+        <a href="/blog/how-same-night-matching-works" class="post-card">
+            <div class="post-thumb bg1">🔗</div>
+            <div class="post-body">
+                <div class="post-meta">Guide · 5 min read</div>
+                <div class="post-title">How same-night matching actually works</div>
+                <div class="post-excerpt">Curious how a room full of strangers turns into a match list in your inbox before you're home? Here's exactly what happens behind the scenes.</div>
+                <span class="post-cta">Read more →</span>
+            </div>
+        </a>
+
+        <a href="/blog/dating-app-burnout" class="post-card">
+            <div class="post-thumb bg2">📱</div>
+            <div class="post-body">
+                <div class="post-meta">Perspective · 6 min read</div>
+                <div class="post-title">Dating app burnout is real — here's what actually fixes it</div>
+                <div class="post-excerpt">If swiping feels like a second job that never pays off, you're not imagining it. Here's why the apps drain you and why in-person events fix the actual problem.</div>
+                <span class="post-cta">Read more →</span>
+            </div>
+        </a>
+
+        <a href="/blog/signs-your-first-date-is-going-well" class="post-card">
+            <div class="post-thumb bg3">✨</div>
+            <div class="post-body">
+                <div class="post-meta">Conversation · 5 min read</div>
+                <div class="post-title">Signs your first date is actually going well</div>
+                <div class="post-excerpt">When you're in the middle of it, it's almost impossible to tell. Here are the real tells people miss because they're too in their head to notice.</div>
+                <span class="post-cta">Read more →</span>
+            </div>
+        </a>
+
+        <a href="/blog/lancaster-date-night-spots" class="post-card">
+            <div class="post-thumb bg4">📍</div>
+            <div class="post-body">
+                <div class="post-meta">Guide · 5 min read</div>
+                <div class="post-title">5 Lancaster, PA spots perfect for a first date</div>
+                <div class="post-excerpt">Matched with someone at a Lancaster mixer? Here's what makes five specific Lancaster neighborhoods work for a first date, and why we host mixers there.</div>
+                <span class="post-cta">Read more →</span>
+            </div>
+        </a>
+
+        <a href="/blog/how-to-ask-for-a-second-date" class="post-card">
+            <div class="post-thumb bg5">💌</div>
+            <div class="post-body">
+                <div class="post-meta">Guide · 4 min read</div>
+                <div class="post-title">How to ask for a second date (without overthinking it)</div>
+                <div class="post-excerpt">You matched, the conversation flowed, and now you're stuck rewriting a text for twenty minutes. Here's how to ask simply and confidently.</div>
                 <span class="post-cta">Read more →</span>
             </div>
         </a>

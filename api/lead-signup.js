@@ -14,6 +14,7 @@ const { buildUtmUrl } = require('../lib/utm');
 const { getNextEvent, eventCardHtml, ctaButtonHtml, shell, h1, p } = require('../lib/next-event');
 const { verifyProfileToken, makeProfileUrl, sign: signProfileToken } = require('../lib/profile-link');
 const { logEventAttended } = require('../lib/activity-log');
+const { isValidGetawayPackageId } = require('../lib/getaway-packages');
 
 const db = admin.firestore();
 
@@ -62,6 +63,63 @@ async function withinRateLimit(ip) {
     console.error('[lead-signup] rate-limit check failed (fail-open):', e.message);
     return true;
   }
+}
+
+// ── Getaway-interest rate limiting ──────────────────────────────────
+// Separate bucket from the limiter above: this action only increments a
+// counter (no email sent), so a higher ceiling is safe, and keeping it
+// in its own bucket means clicking a few retreat cards can't accidentally
+// exhaust the budget meant for actual lead-capture submissions.
+const RL_GETAWAY_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RL_GETAWAY_MAX = 20;                   // accepted clicks per IP per window
+
+async function withinGetawayRateLimit(ip) {
+  if (!ip) return true; // can't identify the caller → don't block real users
+  const ipHash = crypto.createHash('sha256').update(ip).digest('hex').slice(0, 24);
+  const ref = db.collection('rate_limits').doc(`${ipHash}_getaway`);
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const now = Date.now();
+      if (!snap.exists || (now - (snap.data().windowStart || 0)) > RL_GETAWAY_WINDOW_MS) {
+        tx.set(ref, { windowStart: now, count: 1 });
+        return true;
+      }
+      const count = snap.data().count || 0;
+      if (count >= RL_GETAWAY_MAX) return false;
+      tx.update(ref, { count: count + 1 });
+      return true;
+    });
+  } catch (e) {
+    console.error('[lead-signup] getaway rate-limit check failed (fail-open):', e.message);
+    return true;
+  }
+}
+
+// "I'm interested" click on a coming-soon retreat package (events.html).
+// Public + unauthenticated by necessity, so: honeypot, packageId validated
+// against a fixed allowlist (lib/getaway-packages.js) so a caller can't
+// write an arbitrary Firestore doc, and its own rate-limit bucket above.
+async function handleGetawayInterest(req, res) {
+  // Same hidden-field honeypot convention as the main lead form below.
+  if (clean(req.body?.website, 200)) {
+    return res.status(200).json({ success: true });
+  }
+
+  const packageId = clean(req.body?.packageId, 40);
+  if (!isValidGetawayPackageId(packageId)) {
+    return res.status(400).json({ error: 'Unknown package' });
+  }
+
+  if (!(await withinGetawayRateLimit(clientIp(req)))) {
+    return res.status(429).json({ error: 'Too many requests. Please try again in a bit.' });
+  }
+
+  await db.collection('getaway_interest').doc(packageId).set(
+    { count: admin.firestore.FieldValue.increment(1), lastClickAt: admin.firestore.FieldValue.serverTimestamp() },
+    { merge: true }
+  );
+  return res.status(200).json({ success: true });
 }
 
 // Length/shape limits — this endpoint is unauthenticated by necessity
@@ -598,6 +656,17 @@ module.exports = async function handler(req, res) {
       const status = err.statusCode || err.status || 500;
       console.error('❌ checkin error:', err.message);
       return res.status(status).json({ error: status === 500 ? 'Check-in failed. Try again.' : err.message });
+    }
+  }
+
+  // "I'm interested" click on a coming-soon Getaway package — also folded
+  // here for the cap (see handleGetawayInterest above).
+  if (req.body && req.body.action === 'getaway_interest') {
+    try {
+      return await handleGetawayInterest(req, res);
+    } catch (err) {
+      console.error('❌ getaway_interest error:', err.message);
+      return res.status(500).json({ error: 'Could not save. Please try again.' });
     }
   }
 

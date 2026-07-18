@@ -34,6 +34,8 @@
         .nav-menu { display: flex; gap: 40px; list-style: none; }
         .nav-menu a { color: var(--cream); text-decoration: none; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
         .nav-menu a:hover { color: var(--coral); }
+        .cta-nav { background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%); color: var(--white); padding: 10px 24px; border-radius: 4px; font-size: 12px; font-weight: 600; text-transform: uppercase; transition: all 0.3s; }
+        .cta-nav:hover { background: var(--white); color: var(--coral); transform: translateY(-2px); }
         .hero { padding: 80px 40px 40px; background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%); text-align: center; }
         .hero h1 { font-family: 'Playfair Display', serif; font-size: clamp(36px, 8vw, 56px); font-weight: 900; letter-spacing: -1px; }
         .hero h1 span { color: var(--coral); }
@@ -56,8 +58,10 @@
             <ul class="nav-menu">
                 <li><a href="/">Home</a></li>
                 <li><a href="/about">About</a></li>
+                <li><a href="/blog">Blog</a></li>
                 <li><a href="/events">Events</a></li>
-                <li><a href="/signup">Join</a></li>
+                <li><a href="/account">Account</a></li>
+                <li><a href="/events" class="cta-nav">Join</a></li>
             </ul>
         </div>
     </nav>

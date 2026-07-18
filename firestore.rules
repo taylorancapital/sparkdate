@@ -198,6 +198,17 @@ service cloud.firestore {
       allow write: if false; // server-only
     }
 
+    // ── getaway_interest/{packageId} ─────────────────────────────
+    // Live "interested" counters for the coming-soon retreat packages on
+    // the events page. Public read so the page can show real-time counts
+    // without an API round trip; written exclusively by /api/lead-signup
+    // (action: 'getaway_interest') using the Admin SDK, which bypasses
+    // these rules entirely. Same public-read shape as events/{eventId}.
+    match /getaway_interest/{packageId} {
+      allow read: if true;
+      allow write: if false; // server-only
+    }
+
     // ── Default deny ─────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
