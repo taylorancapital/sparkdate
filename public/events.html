@@ -590,12 +590,6 @@
             color: rgba(245, 243, 240, 0.75);
         }
         .getaway-count strong { color: var(--white); font-weight: 700; }
-        .getaway-seed-note {
-            display: block;
-            font-size: 11px;
-            color: rgba(245, 243, 240, 0.4);
-            margin-top: 2px;
-        }
         .getaway-btn {
             background: transparent;
             border: 1px solid var(--coral);
@@ -685,13 +679,13 @@
         <div class="sp-proof-eyebrow">Straight From Our Mixers</div>
         <h2 class="sp-proof-title">Real People. Real Nights.</h2>
         <div class="sp-polaroid-row">
-            <div class="sp-polaroid"><img src="/images/social/rooftop-magic.jpg" alt="Rooftop mixer crowd" loading="lazy"><div class="sp-polaroid-cap">✨ Rooftop Magic ✨</div></div>
-            <div class="sp-polaroid"><img src="/images/social/matched-house.jpg" alt="Group at a house mixer" loading="lazy"><div class="sp-polaroid-cap">💕 #Matched! 💕</div></div>
-            <div class="sp-polaroid"><img src="/images/social/fire-vibes.jpg" alt="Fire pit at a rooftop mixer" loading="lazy"><div class="sp-polaroid-cap">🔥 Fire Vibes! 🔥</div></div>
-            <div class="sp-polaroid"><img src="/images/social/party-vibes.jpg" alt="Crowd at a house mixer" loading="lazy"><div class="sp-polaroid-cap">✨ Party Vibes ✨</div></div>
-            <div class="sp-polaroid"><img src="/images/social/buzzing.jpg" alt="Attendees mingling" loading="lazy"><div class="sp-polaroid-cap">Buzzzzzing! ✨</div></div>
-            <div class="sp-polaroid"><img src="/images/social/cheeky-peek.jpg" alt="Candid moment at a mixer" loading="lazy"><div class="sp-polaroid-cap">Cheeky Peek 👀</div></div>
-            <div class="sp-polaroid"><img src="/images/social/summer-nights.jpg" alt="Summer mixer moment" loading="lazy"><div class="sp-polaroid-cap">☀️ Summer Nights</div></div>
+            <div class="sp-polaroid"><img src="/images/social/rooftop-magic.jpg" alt="Rooftop mixer crowd" loading="lazy"><div class="sp-polaroid-cap">✨ ROOFTOP MAGIC ✨ @ Exchange – Stereo 01 Mixer</div></div>
+            <div class="sp-polaroid"><img src="/images/social/matched-house.jpg" alt="Group at a house mixer" loading="lazy"><div class="sp-polaroid-cap">💕 #MATCHED! 💕 House Mixer @ ABAG</div></div>
+            <div class="sp-polaroid"><img src="/images/social/fire-vibes.jpg" alt="Fire pit at a rooftop mixer" loading="lazy"><div class="sp-polaroid-cap">🔥 FIRE VIBES!!! 🔥 Stereo-01 Mixer @ Exchange Rooftop</div></div>
+            <div class="sp-polaroid"><img src="/images/social/party-vibes.jpg" alt="Crowd at a house mixer" loading="lazy"><div class="sp-polaroid-cap">✨ #PARTY VIBES ✨ 💕 House Mixer @ ABAG</div></div>
+            <div class="sp-polaroid"><img src="/images/social/buzzing.jpg" alt="Attendees mingling" loading="lazy"><div class="sp-polaroid-cap">✨✨ BUZZZZZING!</div></div>
+            <div class="sp-polaroid"><img src="/images/social/cheeky-peek.jpg" alt="Candid moment at a mixer" loading="lazy"><div class="sp-polaroid-cap">💕✨ CHEEKY PEEK!!!!</div></div>
+            <div class="sp-polaroid"><img src="/images/social/summer-nights.jpg" alt="Summer mixer moment" loading="lazy"><div class="sp-polaroid-cap">☀️ Summer Nights!!!</div></div>
         </div>
     </section>
 
@@ -1109,14 +1103,9 @@
 
         function getawayClickedKey(id) { return 'sparkdate_getaway_' + id; }
 
-        function getawayCardHtml(pkg, count, maxCount, seedCount) {
+        function getawayCardHtml(pkg, count, maxCount) {
             const pct = maxCount > 0 ? Math.max(4, Math.round((count / maxCount) * 100)) : 4;
             const already = (() => { try { return !!localStorage.getItem(getawayClickedKey(pkg.id)); } catch (_) { return false; } })();
-            // Only show the seed note when it's meaningfully distinct from a
-            // just-launched, all-organic count -- avoids "seeded: 0" noise
-            // before the seed script has run, or once organic clicks have
-            // long since dwarfed the starting number.
-            const seedNote = seedCount > 0 ? `<span class="getaway-seed-note">${seedCount} of these were seeded at launch</span>` : '';
             return `
                 <div class="getaway-card" data-package-id="${pkg.id}">
                     <div class="getaway-top">
@@ -1127,7 +1116,7 @@
                     <p class="getaway-blurb">${pkg.blurb}</p>
                     <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:${pct}%"></div></div>
                     <div class="getaway-meta">
-                        <span class="getaway-count"><strong class="getaway-count-num">${count}</strong> interested${seedNote}</span>
+                        <span class="getaway-count"><strong class="getaway-count-num">${count}</strong> interested</span>
                     </div>
                     <button type="button" class="getaway-btn" ${already ? 'disabled' : ''}>${already ? '✓ You\'re In' : "I'm Interested"}</button>
                 </div>`;
@@ -1137,7 +1126,6 @@
             const grid = document.getElementById('getawaysGrid');
             if (!grid) return;
             let counts = {};
-            let seedCounts = {};
             try {
                 const snaps = await Promise.all(
                     GETAWAY_PACKAGES.map(pkg => getDoc(doc(db, 'getaway_interest', pkg.id)))
@@ -1146,14 +1134,13 @@
                     const id = GETAWAY_PACKAGES[i].id;
                     const data = snap.exists() ? snap.data() : {};
                     counts[id] = typeof data.count === 'number' ? data.count : 0;
-                    seedCounts[id] = typeof data.seedCount === 'number' ? data.seedCount : 0;
                 });
             } catch (err) {
                 console.error('[getaways] load error:', err);
-                GETAWAY_PACKAGES.forEach(pkg => { counts[pkg.id] = 0; seedCounts[pkg.id] = 0; });
+                GETAWAY_PACKAGES.forEach(pkg => { counts[pkg.id] = 0; });
             }
             const maxCount = Math.max(1, ...Object.values(counts));
-            grid.innerHTML = GETAWAY_PACKAGES.map(pkg => getawayCardHtml(pkg, counts[pkg.id] || 0, maxCount, seedCounts[pkg.id] || 0)).join('');
+            grid.innerHTML = GETAWAY_PACKAGES.map(pkg => getawayCardHtml(pkg, counts[pkg.id] || 0, maxCount)).join('');
             updateGetawaysTotal(counts);
 
             grid.querySelectorAll('.getaway-card').forEach(card => {
