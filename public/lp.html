@@ -81,6 +81,14 @@
         .sp-polaroid:hover { transform: rotate(0deg) scale(1.08); z-index: 20 !important; }
         .sp-polaroid img { display: block; width: 100%; aspect-ratio: 6 / 5; object-fit: cover; }
         .sp-polaroid-cap { padding: 16px; text-align: center; font-family: 'Caveat', cursive; font-size: 18px; font-weight: 700; color: #0a0e27; letter-spacing: 0.5px; line-height: 1.2; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+
+        /* "Find us on" strip -- platform presence (listings/profiles),
+           not press coverage, so it's phrased as such rather than an
+           "As Seen On" media-feature claim. */
+        .find-us-bar { background: rgba(255,107,107,0.06); border-bottom: 1px solid rgba(255,107,107,0.14); padding: 9px 16px; text-align: center; font-size: 11px; letter-spacing: 0.4px; color: rgba(245,243,240,0.6); }
+        .find-us-bar .fu-label { text-transform: uppercase; letter-spacing: 1px; margin-right: 6px; }
+        .find-us-bar strong { color: rgba(245,243,240,0.85); font-weight: 600; }
+        .find-us-bar .fu-dot { margin: 0 8px; opacity: 0.5; }
     </style>
     <!-- Meta Pixel Code -->
     <script>
@@ -101,6 +109,7 @@
     </noscript>
 </head>
 <body>
+    <div class="find-us-bar"><span class="fu-label">Find us on</span><strong>Google Business</strong><span class="fu-dot">·</span><strong>Eventbrite</strong><span class="fu-dot">·</span><strong>Pinterest</strong><span class="fu-dot">·</span><strong>Yahoo</strong></div>
     <div class="wrap">
         <div class="logo">Spark<span>Date</span></div>
 
