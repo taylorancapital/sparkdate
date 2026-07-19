@@ -76,19 +76,24 @@
            positions/rotation are percentage-based (via the --r custom
            property and left/top/width set inline per photo) so the whole
            collage scales fluidly with container width, no breakpoints. */
-        .sp-polaroid-scatter { position: relative; width: 100%; max-width: 800px; margin: 0 auto; aspect-ratio: 800 / 450; }
-        .sp-polaroid { position: absolute; background: #fff; border: 10px solid #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.4); transform: rotate(var(--r, 0deg)); transition: transform 0.25s ease; }
+        .sp-polaroid-scatter-wrap { overflow-x: auto; overflow-y: visible; padding: 24px 4px 44px; -webkit-overflow-scrolling: touch; }
+        /* Frozen at a fixed pixel size on purpose -- shrinking the card to fit narrow viewports while keeping the caption font-size fixed (per request) was blowing up the caption strip's height instead. A real polaroid doesn't resize itself for the room it's in, so neither does this: same size on every device, horizontal scroll on mobile if the collage is wider than the screen. */
+        .sp-polaroid-scatter { position: relative; width: 850px; height: 500px; margin: 0 auto; }
+        .sp-polaroid { position: absolute; width: 240px; background: #fff; border: 12px solid #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.4); transform: rotate(var(--r, 0deg)); transition: transform 0.25s ease; }
         .sp-polaroid:hover { transform: rotate(0deg) scale(1.08); z-index: 20 !important; }
-        .sp-polaroid img { display: block; width: 100%; aspect-ratio: 6 / 5; object-fit: cover; }
-        .sp-polaroid-cap { padding: 16px; text-align: center; font-family: 'Caveat', cursive; font-size: 18px; font-weight: 700; color: #0a0e27; letter-spacing: 0.5px; line-height: 1.2; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+        .sp-polaroid img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; }
+        .sp-polaroid-cap { height: 58px; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 4px 6px 0; text-align: center; font-family: 'Caveat', cursive; font-size: 18px; font-weight: 700; color: #0a0e27; letter-spacing: 0.5px; line-height: 1.15; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
 
-        /* "Find us on" strip -- platform presence (listings/profiles),
+        /* "Find us on" logo strip -- platform presence (listings/profiles),
            not press coverage, so it's phrased as such rather than an
            "As Seen On" media-feature claim. */
-        .find-us-bar { background: rgba(255,107,107,0.06); border-bottom: 1px solid rgba(255,107,107,0.14); padding: 9px 16px; text-align: center; font-size: 11px; letter-spacing: 0.4px; color: rgba(245,243,240,0.6); }
-        .find-us-bar .fu-label { text-transform: uppercase; letter-spacing: 1px; margin-right: 6px; }
-        .find-us-bar strong { color: rgba(245,243,240,0.85); font-weight: 600; }
-        .find-us-bar .fu-dot { margin: 0 8px; opacity: 0.5; }
+        .find-us-bar { background: var(--cream); border-bottom: 2px solid rgba(255,107,107,0.2); padding: 10px 16px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 14px 22px; }
+        .find-us-bar .fu-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(10,14,39,0.55); }
+        .find-us-bar img { display: block; height: 18px; width: auto; object-fit: contain; }
+        .find-us-bar .fu-logo.fu-pinterest,
+        .find-us-bar .fu-logo.fu-eventbrite,
+        .find-us-bar .fu-logo.fu-yahoo { mix-blend-mode: multiply; }
+        .find-us-bar .fu-logo.fu-google { height: 26px; border-radius: 5px; }
     </style>
     <!-- Meta Pixel Code -->
     <script>
@@ -109,7 +114,13 @@
     </noscript>
 </head>
 <body>
-    <div class="find-us-bar"><span class="fu-label">Find us on</span><strong>Google Business</strong><span class="fu-dot">·</span><strong>Eventbrite</strong><span class="fu-dot">·</span><strong>Pinterest</strong><span class="fu-dot">·</span><strong>Yahoo</strong></div>
+    <div class="find-us-bar">
+        <span class="fu-label">Find us on</span>
+        <img class="fu-logo fu-google" src="/images/press/google-news.png" alt="Google News" loading="lazy">
+        <img class="fu-logo fu-eventbrite" src="/images/press/eventbrite.png" alt="Eventbrite" loading="lazy">
+        <img class="fu-logo fu-pinterest" src="/images/press/pinterest.png" alt="Pinterest" loading="lazy">
+        <img class="fu-logo fu-yahoo" src="/images/press/yahoo-news.png" alt="Yahoo News" loading="lazy">
+    </div>
     <div class="wrap">
         <div class="logo">Spark<span>Date</span></div>
 
@@ -146,17 +157,19 @@
         <div class="sp-social-proof">
             <div class="sp-proof-eyebrow">Straight From Our Mixers</div>
             <h2 class="sp-proof-title">Real People. Real Nights.</h2>
+            <div class="sp-polaroid-scatter-wrap">
             <div class="sp-polaroid-scatter">
-                <div class="sp-polaroid" style="--r:-3deg; left:0%; top:0%; width:30%; z-index:5;"><img src="/images/social/rooftop-magic.jpg" alt="Rooftop mixer crowd" loading="lazy"><div class="sp-polaroid-cap">✨ ROOFTOP MAGIC ✨ @ Exchange – Stereo 01 Mixer</div></div>
-                <div class="sp-polaroid" style="--r:6deg; left:3%; top:14%; width:30%; z-index:2;"><img src="/images/social/cheeky-peek.jpg" alt="Candid moment at a mixer" loading="lazy"><div class="sp-polaroid-cap">💕✨ CHEEKY PEEK!!!!</div></div>
-                <div class="sp-polaroid" style="--r:-8deg; left:0%; top:28%; width:30%; z-index:1;"><img src="/images/social/summer-nights.jpg" alt="Summer mixer moment" loading="lazy"><div class="sp-polaroid-cap">☀️ Summer Nights!!!</div></div>
+                <div class="sp-polaroid" style="--r:-3deg; left:0px; top:0px; width:240px; z-index:5;"><img src="/images/social/rooftop-magic.jpg" alt="Rooftop mixer crowd" loading="lazy"><div class="sp-polaroid-cap">✨ ROOFTOP MAGIC ✨ @ Exchange – Stereo 01 Mixer</div></div>
+                <div class="sp-polaroid" style="--r:6deg; left:24px; top:63px; width:240px; z-index:2;"><img src="/images/social/cheeky-peek.jpg" alt="Candid moment at a mixer" loading="lazy"><div class="sp-polaroid-cap">💕✨ CHEEKY PEEK!!!!</div></div>
+                <div class="sp-polaroid" style="--r:-8deg; left:0px; top:126px; width:240px; z-index:1;"><img src="/images/social/summer-nights.jpg" alt="Summer mixer moment" loading="lazy"><div class="sp-polaroid-cap">☀️ Summer Nights!!!</div></div>
 
-                <div class="sp-polaroid" style="--r:4deg; left:30%; top:9%; width:30%; z-index:4;"><img src="/images/social/matched-house.jpg" alt="Group at a house mixer" loading="lazy"><div class="sp-polaroid-cap">💕 #MATCHED! 💕 House Mixer @ ABAG</div></div>
-                <div class="sp-polaroid" style="--r:-4deg; left:58%; top:20%; width:30%; z-index:4;"><img src="/images/social/party-vibes.jpg" alt="Crowd at a house mixer" loading="lazy"><div class="sp-polaroid-cap">✨ #PARTY VIBES ✨ 💕 House Mixer @ ABAG</div></div>
+                <div class="sp-polaroid" style="--r:4deg; left:240px; top:40px; width:240px; z-index:4;"><img src="/images/social/matched-house.jpg" alt="Group at a house mixer" loading="lazy"><div class="sp-polaroid-cap">💕 #MATCHED! 💕 House Mixer @ ABAG</div></div>
+                <div class="sp-polaroid" style="--r:-4deg; left:464px; top:90px; width:240px; z-index:4;"><img src="/images/social/party-vibes.jpg" alt="Crowd at a house mixer" loading="lazy"><div class="sp-polaroid-cap">✨ #PARTY VIBES ✨ 💕 House Mixer @ ABAG</div></div>
 
-                <div class="sp-polaroid" style="--r:-5deg; left:68%; top:6%; width:30%; z-index:5;"><img src="/images/social/fire-vibes.jpg" alt="Fire pit at a rooftop mixer" loading="lazy"><div class="sp-polaroid-cap">🔥 FIRE VIBES!!! 🔥 Stereo-01 Mixer @ Exchange Rooftop</div></div>
-                <div class="sp-polaroid" style="--r:7deg; left:70%; top:33%; width:30%; z-index:1;"><img src="/images/social/buzzing.jpg" alt="Attendees mingling" loading="lazy"><div class="sp-polaroid-cap">✨✨ BUZZZZZING!</div></div>
+                <div class="sp-polaroid" style="--r:-5deg; left:544px; top:27px; width:240px; z-index:5;"><img src="/images/social/fire-vibes.jpg" alt="Fire pit at a rooftop mixer" loading="lazy"><div class="sp-polaroid-cap">🔥 FIRE VIBES!!! 🔥 Stereo-01 Mixer @ Exchange Rooftop</div></div>
+                <div class="sp-polaroid" style="--r:7deg; left:560px; top:148px; width:240px; z-index:1;"><img src="/images/social/buzzing.jpg" alt="Attendees mingling" loading="lazy"><div class="sp-polaroid-cap">✨✨ BUZZZZZING!</div></div>
             </div>
+        </div>
         </div>
 
         <div class="divider" id="lpDivider">Not ready yet? Get on the waitlist</div>
