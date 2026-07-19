@@ -261,9 +261,32 @@
           });
         })();
 
-        // Dynamic next-event card
+        // Dynamic next-event card.
+        // GA4 showed next_event_fetch_failed firing mostly on /lp for
+        // fbclid-tagged (Facebook/Instagram in-app browser) traffic — those
+        // webviews are flaky on slow mobile connections, so a single fetch
+        // with no timeout counts a slow-but-recoverable network as a hard
+        // failure. Add a short timeout + one retry before giving up; this
+        // also matters for UX, not just analytics noise: a fetch that never
+        // resolves leaves the Get Tickets button on its generic fallback
+        // copy instead of the real next event.
+        function fetchNextEventWithRetry(attempt) {
+          var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+          var timer = controller ? setTimeout(function () { controller.abort(); }, 4000) : null;
+          return fetch('/api/next-event', controller ? { signal: controller.signal } : undefined)
+            .then(function (r) {
+              if (timer) clearTimeout(timer);
+              return r.json();
+            })
+            .catch(function (err) {
+              if (timer) clearTimeout(timer);
+              if (!attempt) return fetchNextEventWithRetry(1); // one retry, no backoff needed for a 4s timeout
+              throw err;
+            });
+        }
+
         var btn = $('lpTicketBtn');
-        fetch('/api/next-event').then(function (r) { return r.json(); }).then(function (data) {
+        fetchNextEventWithRetry(0).then(function (data) {
           var ev = data && data.event;
           if (!ev || !ev.id || !btn) return;
           if ($('lpTitle')) $('lpTitle').textContent = ev.title || 'SparkDate Mixer';
