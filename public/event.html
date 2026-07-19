@@ -679,7 +679,15 @@
         // the page-wide hardcoded fallback was a foot-gun (audit #8: it
         // silently bypassed server capacity checks).
         const urlParams = new URLSearchParams(window.location.search);
-        const eventId = urlParams.get('id');
+        // Some ad platforms / QR-code / link-shortener tools wrap our URL
+        // and append their own tracking params with a second literal "?"
+        // instead of "&" (seen in GA4 as /event?id=X?id=X). URLSearchParams
+        // has no second "?" to split on, so it reads everything after the
+        // first "=" as one value — garbling the id and silently breaking
+        // the page for anyone who clicked that link. Recover the real id by
+        // truncating at the first stray "?" rather than passing the garbled
+        // string on to the event lookup.
+        const eventId = (urlParams.get('id') || '').split('?')[0] || null;
         if (!eventId) {
             window.location.replace('/events');
             // Stop further script execution by throwing; the page will
@@ -751,6 +759,48 @@
                     currency: 'USD'
                 });
             }
+
+            // GA4 e-commerce: view_item. Previously only the Meta Pixel side
+            // of this funnel was tracked — GA4's funnel exploration had no
+            // view_item/add_to_cart at all, so it showed a 100% drop-off
+            // between landing and purchase with no visibility into where
+            // people actually left. Standard GA4 e-commerce shape: an
+            // `items` array with item_id/item_name/price on each item.
+            if (typeof gtag === 'function') {
+                gtag('event', 'view_item', {
+                    currency: 'USD',
+                    value: ticketPrice(),
+                    items: [{ item_id: ev.id, item_name: ev.title || 'SparkDate Mixer', price: ticketPrice() }]
+                });
+            }
+
+            // Land the visitor straight into the checkout form: every "Get
+            // Tickets" CTA site-wide already deep-links directly to this
+            // page (/event?id=...), so the remaining friction was that
+            // nothing on arrival told a visitor where to start. Autofocus
+            // the first actionable field once the real event data (and
+            // therefore the form) is ready. Deferred one tick past
+            // applyUserContext() below so a signed-in member whose profile
+            // pre-fills + locks Gender lands in Name instead of a disabled
+            // field.
+            focusFirstCheckoutField();
+        }
+
+        // Focuses Gender, or Name if Gender is already locked by a signed-in
+        // member's profile (see applyUserContext). Never steals focus from a
+        // field the visitor has already started interacting with, and never
+        // re-fires — auth state can resolve after this first call, but a
+        // returning user mid-keystroke shouldn't get yanked back to the top.
+        let checkoutAutofocused = false;
+        function focusFirstCheckoutField() {
+            if (checkoutAutofocused) return;
+            if (document.activeElement && document.activeElement !== document.body) return;
+            const genderSelect = document.getElementById('ticketGender');
+            const nameInput = document.getElementById('ticketName');
+            const target = (genderSelect && !genderSelect.disabled) ? genderSelect : nameInput;
+            if (!target) return;
+            checkoutAutofocused = true;
+            target.focus({ preventScroll: false });
         }
 
         // Real price/scarcity signal in the hero tag — replaces the old
@@ -1022,18 +1072,29 @@
                 return;
             }
 
-            // Meta Pixel: a specific priced ticket just became concrete. Fires
-            // once per page load — flipping the gender select back and forth
-            // shouldn't refire it.
-            if (!addToCartTracked && eventData && typeof fbq !== 'undefined') {
+            // Meta Pixel + GA4: a specific priced ticket just became concrete.
+            // Fires once per page load — flipping the gender select back and
+            // forth shouldn't refire it. (See view_item above for why GA4
+            // e-commerce coverage matters here — this is the other half of
+            // the previously-invisible view→cart→purchase funnel.)
+            if (!addToCartTracked && eventData) {
                 addToCartTracked = true;
-                fbq('track', 'AddToCart', {
-                    content_ids: [eventData.id],
-                    content_name: eventData.title || 'SparkDate Mixer',
-                    content_type: 'product',
-                    value: ticketPrice(),
-                    currency: 'USD'
-                });
+                if (typeof fbq !== 'undefined') {
+                    fbq('track', 'AddToCart', {
+                        content_ids: [eventData.id],
+                        content_name: eventData.title || 'SparkDate Mixer',
+                        content_type: 'product',
+                        value: ticketPrice(),
+                        currency: 'USD'
+                    });
+                }
+                if (typeof gtag === 'function') {
+                    gtag('event', 'add_to_cart', {
+                        currency: 'USD',
+                        value: ticketPrice(),
+                        items: [{ item_id: eventData.id, item_name: eventData.title || 'SparkDate Mixer', price: ticketPrice() }]
+                    });
+                }
             }
 
             const ticket = ticketPrice();
@@ -1228,7 +1289,7 @@
                         transaction_id: evId,
                         value: parseFloat(purchaseValue.toFixed(2)),
                         currency: 'USD',
-                        items: [{ item_name: evName, price: parseFloat(ticket.toFixed(2)) }]
+                        items: [{ item_id: evId, item_name: evName, price: parseFloat(ticket.toFixed(2)) }]
                     });
 
                     // Mirror the same purchase to the Facebook Pixel. GA4 is
