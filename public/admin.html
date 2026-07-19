@@ -2703,26 +2703,51 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             // averaged across every open (upcoming, non-canceled) event. A
             // higher number means an event is selling fast relative to how
             // much runway is left before it happens.
+            //
+            // Target benchmark: for each event, the pace it WOULD need to
+            // sell every remaining spot by event day — (capacity − sold) ÷
+            // days remaining. Averaging that across the same open events
+            // gives an apples-to-apples "required pace" to compare the
+            // actual average velocity against (same events, same day
+            // weighting), so the KPI reads as on/behind/ahead of pace
+            // rather than a bare number with no reference point.
             const now = Date.now();
             const openEvents = allEvents.filter(e => {
                 const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
                 return d instanceof Date && !isNaN(d) && d.getTime() > now && e.status !== 'canceled';
             });
-            const velocities = openEvents.map(e => {
+            const capacityOf = (e) => Number.isFinite(Number(e.spots))
+                ? Number(e.spots)
+                : (e.spotsTotal ?? ((e.spotsMen || 0) + (e.spotsWomen || 0)));
+            const velocities = [];
+            const targets = [];
+            openEvents.forEach(e => {
                 const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
                 const daysUntil = Math.max(1, (d.getTime() - now) / 86400000);
                 const sold = allRegistrations.filter(r => r.eventId === e.id).length;
-                return sold / daysUntil;
+                velocities.push(sold / daysUntil);
+                const capacity = capacityOf(e);
+                if (capacity > 0) targets.push(Math.max(0, capacity - sold) / daysUntil);
             });
             const avgVelocity = velocities.length
                 ? velocities.reduce((s, v) => s + v, 0) / velocities.length
                 : 0;
+            const avgTarget = targets.length
+                ? targets.reduce((s, v) => s + v, 0) / targets.length
+                : 0;
             const totalOpenSold = openEvents.reduce((s, e) => s + allRegistrations.filter(r => r.eventId === e.id).length, 0);
 
             document.getElementById('kpiVelocity').textContent = openEvents.length ? avgVelocity.toFixed(1) + '/day' : '—';
-            document.getElementById('kpiVelocityTrend').textContent = openEvents.length
-                ? `${totalOpenSold} tickets across ${openEvents.length} open event${openEvents.length !== 1 ? 's' : ''}`
-                : 'No open events';
+            if (!openEvents.length) {
+                document.getElementById('kpiVelocityTrend').textContent = 'No open events';
+            } else if (!targets.length) {
+                document.getElementById('kpiVelocityTrend').textContent = `${totalOpenSold} tickets across ${openEvents.length} open event${openEvents.length !== 1 ? 's' : ''} · no capacity set`;
+            } else {
+                const onPace = avgVelocity >= avgTarget;
+                document.getElementById('kpiVelocityTrend').innerHTML =
+                    `Target ${avgTarget.toFixed(1)}/day to sell out · ` +
+                    (onPace ? `<span class="up">✓ on pace</span>` : `<span class="down">behind pace</span>`);
+            }
         }
 
         // ─── Renderers ─────────────────────────────────────
