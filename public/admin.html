@@ -3625,6 +3625,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <td style="font-size: 12px;">
                             <button class="action-btn" data-act="venue-preview" data-id="${safe(v.id)}" data-name="${safe(v.name)}" title="Preview the email without sending">Preview</button>
                             ${v.status === 'not_contacted' ? `<button class="action-btn" data-act="venue-send" data-id="${safe(v.id)}" data-name="${safe(v.name)}">Send</button>` : ''}
+                            ${(v.status && v.status !== 'not_contacted' && v.status !== 'event_created') ? `<button class="action-btn" data-act="venue-resend" data-id="${safe(v.id)}" data-name="${safe(v.name)}" title="Send the outreach email again">Resend</button>` : ''}
                             ${v.status !== 'event_created' ? `<button class="action-btn" data-act="venue-update" data-id="${safe(v.id)}">Update</button>` : ''}
                         </td>
                     </tr>
@@ -3638,6 +3639,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     const act = btn.dataset.act;
                     const id  = btn.dataset.id;
                     if (act === 'venue-send')    window.sendVenueOutreach(id, btn.dataset.name || '');
+                    if (act === 'venue-resend')  window.resendVenueOutreach(id, btn.dataset.name || '');
                     if (act === 'venue-preview') window.previewVenueOutreach(id, btn.dataset.name || '');
                     if (act === 'venue-update')  window.updateVenueStatus(id);
                 });
@@ -3866,6 +3868,51 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 }
             } catch (err) {
                 alert('Error sending outreach: ' + err.message);
+            }
+        };
+
+        // Same outreach email, but for a venue that's already past
+        // "not_contacted" (contacted/interested/booked) — the API refuses to
+        // re-send unless force:true is passed, as a guard against accidental
+        // double-sends from a double-click. This is the deliberate,
+        // admin-initiated path for a genuine follow-up.
+        window.resendVenueOutreach = async (venueId, venueName) => {
+            const venue = allVenues.find(v => v.id === venueId);
+            if (!venue?.contact_email) {
+                alert(`No contact email on file for "${venueName}".\n\nAdd one via CSV upload (with "Overwrite existing" ON) or by clicking Update.`);
+                return;
+            }
+            if (!confirm(`${venueName} is already marked "${venue.status}". Resend the outreach email to ${venue.contact_email} anyway?`)) return;
+
+            try {
+                const idToken = await auth.currentUser.getIdToken();
+                const response = await fetch('/api/send-venue-outreach', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({ venue_id: venueId, force: true })
+                });
+
+                const rawText = await response.text();
+                let result;
+                try {
+                    result = rawText ? JSON.parse(rawText) : {};
+                } catch (_) {
+                    console.error('[outreach] non-JSON response:', response.status, rawText.slice(0, 300));
+                    alert(`The server returned an unexpected response (HTTP ${response.status}). Check the console for details and try reloading the page.`);
+                    return;
+                }
+
+                if (response.ok && result.success) {
+                    alert('Email resent.');
+                    loadVenues();
+                } else {
+                    alert('Error: ' + (result.message || result.error || `HTTP ${response.status}`));
+                }
+            } catch (err) {
+                alert('Error resending outreach: ' + err.message);
             }
         };
 

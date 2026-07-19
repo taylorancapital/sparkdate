@@ -200,10 +200,19 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // Only advance status to 'contacted' on the FIRST send. A forced resend
+    // to a venue that's already progressed further in the pipeline
+    // (interested/booked/event_created) must not clobber that progress back
+    // down to 'contacted' — it's a follow-up, not a reset.
+    const statusUpdate = (!venue.status || venue.status === 'not_contacted')
+      ? { status: 'contacted' }
+      : {};
+
     await venueRef.update({
-      status: 'contacted',
+      ...statusUpdate,
       contacted_at: new Date().toISOString(),
       resend_message_id: emailResult.data?.id || null,
+      outreach_send_count: admin.firestore.FieldValue.increment(1),
     });
 
     console.log(`✅ Outreach sent: venue/${venue_id}`);
