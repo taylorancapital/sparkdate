@@ -862,6 +862,11 @@
                 <div class="kpi-value coral" id="kpiLTVCAC">—</div>
                 <div class="kpi-trend" id="kpiLTVCACTrend">Target: 3:1+</div>
             </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Ticket Velocity</div>
+                <div class="kpi-value gold" id="kpiVelocity">—</div>
+                <div class="kpi-trend" id="kpiVelocityTrend">Confirmed tickets / day until event</div>
+            </div>
         </div>
 
         <!-- Tabs -->
@@ -2693,6 +2698,56 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const ratio = parseFloat(ltvCac);
             const target = ratio >= 3 ? '<span class="up">✓ Target met</span>' : (ratio > 0 ? `<span class="down">Below 3:1 target</span>` : 'Enter FB spend to calculate');
             document.getElementById('kpiLTVCACTrend').innerHTML = target;
+
+            // ── Ticket velocity: confirmed tickets sold ÷ days remaining, ──
+            // averaged across every open (upcoming, non-canceled) event. A
+            // higher number means an event is selling fast relative to how
+            // much runway is left before it happens.
+            //
+            // Target benchmark: for each event, the pace it WOULD need to
+            // sell every remaining spot by event day — (capacity − sold) ÷
+            // days remaining. Averaging that across the same open events
+            // gives an apples-to-apples "required pace" to compare the
+            // actual average velocity against (same events, same day
+            // weighting), so the KPI reads as on/behind/ahead of pace
+            // rather than a bare number with no reference point.
+            const now = Date.now();
+            const openEvents = allEvents.filter(e => {
+                const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+                return d instanceof Date && !isNaN(d) && d.getTime() > now && e.status !== 'canceled';
+            });
+            const capacityOf = (e) => Number.isFinite(Number(e.spots))
+                ? Number(e.spots)
+                : (e.spotsTotal ?? ((e.spotsMen || 0) + (e.spotsWomen || 0)));
+            const velocities = [];
+            const targets = [];
+            openEvents.forEach(e => {
+                const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+                const daysUntil = Math.max(1, (d.getTime() - now) / 86400000);
+                const sold = allRegistrations.filter(r => r.eventId === e.id).length;
+                velocities.push(sold / daysUntil);
+                const capacity = capacityOf(e);
+                if (capacity > 0) targets.push(Math.max(0, capacity - sold) / daysUntil);
+            });
+            const avgVelocity = velocities.length
+                ? velocities.reduce((s, v) => s + v, 0) / velocities.length
+                : 0;
+            const avgTarget = targets.length
+                ? targets.reduce((s, v) => s + v, 0) / targets.length
+                : 0;
+            const totalOpenSold = openEvents.reduce((s, e) => s + allRegistrations.filter(r => r.eventId === e.id).length, 0);
+
+            document.getElementById('kpiVelocity').textContent = openEvents.length ? avgVelocity.toFixed(1) + '/day' : '—';
+            if (!openEvents.length) {
+                document.getElementById('kpiVelocityTrend').textContent = 'No open events';
+            } else if (!targets.length) {
+                document.getElementById('kpiVelocityTrend').textContent = `${totalOpenSold} tickets across ${openEvents.length} open event${openEvents.length !== 1 ? 's' : ''} · no capacity set`;
+            } else {
+                const onPace = avgVelocity >= avgTarget;
+                document.getElementById('kpiVelocityTrend').innerHTML =
+                    `Target ${avgTarget.toFixed(1)}/day to sell out · ` +
+                    (onPace ? `<span class="up">✓ on pace</span>` : `<span class="down">behind pace</span>`);
+            }
         }
 
         // ─── Renderers ─────────────────────────────────────
@@ -3517,11 +3572,20 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 return;
             }
 
-            // Lightweight tri-state pill renderer: green checkmark if the bucket
-            // has been sent, gold dash if not yet, red ✕ if unsubscribed before
-            // the send window. Keeps the table scannable.
-            const pill = (sent, subscribed) => {
+            // Four-state pill renderer: green checkmark only if that specific
+            // email actually went out (Resend accepted it, tracked by
+            // `${key}_sent`); gold dot if not yet; a muted "n/a" for
+            // returning-attendee leads where the whole first-timer sequence
+            // is intentionally suppressed (they already attended — see
+            // sendReturningAttendeeInvites in cron-send-emails.js) so it's
+            // never mistaken for an actual send; red — if unsubscribed
+            // before the send window. Previously "n/a" leads were stamped
+            // `*_sent: true` at creation to get the same visual effect, which
+            // made this table disagree with Resend's own send log — fixed by
+            // tracking suppression separately from "sent".
+            const pill = (sent, subscribed, suppressed) => {
                 if (!subscribed) return `<span style="color: rgba(245,243,240,0.3);">—</span>`;
+                if (suppressed)  return `<span style="color: rgba(245,243,240,0.3); font-size: 10px;" title="Returning attendee — first-timer sequence not applicable">n/a</span>`;
                 if (sent)      return `<span style="color: var(--success); font-weight: 600;">✓</span>`;
                 return            `<span style="color: rgba(245,243,240,0.4);">·</span>`;
             };
@@ -3530,6 +3594,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 const created = l.createdAt?.toDate ? l.createdAt.toDate() : (l.createdAt ? new Date(l.createdAt) : null);
                 const dateStr = created ? created.toLocaleDateString() + ' ' + created.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—';
                 const subColor = l.subscribed ? 'var(--success)' : '#f87171';
+                const suppressed = l.source === 'attendee';
                 return `
                     <tr style="${l.subscribed ? '' : 'opacity: 0.6;'}">
                         <td style="color: var(--white); font-weight: 500;">${safe(l.name || '—')}</td>
@@ -3537,11 +3602,11 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(l.phone || '—')}</td>
                         <td style="color: rgba(245,243,240,0.5); font-size: 11px;">${safe(l.source || '—')}</td>
                         <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(dateStr)}</td>
-                        <td style="text-align: center;">${pill(l.welcome_sent, l.subscribed)}</td>
-                        <td style="text-align: center;">${pill(l.day2_sent,  l.subscribed)}</td>
-                        <td style="text-align: center;">${pill(l.day5_sent,  l.subscribed)}</td>
-                        <td style="text-align: center;">${pill(l.day14_sent, l.subscribed)}</td>
-                        <td style="text-align: center;">${pill(l.day25_sent, l.subscribed)}</td>
+                        <td style="text-align: center;">${pill(l.welcome_sent, l.subscribed, suppressed)}</td>
+                        <td style="text-align: center;">${pill(l.day2_sent,  l.subscribed, suppressed)}</td>
+                        <td style="text-align: center;">${pill(l.day5_sent,  l.subscribed, suppressed)}</td>
+                        <td style="text-align: center;">${pill(l.day14_sent, l.subscribed, suppressed)}</td>
+                        <td style="text-align: center;">${pill(l.day25_sent, l.subscribed, suppressed)}</td>
                         <td style="color: ${subColor}; font-weight: 600; font-size: 12px;">${l.subscribed ? 'Yes' : 'Unsubscribed'}</td>
                     </tr>`;
             }).join('');
