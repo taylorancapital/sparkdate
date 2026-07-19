@@ -823,7 +823,15 @@ async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAt
         lead = {
           email, name: firstNameRaw, source: 'attendee', subscribed: true,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          welcome_sent: true, day2_sent: true, day5_sent: true, day14_sent: true, day25_sent: true,
+          // Do NOT set welcome_sent/day2_sent/etc to true here — no such
+          // emails were ever actually sent to this person (they were
+          // lazily added to `leads` only for the unsubscribe link below),
+          // and marking them "sent" made the admin Leads tab show green
+          // checkmarks for emails that never went out, disagreeing with
+          // Resend's own send log. sendBucket() already skips anyone in
+          // `attendedEmails` (built from confirmed past registrations,
+          // which is exactly who ends up here) — so the nurture sequence
+          // is correctly suppressed without lying about what was sent.
         };
         await leadRef.set(lead);
       }

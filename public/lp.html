@@ -76,9 +76,13 @@
            positions/rotation are percentage-based (via the --r custom
            property and left/top/width set inline per photo) so the whole
            collage scales fluidly with container width, no breakpoints. */
-        .sp-polaroid-scatter-wrap { overflow-x: auto; overflow-y: visible; padding: 24px 4px 44px; -webkit-overflow-scrolling: touch; }
-        /* Frozen at a fixed pixel size on purpose -- shrinking the card to fit narrow viewports while keeping the caption font-size fixed (per request) was blowing up the caption strip's height instead. A real polaroid doesn't resize itself for the room it's in, so neither does this: same size on every device, horizontal scroll on mobile if the collage is wider than the screen. */
-        .sp-polaroid-scatter { position: relative; width: 850px; height: 500px; margin: 0 auto; }
+        /* The 850x500 design below is frozen at a fixed pixel size on purpose -- a real polaroid
+           doesn't resize itself for the room it's in, so nothing inside this box (photo, border,
+           caption font) is allowed to independently adjust per device. Instead the whole box is
+           scaled down as one rigid unit to fit its container (JS below sets --scatter-scale), so
+           every internal proportion stays exactly frozen -- it's just reproduced smaller, not scrolled. */
+        .sp-polaroid-scatter-wrap { position: relative; width: 100%; max-width: 850px; margin: 0 auto; padding-top: 24px; }
+        .sp-polaroid-scatter { position: absolute; top: 24px; left: 50%; width: 850px; height: 500px; transform: translateX(-50%) scale(var(--scatter-scale, 1)); transform-origin: top center; }
         .sp-polaroid { position: absolute; width: 240px; background: #fff; border: 12px solid #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.4); transform: rotate(var(--r, 0deg)); transition: transform 0.25s ease; }
         .sp-polaroid:hover { transform: rotate(0deg) scale(1.08); z-index: 20 !important; }
         .sp-polaroid img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; }
@@ -170,6 +174,22 @@
             </div>
         </div>
         </div>
+        <script>
+            (function() {
+                function fitPolaroidScatter() {
+                    document.querySelectorAll('.sp-polaroid-scatter-wrap').forEach(function(wrap) {
+                        var scatter = wrap.querySelector('.sp-polaroid-scatter');
+                        if (!scatter) return;
+                        var designWidth = 850, designHeight = 500;
+                        var scale = Math.min(1, wrap.clientWidth / designWidth);
+                        wrap.style.setProperty('--scatter-scale', scale);
+                        wrap.style.height = (designHeight * scale + 24) + 'px';
+                    });
+                }
+                fitPolaroidScatter();
+                window.addEventListener('resize', fitPolaroidScatter);
+            })();
+        </script>
 
         <div class="divider" id="lpDivider">Not ready yet? Get on the waitlist</div>
 
