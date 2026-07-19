@@ -737,6 +737,34 @@
                     items: [{ item_id: ev.id, item_name: ev.title || 'SparkDate Mixer', price: ticketPrice() }]
                 });
             }
+
+            // Land the visitor straight into the checkout form: every "Get
+            // Tickets" CTA site-wide already deep-links directly to this
+            // page (/event?id=...), so the remaining friction was that
+            // nothing on arrival told a visitor where to start. Autofocus
+            // the first actionable field once the real event data (and
+            // therefore the form) is ready. Deferred one tick past
+            // applyUserContext() below so a signed-in member whose profile
+            // pre-fills + locks Gender lands in Name instead of a disabled
+            // field.
+            focusFirstCheckoutField();
+        }
+
+        // Focuses Gender, or Name if Gender is already locked by a signed-in
+        // member's profile (see applyUserContext). Never steals focus from a
+        // field the visitor has already started interacting with, and never
+        // re-fires — auth state can resolve after this first call, but a
+        // returning user mid-keystroke shouldn't get yanked back to the top.
+        let checkoutAutofocused = false;
+        function focusFirstCheckoutField() {
+            if (checkoutAutofocused) return;
+            if (document.activeElement && document.activeElement !== document.body) return;
+            const genderSelect = document.getElementById('ticketGender');
+            const nameInput = document.getElementById('ticketName');
+            const target = (genderSelect && !genderSelect.disabled) ? genderSelect : nameInput;
+            if (!target) return;
+            checkoutAutofocused = true;
+            target.focus({ preventScroll: false });
         }
 
         // Real price/scarcity signal in the hero tag — replaces the old
