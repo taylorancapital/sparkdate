@@ -72,12 +72,25 @@
         }
         .back-link:hover { color: var(--coral); }
 
+        /* Named areas instead of plain 2-column source order so mobile can
+           put the booking card right after the Share row -- above the long
+           "What to Expect"/host/safety/dress-code/cancellation copy -- while
+           desktop keeps its normal two-column layout unchanged. */
         .event-grid {
             display: grid;
             grid-template-columns: 1.4fr 1fr;
+            grid-template-areas: "info booking" "expect booking";
             gap: 50px;
         }
-        @media (max-width: 900px) { .event-grid { grid-template-columns: 1fr; } }
+        .grid-info    { grid-area: info; }
+        .grid-expect  { grid-area: expect; }
+        .grid-booking { grid-area: booking; }
+        @media (max-width: 900px) {
+            .event-grid {
+                grid-template-columns: 1fr;
+                grid-template-areas: "info" "booking" "expect";
+            }
+        }
 
         .event-hero {
             background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
@@ -427,7 +440,7 @@
 
         <div class="event-grid">
             <!-- Event Details -->
-            <div>
+            <div class="grid-info">
                 <div class="event-hero">
                     <span class="event-tag" id="eventTag">Upcoming Mixer</span>
                 </div>
@@ -462,7 +475,10 @@
                 <div id="eventShare" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 8px;">
                     <span style="color: rgba(245,243,240,0.6); font-size: 13px;">Share:</span>
                 </div>
+            </div>
 
+            <!-- What to Expect / description -->
+            <div class="grid-expect">
                 <div class="event-description">
                     <h2>What to Expect</h2>
                     <p>This is a singles mixer — not a rigid, timer-driven speed dating format, and not a singles bar either. It's a curated evening designed for adults who'd rather meet in person than keep texting.</p>
@@ -488,7 +504,7 @@
             </div>
 
             <!-- Booking Card -->
-            <div>
+            <div class="grid-booking">
                 <div class="booking-card">
                     <h3>Reserve Your Spot</h3>
                     <p class="capacity"><span id="spotsLeft">Open</span> spots remaining</p>
