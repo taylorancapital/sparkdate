@@ -96,10 +96,18 @@ async function withinGetawayRateLimit(ip) {
   }
 }
 
-// "I'm interested" click on a coming-soon retreat package (events.html).
-// Public + unauthenticated by necessity, so: honeypot, packageId validated
-// against a fixed allowlist (lib/getaway-packages.js) so a caller can't
-// write an arbitrary Firestore doc, and its own rate-limit bucket above.
+// "I'm interested" click on a coming-soon retreat package (events.html +
+// getaways.html). Public + unauthenticated by necessity, so: honeypot,
+// packageId validated against a fixed allowlist (lib/getaway-packages.js)
+// so a caller can't write an arbitrary Firestore doc, and its own
+// rate-limit bucket above.
+//
+// Two modes on one action, decided by the presence of `email`:
+//   no email  → an anonymous vote: increment the package's interest counter.
+//   email     → a notify-me signup (the follow-up step the UI shows AFTER
+//               a vote): upsert a subscribed lead tagged with the package,
+//               and do NOT increment the counter again — the vote that
+//               preceded it already did.
 async function handleGetawayInterest(req, res) {
   // Same hidden-field honeypot convention as the main lead form below.
   if (clean(req.body?.website, 200)) {
@@ -113,6 +121,36 @@ async function handleGetawayInterest(req, res) {
 
   if (!(await withinGetawayRateLimit(clientIp(req)))) {
     return res.status(429).json({ error: 'Too many requests. Please try again in a bit.' });
+  }
+
+  const email = clean(req.body?.email, MAX_EMAIL).toLowerCase();
+  if (email) {
+    if (!EMAIL_RE.test(email)) {
+      return res.status(400).json({ error: 'That email doesn\'t look right — mind checking it?' });
+    }
+    // Upsert into the same `leads` list the mixers feed: subscribed:true
+    // folds them into the weekly newsletter, and `getaway_packages` keeps
+    // a launch list per package so "we're opening the Singles Cruise"
+    // can email exactly the people who asked for it.
+    const existing = await db.collection('leads').where('email', '==', email).limit(1).get();
+    if (!existing.empty) {
+      await existing.docs[0].ref.update({
+        getaway_packages: admin.firestore.FieldValue.arrayUnion(packageId),
+        getaway_interest_at: new Date().toISOString(),
+      });
+    } else {
+      await db.collection('leads').add({
+        email,
+        name: '',
+        source: 'getaway_interest',
+        subscribed: true,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        getaway_packages: [packageId],
+        getaway_interest_at: new Date().toISOString(),
+      });
+    }
+    console.log(`✅ getaway notify-me → ${packageId} (emailHash=${hashEmail(email)})`);
+    return res.status(200).json({ success: true, notified: true });
   }
 
   await db.collection('getaway_interest').doc(packageId).set(
