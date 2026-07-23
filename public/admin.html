@@ -1465,6 +1465,8 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // Eventbrite's standard organizer fee schedule
         const EB_FEE_RATE = 0.037;  // 3.7% of face value
         const EB_FEE_FLAT = 1.79;   // + $1.79 per ticket
+        // Ticket velocity benchmark: 30 tickets across a 20-day sale window (1.5/day).
+        const TARGET_TICKETS_PER_DAY = 30 / 20;
 
         let allUsers = [];
         let allActivity = [];
@@ -2699,53 +2701,51 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const target = ratio >= 3 ? '<span class="up">✓ Target met</span>' : (ratio > 0 ? `<span class="down">Below 3:1 target</span>` : 'Enter FB spend to calculate');
             document.getElementById('kpiLTVCACTrend').innerHTML = target;
 
-            // ── Ticket velocity: confirmed tickets sold ÷ days remaining, ──
-            // averaged across every open (upcoming, non-canceled) event. A
-            // higher number means an event is selling fast relative to how
-            // much runway is left before it happens.
+            // ── Ticket velocity: confirmed tickets sold ÷ the number of days
+            // the event has been ON SALE, averaged across every open
+            // (upcoming, non-canceled) event. "Days on sale" is the window
+            // from when the event was published (createdAt) to the event
+            // itself (date) — sales necessarily close at/before the event
+            // happens, so there's no separate "close" field to read.
             //
-            // Target benchmark: for each event, the pace it WOULD need to
-            // sell every remaining spot by event day — (capacity − sold) ÷
-            // days remaining. Averaging that across the same open events
-            // gives an apples-to-apples "required pace" to compare the
-            // actual average velocity against (same events, same day
-            // weighting), so the KPI reads as on/behind/ahead of pace
-            // rather than a bare number with no reference point.
+            // This previously divided by days REMAINING until the event
+            // (date − now), which inverts the metric: an event that's been
+            // selling steadily for weeks read as an implausibly high
+            // "velocity" purely because few days were left on the clock,
+            // and a brand-new event read as slow no matter how fast it was
+            // actually moving. Dividing by the elapsed sale window instead
+            // of the remaining runway is what makes this a real per-day
+            // sales rate. Target is a flat 30 tickets / 20-day window
+            // (TARGET_TICKETS_PER_DAY, 1.5/day), the same pace for every
+            // event regardless of its capacity.
             const now = Date.now();
             const openEvents = allEvents.filter(e => {
                 const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
                 return d instanceof Date && !isNaN(d) && d.getTime() > now && e.status !== 'canceled';
             });
-            const capacityOf = (e) => Number.isFinite(Number(e.spots))
-                ? Number(e.spots)
-                : (e.spotsTotal ?? ((e.spotsMen || 0) + (e.spotsWomen || 0)));
             const velocities = [];
-            const targets = [];
             openEvents.forEach(e => {
                 const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-                const daysUntil = Math.max(1, (d.getTime() - now) / 86400000);
+                const opened = e.createdAt?.toDate ? e.createdAt.toDate() : (e.createdAt ? new Date(e.createdAt) : null);
+                if (!opened || isNaN(opened)) return; // no usable createdAt — can't measure a sale window
+                const daysOnSale = Math.max(1, (d.getTime() - opened.getTime()) / 86400000);
                 const sold = allRegistrations.filter(r => r.eventId === e.id).length;
-                velocities.push(sold / daysUntil);
-                const capacity = capacityOf(e);
-                if (capacity > 0) targets.push(Math.max(0, capacity - sold) / daysUntil);
+                velocities.push(sold / daysOnSale);
             });
             const avgVelocity = velocities.length
                 ? velocities.reduce((s, v) => s + v, 0) / velocities.length
                 : 0;
-            const avgTarget = targets.length
-                ? targets.reduce((s, v) => s + v, 0) / targets.length
-                : 0;
             const totalOpenSold = openEvents.reduce((s, e) => s + allRegistrations.filter(r => r.eventId === e.id).length, 0);
 
-            document.getElementById('kpiVelocity').textContent = openEvents.length ? avgVelocity.toFixed(1) + '/day' : '—';
+            document.getElementById('kpiVelocity').textContent = velocities.length ? avgVelocity.toFixed(1) + '/day' : '—';
             if (!openEvents.length) {
                 document.getElementById('kpiVelocityTrend').textContent = 'No open events';
-            } else if (!targets.length) {
-                document.getElementById('kpiVelocityTrend').textContent = `${totalOpenSold} tickets across ${openEvents.length} open event${openEvents.length !== 1 ? 's' : ''} · no capacity set`;
+            } else if (!velocities.length) {
+                document.getElementById('kpiVelocityTrend').textContent = `${totalOpenSold} tickets across ${openEvents.length} open event${openEvents.length !== 1 ? 's' : ''} · no creation date on file`;
             } else {
-                const onPace = avgVelocity >= avgTarget;
+                const onPace = avgVelocity >= TARGET_TICKETS_PER_DAY;
                 document.getElementById('kpiVelocityTrend').innerHTML =
-                    `Target ${avgTarget.toFixed(1)}/day to sell out · ` +
+                    `Target ${TARGET_TICKETS_PER_DAY.toFixed(1)}/day (30 tix / 20 days) · ` +
                     (onPace ? `<span class="up">✓ on pace</span>` : `<span class="down">behind pace</span>`);
             }
         }
