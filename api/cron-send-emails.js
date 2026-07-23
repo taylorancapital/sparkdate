@@ -30,13 +30,21 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // is pre-escaped by the caller; `event` may be null (evergreen fallback);
 // `ctaUrl` is a UTM-tagged link to the next event (or /events).
 
+// Opening-line builder: "Alex, quick stat: ..." when we know a first name,
+// plain "Quick stat: ..." when we don't. Never "there, quick stat" — a
+// generic placeholder greeting reads as a mail-merge failure, so with no
+// name the sentence simply starts normally (capitalized).
+const lede = (firstName, rest) => firstName
+  ? `${firstName}, ${rest}`
+  : rest.charAt(0).toUpperCase() + rest.slice(1);
+
 const EMAILS = {
   // Email 2 (Day 7 in the spec): the conversion-math hook.
   day2: {
     subject: '70% of people exchange contact info',
     html: (firstName, event, ctaUrl) => shell(
       h1('70% exchange contact info.') +
-      p(`${firstName}, quick stat: roughly <strong>70% of people who come to a SparkDate night</strong> leave having swapped contact info with someone.`) +
+      p(lede(firstName, `quick stat: roughly <strong>70% of people who come to a SparkDate night</strong> leave having swapped contact info with someone.`)) +
       p('On the apps? Match-to-date conversion is closer to 0.5%.') +
       p("The difference is simple — you're meeting face to face, where chemistry is instant, instead of texting for three weeks until the thread quietly dies.") +
       `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">
@@ -58,7 +66,7 @@ const EMAILS = {
     subject: 'Spots are limited for our next mixer',
     html: (firstName, event, ctaUrl) => shell(
       h1('Spots are limited.') +
-      p(`${firstName}, our mixers are intentionally small — enough people to meet a dozen new faces, few enough that it never feels like a cattle call.`) +
+      p(lede(firstName, `our mixers are intentionally small — enough people to meet a dozen new faces, few enough that it never feels like a cattle call.`)) +
       p("That also means seats go quickly. If you've been thinking about it, grab yours before it fills.") +
       eventCardHtml(event) +
       urgencyBox('⏰ <strong>We cap every event on purpose.</strong> Lock in your seat while there\'s room.') +
@@ -76,7 +84,7 @@ const EMAILS = {
       const doors = event && event.timeLabel ? esc(event.timeLabel) : 'the listed start time';
       return shell(
         h1("Here's exactly what to expect.") +
-        p(`${firstName}, nervous? Don't be. Here's how a SparkDate night actually runs:`) +
+        p(lede(firstName, `nervous? Don't be. Here's how a SparkDate night actually runs:`)) +
         `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">
           <strong>Doors at ${doors}.</strong> Check in, grab a name tag (first name only).<br>
           <strong>4 rounds, ~7 minutes each.</strong> A real conversation with a dozen-plus people.<br>
@@ -99,7 +107,7 @@ const EMAILS = {
     subject: "Don't miss our next mixer",
     html: (firstName, event, ctaUrl) => shell(
       h1("Don't miss the next one.") +
-      p(`${firstName}, our next SparkDate night is <strong>${event ? esc(event.daysAwayLabel) : 'coming up'}</strong> — and we'd love to see you there.`) +
+      p(lede(firstName, `our next SparkDate night is <strong>${event ? esc(event.daysAwayLabel) : 'coming up'}</strong> — and we'd love to see you there.`)) +
       eventCardHtml(event) +
       `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">
         <strong>Quick reminders:</strong><br>
@@ -114,7 +122,7 @@ const EMAILS = {
   },
 };
 
-// ── Newsletter templates (bi-weekly, rotating 12-week cycle) ──────────
+// ── Newsletter templates (weekly, rotating 12-week cycle) ─────────────
 // Value-first content that stands on its own (a tip, a reframe, a story) —
 // deliberately distinct from the day2/5/14/25 nurture hooks (the 70% stat,
 // the scarcity nudge, the round-by-round format) so a lead who finished the
@@ -138,7 +146,7 @@ const NEWSLETTER_EMAILS = [
     subject: 'The question that always gets a real answer',
     html: (firstName, event, ctaUrl) => shell(
       h1('Skip the interview. Get curious.') +
-      p(`${firstName}, most first conversations stall for one reason: they turn into a job interview. "What do you do?" "Where are you from?" "How was your week?" Polite — and forgettable.`) +
+      p(lede(firstName, `most first conversations stall for one reason: they turn into a job interview. "What do you do?" "Where are you from?" "How was your week?" Polite — and forgettable.`)) +
       p('The fix is to trade the résumé questions for genuinely curious ones. You already do this with people you love; you just forget to at the start with someone new.') +
       newsletterTip(`<strong>Try one of these:</strong><br>• "What have you been weirdly into lately?"<br>• "What's something you'd happily talk about for an hour?"<br>• "If you could teleport to dinner anywhere tonight, where?"`) +
       p("Real questions get real answers. That's where the spark actually lives.") +
@@ -153,7 +161,7 @@ const NEWSLETTER_EMAILS = [
     subject: 'Chemistry beats the checklist',
     html: (firstName, event, ctaUrl) => shell(
       h1('Perfect on paper, nothing in person?') +
-      p(`${firstName}, almost everyone has met someone who ticked every box — right job, right height, right taste in music — and felt absolutely nothing across the table.`) +
+      p(lede(firstName, `almost everyone has met someone who ticked every box — right job, right height, right taste in music — and felt absolutely nothing across the table.`)) +
       p("That's not a flaw in you. Attraction is something you feel in person: a laugh at the same moment, the way a conversation speeds up. No profile can predict it, which is exactly why scrolling one tells you so little.") +
       p('Meeting face to face just skips to the part that actually decides things.') +
       eventCardHtml(event) +
@@ -167,7 +175,7 @@ const NEWSLETTER_EMAILS = [
     subject: 'Why we obsess over the room',
     html: (firstName, event, ctaUrl) => shell(
       h1('The room does half the work.') +
-      p(`${firstName}, a good night isn't an accident — it's mostly the room. Too loud and you're shouting. Too cavernous and it feels like a conference. Too dim and nobody can read the moment.`) +
+      p(lede(firstName, `a good night isn't an accident — it's mostly the room. Too loud and you're shouting. Too cavernous and it feels like a conference. Too dim and nobody can read the moment.`)) +
       p('So we\'re picky. Across Lancaster and Philadelphia we look for the same things: warm lighting, corners you can actually talk in, a bar that\'s busy but not a scrum, and staff who get what we\'re doing.') +
       p("Show up, and the hardest part — feeling at ease — is already handled.") +
       eventCardHtml(event) +
@@ -181,7 +189,7 @@ const NEWSLETTER_EMAILS = [
     subject: 'Everyone there is a little nervous too',
     html: (firstName, event, ctaUrl) => shell(
       h1('The secret nobody says out loud.') +
-      p(`${firstName}, the number one thing people worry about before a mixer: "What if it's awkward?"`) +
+      p(lede(firstName, `the number one thing people worry about before a mixer: "What if it's awkward?"`)) +
       p("Here's the part that changes everything — everyone in the room is feeling exactly that, and everyone chose to come anyway. Nobody's hiding behind a screen, nobody's half-watching their phone. You're all there for the same honest reason.") +
       p('That shared little flutter of nerves? It\'s the great equalizer. Ten minutes in, it\'s gone — and you\'re just two people talking.') +
       eventCardHtml(event) +
@@ -195,7 +203,7 @@ const NEWSLETTER_EMAILS = [
     subject: 'The best part happens later that night',
     html: (firstName, event, ctaUrl) => shell(
       h1('No awkward Instagram hunt.') +
-      p(`${firstName}, the night itself is fun — but the best part comes at 9pm, once you're home.`) +
+      p(lede(firstName, `the night itself is fun — but the best part comes at 9pm, once you're home.`)) +
       p("You tell us, privately, who you'd like to see again. If they pick you too, we share contact info so you can actually meet up. No guessing whether they felt it. No tracking anyone down. No missed signals.") +
       p('It\'s the closure the apps never give you: you find out, and if it\'s mutual, you\'re connected.') +
       eventCardHtml(event) +
@@ -209,11 +217,97 @@ const NEWSLETTER_EMAILS = [
     subject: 'One evening vs. another month of swiping',
     html: (firstName, event, ctaUrl) => shell(
       h1('Put the phone down (lovingly).') +
-      p(`${firstName}, you could spend the next month swiping — sorting people into yes and no piles, scheduling dates that fall through, decoding three-word replies.`) +
+      p(lede(firstName, `you could spend the next month swiping — sorting people into yes and no piles, scheduling dates that fall through, decoding three-word replies.`)) +
       p('Or you could spend one evening in a room full of people who also decided they\'d rather just meet someone. Same goal, wildly different odds.') +
       p("The apps are a waiting room. This is the actual appointment.") +
       eventCardHtml(event) +
       ctaButtonHtml(ctaUrl, 'Trade swiping for meeting') +
+      cantMakeItLine('newsletter', 'browse_all') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 7 — First impressions, demystified (practical; NOT the day14 format walkthrough)
+  {
+    subject: "First impressions aren't what you think",
+    html: (firstName, event, ctaUrl) => shell(
+      h1('Nobody remembers your opening line.') +
+      p(lede(firstName, `people stress for days about what to SAY in the first thirty seconds. Here's the relief: almost nobody remembers the words. What they remember is how the moment felt.`)) +
+      p('And the feeling comes from things that cost you nothing: turning to face them fully, actually listening to the answer you asked for, laughing when something\'s funny instead of planning your next line.') +
+      newsletterTip(`<strong>The whole cheat code:</strong><br>• Ask, then actually listen.<br>• React honestly — a real laugh beats a clever line.<br>• Let a pause be a pause. Comfort reads as confidence.`) +
+      p('Presence beats polish. Every time.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Practice on real people') +
+      cantMakeItLine('newsletter', 'browse_all') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 8 — After the number swap (post-event follow-up; useful even to non-attendees)
+  {
+    subject: 'You got their number. Now what?',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('The follow-up is simpler than you think.') +
+      p(lede(firstName, `the most common place a real-life spark fizzles isn't the meeting — it's the two days after, when both people wait for the other to text first.`)) +
+      p('So here\'s permission to be the one who moves: reference the actual conversation you had ("still thinking about your defense of pineapple pizza"), suggest one concrete plan, and give it a day and a time.') +
+      newsletterTip(`<strong>The template:</strong> callback to your conversation + one specific invite + a real day. "Loved arguing about pizza with you — cocktails at that place you mentioned, Thursday?" Done.`) +
+      p('Vague "we should hang out sometime" texts die. Specific ones turn into dates.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Meet someone worth texting') +
+      cantMakeItLine('newsletter', 'browse_all') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 9 — Small rooms beat big parties (why the format works; NOT the day5 scarcity nudge)
+  {
+    subject: 'Why 25 people beats 250',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('Big parties are terrible for meeting people.') +
+      p(lede(firstName, `it sounds backwards, but the giant singles party is where connections go to die: everyone clusters with the friends they came with, the room's too loud to talk, and you leave having "met" no one.`)) +
+      p('A small room flips it. When there are twenty-five people and a structure that hands you the introduction, you actually talk to most of the room — and conversation, not proximity, is where anything real starts.') +
+      p("We keep our mixers small on purpose. It's not exclusivity for its own sake; it's just what works.") +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Grab a seat in the small room') +
+      cantMakeItLine('newsletter', 'browse_all') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 10 — Dating burnout reset (empathy angle; meets tired-of-apps readers where they are)
+  {
+    subject: "If dating feels like a chore, read this",
+    html: (firstName, event, ctaUrl) => shell(
+      h1("Burnout isn't a you problem.") +
+      p(lede(firstName, `if the whole thing has started to feel like a second job — the swiping, the small talk reruns, the ghosting — that's not because you're doing it wrong. It's because the format is exhausting by design.`)) +
+      p('The reset isn\'t trying harder at the same thing. It\'s changing the setting: one low-stakes evening where the only task is to have a few good conversations. No profiles to maintain, no threads to keep alive.') +
+      p('Worst case, you had a fun night out. That\'s the floor. The apps can\'t even promise that.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Try the low-stakes version') +
+      cantMakeItLine('newsletter', 'browse_all') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 11 — Bring a friend (social permission + referral behavior, no incentive program)
+  {
+    subject: 'The move: bring your single friend',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('Everything is easier with a wingperson.') +
+      p(lede(firstName, `the single biggest unlock for a nervous first-timer isn't a pep talk — it's walking in with a friend. You settle faster, you laugh more, and you both still rotate through the same conversations you came for.`)) +
+      p('And there\'s a selfish bonus: your friend notices things you don\'t. "You two were vibing" from someone who knows you is worth ten maybes from your own second-guessing.') +
+      p('So forward this to your favorite single person and make it a plan. Seriously — right now, while you\'re thinking of it.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Get tickets for two') +
+      cantMakeItLine('newsletter', 'browse_all') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 12 — What "chemistry" actually is (curiosity/science-lite; NOT issue 2's checklist reframe)
+  {
+    subject: 'Chemistry is faster than you think',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('Ninety seconds.') +
+      p(lede(firstName, `researchers who study attraction keep landing on the same uncomfortable-but-freeing finding: people sense whether there's *something there* within the first couple of minutes of meeting. Not from looks alone — from rhythm. Pace of the back-and-forth, shared timing on a laugh, whether silence feels easy.`)) +
+      p("Uncomfortable, because no amount of profile-polishing can fake it. Freeing, because it means you don't need an hour-long date to find out — you need a few real minutes.") +
+      p('Which is the entire logic of a mixer: a dozen ninety-second verdicts in one night, instead of a dozen dinner dates spread over a year.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Run the experiment') +
       cantMakeItLine('newsletter', 'browse_all') +
       p('Talk soon,<br>The SparkDate Team')
     ),
@@ -288,7 +382,7 @@ async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event,
     const ageDays = (nowMs - createdMs) / 86400000;
     if (ageDays < dayNum || ageDays > dayNum + MAX_LATE_DAYS) { skipped++; continue; }
 
-    const firstName = esc(resolveLeadName(lead, nameByEmail, 'there'));
+    const firstName = esc(resolveLeadName(lead, nameByEmail, ''));
     const tmpl      = EMAILS[emailKey];
     const unsubUrl  = makeUnsubscribeUrl(leadDoc.id, lead.email);
     // CTA → the specific next event's checkout when we have one, else /events.
@@ -476,7 +570,7 @@ function preEventEmailFor(stage, firstName, ev, tonight) {
       html: preEventShellHTML({
         heading: `${ev.title} is ${ev.daysAwayLabel || 'coming up'}.`,
         bodyHtml:
-          p(`${firstName}, your spot is locked in. Here's exactly how the night runs:`) +
+          p(lede(firstName, `your spot is locked in. Here's exactly how the night runs:`)) +
           infoBox(`<strong>Doors at ${doors}.</strong> Check in, grab a name tag (first name only).<br>
 <strong>4 rounds, ~7 minutes each.</strong> A real conversation with a dozen-plus people.<br>
 <strong>A bell marks each switch.</strong> No scripts, no pressure.<br>
@@ -494,7 +588,7 @@ function preEventEmailFor(stage, firstName, ev, tonight) {
     html: preEventShellHTML({
       heading: `${tonight ? 'Tonight' : 'Tomorrow night'} is the night.`,
       bodyHtml:
-        p(`${firstName}, quick rundown so ${when} is effortless:`) +
+        p(lede(firstName, `quick rundown so ${when} is effortless:`)) +
         infoBox(`<strong>Doors at ${doors}</strong> · ${esc(ev.venueLabel)}.<br>
 Arrive a few minutes early to check in and grab a name tag.<br>
 Just bring your phone — everything else is handled.`) +
@@ -536,7 +630,7 @@ async function sendPreEventEmails(nowMs, emailedThisRun) {
         if (sentLocks.has(`${er.id}_${stage}`)) { skipped++; continue; }
         if (emailedThisRun.has(email)) { skipped++; continue; }
 
-        const firstName = esc((r.name ? String(r.name).trim().split(/\s+/)[0] : '') || 'there');
+        const firstName = esc((r.name ? String(r.name).trim().split(/\s+/)[0] : '') || '');
         const msg = preEventEmailFor(stage, firstName, ev, tonight);
         try {
           const result = await resend.emails.send({
@@ -858,12 +952,12 @@ async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAt
       if (lead.subscribed === false) { skipped++; continue; }           // respect opt-out
       if (lead.returningInviteEventId === event.id) { skipped++; continue; } // already invited to this event
 
-      const firstName = esc(firstNameRaw || lead.name || 'there');
+      const firstName = esc(firstNameRaw || lead.name || '');
       const unsubUrl = makeUnsubscribeUrl(leadRef.id, email);
       const ctaUrl = buildUtmUrl('/event?id=' + event.id, 'email', 'returning', 'next_mixer');
       const html = shell(
         h1('Round two?') +
-        p(`${firstName}, it was great having you at a SparkDate night. We're lining up the next one — and the room's always better with familiar faces.`) +
+        p(lede(firstName, `it was great having you at a SparkDate night. We're lining up the next one — and the room's always better with familiar faces.`)) +
         eventCardHtml(event) +
         ctaButtonHtml(ctaUrl, 'Save my spot') +
         p('Hope to see you again,<br>The SparkDate Team')
@@ -898,25 +992,28 @@ async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAt
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
-// ── Bi-weekly newsletter (separate from nurture sequence) ───────────────────
+// ── Weekly newsletter (separate from nurture sequence) ──────────────────────
 // Sends to ALL subscribed leads (independent of nurture day/status).
-// Tracks lastNewsletterSentAt; resends every 14+ days. Uses rotating templates.
-async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByEmail) {
+// Tracks lastNewsletterSentAt; resends every 7+ days. Uses rotating templates.
+// Note: a lead also on the post-nurture event track alternates weeks with it
+// (via the 7-day cross-track spacing), so nobody gets more than one marketing
+// email per week overall.
+async function sendWeeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByEmail) {
   let sent = 0, skipped = 0;
 
-  // ONE issue for everyone this fortnight. A GLOBAL index that advances every
-  // 14 days — so the whole list receives the same newsletter in sequence,
+  // ONE issue for everyone this week. A GLOBAL index that advances every
+  // 7 days — so the whole list receives the same newsletter in sequence,
   // instead of each lead getting a different issue seeded off their own signup
   // date (which is what made the sends look scattershot / out of order).
-  const issueIndex = Math.floor(nowMs / (14 * 86400000)) % NEWSLETTER_EMAILS.length;
+  const issueIndex = Math.floor(nowMs / (7 * 86400000)) % NEWSLETTER_EMAILS.length;
   const tpl = NEWSLETTER_EMAILS[issueIndex];
   // CTA → the specific next event when one's scheduled, else the events page.
   // The newsletter sends regardless: the templates lead with evergreen content
   // and eventCardHtml(null) degrades to an evergreen card, so a gap week still
   // gets a real issue instead of silence.
   const ctaUrl = event
-    ? buildUtmUrl('/event?id=' + event.id, 'email', 'newsletter', 'biweekly')
-    : buildUtmUrl('/events', 'email', 'newsletter', 'biweekly');
+    ? buildUtmUrl('/event?id=' + event.id, 'email', 'newsletter', 'weekly')
+    : buildUtmUrl('/events', 'email', 'newsletter', 'weekly');
 
   for (const leadDoc of leads) {
     const lead = leadDoc.data();
@@ -926,13 +1023,13 @@ async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameB
     // Lowest-priority pass: yield to anyone already emailed this run.
     if (emailedThisRun.has(email)) { skipped++; continue; }
 
-    // Per-lead 14-day cooldown — with the pass running daily, this IS the
-    // fortnightly cadence (self-healing: a missed cron day delays a lead's
-    // issue by a day instead of silencing the whole list for two weeks).
+    // Per-lead 7-day cooldown — with the pass running daily, this IS the
+    // weekly cadence (self-healing: a missed cron day delays a lead's
+    // issue by a day instead of silencing the whole list for a week).
     const lastSent = lead.lastNewsletterSentAt
       ? (new Date(lead.lastNewsletterSentAt).getTime())
       : null;
-    if (lastSent && (nowMs - lastSent) < 14 * 86400000) { skipped++; continue; }
+    if (lastSent && (nowMs - lastSent) < 7 * 86400000) { skipped++; continue; }
 
     // Keep the two marketing tracks a week apart per inbox — if the
     // post-nurture event campaign reached them in the last 7 days, wait.
@@ -945,7 +1042,7 @@ async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameB
       // the body's Unsubscribe link goes out as a literal dead "__UNSUB__"
       // href (only the header unsubscribe worked).
       const unsubUrl = makeUnsubscribeUrl(leadDoc.id, lead.email);
-      const html = tpl.html(esc(resolveLeadName(lead, nameByEmail, 'there')), event, ctaUrl)
+      const html = tpl.html(esc(resolveLeadName(lead, nameByEmail, '')), event, ctaUrl)
         .replace(/__UNSUB__/g, unsubUrl);
 
       const result = await resend.emails.send({
@@ -1038,7 +1135,7 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun,
       const unsubUrl = makeUnsubscribeUrl(leadDoc.id, lead.email);
       const html = shell(
         h1('Our next mixer is coming') +
-        p(`${esc(resolveLeadName(lead, nameByEmail, 'There'))}, we're hosting our next mixer soon.`) +
+        p(lede(esc(resolveLeadName(lead, nameByEmail, '')), `we're hosting our next mixer soon.`)) +
         p('Same format: short conversations, real connections, no app swiping.') +
         eventCardHtml(event) +
         ctaButtonHtml(ctaUrl, 'Reserve your spot') +
@@ -1228,9 +1325,9 @@ module.exports = async function handler(req, res) {
             else audit.postNurture.eligibleNow++;
           }
         }
-        // Newsletter track
+        // Newsletter track (7-day weekly cooldown)
         const lastNl = lead.lastNewsletterSentAt ? new Date(lead.lastNewsletterSentAt).getTime() : null;
-        if (lastNl && (nowMs - lastNl) < 14 * 86400000) audit.newsletter.coolingDown++;
+        if (lastNl && (nowMs - lastNl) < 7 * 86400000) audit.newsletter.coolingDown++;
         else audit.newsletter.eligibleNow++;
       }
       console.log('✅ Cron general audit:', JSON.stringify(audit));
@@ -1268,11 +1365,11 @@ module.exports = async function handler(req, res) {
     //    catch-up — the main way "we used to send a lot, now nothing".)
     const postNurtureEvents = await sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun, attendedEmails, nameByEmail, registeredUpcomingEmails);
 
-    // 4) Bi-weekly newsletter — same daily/self-healing model, lowest
+    // 4) Weekly newsletter — same daily/self-healing model, lowest
     //    priority so it yields to all of the above. Issue selection stays
-    //    global-fortnight (see sendBiweeklyNewsletter) so everyone still
-    //    reads the same issue within a fortnight.
-    const newsletter = await sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByEmail);
+    //    global-week (see sendWeeklyNewsletter) so everyone still reads
+    //    the same issue within a week.
+    const newsletter = await sendWeeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByEmail);
 
     console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders), 'preEvent=', JSON.stringify(preEvent), 'postEventPrompts=', JSON.stringify(postEventPrompts), 'attendanceLog=', JSON.stringify(attendanceLog), 'returningInvites=', JSON.stringify(returningInvites), 'newsletter=', JSON.stringify(newsletter), 'postNurtureEvents=', JSON.stringify(postNurtureEvents));
     return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, preEvent, postEventPrompts, attendanceLog, returningInvites, newsletter, postNurtureEvents, ts: new Date().toISOString() });
@@ -1285,4 +1382,5 @@ module.exports = async function handler(req, res) {
 
 // Exported for render checks/tests.
 module.exports.EMAILS = EMAILS;
+module.exports.NEWSLETTER_EMAILS = NEWSLETTER_EMAILS;
 module.exports.preEventEmailFor = preEventEmailFor;
