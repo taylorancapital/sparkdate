@@ -114,7 +114,7 @@ const EMAILS = {
   },
 };
 
-// ── Newsletter templates (bi-weekly, rotating 12-week cycle) ──────────
+// ── Newsletter templates (weekly, rotating 12-week cycle) ─────────────
 // Value-first content that stands on its own (a tip, a reframe, a story) —
 // deliberately distinct from the day2/5/14/25 nurture hooks (the 70% stat,
 // the scarcity nudge, the round-by-round format) so a lead who finished the
@@ -214,6 +214,92 @@ const NEWSLETTER_EMAILS = [
       p("The apps are a waiting room. This is the actual appointment.") +
       eventCardHtml(event) +
       ctaButtonHtml(ctaUrl, 'Trade swiping for meeting') +
+      cantMakeItLine('newsletter', 'browse_all') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 7 — First impressions, demystified (practical; NOT the day14 format walkthrough)
+  {
+    subject: "First impressions aren't what you think",
+    html: (firstName, event, ctaUrl) => shell(
+      h1('Nobody remembers your opening line.') +
+      p(`${firstName}, people stress for days about what to SAY in the first thirty seconds. Here's the relief: almost nobody remembers the words. What they remember is how the moment felt.`) +
+      p('And the feeling comes from things that cost you nothing: turning to face them fully, actually listening to the answer you asked for, laughing when something\'s funny instead of planning your next line.') +
+      newsletterTip(`<strong>The whole cheat code:</strong><br>• Ask, then actually listen.<br>• React honestly — a real laugh beats a clever line.<br>• Let a pause be a pause. Comfort reads as confidence.`) +
+      p('Presence beats polish. Every time.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Practice on real people') +
+      cantMakeItLine('newsletter', 'browse_all') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 8 — After the number swap (post-event follow-up; useful even to non-attendees)
+  {
+    subject: 'You got their number. Now what?',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('The follow-up is simpler than you think.') +
+      p(`${firstName}, the most common place a real-life spark fizzles isn't the meeting — it's the two days after, when both people wait for the other to text first.`) +
+      p('So here\'s permission to be the one who moves: reference the actual conversation you had ("still thinking about your defense of pineapple pizza"), suggest one concrete plan, and give it a day and a time.') +
+      newsletterTip(`<strong>The template:</strong> callback to your conversation + one specific invite + a real day. "Loved arguing about pizza with you — cocktails at that place you mentioned, Thursday?" Done.`) +
+      p('Vague "we should hang out sometime" texts die. Specific ones turn into dates.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Meet someone worth texting') +
+      cantMakeItLine('newsletter', 'browse_all') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 9 — Small rooms beat big parties (why the format works; NOT the day5 scarcity nudge)
+  {
+    subject: 'Why 25 people beats 250',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('Big parties are terrible for meeting people.') +
+      p(`${firstName}, it sounds backwards, but the giant singles party is where connections go to die: everyone clusters with the friends they came with, the room's too loud to talk, and you leave having "met" no one.`) +
+      p('A small room flips it. When there are twenty-five people and a structure that hands you the introduction, you actually talk to most of the room — and conversation, not proximity, is where anything real starts.') +
+      p("We keep our mixers small on purpose. It's not exclusivity for its own sake; it's just what works.") +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Grab a seat in the small room') +
+      cantMakeItLine('newsletter', 'browse_all') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 10 — Dating burnout reset (empathy angle; meets tired-of-apps readers where they are)
+  {
+    subject: "If dating feels like a chore, read this",
+    html: (firstName, event, ctaUrl) => shell(
+      h1("Burnout isn't a you problem.") +
+      p(`${firstName}, if the whole thing has started to feel like a second job — the swiping, the small talk reruns, the ghosting — that's not because you're doing it wrong. It's because the format is exhausting by design.`) +
+      p('The reset isn\'t trying harder at the same thing. It\'s changing the setting: one low-stakes evening where the only task is to have a few good conversations. No profiles to maintain, no threads to keep alive.') +
+      p('Worst case, you had a fun night out. That\'s the floor. The apps can\'t even promise that.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Try the low-stakes version') +
+      cantMakeItLine('newsletter', 'browse_all') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 11 — Bring a friend (social permission + referral behavior, no incentive program)
+  {
+    subject: 'The move: bring your single friend',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('Everything is easier with a wingperson.') +
+      p(`${firstName}, the single biggest unlock for a nervous first-timer isn't a pep talk — it's walking in with a friend. You settle faster, you laugh more, and you both still rotate through the same conversations you came for.`) +
+      p('And there\'s a selfish bonus: your friend notices things you don\'t. "You two were vibing" from someone who knows you is worth ten maybes from your own second-guessing.') +
+      p('So forward this to your favorite single person and make it a plan. Seriously — right now, while you\'re thinking of it.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Get tickets for two') +
+      cantMakeItLine('newsletter', 'browse_all') +
+      p('Talk soon,<br>The SparkDate Team')
+    ),
+  },
+  // 12 — What "chemistry" actually is (curiosity/science-lite; NOT issue 2's checklist reframe)
+  {
+    subject: 'Chemistry is faster than you think',
+    html: (firstName, event, ctaUrl) => shell(
+      h1('Ninety seconds.') +
+      p(`${firstName}, researchers who study attraction keep landing on the same uncomfortable-but-freeing finding: people sense whether there's *something there* within the first couple of minutes of meeting. Not from looks alone — from rhythm. Pace of the back-and-forth, shared timing on a laugh, whether silence feels easy.`) +
+      p("Uncomfortable, because no amount of profile-polishing can fake it. Freeing, because it means you don't need an hour-long date to find out — you need a few real minutes.") +
+      p('Which is the entire logic of a mixer: a dozen ninety-second verdicts in one night, instead of a dozen dinner dates spread over a year.') +
+      eventCardHtml(event) +
+      ctaButtonHtml(ctaUrl, 'Run the experiment') +
       cantMakeItLine('newsletter', 'browse_all') +
       p('Talk soon,<br>The SparkDate Team')
     ),
@@ -898,25 +984,28 @@ async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAt
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
-// ── Bi-weekly newsletter (separate from nurture sequence) ───────────────────
+// ── Weekly newsletter (separate from nurture sequence) ──────────────────────
 // Sends to ALL subscribed leads (independent of nurture day/status).
-// Tracks lastNewsletterSentAt; resends every 14+ days. Uses rotating templates.
-async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByEmail) {
+// Tracks lastNewsletterSentAt; resends every 7+ days. Uses rotating templates.
+// Note: a lead also on the post-nurture event track alternates weeks with it
+// (via the 7-day cross-track spacing), so nobody gets more than one marketing
+// email per week overall.
+async function sendWeeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByEmail) {
   let sent = 0, skipped = 0;
 
-  // ONE issue for everyone this fortnight. A GLOBAL index that advances every
-  // 14 days — so the whole list receives the same newsletter in sequence,
+  // ONE issue for everyone this week. A GLOBAL index that advances every
+  // 7 days — so the whole list receives the same newsletter in sequence,
   // instead of each lead getting a different issue seeded off their own signup
   // date (which is what made the sends look scattershot / out of order).
-  const issueIndex = Math.floor(nowMs / (14 * 86400000)) % NEWSLETTER_EMAILS.length;
+  const issueIndex = Math.floor(nowMs / (7 * 86400000)) % NEWSLETTER_EMAILS.length;
   const tpl = NEWSLETTER_EMAILS[issueIndex];
   // CTA → the specific next event when one's scheduled, else the events page.
   // The newsletter sends regardless: the templates lead with evergreen content
   // and eventCardHtml(null) degrades to an evergreen card, so a gap week still
   // gets a real issue instead of silence.
   const ctaUrl = event
-    ? buildUtmUrl('/event?id=' + event.id, 'email', 'newsletter', 'biweekly')
-    : buildUtmUrl('/events', 'email', 'newsletter', 'biweekly');
+    ? buildUtmUrl('/event?id=' + event.id, 'email', 'newsletter', 'weekly')
+    : buildUtmUrl('/events', 'email', 'newsletter', 'weekly');
 
   for (const leadDoc of leads) {
     const lead = leadDoc.data();
@@ -926,13 +1015,13 @@ async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameB
     // Lowest-priority pass: yield to anyone already emailed this run.
     if (emailedThisRun.has(email)) { skipped++; continue; }
 
-    // Per-lead 14-day cooldown — with the pass running daily, this IS the
-    // fortnightly cadence (self-healing: a missed cron day delays a lead's
-    // issue by a day instead of silencing the whole list for two weeks).
+    // Per-lead 7-day cooldown — with the pass running daily, this IS the
+    // weekly cadence (self-healing: a missed cron day delays a lead's
+    // issue by a day instead of silencing the whole list for a week).
     const lastSent = lead.lastNewsletterSentAt
       ? (new Date(lead.lastNewsletterSentAt).getTime())
       : null;
-    if (lastSent && (nowMs - lastSent) < 14 * 86400000) { skipped++; continue; }
+    if (lastSent && (nowMs - lastSent) < 7 * 86400000) { skipped++; continue; }
 
     // Keep the two marketing tracks a week apart per inbox — if the
     // post-nurture event campaign reached them in the last 7 days, wait.
@@ -1228,9 +1317,9 @@ module.exports = async function handler(req, res) {
             else audit.postNurture.eligibleNow++;
           }
         }
-        // Newsletter track
+        // Newsletter track (7-day weekly cooldown)
         const lastNl = lead.lastNewsletterSentAt ? new Date(lead.lastNewsletterSentAt).getTime() : null;
-        if (lastNl && (nowMs - lastNl) < 14 * 86400000) audit.newsletter.coolingDown++;
+        if (lastNl && (nowMs - lastNl) < 7 * 86400000) audit.newsletter.coolingDown++;
         else audit.newsletter.eligibleNow++;
       }
       console.log('✅ Cron general audit:', JSON.stringify(audit));
@@ -1268,11 +1357,11 @@ module.exports = async function handler(req, res) {
     //    catch-up — the main way "we used to send a lot, now nothing".)
     const postNurtureEvents = await sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun, attendedEmails, nameByEmail, registeredUpcomingEmails);
 
-    // 4) Bi-weekly newsletter — same daily/self-healing model, lowest
+    // 4) Weekly newsletter — same daily/self-healing model, lowest
     //    priority so it yields to all of the above. Issue selection stays
-    //    global-fortnight (see sendBiweeklyNewsletter) so everyone still
-    //    reads the same issue within a fortnight.
-    const newsletter = await sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByEmail);
+    //    global-week (see sendWeeklyNewsletter) so everyone still reads
+    //    the same issue within a week.
+    const newsletter = await sendWeeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByEmail);
 
     console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders), 'preEvent=', JSON.stringify(preEvent), 'postEventPrompts=', JSON.stringify(postEventPrompts), 'attendanceLog=', JSON.stringify(attendanceLog), 'returningInvites=', JSON.stringify(returningInvites), 'newsletter=', JSON.stringify(newsletter), 'postNurtureEvents=', JSON.stringify(postNurtureEvents));
     return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, preEvent, postEventPrompts, attendanceLog, returningInvites, newsletter, postNurtureEvents, ts: new Date().toISOString() });
@@ -1285,4 +1374,5 @@ module.exports = async function handler(req, res) {
 
 // Exported for render checks/tests.
 module.exports.EMAILS = EMAILS;
+module.exports.NEWSLETTER_EMAILS = NEWSLETTER_EMAILS;
 module.exports.preEventEmailFor = preEventEmailFor;
