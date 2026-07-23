@@ -131,11 +131,37 @@
            count, so there's no count-dependent :last-child rule to re-check
            whenever a package is added or removed. */
         .getaways-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; }
-        .getaway-card { flex: 1 1 280px; max-width: 340px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 107, 107, 0.15); border-radius: 8px; padding: 24px; display: flex; flex-direction: column; transition: border-color 0.3s; }
+        /* content-visibility: same fix as blog.html — this page's nav is also
+           sticky + backdrop-filter, and each card now carries several
+           always-running icon animations; skipping paint for off-screen
+           cards keeps that from janking scroll. */
+        .getaway-card { content-visibility: auto; contain-intrinsic-size: 0 460px; flex: 1 1 280px; max-width: 340px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 107, 107, 0.15); border-radius: 8px; padding: 24px; display: flex; flex-direction: column; transition: border-color 0.3s; }
         .getaway-card:hover { border-color: rgba(255, 107, 107, 0.4); }
-        .getaway-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-        .getaway-emoji { font-size: 34px; }
-        .getaway-soon { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold); border: 1px solid rgba(212,175,55,0.4); border-radius: 999px; padding: 4px 10px; }
+        .getaway-icon-area { width: 100%; height: 140px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; border-radius: 4px; }
+        .getaway-icon-area svg { width: 96px; height: 96px; }
+        .getaway-icon-area.bg1 { background: linear-gradient(135deg, #2d4a4a 0%, #3d6a6a 100%); }
+        .getaway-icon-area.bg2 { background: linear-gradient(135deg, #3a3f4a 0%, #4a5a6a 100%); }
+        .getaway-icon-area.bg3 { background: linear-gradient(135deg, #4a3a2a 0%, #6a5a4a 100%); }
+        .getaway-icon-area.bg4 { background: linear-gradient(135deg, #3a4a2a 0%, #5a6a4a 100%); }
+        .getaway-icon-area.bg5 { background: linear-gradient(135deg, #4a3f2f 0%, #6a5f4f 100%); }
+        .getaway-icon-area.bg6 { background: linear-gradient(135deg, #4a2f3a 0%, #6a4a5a 100%); }
+        .getaway-icon-area.bg7 { background: linear-gradient(135deg, #3a2f4a 0%, #5a4a6a 100%); }
+        /* Idle icon motion, matching blog.html's set (float/glow/dot/bounce —
+           this icon set doesn't use the draw-in stroke animation). */
+        @keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+        @keyframes glowPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+        @keyframes pulseDot { 0%, 100% { opacity: 1; r: 2; } 50% { opacity: 0.5; r: 3; } }
+        @keyframes bounceTwinkle { 0%, 100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 0.7; } 50% { transform: translateY(-3px) scale(1.15) rotate(10deg); opacity: 1; } }
+        .anim-float { animation: floatY 3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+        .anim-float-slow { animation: floatY 3.6s ease-in-out infinite 0.3s; transform-box: fill-box; transform-origin: center; }
+        .anim-glow { animation: glowPulse 2.4s ease-in-out infinite; }
+        .anim-dot { animation: pulseDot 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+        .anim-dot-delay { animation: pulseDot 1.8s ease-in-out infinite 0.5s; transform-box: fill-box; transform-origin: center; }
+        .anim-bounce { animation: bounceTwinkle 2.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+        @media (prefers-reduced-motion: reduce) {
+            .anim-float, .anim-float-slow, .anim-glow, .anim-dot, .anim-dot-delay, .anim-bounce { animation: none; }
+        }
+        .getaway-soon { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold); border: 1px solid rgba(212,175,55,0.4); border-radius: 999px; padding: 4px 10px; margin-bottom: 10px; }
         .getaway-card h3 { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 20px; color: var(--white); margin-bottom: 8px; }
         .getaway-card p.getaway-blurb { font-size: 14px; color: rgba(245,243,240,0.72); margin-bottom: 16px; flex: 1; }
         .getaway-bar-track { height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
@@ -227,7 +253,8 @@
              JSON-LD in <head> (see the manifest note in lib/getaway-packages.js). -->
         <div class="getaways-grid" id="getawaysGrid">
             <div class="getaway-card" data-package-id="island-paradise">
-                <div class="getaway-top"><div class="getaway-emoji">🏝️</div><div class="getaway-soon">Coming Soon</div></div>
+                <div class="getaway-icon-area bg1"><svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="60" cy="58" r="45" stroke="#ff6b6b" stroke-width="1.5" fill="rgba(255, 107, 107, 0.10)"/><path d="M20 78 Q35 70 45 76 Q60 68 75 76 Q90 70 100 78" stroke="#3d8bab" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.7"/><path class="anim-float" d="M32 68 Q38 50 55 47 Q72 50 78 68" stroke="#e8c977" stroke-width="3" fill="rgba(232, 201, 119, 0.15)" stroke-linecap="round"/><path d="M48 47 L45 30 L51 43 L53 29 L56 44 L61 32 L58 48" stroke="#2d8a4d" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M70 53 L67 38 L73 51 L76 37 L79 52 L84 41 L81 56" stroke="#2d8a4d" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="53" cy="52" rx="4" ry="6" fill="#c8783c" transform="rotate(20 53 52)"/><path class="anim-bounce" d="M82 45 L83.5 49 L87.5 49 L84.5 51.5 L85.5 55.5 L82 53 L78.5 55.5 L79.5 51.5 L76.5 49 L80.5 49 Z" fill="#d4af37" opacity="0.85"/><circle class="anim-glow" cx="94" cy="30" r="8" fill="#ffd76a" opacity="0.5"/></svg></div>
+                <div class="getaway-soon">Coming Soon</div>
                 <h3>Remote Island Paradise</h3>
                 <p class="getaway-blurb">A private-beach, off-grid escape for a small group of singles.</p>
                 <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:2%"></div></div>
@@ -244,7 +271,8 @@
                 </div>
             </div>
             <div class="getaway-card" data-package-id="cruise">
-                <div class="getaway-top"><div class="getaway-emoji">🚢</div><div class="getaway-soon">Coming Soon</div></div>
+                <div class="getaway-icon-area bg2"><svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg"><circle class="anim-glow" cx="90" cy="28" r="11" fill="#d4af37" opacity="0.9"/><circle cx="94" cy="24" r="11" fill="#0a0e27"/><circle class="anim-dot" cx="30" cy="24" r="1.5" fill="#d4af37" opacity="0.8"/><circle class="anim-dot-delay" cx="42" cy="18" r="1" fill="#ff6b6b" opacity="0.7"/><circle class="anim-dot" cx="20" cy="34" r="1" fill="#d4af37" opacity="0.6"/><path class="anim-float" d="M30 65 L50 55 L90 55 L92 65 Z" stroke="#ff6b6b" stroke-width="2.5" fill="rgba(255, 107, 107, 0.08)" stroke-linejoin="round"/><rect x="45" y="40" width="30" height="15" rx="2" stroke="#ff6b6b" stroke-width="2" fill="rgba(255, 107, 107, 0.06)"/><circle cx="52" cy="32" r="3" fill="#d4af37"/><circle cx="78" cy="32" r="3" fill="#d4af37"/><path d="M30 65 L32 85 Q32 88 38 90 L82 90 Q88 88 88 85 L90 65" stroke="#ff6b6b" stroke-width="2" fill="none" stroke-linejoin="round"/><circle cx="40" cy="72" r="2" fill="#d4af37"/><circle cx="65" cy="72" r="2" fill="#d4af37"/><circle cx="80" cy="72" r="2" fill="#d4af37"/><path class="anim-bounce" d="M18 50 L19.5 54 L23.5 54 L20.5 56.5 L21.5 60.5 L18 58 L14.5 60.5 L15.5 56.5 L12.5 54 L16.5 54 Z" fill="#d4af37" opacity="0.85"/></svg></div>
+                <div class="getaway-soon">Coming Soon</div>
                 <h3>Singles Cruise</h3>
                 <p class="getaway-blurb">Multi-day voyage, curated guest list, a new port every morning.</p>
                 <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:2%"></div></div>
@@ -261,7 +289,8 @@
                 </div>
             </div>
             <div class="getaway-card" data-package-id="fiji-volcano">
-                <div class="getaway-top"><div class="getaway-emoji">🌋</div><div class="getaway-soon">Coming Soon</div></div>
+                <div class="getaway-icon-area bg3"><svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg"><path class="anim-float" d="M60 35 L45 75 L75 75 Z" stroke="#ff6b6b" stroke-width="2.5" fill="rgba(255, 107, 107, 0.08)" stroke-linejoin="round"/><path class="anim-glow" d="M60 35 Q64 24 58 16 Q68 20 66 30 Q74 24 70 14 Q80 22 74 32 Q60 40 60 35 Z" fill="#ff6b6b" opacity="0.85"/><circle class="anim-bounce" cx="64" cy="14" r="2.5" fill="#d4af37"/><circle class="anim-dot" cx="72" cy="10" r="1.8" fill="#ff6b6b"/><circle class="anim-dot-delay" cx="54" cy="18" r="1.5" fill="#d4af37"/><path d="M55 55 L65 55 L60 70 Z" stroke="#d4af37" stroke-width="1.5" fill="none" stroke-linejoin="round"/><circle cx="60" cy="50" r="2" fill="#ff6b6b"/><circle cx="50" cy="62" r="2.5" fill="#ff6b6b" opacity="0.7"/><circle cx="70" cy="65" r="1.5" fill="#d4af37"/><path d="M35 75 Q35 90 60 94 Q85 90 85 75" stroke="#4a4a6a" stroke-width="2" fill="none" stroke-linecap="round"/><path class="anim-bounce" d="M92 50 L93.5 54 L97.5 54 L94.5 56.5 L95.5 60.5 L92 58 L88.5 60.5 L89.5 56.5 L86.5 54 L90.5 54 Z" fill="#ff6b6b" opacity="0.85"/></svg></div>
+                <div class="getaway-soon">Coming Soon</div>
                 <h3>Fiji &amp; Volcano Adventure</h3>
                 <p class="getaway-blurb">Hot springs, volcanic hikes, and reef diving with a small group.</p>
                 <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:2%"></div></div>
@@ -278,7 +307,8 @@
                 </div>
             </div>
             <div class="getaway-card" data-package-id="spa-resort">
-                <div class="getaway-top"><div class="getaway-emoji">💆</div><div class="getaway-soon">Coming Soon</div></div>
+                <div class="getaway-icon-area bg4"><svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M26 46 L26 24 L94 24 L94 46" stroke="#f5f3f0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 24 L98 24" stroke="#d4af37" stroke-width="2" stroke-linecap="round"/><path d="M26 32 L94 32 M26 39 L94 39" stroke="#f5f3f0" stroke-width="1" opacity="0.5"/><path d="M36 24 L36 46 M52 24 L52 46 M68 24 L68 46 M84 24 L84 46" stroke="#d4af37" stroke-width="1" opacity="0.6"/><path d="M40 46 L40 28 M56 46 L56 28 M72 46 L72 28 M88 46 L88 28" stroke="#f5f3f0" stroke-width="1" opacity="0.35"/><path d="M26 46 L94 46" stroke="#d4af37" stroke-width="2" stroke-linecap="round"/><path d="M50 24 L50 16 Q60 12 70 16 L70 24" stroke="#d4af37" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path class="anim-float" d="M18 44 Q18 34 12 30 Q20 32 20 24" stroke="#2d8a4d" stroke-width="2" fill="none" stroke-linecap="round"/><path class="anim-float-slow" d="M102 44 Q102 34 108 30 Q100 32 100 24" stroke="#2d8a4d" stroke-width="2" fill="none" stroke-linecap="round"/><ellipse cx="60" cy="74" rx="34" ry="13" stroke="#ff6b6b" stroke-width="2.5" fill="rgba(255, 107, 107, 0.14)"/><path class="anim-float" d="M32 74 Q37 70 42 74 Q47 78 52 74" stroke="#ff6b6b" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.7"/><path class="anim-float-slow" d="M68 74 Q73 70 78 74 Q83 78 88 74" stroke="#ff6b6b" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.7"/><path d="M85 58 L85 50 M78 52 L85 46 L92 52" stroke="#d4af37" stroke-width="2" fill="rgba(212,175,55,0.12)" stroke-linecap="round" stroke-linejoin="round"/><path class="anim-bounce" d="M90 88 L91.5 92 L95.5 92 L92.5 94.5 L93.5 98.5 L90 96 L86.5 98.5 L87.5 94.5 L84.5 92 L88.5 92 Z" fill="#d4af37" opacity="0.85"/></svg></div>
+                <div class="getaway-soon">Coming Soon</div>
                 <h3>Spa Getaway &amp; Resort</h3>
                 <p class="getaway-blurb">A slower weekend — spa days, pools, and low-key mingling.</p>
                 <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:2%"></div></div>
@@ -295,7 +325,8 @@
                 </div>
             </div>
             <div class="getaway-card" data-package-id="cabin-retreat">
-                <div class="getaway-top"><div class="getaway-emoji">🏕️</div><div class="getaway-soon">Coming Soon</div></div>
+                <div class="getaway-icon-area bg5"><svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 82 L26 60 L30 82 Z M92 82 L96 58 L100 82 Z" stroke="#2d8a4d" stroke-width="2" fill="rgba(45, 138, 77, 0.15)" stroke-linejoin="round"/><rect x="76" y="40" width="6" height="16" fill="#8b6a47"/><path class="anim-float-slow" d="M79 40 Q83 34 79 30 Q85 32 82 24" stroke="#c4b5a0" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.7"/><path class="anim-float" d="M60 35 L38 58 L42 58 L42 82 L78 82 L78 58 L82 58 Z" stroke="#8b6a47" stroke-width="2.5" fill="rgba(139, 106, 71, 0.08)" stroke-linejoin="round"/><rect x="50" y="65" width="10" height="12" stroke="#ff6b6b" stroke-width="1.5" fill="none"/><rect x="65" y="65" width="10" height="12" stroke="#ff6b6b" stroke-width="1.5" fill="none"/><path d="M58 45 L58 40" stroke="#d4af37" stroke-width="2" stroke-linecap="round"/><path d="M62 45 L62 42" stroke="#d4af37" stroke-width="2" stroke-linecap="round"/><path class="anim-bounce" d="M88 40 L89.5 44 L93.5 44 L90.5 46.5 L91.5 50.5 L88 48 L84.5 50.5 L85.5 46.5 L82.5 44 L86.5 44 Z" fill="#ff6b6b" opacity="0.85"/></svg></div>
+                <div class="getaway-soon">Coming Soon</div>
                 <h3>Cabin Retreat</h3>
                 <p class="getaway-blurb">Fireplaces, board games, and a long weekend off the grid.</p>
                 <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:2%"></div></div>
@@ -312,7 +343,8 @@
                 </div>
             </div>
             <div class="getaway-card" data-package-id="palm-springs">
-                <div class="getaway-top"><div class="getaway-emoji">🌵</div><div class="getaway-soon">Coming Soon</div></div>
+                <div class="getaway-icon-area bg6"><svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M25 70 Q35 50 50 55 Q65 45 80 60 Q90 50 100 70" stroke="#d4af37" stroke-width="2" fill="none" stroke-linecap="round"/><circle class="anim-float" cx="40" cy="55" r="4" fill="#2d5a3d"/><circle cx="72" cy="65" r="3" fill="#2d5a3d"/><path d="M45 75 L42 50" stroke="#8b6a47" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="45" cy="50" r="3" fill="#2d5a3d"/><path d="M75 75 L73 60" stroke="#8b6a47" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="73" cy="60" r="2.5" fill="#2d5a3d"/><path d="M25 70 L100 70 L100 90 Q60 95 25 90 Z" stroke="#d4af37" stroke-width="1.5" fill="rgba(212, 175, 55, 0.1)"/><path class="anim-bounce" d="M88 32 L89.5 36 L93.5 36 L90.5 38.5 L91.5 42.5 L88 40 L84.5 42.5 L85.5 38.5 L82.5 36 L86.5 36 Z" fill="#ff6b6b" opacity="0.85"/></svg></div>
+                <div class="getaway-soon">Coming Soon</div>
                 <h3>Palm Springs Desert Escape</h3>
                 <p class="getaway-blurb">Poolside days and desert nights in a design-forward resort town.</p>
                 <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:2%"></div></div>
@@ -329,7 +361,8 @@
                 </div>
             </div>
             <div class="getaway-card" data-package-id="taos-new-mexico">
-                <div class="getaway-top"><div class="getaway-emoji">🏔️</div><div class="getaway-soon">Coming Soon</div></div>
+                <div class="getaway-icon-area bg7"><svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 78 L30 55 L38 55 L44 68 L50 55 L58 55 L54 78 Z" stroke="#c4c8d4" stroke-width="2" fill="rgba(196, 200, 212, 0.15)" stroke-linejoin="round" opacity="0.85"/><path class="anim-float" d="M40 76 Q40 55 40 42" stroke="#2d8a4d" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M40 46 Q30 44 26 36 M40 50 Q50 48 54 40 M40 58 Q28 56 24 50 M40 62 Q52 60 56 54" stroke="#2d8a4d" stroke-width="2" fill="none" stroke-linecap="round"/><path class="anim-float-slow" d="M92 78 L90 60 Q90 55 95 55 Q100 55 100 60 L98 78 Z" stroke="#2d8a4d" stroke-width="2" fill="rgba(45,138,77,0.12)" stroke-linejoin="round"/><path d="M90 65 L82 62 M100 68 L108 65" stroke="#2d8a4d" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M62 78 L60 62 Q60 56 68 56 L76 56 Q84 56 84 62 L82 78 Z" stroke="#d4af37" stroke-width="2.5" fill="rgba(212, 175, 55, 0.12)" stroke-linejoin="round"/><rect x="67" y="64" width="7" height="9" stroke="#ff6b6b" stroke-width="1.5" fill="none"/><path d="M62 78 L84 78" stroke="#d4af37" stroke-width="2" stroke-linecap="round"/><path class="anim-glow" d="M28 24 Q22 30 28 36 Q20 33 20 26 Q20 19 28 24 Z" fill="#d4af37" opacity="0.9"/><circle class="anim-dot" cx="42" cy="20" r="1.5" fill="#f5f3f0" opacity="0.8"/><circle class="anim-dot-delay" cx="50" cy="28" r="1" fill="#f5f3f0" opacity="0.7"/><path class="anim-bounce" d="M95 30 L96.5 34 L100.5 34 L97.5 36.5 L98.5 40.5 L95 38 L91.5 40.5 L92.5 36.5 L89.5 34 L93.5 34 Z" fill="#d4af37" opacity="0.85"/></svg></div>
+                <div class="getaway-soon">Coming Soon</div>
                 <h3>Taos, New Mexico</h3>
                 <p class="getaway-blurb">Adobe architecture, high-desert hikes, and art-town evenings.</p>
                 <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:2%"></div></div>
