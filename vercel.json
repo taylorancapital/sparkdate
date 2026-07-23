@@ -129,8 +129,16 @@
       "destination": "/matches.html"
     },
     {
+      "source": "/getaways",
+      "destination": "/getaways.html"
+    },
+    {
       "source": "/blog",
       "destination": "/blog.html"
+    },
+    {
+      "source": "/blog/singles-weekend-getaways-near-philadelphia",
+      "destination": "/blog/singles-weekend-getaways-near-philadelphia.html"
     },
     {
       "source": "/blog/conversation-starters",
