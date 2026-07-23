@@ -225,6 +225,27 @@ const NEWSLETTER_EMAILS = [
 // never reaches someone who signed up months ago.
 const MAX_LATE_DAYS = 21;
 
+// A lead older than this has aged past every nurture bucket (25 + 21) and
+// can never receive another dayN email. Post-nurture eligibility below uses
+// this to rescue leads that fell out of the sequence without day25_sent —
+// otherwise they'd sit in a dead zone: too old for nurture, and excluded
+// from the long-term campaign track that keys off a flag they never got.
+const NURTURE_AGED_OUT_DAYS = 25 + MAX_LATE_DAYS;
+
+// Firestore Timestamp | ISO string | Date → epoch ms (or null).
+function leadCreatedMs(lead) {
+  const created = lead.createdAt?.toDate ? lead.createdAt.toDate()
+                : (lead.createdAt ? new Date(lead.createdAt) : null);
+  return (created && !isNaN(created.getTime())) ? created.getTime() : null;
+}
+
+// Minimum days between the two MARKETING tracks (newsletter ↔ post-nurture
+// event campaign) hitting the same inbox. Both tracks now run daily with
+// per-lead 14-day cooldowns (self-healing — a missed cron day just delays a
+// send instead of skipping a whole fortnight), so this spacing is what keeps
+// one person from getting both marketing emails in the same week.
+const CROSS_TRACK_SPACING_DAYS = 7;
+
 // ── Send one day-bucket's email to every eligible lead ───────────────
 async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event, attendedEmails, nameByEmail, registeredUpcomingEmails) {
   let sent = 0;
@@ -260,12 +281,11 @@ async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event,
     // here, so leads created before those fields existed are picked up.
     if (lead[`${emailKey}_sent`]) { skipped++; continue; }
 
-    const created = lead.createdAt?.toDate ? lead.createdAt.toDate()
-                  : (lead.createdAt ? new Date(lead.createdAt) : null);
-    if (!created || isNaN(created.getTime())) { skipped++; continue; }
+    const createdMs = leadCreatedMs(lead);
+    if (createdMs === null) { skipped++; continue; }
 
     // Eligible from dayNum days old, up to dayNum + MAX_LATE_DAYS.
-    const ageDays = (nowMs - created.getTime()) / 86400000;
+    const ageDays = (nowMs - createdMs) / 86400000;
     if (ageDays < dayNum || ageDays > dayNum + MAX_LATE_DAYS) { skipped++; continue; }
 
     const firstName = esc(resolveLeadName(lead, nameByEmail, 'there'));
@@ -906,11 +926,18 @@ async function sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameB
     // Lowest-priority pass: yield to anyone already emailed this run.
     if (emailedThisRun.has(email)) { skipped++; continue; }
 
-    // Per-lead 14-day cooldown (belt-and-suspenders with the fortnightly gate).
+    // Per-lead 14-day cooldown — with the pass running daily, this IS the
+    // fortnightly cadence (self-healing: a missed cron day delays a lead's
+    // issue by a day instead of silencing the whole list for two weeks).
     const lastSent = lead.lastNewsletterSentAt
       ? (new Date(lead.lastNewsletterSentAt).getTime())
       : null;
     if (lastSent && (nowMs - lastSent) < 14 * 86400000) { skipped++; continue; }
+
+    // Keep the two marketing tracks a week apart per inbox — if the
+    // post-nurture event campaign reached them in the last 7 days, wait.
+    const lastEvt = lead.lastEventEmailSentAt ? new Date(lead.lastEventEmailSentAt).getTime() : null;
+    if (lastEvt && (nowMs - lastEvt) < CROSS_TRACK_SPACING_DAYS * 86400000) { skipped++; continue; }
 
     try {
       // shell()'s footer carries an __UNSUB__ placeholder — swap it for this
@@ -964,7 +991,17 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun,
   for (const leadDoc of leads) {
     const lead = leadDoc.data();
     const email = (lead.email || '').toLowerCase().trim();
-    if (!email || lead.day25_sent !== true) { skipped++; continue; }
+    if (!email) { skipped++; continue; }
+
+    // Eligible once nurture is DONE with them — either it completed
+    // (day25_sent) or they aged past every bucket without completing it.
+    // The aged-out branch is the fix for the silent dead zone: a lead whose
+    // day25 window was missed (cron outage, suppression at the time, or a
+    // doc created before the flags existed) previously could never enter
+    // this track, so the whole cold list went permanently quiet.
+    const createdMs = leadCreatedMs(lead);
+    const agedOut = createdMs !== null && (nowMs - createdMs) / 86400000 > NURTURE_AGED_OUT_DAYS;
+    if (lead.day25_sent !== true && !agedOut) { skipped++; continue; }
 
     // Attendees get the returning-attendee invite instead — don't double up.
     if (attendedEmails && attendedEmails.has(email)) { skipped++; continue; }
@@ -985,6 +1022,11 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun,
       ? (new Date(lead.lastEventEmailSentAt).getTime())
       : null;
     if (lastSent && (nowMs - lastSent) < 14 * 86400000) { skipped++; continue; }
+
+    // Keep the two marketing tracks a week apart per inbox — if the
+    // newsletter reached them in the last 7 days, this pass waits.
+    const lastNl = lead.lastNewsletterSentAt ? new Date(lead.lastNewsletterSentAt).getTime() : null;
+    if (lastNl && (nowMs - lastNl) < CROSS_TRACK_SPACING_DAYS * 86400000) { skipped++; continue; }
 
     if (!event) { skipped++; continue; } // Need event for card
 
@@ -1079,7 +1121,6 @@ module.exports = async function handler(req, res) {
     const snap = await db.collection('leads').where('subscribed', '==', true).get();
     const leads = snap.docs;
     const nowMs = Date.now();
-    const dayNum = Math.floor(nowMs / 86400000); // UTC day index, for fortnight gates
 
     // ONE email per person per run, shared across EVERY pass and keyed by
     // (lowercased) email. Passes run in priority order below; whichever sends
@@ -1138,6 +1179,64 @@ module.exports = async function handler(req, res) {
       console.error('[attendance-index] build failed:', e.message);
     }
 
+    // ── General audit mode (?audit=1) — read-only, sends NOTHING ──────────
+    // Answers "why is nobody getting email?" with numbers instead of silence:
+    // classifies every subscribed lead into exactly one bucket per marketing
+    // track, plus overall list-health counts. Safe to hit any time (it still
+    // requires CRON_SECRET, and the hour guard is bypassed by ?force=1 or by
+    // hitting it at 9 AM ET). Complements the existing only=postevent audit.
+    if (req.query?.audit === '1' || req.body?.audit === '1') {
+      const audit = {
+        subscribedLeads: leads.length,
+        nextEvent: event ? { id: event.id, title: event.title } : null,
+        attendedEmails: attendedEmails.size,
+        registeredUpcomingEmails: registeredUpcomingEmails.size,
+        nurture: { day2: 0, day5: 0, day14: 0, day25: 0 },
+        agedOutOfNurture: 0,       // older than day25 window — nurture done forever
+        missingCreatedAt: 0,
+        alreadyFullySent: 0,       // all four dayN flags set
+        suppressedAttendee: 0,     // in attendedEmails (gets returning-invite track)
+        suppressedTicketHolder: 0, // holds upcoming ticket (gets pre-event track)
+        postNurture: { eligibleNow: 0, coolingDown: 0, cappedAt12: 0 },
+        newsletter: { eligibleNow: 0, coolingDown: 0 },
+      };
+      for (const leadDoc of leads) {
+        const lead = leadDoc.data();
+        const email = (lead.email || '').toLowerCase().trim();
+        if (!email) continue;
+        const isAttendee = attendedEmails.has(email);
+        const holdsTicket = registeredUpcomingEmails.has(email);
+        if (isAttendee) audit.suppressedAttendee++;
+        if (holdsTicket) audit.suppressedTicketHolder++;
+        const createdMs = leadCreatedMs(lead);
+        if (createdMs === null) { audit.missingCreatedAt++; }
+        const ageDays = createdMs !== null ? (nowMs - createdMs) / 86400000 : null;
+        if (ageDays !== null && ageDays > NURTURE_AGED_OUT_DAYS) audit.agedOutOfNurture++;
+        if (lead.day2_sent && lead.day5_sent && lead.day14_sent && lead.day25_sent) audit.alreadyFullySent++;
+        if (ageDays !== null && !isAttendee && !holdsTicket) {
+          for (const [d, key] of [[2, 'day2'], [5, 'day5'], [14, 'day14'], [25, 'day25']]) {
+            if (!lead[`${key}_sent`] && ageDays >= d && ageDays <= d + MAX_LATE_DAYS) audit.nurture[key]++;
+          }
+        }
+        // Post-nurture track
+        const pnDone = lead.day25_sent === true || (ageDays !== null && ageDays > NURTURE_AGED_OUT_DAYS);
+        if (pnDone && !isAttendee && !holdsTicket) {
+          if ((lead.eventEmailsCount || 0) >= 12) audit.postNurture.cappedAt12++;
+          else {
+            const last = lead.lastEventEmailSentAt ? new Date(lead.lastEventEmailSentAt).getTime() : null;
+            if (last && (nowMs - last) < 14 * 86400000) audit.postNurture.coolingDown++;
+            else audit.postNurture.eligibleNow++;
+          }
+        }
+        // Newsletter track
+        const lastNl = lead.lastNewsletterSentAt ? new Date(lead.lastNewsletterSentAt).getTime() : null;
+        if (lastNl && (nowMs - lastNl) < 14 * 86400000) audit.newsletter.coolingDown++;
+        else audit.newsletter.eligibleNow++;
+      }
+      console.log('✅ Cron general audit:', JSON.stringify(audit));
+      return res.status(200).json({ success: true, audit: true, ...audit, ts: new Date().toISOString() });
+    }
+
     // 1) Transactional, time-sensitive — always send, and claim the address so
     //    marketing yields to them. (These run over ticket-holders, not leads.)
     const profileReminders = await sendProfileReminders(nowMs, emailedThisRun);
@@ -1162,18 +1261,18 @@ module.exports = async function handler(req, res) {
       results.push(await sendBucket(leads, d, key, nowMs, emailedThisRun, event, attendedEmails, nameByEmail, registeredUpcomingEmails));
     }
 
-    // 3) Post-nurture event campaign — fortnightly, offset one week from the
-    //    newsletter (dayNum % 14 === 7) so the two marketing tracks never blast
-    //    on the same day. `force` (manual trigger) bypasses the cadence gate.
-    const postNurtureEvents = (force || dayNum % 14 === 7)
-      ? await sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun, attendedEmails, nameByEmail, registeredUpcomingEmails)
-      : { sent: 0, skipped: 0, gated: true };
+    // 3) Post-nurture event campaign — runs DAILY; cadence comes from the
+    //    per-lead 14-day cooldown plus 7-day cross-track spacing, not a
+    //    single global gate day. (The old `dayNum % 14 === 7` gate meant one
+    //    failed 9 AM run silenced the entire track for a fortnight with no
+    //    catch-up — the main way "we used to send a lot, now nothing".)
+    const postNurtureEvents = await sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun, attendedEmails, nameByEmail, registeredUpcomingEmails);
 
-    // 4) Bi-weekly newsletter — fortnightly issue day (dayNum % 14 === 0),
-    //    lowest priority so it yields to all of the above.
-    const newsletter = (force || dayNum % 14 === 0)
-      ? await sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByEmail)
-      : { sent: 0, skipped: 0, gated: true };
+    // 4) Bi-weekly newsletter — same daily/self-healing model, lowest
+    //    priority so it yields to all of the above. Issue selection stays
+    //    global-fortnight (see sendBiweeklyNewsletter) so everyone still
+    //    reads the same issue within a fortnight.
+    const newsletter = await sendBiweeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByEmail);
 
     console.log(`✅ Cron complete (${leads.length} subscribed leads):`, JSON.stringify(results), 'profileReminders=', JSON.stringify(profileReminders), 'preEvent=', JSON.stringify(preEvent), 'postEventPrompts=', JSON.stringify(postEventPrompts), 'attendanceLog=', JSON.stringify(attendanceLog), 'returningInvites=', JSON.stringify(returningInvites), 'newsletter=', JSON.stringify(newsletter), 'postNurtureEvents=', JSON.stringify(postNurtureEvents));
     return res.status(200).json({ success: true, leads: leads.length, event: event ? event.id : null, results, profileReminders, preEvent, postEventPrompts, attendanceLog, returningInvites, newsletter, postNurtureEvents, ts: new Date().toISOString() });
