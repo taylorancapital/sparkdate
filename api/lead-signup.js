@@ -66,10 +66,12 @@ async function withinRateLimit(ip) {
 }
 
 // ── Getaway-interest rate limiting ──────────────────────────────────
-// Separate bucket from the limiter above: this action only increments a
-// counter (no email sent), so a higher ceiling is safe, and keeping it
-// in its own bucket means clicking a few retreat cards can't accidentally
-// exhaust the budget meant for actual lead-capture submissions.
+// Separate bucket from the limiter above, used ONLY for the anonymous vote
+// path (no email sent, just a counter increment), so a higher ceiling is
+// safe and clicking a few retreat cards can't exhaust the budget meant for
+// actual lead-capture. The notify-me EMAIL path deliberately does NOT use
+// this bucket — it writes a mailing-list lead, so handleGetawayInterest
+// gates it with the strict main-form limiter (withinRateLimit) instead.
 const RL_GETAWAY_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const RL_GETAWAY_MAX = 100;                  // accepted votes per IP per window (repeat voting is allowed by design; this is the spam ceiling)
 
@@ -99,15 +101,17 @@ async function withinGetawayRateLimit(ip) {
 // "I'm interested" click on a coming-soon retreat package (events.html +
 // getaways.html). Public + unauthenticated by necessity, so: honeypot,
 // packageId validated against a fixed allowlist (lib/getaway-packages.js)
-// so a caller can't write an arbitrary Firestore doc, and its own
-// rate-limit bucket above.
+// so a caller can't write an arbitrary Firestore doc.
 //
-// Two modes on one action, decided by the presence of `email`:
+// Two modes on one action, decided by the presence of `email`, each with its
+// OWN rate limit:
 //   no email  → an anonymous vote: increment the package's interest counter.
-//   email     → a notify-me signup (the follow-up step the UI shows AFTER
-//               a vote): upsert a subscribed lead tagged with the package,
-//               and do NOT increment the counter again — the vote that
-//               preceded it already did.
+//               Gated by the loose vote bucket (RL_GETAWAY_MAX) — no email is
+//               sent, just a counter bump, so a higher ceiling is safe.
+//   email     → a notify-me signup that writes a mailing-list lead. Gated by
+//               the SAME strict per-IP limit as the main lead form (RL_MAX),
+//               NOT the vote bucket, so it can't be used to mass-subscribe
+//               arbitrary addresses at 20x the rate the main form allows.
 async function handleGetawayInterest(req, res) {
   // Same hidden-field honeypot convention as the main lead form below.
   if (clean(req.body?.website, 200)) {
@@ -119,14 +123,17 @@ async function handleGetawayInterest(req, res) {
     return res.status(400).json({ error: 'Unknown package' });
   }
 
-  if (!(await withinGetawayRateLimit(clientIp(req)))) {
-    return res.status(429).json({ error: 'Too many requests. Please try again in a bit.' });
-  }
-
   const email = clean(req.body?.email, MAX_EMAIL).toLowerCase();
   if (email) {
+    // Validate the address BEFORE spending a rate-limit token, so a typo'd
+    // resubmit doesn't burn the budget.
     if (!EMAIL_RE.test(email)) {
       return res.status(400).json({ error: 'That email doesn\'t look right — mind checking it?' });
+    }
+    // Notify-me creates a subscribed mailing-list lead → gate it with the
+    // main lead-form limiter (5/hr/IP), not the 100/hr vote bucket.
+    if (!(await withinRateLimit(clientIp(req)))) {
+      return res.status(429).json({ error: 'Too many requests. Please try again in a bit.' });
     }
     // Upsert into the same `leads` list the mixers feed: subscribed:true
     // folds them into the weekly newsletter, and `getaway_packages` keeps
@@ -134,17 +141,33 @@ async function handleGetawayInterest(req, res) {
     // can email exactly the people who asked for it.
     const existing = await db.collection('leads').where('email', '==', email).limit(1).get();
     if (!existing.empty) {
+      // Re-subscribe on an explicit opt-in: typing your address into a
+      // "notify me" form is fresh consent, so flip `subscribed` back on for a
+      // previously-unsubscribed lead — otherwise the launch email we just
+      // promised gets filtered out by every sender's subscribed==true gate.
       await existing.docs[0].ref.update({
+        subscribed: true,
         getaway_packages: admin.firestore.FieldValue.arrayUnion(packageId),
         getaway_interest_at: new Date().toISOString(),
       });
     } else {
+      // dayN_sent flags pre-set true: this lead asked for getaway launch news
+      // + the newsletter, NOT the first-timer *mixer* nurture drip, so suppress
+      // day2/5/14/25 the same way enrollEventbriteOne does. `welcome_sent`
+      // stays false on purpose — no welcome was sent (the newsletter reaches
+      // them regardless), so if they later sign up through a real lead form
+      // they still get the welcome then (see the dedupe branch's resend below).
       await db.collection('leads').add({
         email,
         name: '',
         source: 'getaway_interest',
         subscribed: true,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        welcome_sent: false,
+        day2_sent: true,
+        day5_sent: true,
+        day14_sent: true,
+        day25_sent: true,
         getaway_packages: [packageId],
         getaway_interest_at: new Date().toISOString(),
       });
@@ -153,6 +176,10 @@ async function handleGetawayInterest(req, res) {
     return res.status(200).json({ success: true, notified: true });
   }
 
+  // Anonymous vote path — loose bucket, counter only.
+  if (!(await withinGetawayRateLimit(clientIp(req)))) {
+    return res.status(429).json({ error: 'Too many requests. Please try again in a bit.' });
+  }
   await db.collection('getaway_interest').doc(packageId).set(
     { count: admin.firestore.FieldValue.increment(1), lastClickAt: admin.firestore.FieldValue.serverTimestamp() },
     { merge: true }
@@ -657,6 +684,63 @@ async function handleCheckin(req, res) {
   });
 }
 
+// Build + send the "Your app matched you" welcome email to a lead, then stamp
+// welcome_sent on the lead doc. Shared by the fresh-signup path and the dedupe
+// path — the latter covers a lead that exists but never got a welcome (e.g. a
+// getaway notify-me lead, created with welcome_sent:false, that later signs up
+// through a real lead form). Returns the Resend result so the caller can report
+// email_sent. `firstName` is the raw first name; it's HTML-escaped in here.
+async function sendWelcomeEmail(email, firstName, leadRef) {
+  const unsubUrl = makeUnsubscribeUrl(leadRef.id, email);
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  // Escape user-supplied firstName before inlining into HTML to defend
+  // against a name like `<script>...</script>` arriving as raw markup.
+  const safeFirstName = String(firstName)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(new RegExp('"', 'g'), '&quot;');
+  // Show the next upcoming event (dynamic) with a "Get Tickets" CTA.
+  // Fails soft to an evergreen card when nothing is scheduled.
+  const nextEvent = await getNextEvent(db);
+  const ctaUrl = nextEvent
+    ? buildUtmUrl('/event?id=' + nextEvent.id, 'email', 'nurture', 'welcome')
+    : buildUtmUrl('/events', 'email', 'nurture', 'welcome');
+  const welcomeHtml = shell(
+    h1('Your app matched you.<br>We host the date.') +
+    p(`Hey ${safeFirstName},`) +
+    p('You know that feeling when you match on an app and then... three weeks of texting and still no actual date?') +
+    p('Yeah. We built SparkDate to skip that part.') +
+    p('We host real, in-person mixers in Lancaster and Philadelphia. You show up, meet a dozen-plus people in short, low-pressure rounds, and swap numbers with anyone you click with. No swiping. No pen-pal phase. Just actual meetings.') +
+    eventCardHtml(nextEvent) +
+    ctaButtonHtml(ctaUrl, 'Get Tickets') +
+    `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">
+      <strong>How it works:</strong> arrive &amp; check in → 4 rounds, ~7 min each → meet 12+ people → swap info if you vibe. That's it.
+    </div>` +
+    p('Questions? Just reply to this email.') +
+    p('See you there,<br>The SparkDate Team')
+  ).replace(/__UNSUB__/g, unsubUrl);
+  const emailResult = await resend.emails.send({
+    from: 'SparkDate <hello@mail.sparkdate.date>',
+    to: email,
+    subject: 'Your app matched you. We host the date. 🎯',
+    headers: {
+      // RFC 8058 one-click unsubscribe. Required by Gmail and a strong
+      // deliverability signal for everyone else.
+      'List-Unsubscribe':      `<${unsubUrl}>, <mailto:hello@sparkdate.date?subject=Unsubscribe>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+    html: welcomeHtml,
+  });
+  const emailSent = !emailResult.error;
+  await leadRef.update({
+    welcome_sent: emailSent,
+    welcome_sent_at: emailSent ? new Date().toISOString() : null,
+    resend_id: emailResult.data?.id || null,
+    resend_error: emailResult.error?.message || null,
+  });
+  console.log(emailSent ? '✅ Welcome email sent' : '❌ Welcome email failed: ' + emailResult.error?.message);
+  return emailResult;
+}
+
 module.exports = async function handler(req, res) {
   console.log('🔔 lead-capture hit:', new Date().toISOString(), 'method=', req.method);
 
@@ -756,7 +840,17 @@ module.exports = async function handler(req, res) {
       if (phone && !prev.phone)      patch.phone      = phone;
       if (ref   && !prev.referredBy) patch.referredBy = ref;
       if (Object.keys(patch).length) await doc.ref.update(patch);
-      console.log('↩️ duplicate lead — skipped welcome for', hashEmail(email));
+      // If this address is already a lead but never actually received a welcome
+      // (welcome_sent falsy — e.g. a getaway notify-me lead) and is still
+      // subscribed, send it now on this real form signup. Previously the
+      // welcome was skipped for EVERY existing lead unconditionally, so a
+      // getaway-first lead who later signed up here never got one.
+      if (!prev.welcome_sent && prev.subscribed !== false) {
+        const dedupeName = (patch.name || prev.name) ? String(patch.name || prev.name).split(' ')[0] : 'there';
+        const emailResult = await sendWelcomeEmail(email, dedupeName, doc.ref);
+        return res.status(200).json({ success: true, lead_id: doc.id, duplicate: true, email_sent: !emailResult.error });
+      }
+      console.log('↩️ duplicate lead — welcome already handled for', hashEmail(email));
       return res.status(200).json({ success: true, lead_id: doc.id, duplicate: true, email_sent: false });
     }
 
@@ -782,64 +876,11 @@ module.exports = async function handler(req, res) {
       day25_sent: false,
     });
     console.log('✅ Firestore lead saved:', docRef.id);
-    const unsubUrl = makeUnsubscribeUrl(docRef.id, email);
 
-    // 2. Send email via Resend (AWAIT — this is the key fix)
-    console.log('📨 Calling Resend API...');
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    // Escape user-supplied firstName before inlining into HTML to defend
-    // against a name like `<script>...</script>` arriving as raw markup.
-    const safeFirstName = String(firstName)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(new RegExp('"', 'g'), '&quot;');
-
-    // Show the next upcoming event (dynamic) with a "Get Tickets" CTA.
-    // Fails soft to an evergreen card when nothing is scheduled.
-    const nextEvent = await getNextEvent(db);
-    const ctaUrl = nextEvent
-      ? buildUtmUrl('/event?id=' + nextEvent.id, 'email', 'nurture', 'welcome')
-      : buildUtmUrl('/events', 'email', 'nurture', 'welcome');
-
-    const welcomeHtml = shell(
-      h1('Your app matched you.<br>We host the date.') +
-      p(`Hey ${safeFirstName},`) +
-      p('You know that feeling when you match on an app and then... three weeks of texting and still no actual date?') +
-      p('Yeah. We built SparkDate to skip that part.') +
-      p('We host real, in-person mixers in Lancaster and Philadelphia. You show up, meet a dozen-plus people in short, low-pressure rounds, and swap numbers with anyone you click with. No swiping. No pen-pal phase. Just actual meetings.') +
-      eventCardHtml(nextEvent) +
-      ctaButtonHtml(ctaUrl, 'Get Tickets') +
-      `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">
-        <strong>How it works:</strong> arrive &amp; check in → 4 rounds, ~7 min each → meet 12+ people → swap info if you vibe. That's it.
-      </div>` +
-      p('Questions? Just reply to this email.') +
-      p('See you there,<br>The SparkDate Team')
-    ).replace(/__UNSUB__/g, unsubUrl);
-
-    const emailResult = await resend.emails.send({
-      from: 'SparkDate <hello@mail.sparkdate.date>',
-      to: email,
-      subject: 'Your app matched you. We host the date. 🎯',
-      headers: {
-        // RFC 8058 one-click unsubscribe. Required by Gmail and a strong
-        // deliverability signal for everyone else.
-        'List-Unsubscribe':      `<${unsubUrl}>, <mailto:hello@sparkdate.date?subject=Unsubscribe>`,
-        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-      },
-      html: welcomeHtml,
-    });
-
-    console.log('📧 Resend response:', JSON.stringify(emailResult));
-
-    // 3. Update lead with email status
+    // 2. Build + send the welcome email and stamp welcome_sent (shared helper,
+    //    also used by the dedupe branch above to back-fill a missing welcome).
+    const emailResult = await sendWelcomeEmail(email, firstName, docRef);
     const emailSent = !emailResult.error;
-    await docRef.update({
-      welcome_sent: emailSent,
-      welcome_sent_at: emailSent ? new Date().toISOString() : null,
-      resend_id: emailResult.data?.id || null,
-      resend_error: emailResult.error?.message || null
-    });
-
-    console.log(emailSent ? '✅ Email sent successfully' : '❌ Email failed: ' + emailResult.error?.message);
 
     return res.status(200).json({
       success: true,

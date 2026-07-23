@@ -76,7 +76,7 @@
         },
         {
           "@type": "Question",
-          "name": "When do SparkDate Getaways launch?",
+          "name": "When do they launch?",
           "acceptedAnswer": { "@type": "Answer", "text": "They're in the planning stage now. We build the packages in order of demand — the trips with the most votes on this page get organized first. Leave your email on a package you vote for and you'll be the first to hear dates and pricing." }
         },
         {
@@ -86,12 +86,12 @@
         },
         {
           "@type": "Question",
-          "name": "Are the getaways only for people near Philadelphia and Lancaster?",
+          "name": "Is this only for people near Philadelphia and Lancaster?",
           "acceptedAnswer": { "@type": "Answer", "text": "Our mixers are Philadelphia and Lancaster based, and the first getaways will be organized from that community — but the destinations range from the Poconos to the Pacific, and singles from anywhere are welcome to vote and join the list." }
         },
         {
           "@type": "Question",
-          "name": "Do I need to be a SparkDate member to join a getaway?",
+          "name": "Do I need to be a SparkDate member?",
           "acceptedAnswer": { "@type": "Answer", "text": "No. Like our mixers, getaways will be open to any single who books a spot. Attending a mixer first is a great way to meet the community the trips are built around, but it won't be required." }
         }
       ]
@@ -126,11 +126,12 @@
         .how-step p { font-size: 14px; color: rgba(245,243,240,0.72); }
 
         .getaways-section { max-width: 1200px; margin: 0 auto; padding: 40px 40px 30px; }
-        .getaways-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
-        @media (min-width: 940px) {
-            .getaway-card:last-child { grid-column: 1 / -1; justify-self: center; width: 100%; max-width: 340px; }
-        }
-        .getaway-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 107, 107, 0.15); border-radius: 8px; padding: 24px; display: flex; flex-direction: column; transition: border-color 0.3s; }
+        /* Centered flex-wrap, not grid: flexbox centers the items in each row
+           — including a partial last row or a lone orphan card — at any column
+           count, so there's no count-dependent :last-child rule to re-check
+           whenever a package is added or removed. */
+        .getaways-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; }
+        .getaway-card { flex: 1 1 280px; max-width: 340px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 107, 107, 0.15); border-radius: 8px; padding: 24px; display: flex; flex-direction: column; transition: border-color 0.3s; }
         .getaway-card:hover { border-color: rgba(255, 107, 107, 0.4); }
         .getaway-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
         .getaway-emoji { font-size: 34px; }
@@ -218,8 +219,132 @@
     </section>
 
     <section class="getaways-section">
+        <!-- Cards are STATIC HTML on purpose: they render (and are crawlable)
+             even if the count-hydration script below fails, and this page ships
+             no Firebase SDK. The interest count + bar are progressively enhanced
+             from a public Firestore REST read. Keep names/blurbs in sync with
+             lib/getaway-packages.js, public/events.html, and the ItemList
+             JSON-LD in <head> (see the manifest note in lib/getaway-packages.js). -->
         <div class="getaways-grid" id="getawaysGrid">
-            <!-- populated by loadGetaways() -->
+            <div class="getaway-card" data-package-id="island-paradise">
+                <div class="getaway-top"><div class="getaway-emoji">🏝️</div><div class="getaway-soon">Coming Soon</div></div>
+                <h3>Remote Island Paradise</h3>
+                <p class="getaway-blurb">A private-beach, off-grid escape for a small group of singles.</p>
+                <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:2%"></div></div>
+                <div class="getaway-meta" style="display:none;"><span class="getaway-count"><strong class="getaway-count-num">0</strong> interested</span></div>
+                <button type="button" class="getaway-btn">I'm Interested</button>
+                <div class="getaway-notify">
+                    <p>Counted! Want first dibs when this opens?</p>
+                    <form>
+                        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+                        <input type="email" required placeholder="you@email.com" aria-label="Email for launch updates">
+                        <button type="submit">Notify Me</button>
+                    </form>
+                    <div class="notify-msg"></div>
+                </div>
+            </div>
+            <div class="getaway-card" data-package-id="cruise">
+                <div class="getaway-top"><div class="getaway-emoji">🚢</div><div class="getaway-soon">Coming Soon</div></div>
+                <h3>Singles Cruise</h3>
+                <p class="getaway-blurb">Multi-day voyage, curated guest list, a new port every morning.</p>
+                <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:2%"></div></div>
+                <div class="getaway-meta" style="display:none;"><span class="getaway-count"><strong class="getaway-count-num">0</strong> interested</span></div>
+                <button type="button" class="getaway-btn">I'm Interested</button>
+                <div class="getaway-notify">
+                    <p>Counted! Want first dibs when this opens?</p>
+                    <form>
+                        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+                        <input type="email" required placeholder="you@email.com" aria-label="Email for launch updates">
+                        <button type="submit">Notify Me</button>
+                    </form>
+                    <div class="notify-msg"></div>
+                </div>
+            </div>
+            <div class="getaway-card" data-package-id="fiji-volcano">
+                <div class="getaway-top"><div class="getaway-emoji">🌋</div><div class="getaway-soon">Coming Soon</div></div>
+                <h3>Fiji &amp; Volcano Adventure</h3>
+                <p class="getaway-blurb">Hot springs, volcanic hikes, and reef diving with a small group.</p>
+                <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:2%"></div></div>
+                <div class="getaway-meta" style="display:none;"><span class="getaway-count"><strong class="getaway-count-num">0</strong> interested</span></div>
+                <button type="button" class="getaway-btn">I'm Interested</button>
+                <div class="getaway-notify">
+                    <p>Counted! Want first dibs when this opens?</p>
+                    <form>
+                        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+                        <input type="email" required placeholder="you@email.com" aria-label="Email for launch updates">
+                        <button type="submit">Notify Me</button>
+                    </form>
+                    <div class="notify-msg"></div>
+                </div>
+            </div>
+            <div class="getaway-card" data-package-id="spa-resort">
+                <div class="getaway-top"><div class="getaway-emoji">💆</div><div class="getaway-soon">Coming Soon</div></div>
+                <h3>Spa Getaway &amp; Resort</h3>
+                <p class="getaway-blurb">A slower weekend — spa days, pools, and low-key mingling.</p>
+                <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:2%"></div></div>
+                <div class="getaway-meta" style="display:none;"><span class="getaway-count"><strong class="getaway-count-num">0</strong> interested</span></div>
+                <button type="button" class="getaway-btn">I'm Interested</button>
+                <div class="getaway-notify">
+                    <p>Counted! Want first dibs when this opens?</p>
+                    <form>
+                        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+                        <input type="email" required placeholder="you@email.com" aria-label="Email for launch updates">
+                        <button type="submit">Notify Me</button>
+                    </form>
+                    <div class="notify-msg"></div>
+                </div>
+            </div>
+            <div class="getaway-card" data-package-id="cabin-retreat">
+                <div class="getaway-top"><div class="getaway-emoji">🏕️</div><div class="getaway-soon">Coming Soon</div></div>
+                <h3>Cabin Retreat</h3>
+                <p class="getaway-blurb">Fireplaces, board games, and a long weekend off the grid.</p>
+                <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:2%"></div></div>
+                <div class="getaway-meta" style="display:none;"><span class="getaway-count"><strong class="getaway-count-num">0</strong> interested</span></div>
+                <button type="button" class="getaway-btn">I'm Interested</button>
+                <div class="getaway-notify">
+                    <p>Counted! Want first dibs when this opens?</p>
+                    <form>
+                        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+                        <input type="email" required placeholder="you@email.com" aria-label="Email for launch updates">
+                        <button type="submit">Notify Me</button>
+                    </form>
+                    <div class="notify-msg"></div>
+                </div>
+            </div>
+            <div class="getaway-card" data-package-id="palm-springs">
+                <div class="getaway-top"><div class="getaway-emoji">🌵</div><div class="getaway-soon">Coming Soon</div></div>
+                <h3>Palm Springs Desert Escape</h3>
+                <p class="getaway-blurb">Poolside days and desert nights in a design-forward resort town.</p>
+                <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:2%"></div></div>
+                <div class="getaway-meta" style="display:none;"><span class="getaway-count"><strong class="getaway-count-num">0</strong> interested</span></div>
+                <button type="button" class="getaway-btn">I'm Interested</button>
+                <div class="getaway-notify">
+                    <p>Counted! Want first dibs when this opens?</p>
+                    <form>
+                        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+                        <input type="email" required placeholder="you@email.com" aria-label="Email for launch updates">
+                        <button type="submit">Notify Me</button>
+                    </form>
+                    <div class="notify-msg"></div>
+                </div>
+            </div>
+            <div class="getaway-card" data-package-id="taos-new-mexico">
+                <div class="getaway-top"><div class="getaway-emoji">🏔️</div><div class="getaway-soon">Coming Soon</div></div>
+                <h3>Taos, New Mexico</h3>
+                <p class="getaway-blurb">Adobe architecture, high-desert hikes, and art-town evenings.</p>
+                <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:2%"></div></div>
+                <div class="getaway-meta" style="display:none;"><span class="getaway-count"><strong class="getaway-count-num">0</strong> interested</span></div>
+                <button type="button" class="getaway-btn">I'm Interested</button>
+                <div class="getaway-notify">
+                    <p>Counted! Want first dibs when this opens?</p>
+                    <form>
+                        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+                        <input type="email" required placeholder="you@email.com" aria-label="Email for launch updates">
+                        <button type="submit">Notify Me</button>
+                    </form>
+                    <div class="notify-msg"></div>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -262,182 +387,169 @@
         </p>
     </footer>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+    <script>
+        (function () {
+            var BAR_MAX = 1000;
+            function barPct(count) { return Math.min(100, Math.max(2, Math.round((count / BAR_MAX) * 100))); }
+            function toInt(s) { return parseInt(String(s == null ? '' : s).replace(/[^0-9]/g, ''), 10) || 0; }
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
-            authDomain: "sparkdate-philly.firebaseapp.com",
-            projectId: "sparkdate-philly",
-            storageBucket: "sparkdate-philly.firebasestorage.app",
-            messagingSenderId: "330206052938",
-            appId: "1:330206052938:web:18762191153f4037b75cb3"
-        };
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+            // fetch with a short timeout (AbortController); mirrors lp.html's
+            // hardening so a stalled request never leaves the UI hung.
+            function fetchWithTimeout(url, opts, ms) {
+                opts = opts || {};
+                var controller = ('AbortController' in window) ? new AbortController() : null;
+                var timer = controller ? setTimeout(function () { controller.abort(); }, ms || 5000) : null;
+                if (controller) opts.signal = controller.signal;
+                return fetch(url, opts).then(function (r) { if (timer) clearTimeout(timer); return r; },
+                    function (e) { if (timer) clearTimeout(timer); throw e; });
+            }
 
-        // Mirrors lib/getaway-packages.js (server-side validation source of
-        // truth) and events.html's copy — no shared client/server JS bundle
-        // in this repo, so the three lists are kept in sync manually.
-        const GETAWAY_PACKAGES = [
-            { id: 'island-paradise',  name: 'Remote Island Paradise',    emoji: '🏝️', blurb: 'A private-beach, off-grid escape for a small group of singles.' },
-            { id: 'cruise',           name: 'Singles Cruise',            emoji: '🚢', blurb: 'Multi-day voyage, curated guest list, a new port every morning.' },
-            { id: 'fiji-volcano',     name: 'Fiji & Volcano Adventure',  emoji: '🌋', blurb: 'Hot springs, volcanic hikes, and reef diving with a small group.' },
-            { id: 'spa-resort',       name: 'Spa Getaway & Resort',      emoji: '💆', blurb: 'A slower weekend — spa days, pools, and low-key mingling.' },
-            { id: 'cabin-retreat',    name: 'Cabin Retreat',             emoji: '🏕️', blurb: 'Fireplaces, board games, and a long weekend off the grid.' },
-            { id: 'palm-springs',     name: 'Palm Springs Desert Escape',emoji: '🌵', blurb: 'Poolside days and desert nights in a design-forward resort town.' },
-            { id: 'taos-new-mexico',  name: 'Taos, New Mexico',         emoji: '🏔️', blurb: 'Adobe architecture, high-desert hikes, and art-town evenings.' },
-        ];
+            // Counts come from a plain, unauthenticated Firestore REST read
+            // (firestore.rules grants public read on getaway_interest). No
+            // Firebase SDK: this SEO/landing page must not ship ~100KB of JS
+            // just to hydrate 7 numbers (same reasoning as api/next-event.js).
+            // The cards are static HTML, so if this fetch fails they still
+            // render — we just leave the interest counts hidden rather than
+            // showing a misleading "0 interested".
+            var COUNTS_URL = 'https://firestore.googleapis.com/v1/projects/sparkdate-philly/databases/(default)/documents/getaway_interest';
+            var hydrated = false;
 
-        const GETAWAY_BAR_MAX = 1000;
-        const getawayBarPct = (count) => Math.min(100, Math.max(2, Math.round((count / GETAWAY_BAR_MAX) * 100)));
+            function hydrateCounts() {
+                fetchWithTimeout(COUNTS_URL, {}, 4000)
+                    .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+                    .then(function (data) {
+                        var counts = {};
+                        (data.documents || []).forEach(function (d) {
+                            var id = d.name.split('/').pop();
+                            var f = d.fields && d.fields.count;
+                            counts[id] = f ? toInt(f.integerValue != null ? f.integerValue : f.doubleValue) : 0;
+                        });
+                        hydrated = true;
+                        var total = 0;
+                        document.querySelectorAll('.getaway-card').forEach(function (card) {
+                            var id = card.getAttribute('data-package-id');
+                            var n = counts[id] || 0;
+                            total += n;
+                            setCardCount(card, n);
+                        });
+                        showTotal(total);
+                    })
+                    .catch(function (err) {
+                        // Leave static cards as-is; never render "0 interested".
+                        console.error('[getaways] counts fetch failed:', err && err.message);
+                    });
+            }
 
-        function getawayCardHtml(pkg, count) {
-            const pct = getawayBarPct(count);
-            return `
-                <div class="getaway-card" data-package-id="${pkg.id}">
-                    <div class="getaway-top">
-                        <div class="getaway-emoji">${pkg.emoji}</div>
-                        <div class="getaway-soon">Coming Soon</div>
-                    </div>
-                    <h3>${pkg.name}</h3>
-                    <p class="getaway-blurb">${pkg.blurb}</p>
-                    <div class="getaway-bar-track"><div class="getaway-bar-fill" style="width:${pct}%"></div></div>
-                    <div class="getaway-meta">
-                        <span class="getaway-count"><strong class="getaway-count-num">${count}</strong> interested</span>
-                    </div>
-                    <button type="button" class="getaway-btn">I'm Interested</button>
-                    <div class="getaway-notify">
-                        <p>Counted! Want first dibs when this opens?</p>
-                        <form>
-                            <input type="email" required placeholder="you@email.com" aria-label="Email for launch updates">
-                            <button type="submit">Notify Me</button>
-                        </form>
-                        <div class="notify-msg"></div>
-                    </div>
-                </div>`;
-        }
+            function setCardCount(card, n) {
+                var numEl = card.querySelector('.getaway-count-num');
+                var barEl = card.querySelector('.getaway-bar-fill');
+                var meta = card.querySelector('.getaway-meta');
+                if (numEl) numEl.textContent = n.toLocaleString();
+                if (barEl) barEl.style.width = barPct(n) + '%';
+                if (meta) meta.style.display = '';
+            }
 
-        async function loadGetaways() {
-            const grid = document.getElementById('getawaysGrid');
-            if (!grid) return;
-            let counts = {};
-            try {
-                const snaps = await Promise.all(
-                    GETAWAY_PACKAGES.map(pkg => getDoc(doc(db, 'getaway_interest', pkg.id)))
-                );
-                snaps.forEach((snap, i) => {
-                    const id = GETAWAY_PACKAGES[i].id;
-                    const data = snap.exists() ? snap.data() : {};
-                    counts[id] = typeof data.count === 'number' ? data.count : 0;
+            function showTotal(total) {
+                var el = document.getElementById('getawaysTotal');
+                if (!el) return;
+                el.textContent = '';
+                var strong = document.createElement('strong');
+                strong.textContent = total.toLocaleString();
+                el.appendChild(strong);
+                el.appendChild(document.createTextNode(' interested across all getaways'));
+                el.style.display = 'inline-flex';
+            }
+
+            function recomputeTotalFromDom() {
+                if (!hydrated) return; // don't invent a total before counts loaded
+                var total = 0;
+                document.querySelectorAll('.getaway-card .getaway-count-num').forEach(function (el) {
+                    total += toInt(el.textContent);
                 });
-            } catch (err) {
-                console.error('[getaways] load error:', err);
-                GETAWAY_PACKAGES.forEach(pkg => { counts[pkg.id] = 0; });
+                showTotal(total);
             }
-            grid.innerHTML = GETAWAY_PACKAGES.map(pkg => getawayCardHtml(pkg, counts[pkg.id] || 0)).join('');
-            updateGetawaysTotal(counts);
 
-            grid.querySelectorAll('.getaway-card').forEach(card => {
-                const id = card.getAttribute('data-package-id');
-                card.querySelector('.getaway-btn').addEventListener('click', () => registerGetawayInterest(id, card));
-                card.querySelector('.getaway-notify form').addEventListener('submit', (e) => submitNotifyMe(e, id, card));
-            });
-        }
+            // Vote. Optimistic bump ONLY once counts are hydrated (so we never
+            // invent a "1 interested" before we know the real number). The POST
+            // result IS checked: a rejected/rate-limited vote rolls the bump
+            // back and does NOT fire conversion analytics, so displayed counts
+            // and ad-platform data stay honest. The notify step is revealed
+            // regardless so a user can always leave their email.
+            function vote(packageId, cardEl) {
+                var btn = cardEl.querySelector('.getaway-btn');
+                var numEl = cardEl.querySelector('.getaway-count-num');
+                var barEl = cardEl.querySelector('.getaway-bar-fill');
+                var prev = hydrated && numEl ? toInt(numEl.textContent) : null;
+                if (prev != null) setCardCount(cardEl, prev + 1);
+                btn.classList.remove('just-voted'); void btn.offsetWidth; btn.classList.add('just-voted');
+                cardEl.classList.add('voted');
+                recomputeTotalFromDom();
 
-        function updateGetawaysTotal(counts) {
-            const el = document.getElementById('getawaysTotal');
-            if (!el) return;
-            const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
-            el.textContent = '';
-            el.style.display = 'inline-flex';
-            const strong = document.createElement('strong');
-            strong.textContent = total.toLocaleString();
-            el.appendChild(strong);
-            el.appendChild(document.createTextNode(' interested across all getaways'));
-        }
-
-        function recomputeGetawaysTotalFromDom() {
-            const counts = {};
-            document.querySelectorAll('.getaway-card').forEach(card => {
-                const id = card.getAttribute('data-package-id');
-                counts[id] = parseInt(card.querySelector('.getaway-count-num').textContent, 10) || 0;
-            });
-            updateGetawaysTotal(counts);
-        }
-
-        async function registerGetawayInterest(packageId, cardEl) {
-            const btn = cardEl.querySelector('.getaway-btn');
-            const countEl = cardEl.querySelector('.getaway-count-num');
-            const barEl = cardEl.querySelector('.getaway-bar-fill');
-
-            // Optimistic UI, same as events.html: reflect the click
-            // immediately; repeat voting is allowed by design.
-            if (countEl) {
-                const newCount = (parseInt(countEl.textContent, 10) || 0) + 1;
-                countEl.textContent = newCount;
-                if (barEl) barEl.style.width = getawayBarPct(newCount) + '%';
-            }
-            btn.classList.remove('just-voted');
-            void btn.offsetWidth;
-            btn.classList.add('just-voted');
-            cardEl.classList.add('voted'); // reveals the notify-me step
-            recomputeGetawaysTotalFromDom();
-
-            if (typeof gtag === 'function') gtag('event', 'getaway_interest', { package_id: packageId });
-            if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: 'getaway_' + packageId });
-
-            try {
-                await fetch('/api/lead-signup', {
+                fetchWithTimeout('/api/lead-signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'getaway_interest', packageId: packageId, website: '' })
+                }, 6000).then(function (res) {
+                    if (!res.ok) throw new Error('http ' + res.status);
+                    if (typeof gtag === 'function') gtag('event', 'getaway_interest', { package_id: packageId });
+                    if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: 'getaway_' + packageId });
+                }).catch(function (err) {
+                    console.error('[getaways] vote failed:', err && err.message);
+                    if (prev != null) { setCardCount(cardEl, prev); recomputeTotalFromDom(); }
                 });
-            } catch (err) {
-                console.error('[getaways] interest click failed to save:', err);
             }
-        }
 
-        // Notify-me: the optional second step after a vote. Email goes to the
-        // same getaway_interest action — the presence of `email` makes the
-        // server upsert a subscribed lead instead of incrementing the counter.
-        async function submitNotifyMe(e, packageId, cardEl) {
-            e.preventDefault();
-            const form = e.currentTarget;
-            const input = form.querySelector('input[type=email]');
-            const btn = form.querySelector('button[type=submit]');
-            const msg = cardEl.querySelector('.notify-msg');
-            const email = (input.value || '').trim();
-            if (!email) return;
-            const orig = btn.textContent;
-            btn.textContent = '…'; btn.disabled = true; msg.style.display = 'none';
-            try {
-                const res = await fetch('/api/lead-signup', {
+            // Notify-me: the optional step after a vote. Email goes to the same
+            // getaway_interest action — presence of `email` makes the server
+            // upsert a subscribed lead (gated by the strict lead limiter) rather
+            // than incrementing the counter. Forwards the honeypot field.
+            function submitNotifyMe(e, packageId, cardEl) {
+                e.preventDefault();
+                var form = e.currentTarget;
+                var input = form.querySelector('input[type=email]');
+                var hp = form.querySelector('input[name=website]');
+                var btn = form.querySelector('button[type=submit]');
+                var msg = cardEl.querySelector('.notify-msg');
+                var email = (input.value || '').trim();
+                if (!email) return;
+                var orig = btn.textContent;
+                btn.textContent = '…'; btn.disabled = true; msg.style.display = 'none';
+                fetchWithTimeout('/api/lead-signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'getaway_interest', packageId: packageId, email: email, website: '' })
-                });
-                if (res.ok) {
-                    if (typeof gtag === 'function') gtag('event', 'generate_lead', { lead_type: 'getaway_notify', package_id: packageId });
-                    if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: 'getaway_notify_' + packageId });
-                    form.style.display = 'none';
-                    msg.style.display = 'block'; msg.style.color = '#4ade80';
-                    msg.textContent = '✓ You\'re on the list — first dibs when it opens.';
-                } else {
-                    const body = await res.json().catch(() => ({}));
+                    body: JSON.stringify({ action: 'getaway_interest', packageId: packageId, email: email, website: (hp && hp.value) || '' })
+                }, 8000).then(function (res) {
+                    return res.ok ? { ok: true } : res.json().catch(function () { return {}; }).then(function (b) { return { ok: false, error: b.error }; });
+                }).then(function (r) {
+                    if (r.ok) {
+                        if (typeof gtag === 'function') gtag('event', 'generate_lead', { lead_type: 'getaway_notify', package_id: packageId });
+                        if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: 'getaway_notify_' + packageId });
+                        form.style.display = 'none';
+                        msg.style.display = 'block'; msg.style.color = '#4ade80';
+                        msg.textContent = '✓ You\'re on the list — first dibs when it opens.';
+                    } else {
+                        msg.style.display = 'block'; msg.style.color = '#ff6b6b';
+                        msg.textContent = r.error || 'Something went wrong. Try again.';
+                    }
+                }).catch(function () {
                     msg.style.display = 'block'; msg.style.color = '#ff6b6b';
-                    msg.textContent = body.error || 'Something went wrong. Try again.';
-                }
-            } catch (_) {
-                msg.style.display = 'block'; msg.style.color = '#ff6b6b';
-                msg.textContent = 'Network error. Try again.';
-            } finally {
-                btn.textContent = orig; btn.disabled = false;
+                    msg.textContent = 'Network error. Try again.';
+                }).then(function () {
+                    btn.textContent = orig; btn.disabled = false;
+                });
             }
-        }
 
-        loadGetaways();
+            // Wire the static cards.
+            document.querySelectorAll('.getaway-card').forEach(function (card) {
+                var id = card.getAttribute('data-package-id');
+                var btn = card.querySelector('.getaway-btn');
+                var form = card.querySelector('.getaway-notify form');
+                if (btn) btn.addEventListener('click', function () { vote(id, card); });
+                if (form) form.addEventListener('submit', function (e) { submitNotifyMe(e, id, card); });
+            });
+
+            hydrateCounts();
+        })();
     </script>
 </body>
 </html>

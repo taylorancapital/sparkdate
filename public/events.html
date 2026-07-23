@@ -1111,12 +1111,14 @@
 
         // ── Getaways: coming-soon retreat packages ──────────────────
         // Mirrors lib/getaway-packages.js (server-side validation source of
-        // truth) — there's no shared client/server JS bundle in this repo,
-        // so this list is kept in sync manually. Counts are a public read
-        // straight from Firestore (allowed by firestore.rules); the actual
-        // increment on click goes through /api/lead-signup's
-        // getaway_interest action, which validates packageId against its
-        // own copy of this same allowlist server-side.
+        // truth) — there's no shared client/server JS bundle in this repo, so
+        // this list is hand-synced. It also lives in public/getaways.html
+        // (static card markup + ItemList JSON-LD); update all four together
+        // when a package changes — see the manifest in lib/getaway-packages.js.
+        // Counts are a public read straight from Firestore (allowed by
+        // firestore.rules); the actual increment on click goes through
+        // /api/lead-signup's getaway_interest action, which validates packageId
+        // against its own copy of this same allowlist server-side.
         const GETAWAY_PACKAGES = [
             { id: 'island-paradise',  name: 'Remote Island Paradise',    emoji: '🏝️', blurb: 'A private-beach, off-grid escape for a small group of singles.' },
             { id: 'cruise',           name: 'Singles Cruise',            emoji: '🚢', blurb: 'Multi-day voyage, curated guest list, a new port every morning.' },

@@ -60,18 +60,14 @@
         .hero h1 .hl { color: var(--coral); }
         .hero p { font-size: 18px; color: rgba(245,243,240,0.75); max-width: 560px; margin: 0 auto; }
 
-        .posts-grid { max-width: 1100px; margin: 0 auto; padding: 50px 40px 80px; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 28px; }
+        /* Centered flex-wrap, not grid: flexbox centers the items in each row —
+           including a partial last row or a lone orphan card — at every column
+           count, so there's no count-dependent :last-child rule to re-check
+           whenever a post is added. */
+        .posts-grid { max-width: 1100px; margin: 0 auto; padding: 50px 40px 80px; display: flex; flex-wrap: wrap; justify-content: center; gap: 28px; }
 
-        .post-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,107,107,0.12); border-radius: 8px; overflow: hidden; transition: border-color 0.3s, transform 0.2s; text-decoration: none; color: inherit; display: flex; flex-direction: column; }
+        .post-card { flex: 1 1 300px; max-width: 340px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,107,107,0.12); border-radius: 8px; overflow: hidden; transition: border-color 0.3s, transform 0.2s; text-decoration: none; color: inherit; display: flex; flex-direction: column; }
         .post-card:hover { border-color: rgba(255,107,107,0.4); transform: translateY(-4px); }
-        /* 11 posts: at 3 columns (viewport ≳1096px) the grid ends with a
-           2-card row — nothing stranded, no rule needed. At 2 columns the
-           11th card sits alone on the final row, so center it there. The
-           odd-one-out position depends on total-count mod columns: re-check
-           this rule whenever a post is added. */
-        @media (min-width: 720px) and (max-width: 1095px) {
-            .post-card:last-child { grid-column: 1 / -1; justify-self: center; width: 100%; max-width: 320px; }
-        }
         .post-thumb { height: 180px; display: flex; align-items: center; justify-content: center; font-size: 52px; }
         .post-thumb.bg1 { background: linear-gradient(135deg, rgba(255,107,107,0.15), rgba(212,175,55,0.1)); }
         .post-thumb.bg2 { background: linear-gradient(135deg, rgba(212,175,55,0.12), rgba(255,107,107,0.08)); }
