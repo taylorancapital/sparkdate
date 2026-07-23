@@ -301,10 +301,30 @@
         // also matters for UX, not just analytics noise: a fetch that never
         // resolves leaves the Get Tickets button on its generic fallback
         // copy instead of the real next event.
+        // Campaign-specific event targeting: ad campaigns for two concurrent
+        // events (e.g. running Philly and Colorado Springs at once) link to
+        // /lp?eventId=<id> instead of separate landing pages. Falls back to
+        // the generic "next upcoming event" behavior below when absent, and
+        // also when present-but-invalid (the API returns {event: null} for
+        // an unknown id — the .then() handler below already no-ops on that,
+        // same as the fetch-failure path).
+        var requestedEventId = new URLSearchParams(location.search).get('eventId');
+
+        // Fire as soon as we know which campaign-targeted event this visit is
+        // for — independent of whether they ever reach checkout — so GA4 can
+        // report landing-page traffic per event, not just conversions per
+        // event. Without this, two concurrent-event campaigns are only
+        // distinguishable in GA4 via page_path string-matching on the raw
+        // query param, which isn't a usable segment for reporting/Explore.
+        if (requestedEventId && typeof gtag === 'function') {
+          gtag('event', 'targeted_event_landing', { source: 'lp', target_event_id: requestedEventId });
+        }
+
         function fetchNextEventWithRetry(attempt) {
+          var url = '/api/next-event' + (requestedEventId ? ('?id=' + encodeURIComponent(requestedEventId)) : '');
           var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
           var timer = controller ? setTimeout(function () { controller.abort(); }, 4000) : null;
-          return fetch('/api/next-event', controller ? { signal: controller.signal } : undefined)
+          return fetch(url, controller ? { signal: controller.signal } : undefined)
             .then(function (r) {
               if (timer) clearTimeout(timer);
               return r.json();
@@ -319,7 +339,17 @@
         var btn = $('lpTicketBtn');
         fetchNextEventWithRetry(0).then(function (data) {
           var ev = data && data.event;
-          if (!ev || !ev.id || !btn) return;
+          if (!ev || !ev.id || !btn) {
+            // A requested eventId that resolves to nothing (deleted/expired
+            // event) is a SUCCESSFUL fetch — {event: null} — so it never hits
+            // the .catch() below. Without this, a stale/broken campaign link
+            // would silently fall back to generic copy with zero analytics
+            // signal that anything was wrong.
+            if (requestedEventId && typeof gtag === 'function') {
+              gtag('event', 'targeted_event_not_found', { source: 'lp', target_event_id: requestedEventId });
+            }
+            return;
+          }
           if ($('lpTitle')) $('lpTitle').textContent = ev.title || 'SparkDate Mixer';
           var d = ev.date ? new Date(ev.date) : null;
           var dl = d ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
@@ -390,9 +420,9 @@
           // ticket button keeps its static /event fallback (server-resolves
           // the next event), but the failure is now visible in analytics
           // instead of only inferable from Vercel logs after the fact.
-          if (typeof gtag === 'function') gtag('event', 'next_event_fetch_failed', { source: 'lp' });
+          if (typeof gtag === 'function') gtag('event', 'next_event_fetch_failed', { source: 'lp', target_event_id: requestedEventId || undefined });
         });
-        if (btn) btn.addEventListener('click', function () { if (typeof gtag === 'function') gtag('event', 'begin_checkout', { source: 'lp' }); });
+        if (btn) btn.addEventListener('click', function () { if (typeof gtag === 'function') gtag('event', 'begin_checkout', { source: 'lp', target_event_id: requestedEventId || undefined }); });
 
         // Email capture
         var f = $('leadForm'), b = $('leadBtn'), msg = $('leadMsg');
