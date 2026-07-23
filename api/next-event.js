@@ -163,7 +163,14 @@ async function renderEventPage(req, res) {
                 // reason Event rich results don't qualify. Only events
                 // created via the admin venue picker carry this.
                 ...(ev.venueAddress ? { streetAddress: ev.venueAddress } : {}),
-                addressRegion: 'PA',
+                // Same reasoning as addressLocality above: derive the state
+                // from the event's own city rather than hardcoding one, so a
+                // future city outside PA doesn't get mislabeled. Matched by
+                // name (not slug) against CITY_SEO below, since ev.city is
+                // free text typed in the admin form (e.g. "Philadelphia"),
+                // not a URL slug. Omit rather than guess when the city isn't
+                // a recognized one yet.
+                ...(stateForCity(ev.city) ? { addressRegion: stateForCity(ev.city) } : {}),
                 addressCountry: 'US',
               },
             },
@@ -242,6 +249,20 @@ const CITY_SEO = {
   philadelphia: { name: 'Philadelphia', state: 'PA' },
   lancaster: { name: 'Lancaster', state: 'PA' },
 };
+
+// Looks up an event's addressRegion (US state) from its free-text `city`
+// field, matched by name rather than slug (admin types "Philadelphia", not
+// "philadelphia"). Backed by CITY_SEO so adding a city there — e.g. a future
+// { 'colorado-springs': { name: 'Colorado Springs', state: 'CO' } } — fixes
+// both the /colorado-springs landing page AND every Colorado Springs event's
+// schema in one edit, with nothing left still assuming PA. Returns null for
+// an unrecognized city rather than guessing.
+const STATE_BY_CITY_NAME = Object.fromEntries(
+  Object.values(CITY_SEO).map((c) => [c.name.toLowerCase(), c.state])
+);
+function stateForCity(city) {
+  return STATE_BY_CITY_NAME[String(city || '').toLowerCase().trim()] || null;
+}
 
 // City data is static (no Firestore read, unlike events) — just resolve the
 // known city, build the head injection, and return the full HTML. Fail-soft:
