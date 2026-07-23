@@ -648,6 +648,16 @@
             40%  { transform: scale(1.08); background: var(--coral); color: var(--white); }
             100% { transform: scale(1); }
         }
+        /* Notify-me step: hidden until the card has been voted on. Mirrors
+           public/getaways.html — a vote alone only moves a counter, so this is
+           what actually captures the launch list. Keep the two in sync. */
+        .getaway-notify { display: none; margin-top: 12px; }
+        .getaway-card.voted .getaway-notify { display: block; }
+        .getaway-notify p { font-size: 12px; color: rgba(245,243,240,0.65); margin-bottom: 8px; }
+        .getaway-notify form { display: flex; gap: 8px; }
+        .getaway-notify input[type=email] { flex: 1; min-width: 0; padding: 10px 12px; background: #fff; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; color: #000; font-family: inherit; font-size: 13px; }
+        .getaway-notify button { padding: 10px 14px; background: var(--navy); color: #fff; border: 1px solid rgba(255,107,107,0.5); border-radius: 4px; font-weight: 700; font-size: 12px; cursor: pointer; font-family: inherit; white-space: nowrap; }
+        .getaway-notify .notify-msg { font-size: 12px; margin-top: 6px; display: none; }
         @media (max-width: 768px) {
             .getaways-section { padding: 10px 20px 40px; }
         }
@@ -1190,6 +1200,15 @@
                         <span class="getaway-count"><strong class="getaway-count-num">${count}</strong> interested</span>
                     </div>
                     <button type="button" class="getaway-btn">I'm Interested</button>
+                    <div class="getaway-notify">
+                        <p>Counted! Want first dibs when this opens?</p>
+                        <form>
+                            <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+                            <input type="email" required placeholder="you@email.com" aria-label="Email for launch updates">
+                            <button type="submit">Notify Me</button>
+                        </form>
+                        <div class="notify-msg"></div>
+                    </div>
                 </div>`;
         }
 
@@ -1216,7 +1235,9 @@
             grid.querySelectorAll('.getaway-card').forEach(card => {
                 const id = card.getAttribute('data-package-id');
                 const btn = card.querySelector('.getaway-btn');
+                const notifyForm = card.querySelector('.getaway-notify form');
                 btn.addEventListener('click', () => registerGetawayInterest(id, card));
+                if (notifyForm) notifyForm.addEventListener('submit', (e) => submitNotifyMe(e, id, card));
             });
         }
 
@@ -1244,6 +1265,19 @@
             updateGetawaysTotal(counts);
         }
 
+        // fetch with a short timeout, so a stalled serverless call never leaves
+        // the UI hung. Mirrors the helper in public/getaways.html.
+        async function getawayFetch(url, opts, ms) {
+            const controller = ('AbortController' in window) ? new AbortController() : null;
+            const timer = controller ? setTimeout(() => controller.abort(), ms || 6000) : null;
+            if (controller) opts = Object.assign({}, opts, { signal: controller.signal });
+            try {
+                return await fetch(url, opts);
+            } finally {
+                if (timer) clearTimeout(timer);
+            }
+        }
+
         async function registerGetawayInterest(packageId, cardEl) {
             const btn = cardEl.querySelector('.getaway-btn');
             const countEl = cardEl.querySelector('.getaway-count-num');
@@ -1252,29 +1286,78 @@
             // Optimistic UI: reflect the click immediately rather than waiting
             // on the round trip. Repeat voting is allowed by design (a little
             // competitive), so the button stays enabled — each click adds one
-            // and gets a quick pulse. A rare server-side failure isn't worth
-            // rolling the count back over.
+            // and gets a quick pulse. The POST result IS checked, though: a
+            // rejected/rate-limited vote rolls the bump back and doesn't fire
+            // conversion analytics, so counts and ad data stay honest. The
+            // notify step is revealed either way, so a user can always leave
+            // their email even if the counter write failed.
+            const prev = countEl ? (parseInt(countEl.textContent, 10) || 0) : null;
             if (countEl) {
-                const newCount = (parseInt(countEl.textContent, 10) || 0) + 1;
-                countEl.textContent = newCount;
-                if (barEl) barEl.style.width = getawayBarPct(newCount) + '%';
+                countEl.textContent = prev + 1;
+                if (barEl) barEl.style.width = getawayBarPct(prev + 1) + '%';
             }
             btn.classList.remove('just-voted');
             void btn.offsetWidth; // restart the pulse on rapid re-clicks
             btn.classList.add('just-voted');
+            cardEl.classList.add('voted'); // reveals the notify-me step
             recomputeGetawaysTotalFromDom();
 
-            if (typeof gtag === 'function') gtag('event', 'getaway_interest', { package_id: packageId });
-            if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: 'getaway_' + packageId });
-
             try {
-                await fetch('/api/lead-signup', {
+                const res = await getawayFetch('/api/lead-signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'getaway_interest', packageId: packageId, website: '' })
-                });
+                }, 6000);
+                if (!res.ok) throw new Error('http ' + res.status);
+                if (typeof gtag === 'function') gtag('event', 'getaway_interest', { package_id: packageId });
+                if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: 'getaway_' + packageId });
             } catch (err) {
-                console.error('[getaways] interest click failed to save:', err);
+                console.error('[getaways] vote failed:', err && err.message);
+                if (countEl && prev != null) {
+                    countEl.textContent = prev;
+                    if (barEl) barEl.style.width = getawayBarPct(prev) + '%';
+                    recomputeGetawaysTotalFromDom();
+                }
+            }
+        }
+
+        // Notify-me: the optional step after a vote. Email goes to the same
+        // getaway_interest action — presence of `email` makes the server upsert
+        // a subscribed lead (gated by the strict lead limiter) instead of
+        // incrementing the counter. Forwards the honeypot field.
+        async function submitNotifyMe(e, packageId, cardEl) {
+            e.preventDefault();
+            const form = e.currentTarget;
+            const input = form.querySelector('input[type=email]');
+            const hp = form.querySelector('input[name=website]');
+            const btn = form.querySelector('button[type=submit]');
+            const msg = cardEl.querySelector('.notify-msg');
+            const email = (input.value || '').trim();
+            if (!email) return;
+            const orig = btn.textContent;
+            btn.textContent = '…'; btn.disabled = true; msg.style.display = 'none';
+            try {
+                const res = await getawayFetch('/api/lead-signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'getaway_interest', packageId: packageId, email: email, website: (hp && hp.value) || '' })
+                }, 8000);
+                if (res.ok) {
+                    if (typeof gtag === 'function') gtag('event', 'generate_lead', { lead_type: 'getaway_notify', package_id: packageId });
+                    if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: 'getaway_notify_' + packageId });
+                    form.style.display = 'none';
+                    msg.style.display = 'block'; msg.style.color = '#4ade80';
+                    msg.textContent = '✓ You\'re on the list — first dibs when it opens.';
+                } else {
+                    const body = await res.json().catch(() => ({}));
+                    msg.style.display = 'block'; msg.style.color = '#ff6b6b';
+                    msg.textContent = body.error || 'Something went wrong. Try again.';
+                }
+            } catch (_) {
+                msg.style.display = 'block'; msg.style.color = '#ff6b6b';
+                msg.textContent = 'Network error. Try again.';
+            } finally {
+                btn.textContent = orig; btn.disabled = false;
             }
         }
 
