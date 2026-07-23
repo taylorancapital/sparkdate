@@ -879,6 +879,13 @@
         };
 
         const MONTHLY_LIMITS = { free: Infinity, mid: Infinity, premium: Infinity };
+        // City -> US state, for the Event schema's addressRegion below. Mirrors
+        // CITY_SEO in api/next-event.js and the copy in public/event.html — no
+        // shared client/server bundle in this repo, so keep all three in sync.
+        const STATE_BY_CITY_NAME = { philadelphia: 'PA', lancaster: 'PA' };
+        function stateForCity(city) {
+            return STATE_BY_CITY_NAME[String(city || '').toLowerCase().trim()] || null;
+        }
         const TIER_LABELS = { free: 'Spark', mid: 'Kindling', premium: 'Fire' };
         const GRADIENT_ALTS = ['', 'alt-1', 'alt-2', 'alt-3'];
 
@@ -1022,7 +1029,10 @@
                                     // events, so a hardcoded city here would misrepresent
                                     // any event whose real city isn't Philadelphia.
                                     ...(ev.city ? { addressLocality: ev.city } : {}),
-                                    addressRegion: 'PA',
+                                    // Same reasoning: derive the state from
+                                    // ev.city instead of hardcoding one, so a
+                                    // future non-PA city isn't mislabeled.
+                                    ...(stateForCity(ev.city) ? { addressRegion: stateForCity(ev.city) } : {}),
                                     addressCountry: 'US'
                                 }
                             },

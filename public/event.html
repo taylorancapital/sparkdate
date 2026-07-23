@@ -646,6 +646,15 @@
         };
 
         const MONTHLY_LIMITS = { free: Infinity, mid: Infinity, premium: Infinity };
+        // City -> US state, for the Event schema's addressRegion below. Matched
+        // by name (admin types "Philadelphia" into the event's free-text city
+        // field, not a slug). Mirrors CITY_SEO in api/next-event.js and the
+        // copy in public/events.html — no shared client/server bundle in this
+        // repo, so keep all three in sync when a new city is added.
+        const STATE_BY_CITY_NAME = { philadelphia: 'PA', lancaster: 'PA' };
+        function stateForCity(city) {
+            return STATE_BY_CITY_NAME[String(city || '').toLowerCase().trim()] || null;
+        }
         // SERVICE_FEE mirrors SERVICE_FEE_CENTS in lib/pricing.js (which is
         // the server-side source of truth used by api/purchase-ticket.js).
         // We can't add a /api/public-config endpoint to fetch this — Vercel
@@ -935,7 +944,11 @@
                             // would misrepresent Lancaster events as Philadelphia (or
                             // vice versa).
                             ...(ev.city ? { addressLocality: ev.city } : {}),
-                            addressRegion: 'PA',
+                            // Same reasoning: derive the state from ev.city
+                            // rather than hardcoding one, so a future city
+                            // outside PA isn't mislabeled. Omit rather than
+                            // guess when the city isn't recognized yet.
+                            ...(stateForCity(ev.city) ? { addressRegion: stateForCity(ev.city) } : {}),
                             addressCountry: 'US'
                         }
                     }
