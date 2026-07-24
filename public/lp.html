@@ -56,6 +56,22 @@
         .iab-banner span { flex: 1; min-width: 200px; }
         .iab-banner button { padding: 6px 12px; font-size: 12px; border-radius: 4px; }
         .iab-banner #iabDismiss { background: transparent; color: var(--cream); opacity: 0.6; padding: 4px 8px; }
+
+        /* Checkout intercept for in-app browsers: GA4 showed the dismissible
+           top banner alone wasn't stopping people from clicking straight into
+           a checkout that's known to fail here (Facebook paid traffic was
+           59% of visits and $0 revenue). This panel takes over the ticket
+           button's own click instead of just hoping they read the banner
+           above it first. Not display:none by default in CSS -- JS toggles
+           it, matching the .event card's own visibility pattern. */
+        .iab-checkout-block { display: none; background: #0a0e27; border: 2px solid var(--coral); border-radius: 10px; padding: 22px 20px; margin-top: -6px; text-align: left; }
+        .iab-checkout-block.active { display: block; }
+        .iab-checkout-block .icb-title { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 18px; color: #fff; margin-bottom: 8px; }
+        .iab-checkout-block .icb-body { font-size: 14px; line-height: 1.6; color: rgba(245,243,240,0.85); margin-bottom: 16px; }
+        .iab-checkout-block .icb-body strong { color: var(--coral); }
+        .iab-checkout-block .icb-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .iab-checkout-block .icb-copy { flex: 1; min-width: 140px; padding: 13px 16px; background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%); color: #fff; border: none; border-radius: 4px; font-weight: 700; font-family: inherit; font-size: 13px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
+        .iab-checkout-block .icb-continue { display: block; text-align: center; font-size: 12px; color: rgba(245,243,240,0.5); text-decoration: underline; cursor: pointer; background: none; border: none; font-family: inherit; padding: 4px; width: 100%; }
         /* Social proof: one real testimonial, between the ticket card and the
            waitlist. The 3 real quotes otherwise only live on the homepage —
            not on /lp, the page paid traffic actually lands on. */
@@ -159,6 +175,20 @@
             <div class="meta" id="lpMeta">📍 Venue announced soon</div>
             <a class="ticket" id="lpTicketBtn" href="/event">🎟️ Get Tickets</a>
             <div class="fine">Secure checkout · no account needed</div>
+        </div>
+
+        <!-- Checkout intercept: shown INSTEAD of navigating to checkout when
+             the Get Tickets tap is caught inside an in-app browser (see the
+             click handler below). The dismissible banner above stays as an
+             early heads-up, but doesn't stop the tap itself from proceeding
+             into a checkout that's known to fail here -- this does. -->
+        <div class="iab-checkout-block" id="iabCheckoutBlock">
+            <div class="icb-title">This won't complete inside Instagram/Facebook</div>
+            <div class="icb-body">Checkout uses a security step (3D Secure) that <strong>can't run in this app's built-in browser</strong> — your card could get declined or the page could hang, even though nothing's wrong with your card. Tap <strong>⋮</strong> or <strong>•••</strong> in the top corner → <strong>"Open in browser"</strong>, or copy the link below and paste it into Safari/Chrome.</div>
+            <div class="icb-actions">
+                <button type="button" class="icb-copy" id="icbCopyLink">📋 Copy Link</button>
+            </div>
+            <button type="button" class="icb-continue" id="icbContinueAnyway">Continue to checkout anyway (may not work) →</button>
         </div>
 
         <!-- Real attendee testimonial (same quote used on the homepage). -->
@@ -422,7 +452,46 @@
           // instead of only inferable from Vercel logs after the fact.
           if (typeof gtag === 'function') gtag('event', 'next_event_fetch_failed', { source: 'lp', target_event_id: requestedEventId || undefined });
         });
-        if (btn) btn.addEventListener('click', function () { if (typeof gtag === 'function') gtag('event', 'begin_checkout', { source: 'lp', target_event_id: requestedEventId || undefined }); });
+        // Checkout intercept for in-app browsers. GA4 (2026-07-24 analysis)
+        // showed Facebook paid traffic was 59% of visits and $0 revenue while
+        // Eventbrite (opens in a real browser) converted fine -- strong
+        // evidence the old passive banner wasn't stopping people from
+        // tapping straight into a checkout that's known to fail here. This
+        // catches the tap itself instead of just hoping the banner got read.
+        // Respects an explicit "continue anyway" choice for the rest of the
+        // session, and never blocks anyone the UA sniff doesn't flag.
+        if (btn) btn.addEventListener('click', function (e) {
+          var override; try { override = sessionStorage.getItem('iabCheckoutOverride'); } catch (_) { override = null; }
+          if (isInAppBrowser() && !override) {
+            e.preventDefault();
+            var block = $('iabCheckoutBlock');
+            if (block) {
+              block.classList.add('active');
+              block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            if (typeof gtag === 'function') gtag('event', 'in_app_browser_checkout_blocked', { source: 'lp', target_event_id: requestedEventId || undefined });
+            return;
+          }
+          if (typeof gtag === 'function') gtag('event', 'begin_checkout', { source: 'lp', target_event_id: requestedEventId || undefined });
+        });
+
+        var icbCopyBtn = $('icbCopyLink');
+        if (icbCopyBtn) icbCopyBtn.addEventListener('click', function () {
+          try {
+            navigator.clipboard.writeText(location.href);
+            icbCopyBtn.textContent = '✓ Copied!';
+            setTimeout(function () { icbCopyBtn.textContent = '📋 Copy Link'; }, 2000);
+          } catch (_) {}
+          if (typeof gtag === 'function') gtag('event', 'in_app_browser_copy_link', { source: 'lp', target_event_id: requestedEventId || undefined });
+        });
+
+        var icbContinueBtn = $('icbContinueAnyway');
+        if (icbContinueBtn) icbContinueBtn.addEventListener('click', function () {
+          try { sessionStorage.setItem('iabCheckoutOverride', '1'); } catch (_) {}
+          if (typeof gtag === 'function') gtag('event', 'in_app_browser_checkout_override', { source: 'lp', target_event_id: requestedEventId || undefined });
+          if (typeof gtag === 'function') gtag('event', 'begin_checkout', { source: 'lp', target_event_id: requestedEventId || undefined });
+          if (btn && btn.href) location.href = btn.href;
+        });
 
         // Email capture
         var f = $('leadForm'), b = $('leadBtn'), msg = $('leadMsg');
