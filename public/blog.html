@@ -18,7 +18,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
     <!-- Google Analytics 4 -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-21YLCC35F1"></script>
     <script>
@@ -127,6 +127,27 @@
             .posts-grid { padding: 30px 20px 50px; }
             .cta-banner { padding: 0 20px; margin-bottom: 50px; }
         }
+
+        /* Social proof: real event photos, no fabricated stats -- shared
+           block, kept in sync across signup.html/events.html/event.html/lp.html. */
+        .sp-social-proof { padding: 56px 24px; text-align: center; border-top: 1px solid rgba(255,107,107,0.1); border-bottom: 1px solid rgba(255,107,107,0.1); }
+        .sp-proof-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--coral); margin-bottom: 10px; }
+        .sp-proof-title { font-family: 'Playfair Display', serif; font-weight: 900; font-size: clamp(24px, 5vw, 36px); color: var(--white); margin-bottom: 36px; }
+        /* Scattered-on-a-table pile, like real polaroids after a party --
+           positions/rotation are percentage-based (via the --r custom
+           property and left/top/width set inline per photo) so the whole
+           collage scales fluidly with container width, no breakpoints. */
+        /* The 850x500 design below is frozen at a fixed pixel size on purpose -- a real polaroid
+           doesn't resize itself for the room it's in, so nothing inside this box (photo, border,
+           caption font) is allowed to independently adjust per device. Instead the whole box is
+           scaled down as one rigid unit to fit its container (JS below sets --scatter-scale), so
+           every internal proportion stays exactly frozen -- it's just reproduced smaller, not scrolled. */
+        .sp-polaroid-scatter-wrap { position: relative; width: 100%; max-width: 850px; margin: 0 auto; padding-top: 24px; }
+        .sp-polaroid-scatter { position: absolute; top: 24px; left: 50%; width: 850px; height: 500px; transform: translateX(-50%) scale(var(--scatter-scale, 1)); transform-origin: top center; }
+        .sp-polaroid { position: absolute; width: 240px; background: #fff; border: 12px solid #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.4); transform: rotate(var(--r, 0deg)); transition: transform 0.25s ease; }
+        .sp-polaroid:hover { transform: rotate(0deg) scale(1.08); z-index: 20 !important; }
+        .sp-polaroid img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; }
+        .sp-polaroid-cap { height: 58px; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 4px 6px 0; text-align: center; font-family: 'Caveat', cursive; font-size: 18px; font-weight: 700; color: #0a0e27; letter-spacing: 0.5px; line-height: 1.15; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
     </style>
     <!-- Meta Pixel Code -->
     <script>
@@ -325,6 +346,41 @@
           finally{btn.textContent=orig;btn.disabled=false;}
         });
       })();
+    </script>
+
+    <!-- Social proof: real photos from real mixers, no fabricated stats -->
+    <section class="sp-social-proof">
+        <div class="sp-proof-eyebrow">Straight From Our Mixers</div>
+        <h2 class="sp-proof-title">Real People. Real Nights.</h2>
+        <div class="sp-polaroid-scatter-wrap">
+            <div class="sp-polaroid-scatter">
+            <div class="sp-polaroid" style="--r:-3deg; left:0px; top:0px; width:240px; z-index:5;"><img src="/images/social/rooftop-magic.jpg" alt="Rooftop mixer crowd" loading="lazy"><div class="sp-polaroid-cap">✨ ROOFTOP MAGIC ✨ @ Exchange – Stereo 01 Mixer</div></div>
+            <div class="sp-polaroid" style="--r:6deg; left:24px; top:63px; width:240px; z-index:2;"><img src="/images/social/cheeky-peek.jpg" alt="Candid moment at a mixer" loading="lazy"><div class="sp-polaroid-cap">💕✨ CHEEKY PEEK!!!!</div></div>
+            <div class="sp-polaroid" style="--r:-8deg; left:0px; top:126px; width:240px; z-index:1;"><img src="/images/social/summer-nights.jpg" alt="Summer mixer moment" loading="lazy"><div class="sp-polaroid-cap">☀️ Summer Nights!!!</div></div>
+
+            <div class="sp-polaroid" style="--r:4deg; left:240px; top:40px; width:240px; z-index:4;"><img src="/images/social/matched-house.jpg" alt="Group at a house mixer" loading="lazy"><div class="sp-polaroid-cap">💕 #MATCHED! 💕 House Mixer @ ABAG</div></div>
+            <div class="sp-polaroid" style="--r:-4deg; left:464px; top:90px; width:240px; z-index:4;"><img src="/images/social/party-vibes.jpg" alt="Crowd at a house mixer" loading="lazy"><div class="sp-polaroid-cap">✨ #PARTY VIBES ✨ 💕 House Mixer @ ABAG</div></div>
+
+            <div class="sp-polaroid" style="--r:-5deg; left:544px; top:27px; width:240px; z-index:5;"><img src="/images/social/fire-vibes.jpg" alt="Fire pit at a rooftop mixer" loading="lazy"><div class="sp-polaroid-cap">🔥 FIRE VIBES!!! 🔥 Stereo-01 Mixer @ Exchange Rooftop</div></div>
+            <div class="sp-polaroid" style="--r:7deg; left:560px; top:148px; width:240px; z-index:1;"><img src="/images/social/buzzing.jpg" alt="Attendees mingling" loading="lazy"><div class="sp-polaroid-cap">✨✨ BUZZZZZING!</div></div>
+            </div>
+        </div>
+    </section>
+    <script>
+        (function() {
+            function fitPolaroidScatter() {
+                document.querySelectorAll('.sp-polaroid-scatter-wrap').forEach(function(wrap) {
+                    var scatter = wrap.querySelector('.sp-polaroid-scatter');
+                    if (!scatter) return;
+                    var designWidth = 850, designHeight = 500;
+                    var scale = Math.min(1, wrap.clientWidth / designWidth);
+                    wrap.style.setProperty('--scatter-scale', scale);
+                    wrap.style.height = (designHeight * scale + 24) + 'px';
+                });
+            }
+            fitPolaroidScatter();
+            window.addEventListener('resize', fitPolaroidScatter);
+        })();
     </script>
 
     <footer>
