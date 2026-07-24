@@ -493,6 +493,28 @@ module.exports = async function handler(req, res) {
     const cleanName  = String(name).trim().slice(0, 200);
     const cleanPhone = String(phone || '').trim().slice(0, 50);
 
+    // ── Optional +1 companion (2-for-1 promo) ──────────────────────
+    // A second attendee riding on the SAME payment. Same validation rules
+    // as the primary buyer, but they never authenticate — they're always
+    // enrolled as a guest (own welcome email + lead row), independent of
+    // whether the paying buyer is a member or a guest themselves.
+    let plusOne = null;
+    if (req.body && req.body.plusOne) {
+      const po = req.body.plusOne;
+      if (!po.email || !po.gender || !po.name || !String(po.name).trim()) {
+        return res.status(400).json({ error: 'Missing +1 fields' });
+      }
+      if (po.gender !== 'woman' && po.gender !== 'man') {
+        return res.status(400).json({ error: 'Invalid +1 gender' });
+      }
+      plusOne = {
+        name: String(po.name).trim().slice(0, 200),
+        email: String(po.email).trim(),
+        gender: po.gender,
+        phone: String(po.phone || '').trim().slice(0, 50),
+      };
+    }
+
     // ── Auth: member path requires ID token; guest path is anonymous ─
     const hasAuth = !!(req.headers.authorization || req.headers.Authorization);
     if (hasAuth) {
@@ -522,8 +544,8 @@ module.exports = async function handler(req, res) {
       console.error('[purchase-ticket] 3ds sweep failed:', e.message);
     });
 
-    // ── Reserve a seat ATOMICALLY using a Firestore transaction. ───
-    // We bump a counter on the event doc inside the txn. If two requests
+    // ── Reserve seat(s) ATOMICALLY using a Firestore transaction. ──
+    // We bump counter(s) on the event doc inside the txn. If two requests
     // race, only one wins; the other sees the updated count and aborts.
     //
     // Resolve the seat model (lib/seat-model). New events share one pool
@@ -531,35 +553,70 @@ module.exports = async function handler(req, res) {
     // (`spotsWomen`/`confirmedWomen`, etc.). Without this, a new single-pool
     // event has no `spotsMen`/`spotsWomen` and every purchase is wrongly
     // rejected as "Event full".
-    const { counterField, capField } = seatFields(event, gender);
+    //
+    // A 2-for-1 purchase reserves TWO seats in the same transaction — one
+    // per attendee, each checked against ITS OWN gender's field. On a
+    // single-pool event both attendees resolve to the same `confirmed`
+    // field (so 2 attendees need +2 there); on a legacy gender-split event
+    // they may resolve to two DIFFERENT fields (+1 each). Aggregating by
+    // field, rather than assuming 1 seat total, is what makes this correct
+    // for both shapes without special-casing plusOne.
+    const attendees = [{ gender }];
+    if (plusOne) attendees.push({ gender: plusOne.gender });
 
-    let reservedSlot;
+    let reservation;
     try {
-      reservedSlot = await db.runTransaction(async (tx) => {
+      reservation = await db.runTransaction(async (tx) => {
         const snap = await tx.get(eventRef);
         if (!snap.exists) throw new Error('Event vanished mid-purchase');
         const e = snap.data();
-        const cap     = Number(e[capField] ?? 0);
-        const current = Number(e[counterField] ?? 0);
 
-        if (cap <= 0) {
-          const err = new Error('No spots available on this event');
-          err.statusCode = 409;
-          throw err;
+        const need = {}; // counterField -> { capField, count }
+        for (const a of attendees) {
+          const { capField, counterField } = seatFields(e, a.gender);
+          if (!need[counterField]) need[counterField] = { capField, count: 0 };
+          need[counterField].count += 1;
         }
-        if (current >= cap) {
-          const err = new Error('Event full');
-          err.statusCode = 409;
-          throw err;
+
+        for (const [counterField, { capField, count }] of Object.entries(need)) {
+          const cap     = Number(e[capField] ?? 0);
+          const current = Number(e[counterField] ?? 0);
+          if (cap <= 0) {
+            const err = new Error('No spots available on this event');
+            err.statusCode = 409;
+            throw err;
+          }
+          if (current + count > cap) {
+            const err = new Error('Event full');
+            err.statusCode = 409;
+            throw err;
+          }
         }
-        tx.update(eventRef, { [counterField]: current + 1 });
-        return { slot: current + 1, cap };
+
+        const updates = {};
+        for (const [counterField, { count }] of Object.entries(need)) {
+          updates[counterField] = FieldValue.increment(count);
+        }
+        tx.update(eventRef, updates);
+        return { need };
       });
     } catch (e) {
       if (e.statusCode === 409) {
         return res.status(409).json({ error: 'Event full', message: e.message });
       }
       throw e;
+    }
+
+    // Releases every seat this request reserved (all attendees) in one
+    // update — used on every rollback path below instead of decrementing a
+    // single hardcoded field, since a 2-for-1 purchase may hold seats on
+    // one or two distinct counter fields.
+    async function releaseSeats() {
+      const updates = {};
+      for (const [counterField, { count }] of Object.entries(reservation.need)) {
+        updates[counterField] = FieldValue.increment(-count);
+      }
+      await eventRef.update(updates).catch(() => {});
     }
 
     // ── Server-side price computation. Client `amount` is ignored. ─
@@ -569,7 +626,7 @@ module.exports = async function handler(req, res) {
     const { price: baseDollars } = effectivePrice(event, gender);
     if (!isFinite(baseDollars) || baseDollars <= 0) {
       // Roll back the counter we just bumped.
-      await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
+      await releaseSeats();
       return res.status(500).json({ error: 'Invalid event pricing' });
     }
     const amount = Math.round(baseDollars * 100) + SERVICE_FEE_CENTS;
@@ -594,12 +651,12 @@ module.exports = async function handler(req, res) {
       // Member path: charge saved card off-session.
       const userSnap = await db.collection('users').doc(firebaseUid).get();
       if (!userSnap.exists) {
-        await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
+        await releaseSeats();
         return res.status(404).json({ error: 'User not found' });
       }
       const { stripeCustomerId, stripePaymentMethodId } = userSnap.data();
       if (!stripeCustomerId) {
-        await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
+        await releaseSeats();
         return res.status(400).json({ error: 'No payment method on file. Please add a card to your subscription first.' });
       }
 
@@ -613,7 +670,7 @@ module.exports = async function handler(req, res) {
         }
       }
       if (!pmId) {
-        await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
+        await releaseSeats();
         return res.status(400).json({ error: 'No card on file. Please update your payment method.' });
       }
 
@@ -631,7 +688,7 @@ module.exports = async function handler(req, res) {
       paymentIntent = await stripe.paymentIntents.create(intentParams, { idempotencyKey });
     } catch (e) {
       // Stripe failed entirely — release the reserved slot.
-      await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
+      await releaseSeats();
       throw e;
     }
 
@@ -650,7 +707,7 @@ module.exports = async function handler(req, res) {
     const dupSnap = await db.collection('tickets')
       .where('paymentIntentId', '==', paymentIntent.id).limit(1).get();
     if (!dupSnap.empty) {
-      await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
+      await releaseSeats();
       const dup = dupSnap.docs[0];
       const dupData = dup.data();
       console.log(`[purchase-ticket] duplicate submit for PI ${paymentIntent.id} — released seat, returning existing ticket ${dup.id}`);
@@ -728,6 +785,56 @@ module.exports = async function handler(req, res) {
       registeredAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
     }, { merge: true });
+
+    // ── +1 companion (2-for-1 promo): own ticket + registration docs, ──
+    // same shape as the primary buyer's, so check-in, attendee lists,
+    // Connections/matching, and post-event emails all treat them as a
+    // full attendee in their own right — not a footnote on the buyer's
+    // ticket. `amount: 0` reflects that this seat rides free on the
+    // buyer's single charge (see the price computation above, which is
+    // NOT doubled for a 2-for-1 purchase). They're always a guest here —
+    // a companion never authenticates in this flow, regardless of
+    // whether the paying buyer is a member or a guest themselves.
+    let plusOneTicketRef = null;
+    let plusOneRegRef = null;
+    if (plusOne) {
+      plusOneTicketRef = db.collection('tickets').doc();
+      const plusOneRegId = `reg_guest_${paymentIntent.id}_${eventId}_plusone`;
+      plusOneRegRef = db.collection('event_registrations').doc(plusOneRegId);
+      batch.set(plusOneTicketRef, {
+        firebaseUid: null,
+        email: plusOne.email,
+        name: plusOne.name,
+        phone: plusOne.phone,
+        gender: plusOne.gender,
+        eventId,
+        eventName,
+        amount: 0,
+        paymentIntentId: paymentIntent.id,
+        paidWithCardOnFile: false,
+        status: ticketStatus,
+        isPlusOne: true,
+        linkedTicketId: ticketRef.id,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      batch.set(plusOneRegRef, {
+        userId: null,
+        email: plusOne.email,
+        name: plusOne.name,
+        phone: plusOne.phone,
+        gender: plusOne.gender,
+        eventId,
+        eventTitle: eventName,
+        ticketId: plusOneTicketRef.id,
+        paymentIntentId: paymentIntent.id,
+        status: ticketStatus,
+        month: monthKey,
+        isPlusOne: true,
+        linkedRegId: regRef.id,
+        registeredAt: FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
     await batch.commit();
 
     // ── 3-D Secure: hand the clientSecret back to the browser. ─────
@@ -738,18 +845,25 @@ module.exports = async function handler(req, res) {
         requiresAction: true,
         clientSecret: paymentIntent.client_secret,
         ticketId: ticketRef.id,
+        plusOneTicketId: plusOneTicketRef ? plusOneTicketRef.id : undefined,
         amount,
       });
     }
 
     if (paymentIntent.status !== 'succeeded') {
-      // Refund the counter — payment didn't go through.
-      await eventRef.update({ [counterField]: FieldValue.increment(-1) }).catch(() => {});
-      // Mark the ticket as failed for audit trail.
+      // Refund the counter(s) — payment didn't go through.
+      await releaseSeats();
+      // Mark the ticket(s) as failed for audit trail.
       await ticketRef.update({ status: 'failed' }).catch(() => {});
       await regRef.update({ status: 'failed' }).catch(() => {});
+      if (plusOneTicketRef) await plusOneTicketRef.update({ status: 'failed' }).catch(() => {});
+      if (plusOneRegRef) await plusOneRegRef.update({ status: 'failed' }).catch(() => {});
       return res.status(400).json({ error: 'Payment did not succeed.' });
     }
+
+    // Trim/cap inline (matches lead-signup.js's MAX_REF=80) — shared by both
+    // the primary buyer's and the +1's lead rows below.
+    const cleanRef = String(ref || '').trim().slice(0, 80) || null;
 
     // ── Auto-enroll the guest as a SparkDate user ─────────────────
     // Members (firebaseUid set) already have an account — skip.
@@ -767,10 +881,21 @@ module.exports = async function handler(req, res) {
       // the nurture-email cron pick them up. recordLead upserts by email and
       // is fully best-effort (it never throws). Guests aren't otherwise
       // captured as leads; members already have a user doc.
-      // Trim/cap inline (matches lead-signup.js's MAX_REF=80) — no shared
-      // helper in this file to import for one field.
-      const cleanRef = String(ref || '').trim().slice(0, 80) || null;
       await recordLead({ email, name: cleanName, phone: cleanPhone, eventId, eventName, ref: cleanRef });
+    }
+
+    // ── Same enrollment + lead capture for the +1 companion ────────
+    // They're never authenticated in this flow (see the doc-write block
+    // above), so this always runs when a +1 is present — independent of
+    // whether the PAYING buyer above was a member or a guest.
+    if (plusOne) {
+      await enrollGuestAsMember({
+        email: plusOne.email, paymentMethodId: null, gender: plusOne.gender, eventName,
+        name: plusOne.name, phone: plusOne.phone, eventId,
+      }).catch((err) => {
+        console.error('[purchase-ticket] +1 auto-enroll failed:', err.message);
+      });
+      await recordLead({ email: plusOne.email, name: plusOne.name, phone: plusOne.phone, eventId, eventName, ref: cleanRef });
     }
 
     // ── Activity log (best-effort, doesn't block success). ─────────
@@ -803,6 +928,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       success: true,
       ticketId: ticketRef.id,
+      plusOneTicketId: plusOneTicketRef ? plusOneTicketRef.id : undefined,
       paymentIntentId: paymentIntent.id,
       amount,
     });
