@@ -298,6 +298,27 @@
         .trial-disclosure strong { color: var(--gold); }
         .trial-disclosure a { color: var(--coral); text-decoration: none; }
 
+        /* 2-for-1 promo: previously Eventbrite-only, now offered on the
+           site's own checkout too. Reveals a second attendee's fields when
+           checked; price is untouched (see updatePricing()) since the
+           whole point is the buyer pays for one ticket and gets two seats. */
+        .two-for-one-toggle {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            background: rgba(212, 175, 55, 0.08);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 4px;
+            padding: 12px 14px;
+            margin-bottom: 20px;
+        }
+        .two-for-one-toggle input[type="checkbox"] { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--gold); flex-shrink: 0; cursor: pointer; }
+        .two-for-one-toggle label { display: block; margin: 0; text-transform: none; font-weight: 400; letter-spacing: normal; font-size: 13px; line-height: 1.5; color: var(--cream); cursor: pointer; }
+        .two-for-one-toggle label strong { color: var(--gold); }
+        .plus-one-fields { display: none; border-top: 1px dashed rgba(255,107,107,0.25); margin-top: 4px; padding-top: 16px; }
+        .plus-one-fields.active { display: block; }
+        .plus-one-fields .po-heading { font-size: 12px; font-weight: 700; color: var(--coral); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+
         .legal {
             font-size: 11px;
             color: rgba(245, 243, 240, 0.5);
@@ -535,6 +556,35 @@
                         <div class="form-group">
                             <label for="ticketPhone">Phone <span style="font-weight: 400; color: rgba(245,243,240,0.45);">(optional)</span></label>
                             <input type="tel" id="ticketPhone" placeholder="+1 (555) 123-4567" autocomplete="tel">
+                        </div>
+
+                        <div class="two-for-one-toggle">
+                            <input type="checkbox" id="twoForOneCheckbox">
+                            <label for="twoForOneCheckbox"><strong>🎉 2-for-1:</strong> bring someone for free. Add their info below — you're only charged for one ticket.</label>
+                        </div>
+
+                        <div class="plus-one-fields" id="plusOneFields">
+                            <div class="po-heading">Your +1 (free)</div>
+                            <div class="form-group">
+                                <label for="plusOneGender">Their Gender</label>
+                                <select id="plusOneGender">
+                                    <option value="">Select...</option>
+                                    <option value="woman">Woman</option>
+                                    <option value="man">Man</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="plusOneName">Their Name</label>
+                                <input type="text" id="plusOneName" placeholder="Jane Doe">
+                            </div>
+                            <div class="form-group">
+                                <label for="plusOneEmail">Their Email</label>
+                                <input type="email" id="plusOneEmail" placeholder="them@example.com" autocomplete="email">
+                            </div>
+                            <div class="form-group">
+                                <label for="plusOnePhone">Their Phone <span style="font-weight: 400; color: rgba(245,243,240,0.45);">(optional)</span></label>
+                                <input type="tel" id="plusOnePhone" placeholder="+1 (555) 123-4567" autocomplete="tel">
+                            </div>
                         </div>
 
                         <div class="form-group" id="cardFormGroup">
@@ -1112,17 +1162,37 @@
 
             const ticket = ticketPrice();
             const total = ticket + SERVICE_FEE;
-            const label = 'Ticket';
+            // 2-for-1 never changes what's actually charged (see
+            // /api/purchase-ticket.js — the +1's ticket/service fee are both
+            // waived, not just discounted). Only the copy changes, so the
+            // buyer understands they're reserving 2 seats for this one price.
+            const twoForOne = document.getElementById('twoForOneCheckbox').checked;
+            const label = twoForOne ? 'Subtotal (2 tickets, 2-for-1)' : 'Ticket';
 
             document.getElementById('subtotalLabel').textContent = label;
             document.getElementById('subtotalPrice').textContent = `$${ticket.toFixed(2)}`;
             document.getElementById('serviceFee').textContent = `$${SERVICE_FEE.toFixed(2)}`;
             document.getElementById('totalPrice').textContent = `$${total.toFixed(2)}`;
-            btn.textContent = `Reserve Spot · $${total.toFixed(2)}`;
+            btn.textContent = twoForOne
+                ? `Reserve 2 Spots (2-for-1) · $${total.toFixed(2)}`
+                : `Reserve Spot · $${total.toFixed(2)}`;
             btn.disabled = false;
         }
 
         document.getElementById('ticketGender').addEventListener('change', updatePricing);
+
+        // 2-for-1 toggle: reveal/hide the +1's fields, mark them required
+        // only while visible (so an unchecked box never blocks submission
+        // on empty +1 fields), and refresh the price-breakdown copy above.
+        document.getElementById('twoForOneCheckbox').addEventListener('change', (e) => {
+            const fields = document.getElementById('plusOneFields');
+            const on = e.target.checked;
+            fields.classList.toggle('active', on);
+            ['plusOneGender', 'plusOneName', 'plusOneEmail'].forEach((id) => {
+                document.getElementById(id).required = on;
+            });
+            updatePricing();
+        });
 
         // Funnel visibility: fires once per page load on the first interaction
         // with any checkout field, so GA4 can measure true form-abandonment
@@ -1165,6 +1235,23 @@
                     throw new Error('Please enter your name.');
                 }
 
+                // 2-for-1: build the +1's payload if the toggle is on. Same
+                // belt-and-suspenders runtime check as the primary buyer's
+                // name above — the `required` attribute (toggled on when the
+                // checkbox is checked) catches most cases client-side.
+                const twoForOne = document.getElementById('twoForOneCheckbox').checked;
+                let plusOne = null;
+                if (twoForOne) {
+                    const poGender = document.getElementById('plusOneGender').value;
+                    const poName = document.getElementById('plusOneName').value.trim();
+                    const poEmail = document.getElementById('plusOneEmail').value.trim();
+                    const poPhone = document.getElementById('plusOnePhone').value.trim();
+                    if (!poGender || !poName || !poEmail) {
+                        throw new Error("Please fill in your +1's gender, name, and email — or uncheck 2-for-1.");
+                    }
+                    plusOne = { gender: poGender, name: poName, email: poEmail, phone: poPhone };
+                }
+
                 // Enforce quota for logged-in members
                 if (currentUser) {
                     const allowed = await checkQuota(currentUser);
@@ -1188,6 +1275,9 @@
                     if (cap <= 0) {
                         throw new Error('This event has no spots available.');
                     }
+                    if (plusOne && cap < 2) {
+                        throw new Error('Only 1 spot left — the 2-for-1 deal needs 2. You can still buy a single ticket.');
+                    }
                 }
 
                 // Build request payload: prefer card on file for logged-in members.
@@ -1208,6 +1298,7 @@
                         phone,
                         gender,
                         eventId: evId,
+                        plusOne,
                     };
                 } else {
                     // Guest checkout — collect new card via Stripe Elements
@@ -1237,6 +1328,7 @@
                         phone,
                         gender,
                         eventId: evId,
+                        plusOne,
                     };
                 }
 
@@ -1318,6 +1410,14 @@
                 }
 
                 document.getElementById('checkoutForm').reset();
+                // form.reset() unchecks the 2-for-1 box and clears the +1's
+                // fields, but doesn't fire the checkbox's 'change' handler —
+                // so the panel would stay visible and its fields would stay
+                // `required` unless done explicitly here.
+                document.getElementById('plusOneFields').classList.remove('active');
+                ['plusOneGender', 'plusOneName', 'plusOneEmail'].forEach((id) => {
+                    document.getElementById(id).required = false;
+                });
                 cardElement.clear();
                 updatePricing();
             } catch (err) {
