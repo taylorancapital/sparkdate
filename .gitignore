@@ -9,6 +9,11 @@ firebase-adminsdk-*.json
 sparkdate_strike_keys.txt
 sparkdate_firebase_config.txt
 *service-account*
+.claude-gh-token
+.claude-gh-token.txt
+
+# ── Local nightly-automation logs (machine-specific, not for the repo) ────
+Business Plan/files/Night Tasks/logs/
 
 # ── Local databases and dumps ─────────────────────────────────────
 *.db
@@ -55,3 +60,4 @@ Thumbs.db
 *.mkv
 *.wav
 *.mp3
+.vercel
