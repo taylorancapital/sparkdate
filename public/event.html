@@ -298,6 +298,29 @@
         .trial-disclosure strong { color: var(--gold); }
         .trial-disclosure a { color: var(--coral); text-decoration: none; }
 
+        /* Reassurance right at the moment of decision -- immediately before
+           the buy button, the exact spot someone hesitates or bounces.
+           Real testimonial (same one already proven near checkout on
+           lp.html — see public/index.html's testimonials section for the
+           canonical wording, kept verbatim here) plus a restated version of
+           the cancellation policy already spelled out in "What to Expect"
+           above; repeating the free-transfer point right here targets the
+           "what if my plans change" hesitation at the exact moment it would
+           otherwise cause someone to close the tab instead of buying. */
+        .checkout-reassurance {
+            background: rgba(74, 222, 128, 0.06);
+            border: 1px solid rgba(74, 222, 128, 0.2);
+            border-radius: 4px;
+            padding: 12px 14px;
+            margin-bottom: 14px;
+            font-size: 12.5px;
+            line-height: 1.5;
+            color: var(--cream);
+        }
+        .checkout-reassurance .rq { font-style: italic; color: rgba(245,243,240,0.9); margin-bottom: 6px; }
+        .checkout-reassurance .rq .who { font-style: normal; font-weight: 600; color: var(--success); }
+        .checkout-reassurance .rp { font-size: 11.5px; color: rgba(245,243,240,0.65); }
+
         /* 2-for-1 promo: previously Eventbrite-only, now offered on the
            site's own checkout too. Reveals a second attendee's fields when
            checked; price is untouched (see updatePricing()) since the
@@ -627,6 +650,11 @@
                             <strong>One-time ticket purchase.</strong>
                             No membership and no subscription — you're only paying for
                             this event. Nothing recurring.
+                        </div>
+
+                        <div class="checkout-reassurance">
+                            <div class="rq">"Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!" <span class="who">— Quang</span></div>
+                            <div class="rp">🔒 Secure checkout · 🔄 Free ticket transfer if your plans change · A real host is on-site the whole night</div>
                         </div>
 
                         <button type="submit" class="checkout-btn" id="checkoutBtn" disabled>Select Gender</button>
