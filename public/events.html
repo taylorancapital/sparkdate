@@ -123,35 +123,6 @@
             margin: 0 auto;
         }
 
-        /* Quota banner for logged-in members */
-        .quota-banner {
-            max-width: 1200px;
-            margin: 0 auto 8px;
-            padding: 0 40px;
-            display: none;
-        }
-        .quota-inner {
-            background: rgba(212, 175, 55, 0.07);
-            border: 1px solid rgba(212, 175, 55, 0.2);
-            border-radius: 4px;
-            padding: 14px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 13px;
-            color: rgba(245, 243, 240, 0.8);
-        }
-        .quota-inner .quota-left {
-            font-weight: 600;
-            color: var(--gold);
-        }
-        .quota-inner .quota-label {
-            font-size: 12px;
-            color: rgba(245, 243, 240, 0.5);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
         .events-container {
             max-width: 1200px;
             margin: 0 auto;
@@ -176,10 +147,6 @@
             border-color: var(--coral);
             transform: translateY(-5px);
         }
-        .event-card.at-limit:hover {
-            transform: none;
-        }
-
         /* Image area: gradient with typographic date + optional emoji accent */
         .event-image {
             height: 180px;
@@ -365,14 +332,6 @@
             cursor: not-allowed;
             pointer-events: none;
         }
-        .btn.limit-reached {
-            background: transparent;
-            border-color: rgba(255, 107, 107, 0.3);
-            color: rgba(245, 243, 240, 0.4);
-            font-size: 11px;
-            pointer-events: none;
-        }
-
         /* How-it-works explainer */
         .how-it-works {
             max-width: 1200px;
@@ -456,7 +415,6 @@
             .nav-menu a { font-size: 12px; }
             .hero { padding: 60px 20px 20px; }
             .events-container { padding: 20px; }
-            .quota-banner { padding: 0 20px; }
         }
 
         /* ── Getaways: coming-soon multi-day retreat interest section ── */
@@ -741,16 +699,6 @@
         </div>
     </section>
 
-    <div class="quota-banner" id="quotaBanner">
-        <div class="quota-inner">
-            <div>
-                <div class="quota-label">Your monthly events</div>
-                <div id="quotaText" style="margin-top: 2px;"></div>
-            </div>
-            <div class="quota-left" id="quotaRemaining"></div>
-        </div>
-    </div>
-
     <section class="events-container">
         <div class="events-grid" id="eventsGrid">
             <div class="spinner"></div>
@@ -888,7 +836,6 @@
             appId: "1:330206052938:web:18762191153f4037b75cb3"
         };
 
-        const MONTHLY_LIMITS = { free: Infinity, mid: Infinity, premium: Infinity };
         // City -> US state, for the Event schema's addressRegion below. Mirrors
         // CITY_SEO in api/next-event.js and the copy in public/event.html — no
         // shared client/server bundle in this repo, so keep all three in sync.
@@ -896,16 +843,11 @@
         function stateForCity(city) {
             return STATE_BY_CITY_NAME[String(city || '').toLowerCase().trim()] || null;
         }
-        const TIER_LABELS = { free: 'Spark', mid: 'Kindling', premium: 'Fire' };
         const GRADIENT_ALTS = ['', 'alt-1', 'alt-2', 'alt-3'];
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-
-        let currentUser = null;
-        let userTier = null;
-        let usedThisMonth = 0;
 
         const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -919,48 +861,6 @@
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;')
                 .replace(/\//g, '&#x2F;');
-        }
-
-        function currentMonthKey() {
-            const now = new Date();
-            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        }
-
-        async function loadUserContext(user) {
-            currentUser = user;
-            const snap = await getDoc(doc(db, 'users', user.uid));
-            userTier = snap.exists() ? (snap.data().tier || 'free') : 'free';
-
-            // Count registrations this month. Failed/expired/pending_3ds
-            // rows must not consume monthly quota (audit H1) — filter in
-            // code rather than via where('status'==) to avoid needing a
-            // userId+month+status composite index.
-            const monthKey = currentMonthKey();
-            const regSnap = await getDocs(
-                query(collection(db, 'event_registrations'),
-                      where('userId', '==', user.uid),
-                      where('month', '==', monthKey))
-            );
-            usedThisMonth = regSnap.docs.filter(d => d.data().status === 'confirmed').length;
-        }
-
-        function showQuotaBanner() {
-            const limit = MONTHLY_LIMITS[userTier] || 1;
-            const remaining = limit === Infinity ? Infinity : Math.max(0, limit - usedThisMonth);
-            const tierLabel = TIER_LABELS[userTier] || 'Spark';
-            const banner = document.getElementById('quotaBanner');
-            const quotaText = document.getElementById('quotaText');
-            const quotaRemaining = document.getElementById('quotaRemaining');
-
-            banner.style.display = 'block';
-            if (limit === Infinity) {
-                quotaText.textContent = `${tierLabel} · Unlimited events`;
-                quotaRemaining.textContent = 'Unlimited';
-            } else {
-                quotaText.textContent = `${tierLabel} · ${usedThisMonth} of ${limit} used this month`;
-                quotaRemaining.textContent = remaining === 0 ? 'None remaining' : `${remaining} remaining`;
-                if (remaining === 0) quotaRemaining.style.color = '#f87171';
-            }
         }
 
         async function loadEvents() {
@@ -1087,9 +987,6 @@
                 return;
             }
 
-            const limit = userTier ? (MONTHLY_LIMITS[userTier] || 1) : null;
-            const atLimit = limit !== null && limit !== Infinity && usedThisMonth >= limit;
-
             grid.innerHTML = events.map((ev, i) => {
                 const date = ev.date?.toDate ? ev.date.toDate() : new Date(ev.date);
                 const month = MONTHS[date.getMonth()];
@@ -1109,8 +1006,6 @@
                 let reserveBtn;
                 if (ev.status === 'full') {
                     reserveBtn = `<span class="btn disabled">Sold Out</span>`;
-                } else if (currentUser && atLimit) {
-                    reserveBtn = `<span class="btn limit-reached">Limit Reached</span>`;
                 } else {
                     reserveBtn = `<a href="/event?id=${encodeURIComponent(ev.id)}" class="btn">Reserve</a>`;
                 }
@@ -1126,7 +1021,7 @@
                     : '';
 
                 return `
-                    <div class="event-card${currentUser && atLimit ? ' at-limit' : ''}">
+                    <div class="event-card">
                         <div class="event-image ${gradientClass}">
                             <div class="date-badge">
                                 <span class="month">${safe(month)}</span>
@@ -1211,7 +1106,7 @@
                     </div>
                     <button type="button" class="getaway-btn">I'm Interested</button>
                     <div class="getaway-notify">
-                        <p>Counted! Want first dibs when this opens?</p>
+                        <p>Counted! Leave your email for first dibs — and a shot at winning this trip free when it launches.</p>
                         <form>
                             <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
                             <input type="email" required placeholder="you@email.com" aria-label="Email for launch updates">
@@ -1373,11 +1268,7 @@
 
         loadGetaways(); // independent of auth state — public read, no need to wait
 
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                await loadUserContext(user);
-                showQuotaBanner();
-            }
+        onAuthStateChanged(auth, async () => {
             await loadEvents();
         });
     </script>
