@@ -64,14 +64,14 @@
            button's own click instead of just hoping they read the banner
            above it first. Not display:none by default in CSS -- JS toggles
            it, matching the .event card's own visibility pattern. */
-        .iab-checkout-block { display: none; background: #0a0e27; border: 2px solid var(--coral); border-radius: 10px; padding: 22px 20px; margin-top: -6px; text-align: left; }
+        .iab-checkout-block { display: none; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.35); border-radius: 8px; padding: 16px 18px; margin-top: -6px; margin-bottom: 8px; text-align: left; }
         .iab-checkout-block.active { display: block; }
-        .iab-checkout-block .icb-title { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 18px; color: #fff; margin-bottom: 8px; }
-        .iab-checkout-block .icb-body { font-size: 14px; line-height: 1.6; color: rgba(245,243,240,0.85); margin-bottom: 16px; }
+        .iab-checkout-block .icb-title { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 14px; color: #fff; margin-bottom: 6px; }
+        .iab-checkout-block .icb-body { font-size: 13px; line-height: 1.5; color: rgba(245,243,240,0.8); margin-bottom: 14px; }
         .iab-checkout-block .icb-body strong { color: var(--coral); }
-        .iab-checkout-block .icb-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-        .iab-checkout-block .icb-copy { flex: 1; min-width: 140px; padding: 13px 16px; background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%); color: #fff; border: none; border-radius: 4px; font-weight: 700; font-family: inherit; font-size: 13px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
-        .iab-checkout-block .icb-continue { display: block; text-align: center; font-size: 12px; color: rgba(245,243,240,0.5); text-decoration: underline; cursor: pointer; background: none; border: none; font-family: inherit; padding: 4px; width: 100%; }
+        .iab-checkout-block .icb-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        .iab-checkout-block .icb-copy { flex: 1; min-width: 140px; padding: 10px 14px; background: rgba(255,107,107,0.22); color: #fff; border: 1px solid rgba(255,107,107,0.5); border-radius: 4px; font-weight: 600; font-family: inherit; font-size: 13px; cursor: pointer; }
+        .iab-checkout-block .icb-continue { display: block; text-align: center; font-size: 11px; color: rgba(245,243,240,0.45); text-decoration: underline; cursor: pointer; background: none; border: none; font-family: inherit; padding: 4px; width: 100%; }
         /* Social proof: one real testimonial, between the ticket card and the
            waitlist. The 3 real quotes otherwise only live on the homepage —
            not on /lp, the page paid traffic actually lands on. */
