@@ -24,7 +24,7 @@
 const { Resend } = require('resend');
 const { admin, requireAuth } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
-const { esc } = require('../lib/next-event');
+const { esc, getNextEventForCity } = require('../lib/next-event');
 const { verifyMatchToken } = require('../lib/profile-link');
 
 const db = admin.firestore();
@@ -165,7 +165,7 @@ async function handleGet(req, res, uid) {
     ...myRegSnap.docs.map(d => d.data()).filter(r => r.status === 'confirmed').map(r => r.eventId),
     ...myTkSnap.docs.map(d => d.data()).filter(t => t.status === 'confirmed').map(t => t.eventId),
   ])];
-  if (myEventIds.length === 0) return res.status(200).json({ events: [] });
+  if (myEventIds.length === 0) return res.status(200).json({ events: [], nextEvent: await getNextEventForCity(db, '') });
 
   // Keep only PAST events (date < now) — matching is a post-event action.
   const evDocs = await Promise.all(myEventIds.map(id => db.collection('events').doc(id).get()));
@@ -176,9 +176,9 @@ async function handleGet(req, res, uid) {
     const e = d.data();
     const dt = e.date && e.date.toDate ? e.date.toDate() : (e.date ? new Date(e.date) : null);
     if (!dt || isNaN(dt.getTime()) || dt.getTime() >= now) continue;
-    pastEvents.push({ id: d.id, title: e.title || 'SparkDate Mixer', date: dt.toISOString() });
+    pastEvents.push({ id: d.id, title: e.title || 'SparkDate Mixer', date: dt.toISOString(), city: e.city || '' });
   }
-  if (pastEvents.length === 0) return res.status(200).json({ events: [] });
+  if (pastEvents.length === 0) return res.status(200).json({ events: [], nextEvent: await getNextEventForCity(db, '') });
 
   // My outgoing + incoming likes, keyed `${otherUid}_${eventId}`.
   const [outSnap, inSnap] = await Promise.all([
@@ -247,9 +247,21 @@ async function handleGet(req, res, uid) {
       const displayName = parts[0] + (parts[1] ? ' ' + parts[1].charAt(0) + '.' : '');
       attendees.push({ uid: r.id, displayName, age: null, gender: r.gender || null, intent: null, state: 'info' });
     }
-    events.push({ eventId: ev.id, title: ev.title, date: ev.date, attendees });
+    events.push({ eventId: ev.id, title: ev.title, date: ev.date, city: ev.city, attendees });
   }
-  return res.status(200).json({ events });
+
+  // Next-event + Getaways promo for the matches page itself — same
+  // high-attention moment as the pre-match hype email (api/cron-send-emails.js's
+  // sendPreMatchHype), same reasoning: this page has a lot of activity and
+  // previously suggested nothing commercial. Reuses the SAME city-aware helper
+  // as that email so the fallback behavior (same-city preferred, global
+  // next-event otherwise) never drifts between the two surfaces. Keyed off
+  // the first past event's city — a match-link visit typically centers on one
+  // specific event. getNextEventForCity fails soft internally (never throws),
+  // so no extra guard needed here.
+  const nextEvent = await getNextEventForCity(db, pastEvents[0] && pastEvents[0].city);
+
+  return res.status(200).json({ events, nextEvent });
 }
 
 // Resolve the calling uid from EITHER a no-login match magic link (?uid=&t=,

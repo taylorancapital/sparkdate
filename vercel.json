@@ -23,6 +23,14 @@
     {
       "path": "/api/cron-send-emails?only=postevent",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron-send-emails?only=prematch",
+      "schedule": "55 0 * * *"
+    },
+    {
+      "path": "/api/cron-send-emails?only=prematch",
+      "schedule": "55 1 * * *"
     }
   ],
   "headers": [

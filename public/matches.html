@@ -54,6 +54,16 @@
         .invite-row button { background: var(--coral); color: #fff; border: none; }
         .invite-share { margin-top: 10px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
         .invite-share a { color: var(--coral); border: 1px solid rgba(255,107,107,0.4); background: transparent; }
+        /* Compact next-event + Getaways strip -- top of mind, not intrusive.
+           Sits right under the intro line, before the event groups, so it's
+           seen immediately rather than buried below however many attendees
+           someone scrolls through; sized like a single attendee row, not a
+           card, so it doesn't compete with the actual matching list below. */
+        .promo-strip { margin-top: 8px; margin-bottom: 22px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,107,107,0.3); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+        .promo-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .promo-row + .promo-row { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 6px; }
+        .promo-text { font-size: 12px; color: rgba(245,243,240,0.75); }
+        .promo-link { font-size: 11.5px; font-weight: 600; color: var(--coral); white-space: nowrap; text-decoration: none; }
     </style>
 </head>
 <body>
@@ -147,13 +157,41 @@
           }
         }
 
-        function render(events) {
+        // Compact next-event + Getaways strip -- same high-attention moment
+        // as the pre-match hype email (api/cron-send-emails.js's
+        // sendPreMatchHype), same content, same city-aware fallback (reuses
+        // the server's getNextEventForCity via /api/declare-connection's new
+        // `nextEvent` field), just a lighter-touch presentation for a page
+        // instead of an email. Own UTM params so this traffic is attributable
+        // separately from the email's clicks.
+        function renderPromoStrip(nextEvent) {
+          var ne = nextEvent && nextEvent.event;
+          var html = '<div class="promo-strip">';
+          if (ne) {
+            var heading = nextEvent.sameCity ? 'Next up' : 'Our next mixer';
+            var ticketUrl = (ne.ticketPath || '') + '&utm_source=matches&utm_medium=web&utm_campaign=matches_page';
+            html += '<div class="promo-row">'
+              + '<span class="promo-text">📅 ' + esc(heading) + ': ' + esc(ne.title) + (ne.dateLabel ? ', ' + esc(ne.dateLabel) : '') + '</span>'
+              + '<a class="promo-link" href="' + esc(ticketUrl) + '" data-promo="next_mixer">Reserve →</a>'
+              + '</div>';
+          }
+          html += '<div class="promo-row">'
+            + '<span class="promo-text">🌴 Getaways: vote + a shot at a free trip</span>'
+            + '<a class="promo-link" href="/getaways?utm_source=matches&utm_medium=web&utm_campaign=matches_page" data-promo="getaways">Vote →</a>'
+            + '</div>';
+          html += '</div>';
+          return html;
+        }
+
+        function render(events, nextEvent) {
           if (!events || events.length === 0) {
-            content.innerHTML = '<h1>Nothing here yet.</h1><p class="bad">Once you’ve attended an event, the people you met show up here.</p>';
+            content.innerHTML = '<h1>Nothing here yet.</h1><p class="bad">Once you’ve attended an event, the people you met show up here.</p>' + renderPromoStrip(nextEvent);
+            wireUpPromoTracking();
             return;
           }
           var html = '<h1>Who did you click with?</h1>'
-            + '<p class="sub">Tap everyone you’d like to see again. If they pick you too, we’ll share contact info so you can meet up.</p>';
+            + '<p class="sub">Tap everyone you’d like to see again. If they pick you too, we’ll share contact info so you can meet up.</p>'
+            + renderPromoStrip(nextEvent);
           events.forEach(function (ev) {
             var d = ev.date ? new Date(ev.date) : null;
             var dateStr = d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
@@ -172,6 +210,15 @@
           content.innerHTML = html;
           content.querySelectorAll('button.connect-btn[data-uid]').forEach(function (btn) {
             btn.addEventListener('click', function () { pick(btn.dataset.uid, btn.dataset.event, btn); });
+          });
+          wireUpPromoTracking();
+        }
+
+        function wireUpPromoTracking() {
+          content.querySelectorAll('[data-promo]').forEach(function (a) {
+            a.addEventListener('click', function () {
+              if (typeof gtag === 'function') gtag('event', 'select_content', { content_type: 'promo', item_id: a.dataset.promo, source: 'matches' });
+            });
           });
         }
 
@@ -210,7 +257,7 @@
             clearTimeout(timer);
             var data = await res.json();
             if (!res.ok) throw new Error(data.error || 'load failed');
-            render(data.events);
+            render(data.events, data.nextEvent);
           } catch (e) {
             clearTimeout(timer);
             var msg = ctrl.signal.aborted
