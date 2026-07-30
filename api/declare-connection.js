@@ -162,11 +162,14 @@ async function notifyMatch(aUid, bUid, eventId) {
       db.collection('event_registrations').doc(`reg_${bUid}_${eventId}`).get(),
     ]);
     if (!aSnap.exists || !bSnap.exists) return;
-    const a = aSnap.data(), b = bSnap.data();
     // Reg `name` is the consolidated source of truth; fall back to it when the
     // users doc has no firstName so the match email isn't impersonal.
     const aRegName = aRegSnap.exists ? aRegSnap.data().name : null;
     const bRegName = bRegSnap.exists ? bRegSnap.data().name : null;
+    // Merge reg-doc phone as a fallback when the users doc has none (Eventbrite
+    // enrollees get phone:'' on the users doc but may have provided it at check-in).
+    const a = { ...aSnap.data(), phone: aSnap.data().phone || (aRegSnap.exists && aRegSnap.data().phone) || null };
+    const b = { ...bSnap.data(), phone: bSnap.data().phone || (bRegSnap.exists && bRegSnap.data().phone) || null };
     const aFirst = a.firstName || (aRegName ? String(aRegName).trim().split(/\s+/)[0] : '');
     const bFirst = b.firstName || (bRegName ? String(bRegName).trim().split(/\s+/)[0] : '');
     const eventName = (evSnap.exists && evSnap.data().title) || 'your SparkDate event';
@@ -244,6 +247,13 @@ async function handleGet(req, res, uid) {
     const regs = regSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       .filter(r => r.status === 'confirmed' && r.userId !== uid);
 
+    // Phone fallback: reg docs (already in memory) may have a phone the users
+    // doc doesn't — e.g. Eventbrite enrollees whose users doc got phone:''
+    // but who provided a phone at check-in.
+    const regPhoneByUid = new Map(
+      regs.filter(r => r.userId && r.phone).map(r => [r.userId, r.phone])
+    );
+
     // uid-backed co-attendees (full profile lookup), deduped across collections.
     const otherIds = [...new Set([
       ...regs.filter(r => r.userId).map(r => r.userId),
@@ -278,7 +288,7 @@ async function handleGet(req, res, uid) {
         state: matched ? 'matched' : (sent ? 'sent' : (received ? 'received' : 'none')),
       };
       // Reveal contact ONLY on a mutual match (both opted in).
-      if (matched) att.contact = { name, phone: u.phone || null, email: u.email || null };
+      if (matched) att.contact = { name, phone: u.phone || regPhoneByUid.get(d.id) || null, email: u.email || null };
       attendees.push(att);
     });
     // Guests without a finalized account — display-only (state 'info', no pick
