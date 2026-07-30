@@ -42,6 +42,16 @@
         .connect-state { font-size: 13px; font-weight: 700; white-space: nowrap; }
         .connect-state.matched { color: var(--success); }
         .connect-state.sent { color: rgba(245,243,240,0.5); }
+        .sent-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+        .undo-link { background: none; border: none; padding: 0; font-size: 11px; color: rgba(245,243,240,0.4); text-decoration: underline; cursor: pointer; font-family: inherit; }
+        .undo-link:disabled { opacity: 0.5; cursor: wait; }
+        .confirm-block { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: 170px; }
+        .confirm-text { font-size: 11px; color: rgba(245,243,240,0.65); text-align: right; line-height: 1.4; }
+        .confirm-actions { display: flex; gap: 6px; }
+        .confirm-yes, .confirm-cancel { padding: 8px 12px; border-radius: 6px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+        .confirm-yes { background: var(--coral); border: none; color: #fff; }
+        .confirm-yes:disabled { opacity: 0.6; cursor: wait; }
+        .confirm-cancel { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: rgba(245,243,240,0.7); }
         .match-contact { margin-top: 6px; font-size: 13px; color: var(--success); line-height: 1.5; }
         .empty, .bad { color: rgba(245,243,240,0.6); font-size: 14px; text-align: center; padding: 24px 0; }
         a { color: var(--coral); }
@@ -208,8 +218,11 @@
             html += '</div>';
           });
           content.innerHTML = html;
-          content.querySelectorAll('button.connect-btn[data-uid]').forEach(function (btn) {
-            btn.addEventListener('click', function () { pick(btn.dataset.uid, btn.dataset.event, btn); });
+          content.querySelectorAll('[data-action="intent"]').forEach(function (btn) {
+            btn.addEventListener('click', function () { showConfirm(btn); });
+          });
+          content.querySelectorAll('[data-action="undo"]').forEach(function (btn) {
+            btn.addEventListener('click', function () { unpick(btn.dataset.uid, btn.dataset.event, btn); });
           });
           wireUpPromoTracking();
         }
@@ -222,9 +235,15 @@
           });
         }
 
+        // uid_eventId -> { name, meta }, rebuilt on every render(). Backs the
+        // confirm step's recap text without stuffing JSON into a data
+        // attribute — see showConfirm().
+        var attendeeIndex = {};
+
         function renderAttendee(a, eventId) {
           var genderDisp = ({ woman: 'Woman', man: 'Man' })[a.gender] || '';
           var meta = [a.age, genderDisp, intentLabels[a.intent] || ''].filter(Boolean).join(' · ');
+          if (a.uid) attendeeIndex[a.uid + '_' + eventId] = { name: a.displayName, meta: meta };
           var action = '', extra = '';
           if (a.state === 'matched') {
             action = '<div class="connect-state matched">Matched ✨</div>';
@@ -235,14 +254,43 @@
             // Guest with no account — visible but not selectable (no uid to match).
             action = '<div class="connect-state sent">Attended</div>';
           } else if (a.state === 'sent') {
-            action = '<div class="connect-state sent">Saved</div>';
+            // Undo removes the connection_intents row server-side as long as
+            // it's not yet mutual — lets someone fix an already-made mistake,
+            // not just avoid a future one.
+            action = '<div class="sent-wrap"><div class="connect-state sent">Saved</div>'
+              + '<button class="undo-link" data-action="undo" data-uid="' + esc(a.uid) + '" data-event="' + esc(eventId) + '">Undo</button></div>';
           } else if (a.state === 'received') {
-            action = '<button class="connect-btn" data-uid="' + esc(a.uid) + '" data-event="' + esc(eventId) + '" style="border-color: var(--info); color: var(--info);">They picked you · I did too</button>';
+            action = '<button class="connect-btn" data-action="intent" data-uid="' + esc(a.uid) + '" data-event="' + esc(eventId) + '" data-label="They picked you · I did too" data-received="1" style="border-color: var(--info); color: var(--info);">They picked you · I did too</button>';
           } else {
-            action = '<button class="connect-btn" data-uid="' + esc(a.uid) + '" data-event="' + esc(eventId) + '">I clicked with them</button>';
+            action = '<button class="connect-btn" data-action="intent" data-uid="' + esc(a.uid) + '" data-event="' + esc(eventId) + '" data-label="I clicked with them">I clicked with them</button>';
           }
           return '<div class="attendee-row"><div><div class="attendee-name">' + esc(a.displayName) + '</div>'
-            + '<div class="attendee-meta">' + esc(meta) + '</div>' + extra + '</div>' + action + '</div>';
+            + '<div class="attendee-meta">' + esc(meta) + '</div>' + extra + '</div><div class="action-slot">' + action + '</div></div>';
+        }
+
+        // A confirm step before a pick is sent — the single highest-leverage
+        // fix for accidental wrong-person taps, since previously one tap
+        // locked in a pick with no chance to double-check.
+        function showConfirm(btn) {
+          var uid = btn.dataset.uid, eventId = btn.dataset.event, label = btn.dataset.label, received = btn.dataset.received === '1';
+          var info = attendeeIndex[uid + '_' + eventId] || {};
+          var recap = info.name ? (esc(info.name) + (info.meta ? ' · ' + esc(info.meta) : '')) : 'this person';
+          var slot = btn.closest('.action-slot');
+          slot.innerHTML = '<div class="confirm-block">'
+            + '<div class="confirm-text">Confirm: ' + recap + '?</div>'
+            + '<div class="confirm-actions">'
+            + '<button class="confirm-yes" data-action="confirm">Yes, that’s them</button>'
+            + '<button class="confirm-cancel" data-action="cancel">Cancel</button>'
+            + '</div></div>';
+          slot.querySelector('[data-action="confirm"]').addEventListener('click', function (e) { pick(uid, eventId, e.target); });
+          slot.querySelector('[data-action="cancel"]').addEventListener('click', function () { revertToIntent(slot, uid, eventId, label, received); });
+        }
+
+        function revertToIntent(slot, uid, eventId, label, received) {
+          var style = received ? ' style="border-color: var(--info); color: var(--info);"' : '';
+          slot.innerHTML = '<button class="connect-btn" data-action="intent" data-uid="' + esc(uid) + '" data-event="' + esc(eventId)
+            + '" data-label="' + esc(label) + '"' + (received ? ' data-received="1"' : '') + style + '>' + esc(label) + '</button>';
+          slot.querySelector('[data-action="intent"]').addEventListener('click', function (e) { showConfirm(e.target); });
         }
 
         async function load() {
@@ -280,8 +328,28 @@
             if (typeof gtag === 'function') gtag('event', 'select_item', { item_list_name: 'matches' });
             load(); // re-render with fresh state (sent / matched)
           } catch (e) {
-            btn.disabled = false; btn.textContent = 'I clicked with them';
+            btn.disabled = false; btn.textContent = 'Yes, that’s them';
             alert(e.message || 'Could not save. Please try again.');
+          }
+        }
+
+        // Undo a not-yet-mutual pick. The server refuses (409) once it's
+        // already matched — that email can't be un-sent — surfaced here as
+        // a plain alert same as any other save error.
+        async function unpick(toUserId, eventId, btn) {
+          btn.disabled = true; var orig = btn.textContent; btn.textContent = 'Undoing…';
+          try {
+            var res = await fetch('/api/declare-connection', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: uid, t: token, toUserId: toUserId, eventId: eventId, action: 'unpick' })
+            });
+            var data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Could not undo');
+            if (typeof gtag === 'function') gtag('event', 'select_item', { item_list_name: 'matches', method: 'undo' });
+            load(); // re-render back to the pickable state
+          } catch (e) {
+            btn.disabled = false; btn.textContent = orig;
+            alert(e.message || 'Could not undo. Please try again.');
           }
         }
 

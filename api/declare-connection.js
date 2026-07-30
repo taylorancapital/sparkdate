@@ -22,6 +22,11 @@
 //     token uid (a client can't spoof it; audit #24). Idempotent. When the
 //     reverse like already exists the pair is mutual → email BOTH their contact
 //     exactly once, guarded by a `matches/{eventId}_{sortedPair}` create-lock.
+//
+// POST /api/declare-connection  { toUserId, eventId, action: 'unpick' }
+//   → removes a not-yet-mutual like, for the matches page's Undo button.
+//     Refuses (409) once the pair is already matched — that email can't be
+//     un-sent.
 
 const { Resend } = require('resend');
 const { admin, requireAuth } = require('../lib/auth');
@@ -48,6 +53,36 @@ function shortName(u, fallbackFull) {
     return parts[0] + (parts[1] ? ' ' + parts[1].charAt(0) + '.' : '');
   }
   return 'Member';
+}
+
+// Attendee display names are first-name + last-initial only ("Sarah M."), so
+// two different people at the same event can render identically — a real
+// source of "I picked the wrong person" reports. Disambiguate in place: any
+// name shared by 2+ attendees gets their age appended, and if that STILL
+// collides (same name, same or missing age), fall back to a numbered suffix
+// so no two rows at one event ever look alike.
+function disambiguateNames(attendees) {
+  const groups = new Map();
+  for (const a of attendees) {
+    if (!groups.has(a.displayName)) groups.set(a.displayName, []);
+    groups.get(a.displayName).push(a);
+  }
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const withAgeSuffix = group.map((a) => ({ a, suffixed: a.age ? `${a.displayName} (${a.age})` : a.displayName }));
+    const suffixCounts = new Map();
+    for (const { suffixed } of withAgeSuffix) suffixCounts.set(suffixed, (suffixCounts.get(suffixed) || 0) + 1);
+    const seen = new Map();
+    for (const { a, suffixed } of withAgeSuffix) {
+      if (suffixCounts.get(suffixed) > 1) {
+        const n = (seen.get(suffixed) || 0) + 1;
+        seen.set(suffixed, n);
+        a.displayName = `${suffixed} #${n}`;
+      } else {
+        a.displayName = suffixed;
+      }
+    }
+  }
 }
 
 // Has this user a CONFIRMED record for the event in EITHER collection?
@@ -256,6 +291,7 @@ async function handleGet(req, res, uid) {
       const displayName = parts[0] + (parts[1] ? ' ' + parts[1].charAt(0) + '.' : '');
       attendees.push({ uid: r.id, displayName, age: null, gender: r.gender || null, intent: null, state: 'info' });
     }
+    disambiguateNames(attendees);
     events.push({ eventId: ev.id, title: ev.title, date: ev.date, city: ev.city, attendees });
   }
 
@@ -308,9 +344,30 @@ module.exports = async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { toUserId, eventId } = req.body || {};
+  const { toUserId, eventId, action } = req.body || {};
   if (!toUserId || !eventId) return res.status(400).json({ error: 'Missing toUserId or eventId' });
   if (toUserId === fromUserId) return res.status(400).json({ error: "Can't connect to yourself" });
+
+  // Undo a pick that hasn't become a mutual match yet — the confirm-before-
+  // send step on the matches page cuts down NEW mis-taps, but doesn't help
+  // someone who already tapped the wrong row before that shipped. Once
+  // mutual, contact info may already be emailed to both people, which can't
+  // be un-sent, so refuse rather than silently no-op.
+  if (action === 'unpick') {
+    try {
+      const pair = [fromUserId, toUserId].sort();
+      const lockId = `${eventId}_${pair[0]}_${pair[1]}`;
+      const lockSnap = await db.collection('matches').doc(lockId).get();
+      if (lockSnap.exists) {
+        return res.status(409).json({ error: "You're already matched — that can't be undone. Reach out directly!" });
+      }
+      await db.collection('connection_intents').doc(`${fromUserId}_${toUserId}_${eventId}`).delete();
+      return res.status(200).json({ success: true, unpicked: true });
+    } catch (err) {
+      console.error('[declare-connection unpick] error', err.message);
+      return res.status(500).json({ error: 'Could not undo — try again.' });
+    }
+  }
 
   try {
     // Advisory attendance check — never blocks. Messy check-in (cross-event
