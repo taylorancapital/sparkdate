@@ -55,3 +55,8 @@ Thumbs.db
 *.mkv
 *.wav
 *.mp3
+
+# Local nightly-automation secrets & logs
+.claude-gh-token
+.claude-gh-token.txt
+Business Plan/files/Night Tasks/logs/
