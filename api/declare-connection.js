@@ -10,10 +10,12 @@
 // core post-event value attendees paid for, not a Fire-tier upsell.)
 //
 // GET  /api/declare-connection
-//   → the caller's PAST events with co-attendees + per-attendee match state.
-//     Runs with the Admin SDK because firestore.rules forbid a browser from
-//     reading other users' docs or others' event_registrations (a non-admin
-//     client cannot assemble this list itself).
+//   → the caller's MOST RECENT past event, with its co-attendees + per-
+//     attendee match state (stacking every event someone's ever attended
+//     read as confusing, not complete — see handleGet). Runs with the Admin
+//     SDK because firestore.rules forbid a browser from reading other users'
+//     docs or others' event_registrations (a non-admin client cannot
+//     assemble this list itself).
 //
 // POST /api/declare-connection  { toUserId, eventId }
 //   → records a one-directional "like". `fromUserId` is forced to the verified
@@ -170,15 +172,22 @@ async function handleGet(req, res, uid) {
   // Keep only PAST events (date < now) — matching is a post-event action.
   const evDocs = await Promise.all(myEventIds.map(id => db.collection('events').doc(id).get()));
   const now = Date.now();
-  const pastEvents = [];
+  const allPastEvents = [];
   for (const d of evDocs) {
     if (!d.exists) continue;
     const e = d.data();
     const dt = e.date && e.date.toDate ? e.date.toDate() : (e.date ? new Date(e.date) : null);
     if (!dt || isNaN(dt.getTime()) || dt.getTime() >= now) continue;
-    pastEvents.push({ id: d.id, title: e.title || 'SparkDate Mixer', date: dt.toISOString(), city: e.city || '' });
+    allPastEvents.push({ id: d.id, title: e.title || 'SparkDate Mixer', date: dt.toISOString(), city: e.city || '' });
   }
-  if (pastEvents.length === 0) return res.status(200).json({ events: [], nextEvent: await getNextEventForCity(db, '') });
+  if (allPastEvents.length === 0) return res.status(200).json({ events: [], nextEvent: await getNextEventForCity(db, '') });
+
+  // Show only the MOST RECENT event's matches, not the caller's entire
+  // attendance history. Stacking every past event someone's ever been to
+  // read as confusing rather than complete — a repeat attendee would see
+  // old, already-resolved matching lists mixed in above tonight's fresh
+  // one. "Current event" here means the last one they attended.
+  const pastEvents = [allPastEvents.sort((a, b) => new Date(b.date) - new Date(a.date))[0]];
 
   // My outgoing + incoming likes, keyed `${otherUid}_${eventId}`.
   const [outSnap, inSnap] = await Promise.all([
@@ -256,9 +265,8 @@ async function handleGet(req, res, uid) {
   // previously suggested nothing commercial. Reuses the SAME city-aware helper
   // as that email so the fallback behavior (same-city preferred, global
   // next-event otherwise) never drifts between the two surfaces. Keyed off
-  // the first past event's city — a match-link visit typically centers on one
-  // specific event. getNextEventForCity fails soft internally (never throws),
-  // so no extra guard needed here.
+  // the (single) current event's city. getNextEventForCity fails soft
+  // internally (never throws), so no extra guard needed here.
   const nextEvent = await getNextEventForCity(db, pastEvents[0] && pastEvents[0].city);
 
   return res.status(200).json({ events, nextEvent });
