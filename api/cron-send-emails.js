@@ -19,7 +19,7 @@ const { resolveLeadName } = require('../lib/lead-name');
 const { logEventAttended } = require('../lib/activity-log');
 const { makeProfileUrl, makeMatchUrl } = require('../lib/profile-link');
 const { EMAIL_CAMPAIGNS: UTM, buildUtmUrl } = require('../lib/utm');
-const { getNextEvent, getNextEventForCity, normalizeEvent, eventCardHtml, ctaButtonHtml, ctaLinkHtml, urgencyBox, shell, h1, p, esc } = require('../lib/next-event');
+const { getNextEvent, normalizeEvent, eventCardHtml, ctaButtonHtml, ctaLinkHtml, urgencyBox, shell, h1, p, esc } = require('../lib/next-event');
 const { buildAttendanceIndex } = require('../lib/attendance-index');
 
 const db = admin.firestore();
@@ -669,8 +669,20 @@ async function sendPreEventEmails(nowMs, emailedThisRun) {
 // breaks the nurture or profile-reminder passes.
 const POST_EVENT_LOOKBACK_DAYS = 3;
 
-function postEventPromptHTML({ eventName, matchUrl, nextEventHtml, referralUrl }) {
+function postEventPromptHTML({ eventName, matchUrl, nextEventHtml, getawaysUrl, referralUrl }) {
   const s = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Getaways mention: this is the single highest-attention email in the
+  // cycle (people are actively watching for the matching link), so it's
+  // also the best place to put a commercial mention that would otherwise
+  // have no home. Previously lived in a separate ~8:55pm email fired by its
+  // own cron 5 minutes ahead of this one — that second cron's guard needed
+  // a narrow 8:50-8:59pm window (this email's guard tolerates the whole 9pm
+  // hour), and a late cron invocation would silently miss that window and
+  // skip the send entirely. Folding it in here means it rides this email's
+  // much more forgiving guard instead of depending on its own.
+  const getawaysHtml = getawaysUrl ? `
+<p class="next-h">Multi-day getaways are coming</p>
+<p>Vote for the trip you'd take, get first dibs on dates and pricing — and you could win it free when it launches. <a href="${s(getawaysUrl)}">Vote on Getaways</a></p>` : '';
   // Referral block: the highest-engagement email in the system (recipient
   // just got excited about a match), so it's the best moment to surface the
   // already-built referral link (same account.html invite-link convention —
@@ -720,7 +732,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 <p>Tell us who you'd like to see again. If they pick you too, we'll share contact info so you can meet up — no missed signals, no awkward Instagram hunt.</p>
 <p style="text-align:center;"><a class="cta" href="${s(matchUrl)}">Pick your matches</a></p>
 <p>No login needed — this link is just for you.</p>
-${nextEventHtml || ''}${referralHtml}${shareHtml}${reviewHtml}
+${nextEventHtml || ''}${getawaysHtml}${referralHtml}${shareHtml}${reviewHtml}
 </div>
 <div class="footer"><p>SparkDate · Lancaster &amp; Philadelphia · Real people. Real venues.</p>
 <p><a href="https://sparkdate.date">sparkdate.date</a></p></div>
@@ -759,156 +771,6 @@ async function auditPostEventPrompts(nowMs, eventId) {
   return candidates;
 }
 
-// ── Pre-match hype pass (~8:55pm ET, 5 min before the postevent/matching
-// email) ─────────────────────────────────────────────────────────────
-//
-// The 9pm matching link is the single highest-attention email in the whole
-// cycle — people are actively watching for it. This fires just before it to
-// the SAME audience (tonight's confirmed attendees) with a compact next-event
-// + Getaways mention, since that peak attention otherwise has no commercial
-// payload riding on it. Deliberately scoped to TODAY's event(s) only (not
-// sendPostEventPrompts's 3-day lookback, which exists to catch matching-email
-// stragglers) — this pass is tied to tonight's specific 8:55pm send.
-function preMatchHypeHTML({ eventName, sameCity, cityLabel, nextEventCardHtml, nextEventCtaHtml, getawaysUrl }) {
-  const s = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const nextEventHeading = sameCity ? `Your next ${s(cityLabel)} mixer` : 'Our next mixer';
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0;color:#0a0e27}
-.container{max-width:600px;margin:0 auto;background:#fff}
-.header{background:#0a0e27;padding:36px 30px;text-align:center}
-.logo{font-family:Georgia,serif;font-size:30px;font-weight:900;color:#fff}.logo span{color:#ff6b6b}
-.content{padding:36px 30px}h1{font-family:Georgia,serif;font-size:24px;margin:0 0 16px}
-p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
-.next-h{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#8a8fa3;margin:32px 0 0;border-top:1px solid #eee;padding-top:24px}
-.footer{background:#0a0e27;padding:22px;text-align:center;color:#888;font-size:12px}.footer a{color:#ff6b6b;text-decoration:none}
-</style></head><body><div class="container">
-<div class="header"><div class="logo">Spark<span>Date</span></div></div>
-<div class="content">
-<h1>Matches for tonight's ${s(eventName)} are about to land</h1>
-<p>Keep an eye on your inbox — the link to pick who you clicked with is on its way any minute.</p>
-<p class="next-h">${s(nextEventHeading)}</p>
-${nextEventCardHtml || ''}
-${nextEventCtaHtml || ''}
-<p class="next-h">Multi-day getaways are coming</p>
-<p>Vote for the trip you'd take, get first dibs on dates and pricing — and you could win it free when it launches. <a href="${s(getawaysUrl)}">Vote on Getaways</a></p>
-</div>
-<div class="footer"><p>SparkDate · Lancaster &amp; Philadelphia · Real people. Real venues.</p>
-<p><a href="https://sparkdate.date">sparkdate.date</a></p></div>
-</div></body></html>`;
-}
-
-async function sendPreMatchHype(nowMs, emailedThisRun, testUid = null, resendUids = null) {
-  let sent = 0, skipped = 0;
-  try {
-    const nowEastern = new Date(new Date(nowMs).toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    const since = new Date(nowEastern.getFullYear(), nowEastern.getMonth(), nowEastern.getDate());
-    const evSnap = await db.collection('events')
-      .where('date', '>=', since)
-      .where('date', '<=', new Date(nowMs))
-      .get();
-    for (const evDoc of evSnap.docs) {
-      const evData = evDoc.data();
-      const eventName = evData.title || "tonight's event";
-      const cityLabel = evData.city || '';
-      const { event: nextEvent, sameCity } = await getNextEventForCity(db, cityLabel);
-      const nextEventCardHtml = eventCardHtml(nextEvent || null);
-      const nextEventCtaHtml = nextEvent
-        ? ctaButtonHtml(buildUtmUrl('/event?id=' + nextEvent.id, 'email', 'prematch', 'next_mixer'), 'Reserve your spot')
-        : '';
-      const getawaysUrl = buildUtmUrl('/getaways', 'email', 'prematch', 'getaways');
-
-      // event_registrations is the single source of truth for attendance
-      // (same as sendPostEventPrompts above) — no need to query tickets.
-      const erSnap = await db.collection('event_registrations').where('eventId', '==', evDoc.id).get();
-      const resendSet = resendUids ? new Set(resendUids) : null;
-
-      // Own idempotency lock collection, independent of post_event_prompts,
-      // same doc-id scheme (${uid}_${eventId}).
-      const lockSnap = await db.collection('pre_match_hype').where('eventId', '==', evDoc.id).get();
-      const alreadySent = new Set();
-      for (const lockDoc of lockSnap.docs) {
-        const d = lockDoc.data();
-        if (d.userId && !(resendSet && resendSet.has(d.userId))) alreadySent.add(d.userId);
-      }
-      for (const er of erSnap.docs) {
-        const r = er.data();
-        if (r.preMatchHypeSent && r.userId && !(resendSet && resendSet.has(r.userId))) alreadySent.add(r.userId);
-      }
-
-      const seen = new Set();
-      const candidates = [];
-      for (const er of erSnap.docs) {
-        const r = er.data();
-        if (r.status !== 'confirmed' || !r.userId) { skipped++; continue; }
-        if (alreadySent.has(r.userId) || seen.has(r.userId)) { skipped++; continue; }
-        seen.add(r.userId);
-        candidates.push({ uid: r.userId, ref: er.ref });
-      }
-      for (const cand of candidates) {
-        if (testUid && cand.uid !== testUid) { skipped++; continue; }
-        if (resendSet && !resendSet.has(cand.uid)) { skipped++; continue; }
-        const usnap = await db.collection('users').doc(cand.uid).get();
-        const email = usnap.exists ? usnap.data().email : null;
-        if (!email) { skipped++; continue; }
-        try {
-          const result = await resend.emails.send({
-            from: 'SparkDate <hello@mail.sparkdate.date>',
-            to: email,
-            subject: `Tonight's matches drop any minute — plus what's next`,
-            html: preMatchHypeHTML({ eventName, sameCity, cityLabel, nextEventCardHtml, nextEventCtaHtml, getawaysUrl }),
-          });
-          if (!result.error) {
-            const sentAt = new Date().toISOString();
-            const lockRef = db.collection('pre_match_hype').doc(`${cand.uid}_${evDoc.id}`);
-            await Promise.all([
-              lockRef.set({ userId: cand.uid, eventId: evDoc.id, sentAt }),
-              cand.ref.update({ preMatchHypeSent: true, preMatchHypeSentAt: sentAt }),
-            ]);
-            if (emailedThisRun) emailedThisRun.add(String(email).toLowerCase().trim());
-            sent++;
-            console.log(`✅ pre-match hype → ${cand.ref.id}`);
-          } else { skipped++; }
-        } catch (e) { console.error('[pre-match-hype]', cand.ref.id, e.message); skipped++; }
-      }
-    }
-  } catch (e) {
-    console.error('[pre-match-hype] pass failed:', e.message);
-  }
-  return { sent, skipped };
-}
-
-async function auditPreMatchHype(nowMs, eventId) {
-  const candidates = [];
-  try {
-    const nowEastern = new Date(new Date(nowMs).toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    const since = new Date(nowEastern.getFullYear(), nowEastern.getMonth(), nowEastern.getDate());
-    const evQuery = eventId
-      ? await db.collection('events').doc(eventId).get().then(d => d.exists ? [d] : [])
-      : await db.collection('events').where('date', '>=', since).where('date', '<=', new Date(nowMs)).get().then(s => s.docs);
-    for (const evDoc of evQuery) {
-      const [erSnap, lockSnap] = await Promise.all([
-        db.collection('event_registrations').where('eventId', '==', evDoc.id).get(),
-        db.collection('pre_match_hype').where('eventId', '==', evDoc.id).get(),
-      ]);
-      const sentLock = new Set(lockSnap.docs.map(d => d.data().userId).filter(Boolean));
-      const seen = new Set();
-      for (const er of erSnap.docs) {
-        const r = er.data();
-        if (r.status !== 'confirmed' || !r.userId || seen.has(r.userId)) continue;
-        seen.add(r.userId);
-        const usnap = await db.collection('users').doc(r.userId).get();
-        const email = usnap.exists ? usnap.data().email : null;
-        candidates.push({
-          uid: r.userId, email: email || null,
-          alreadySent: sentLock.has(r.userId) || !!r.preMatchHypeSent,
-          eventId: evDoc.id, eventTitle: evDoc.data().title || evDoc.id,
-        });
-      }
-    }
-  } catch (e) { console.error('[pre-match-hype-audit] failed:', e.message); }
-  return candidates;
-}
-
 async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resendUids = null, nextEvent = null) {
   let sent = 0, skipped = 0;
   try {
@@ -927,6 +789,7 @@ async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resen
           + eventCardHtml(nextEvent)
           + ctaButtonHtml(buildUtmUrl('/event?id=' + nextEvent.id, 'email', 'postevent', 'next_mixer'), 'Reserve your spot')
         : '';
+      const getawaysUrl = buildUtmUrl('/getaways', 'email', 'postevent', 'getaways');
       // event_registrations is the single source of truth for attendance.
       // Every confirmed attendee — ticket buyer, check-in, or admin-enrolled —
       // has exactly one reg_{uid}_{eventId} doc here. No need to query tickets.
@@ -974,7 +837,7 @@ async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resen
             to: email,
             subject: `Who did you click with at ${eventName}?`,
             html: postEventPromptHTML({
-              eventName, matchUrl: makeMatchUrl(cand.uid), nextEventHtml,
+              eventName, matchUrl: makeMatchUrl(cand.uid), nextEventHtml, getawaysUrl,
               // Same link-building convention as account.html's setupInvite()
               // — no new attribution logic, just a new place it's surfaced.
               // Points at the homepage, not /events — index.html captures an
@@ -1345,28 +1208,13 @@ module.exports = async function handler(req, res) {
   // `?force=1` would do, since force bypasses those gates).
   const only = req.query?.only || req.body?.only || null;
   if (!force) {
-    const nowParts = new Date().toLocaleString('en-US', {
-      timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false,
-    });
-    const [easternHourStr, easternMinuteStr] = nowParts.split(':');
-    const easternHour = parseInt(easternHourStr, 10);
-    const easternMinute = parseInt(easternMinuteStr, 10);
-
-    // `?only=prematch` fires at :55 past the hour (8:55 PM ET), not on the
-    // whole hour like every other pass — needs its own minute-aware check
-    // rather than the plain hour-equality test the others use. `>= 50`
-    // tolerates Vercel's cron-firing jitter around the :55 mark.
-    let ok, reason;
-    if (only === 'prematch') {
-      ok = easternHour === 20 && easternMinute >= 50;
-      reason = `not ~8:55 PM Eastern (hour=${easternHour}, minute=${easternMinute})`;
-    } else {
-      const targetHour = only === 'postevent' ? 21 : 9;
-      ok = easternHour === targetHour;
-      reason = `not ${targetHour === 21 ? '9 PM' : '9 AM'} Eastern (hour=${easternHour})`;
-    }
-    if (!ok) {
-      console.log(`⏰ cron skipped — ${easternHour}:${easternMinuteStr} America/New_York, ${reason}`);
+    const easternHour = parseInt(new Date().toLocaleString('en-US', {
+      timeZone: 'America/New_York', hour: '2-digit', hour12: false,
+    }), 10);
+    const targetHour = only === 'postevent' ? 21 : 9;
+    if (easternHour !== targetHour) {
+      const reason = `not ${targetHour === 21 ? '9 PM' : '9 AM'} Eastern (hour=${easternHour})`;
+      console.log(`⏰ cron skipped — ${easternHour}:00 America/New_York, ${reason}`);
       return res.status(200).json({ skipped: true, reason });
     }
   }
@@ -1413,30 +1261,6 @@ module.exports = async function handler(req, res) {
       const attendanceLog = await logPastEventAttendance(nowMs);
       console.log(`✅ Cron (only=postevent${testUid ? `, testUid=${testUid}` : ''}${resendUids ? `, resendUids=${resendUids.join(',')}` : ''}):`, JSON.stringify(postEventPrompts), 'attendanceLog=', JSON.stringify(attendanceLog));
       return res.status(200).json({ success: true, only: 'postevent', testUid: testUid || null, resendUids: resendUids || null, postEventPrompts, attendanceLog, ts: new Date().toISOString() });
-    }
-
-    // Scoped trigger: run ONLY the pre-match hype pass and return. This is
-    // what the dedicated ~8:55 PM ET cron hits, 5 minutes ahead of the
-    // postevent/matching cron above. Same ops-hook conventions as postevent.
-    // ?testUid=<uid>          — dry-run to one person before the real blast
-    // ?resendUids=uid1,uid2   — resend to specific uids (bypasses alreadySent)
-    // ?audit=1&eventId=X      — preview who WOULD receive the email (no sends)
-    if (only === 'prematch') {
-      const testUid    = req.query?.testUid    || req.body?.testUid    || null;
-      const resendRaw  = req.query?.resendUids || req.body?.resendUids || null;
-      const resendUids = resendRaw ? String(resendRaw).split(',').map(s => s.trim()).filter(Boolean) : null;
-      const audit      = (req.query?.audit === '1' || req.body?.audit === '1');
-      const auditEventId = req.query?.eventId || req.body?.eventId || null;
-
-      if (audit) {
-        const candidates = await auditPreMatchHype(nowMs, auditEventId);
-        console.log(`✅ Cron audit (only=prematch, eventId=${auditEventId}):`, candidates.length, 'candidates');
-        return res.status(200).json({ success: true, audit: true, eventId: auditEventId, candidates, ts: new Date().toISOString() });
-      }
-
-      const preMatchHype = await sendPreMatchHype(nowMs, emailedThisRun, testUid, resendUids);
-      console.log(`✅ Cron (only=prematch${testUid ? `, testUid=${testUid}` : ''}${resendUids ? `, resendUids=${resendUids.join(',')}` : ''}):`, JSON.stringify(preMatchHype));
-      return res.status(200).json({ success: true, only: 'prematch', testUid: testUid || null, resendUids: resendUids || null, preMatchHype, ts: new Date().toISOString() });
     }
 
     // Attendance index (confirmed event_registrations = single source of truth).

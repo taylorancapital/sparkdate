@@ -259,13 +259,12 @@ async function handleGet(req, res, uid) {
     events.push({ eventId: ev.id, title: ev.title, date: ev.date, city: ev.city, attendees });
   }
 
-  // Next-event + Getaways promo for the matches page itself — same
-  // high-attention moment as the pre-match hype email (api/cron-send-emails.js's
-  // sendPreMatchHype), same reasoning: this page has a lot of activity and
-  // previously suggested nothing commercial. Reuses the SAME city-aware helper
-  // as that email so the fallback behavior (same-city preferred, global
-  // next-event otherwise) never drifts between the two surfaces. Keyed off
-  // the (single) current event's city. getNextEventForCity fails soft
+  // Next-event + Getaways promo for the matches page itself — this page has
+  // a lot of activity and previously suggested nothing commercial. Reuses
+  // the SAME city-aware helper as the matching email's next-event mention
+  // (api/cron-send-emails.js) so the fallback behavior (same-city preferred,
+  // global next-event otherwise) never drifts between the two surfaces.
+  // Keyed off the (single) current event's city. getNextEventForCity fails soft
   // internally (never throws), so no extra guard needed here.
   const nextEvent = await getNextEventForCity(db, pastEvents[0] && pastEvents[0].city);
 

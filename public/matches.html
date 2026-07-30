@@ -157,10 +157,10 @@
           }
         }
 
-        // Compact next-event + Getaways strip -- same high-attention moment
-        // as the pre-match hype email (api/cron-send-emails.js's
-        // sendPreMatchHype), same content, same city-aware fallback (reuses
-        // the server's getNextEventForCity via /api/declare-connection's new
+        // Compact next-event + Getaways strip -- this page gets a lot of
+        // activity with no commercial mention otherwise. Same city-aware
+        // fallback as the matching email's next-event mention (reuses the
+        // server's getNextEventForCity via /api/declare-connection's
         // `nextEvent` field), just a lighter-touch presentation for a page
         // instead of an email. Own UTM params so this traffic is attributable
         // separately from the email's clicks.
