@@ -20,6 +20,7 @@ const { admin } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
 const { effectivePrice, spotsRemaining } = require('../lib/seat-model');
 const { buildSitemapXml } = require('../lib/sitemap-xml');
+const { isEventOver } = require('../lib/next-event');
 
 const db = admin.firestore();
 
@@ -403,10 +404,9 @@ module.exports = async function handler(req, res) {
     }
 
     // The events collection is small — fetch ordered by date and pick the
-    // first one that's still upcoming and not sold out. Filtering in code
-    // keeps this a single-field query (no composite index needed).
+    // first one that's still current-or-upcoming and not sold out. Filtering
+    // in code keeps this a single-field query (no composite index needed).
     const snap = await db.collection('events').orderBy('date', 'asc').get();
-    const now = Date.now();
 
     let picked = null;
     for (const doc of snap.docs) {
@@ -414,7 +414,12 @@ module.exports = async function handler(req, res) {
       const dt = e.date?.toDate ? e.date.toDate()
                : (e.date ? new Date(e.date) : null);
       if (!dt || isNaN(dt.getTime())) continue; // no/!valid date
-      if (dt.getTime() < now) continue;          // already happened
+      // isEventOver, not a bare `dt < now`: this same query is checkin.html's
+      // fallback whenever a check-in link is opened without ?eventId= pinned.
+      // A bare start-time comparison would make tonight's event vanish from
+      // "next event" the moment doors open, silently rerouting every later
+      // check-in onto whatever event is next on the calendar.
+      if (isEventOver(dt, e.durationHours)) continue;
       if (e.status === 'full') continue;         // sold out
       picked = { id: doc.id, e, dt };
       break;                                     // date-asc → first match is soonest

@@ -6,9 +6,10 @@
 // real leads.
 
 import { describe, it, expect } from 'vitest';
-import { normalizeEvent, getNextEvent, eventCardHtml } from '../lib/next-event.js';
+import { normalizeEvent, getNextEvent, getNextEventForCity, isEventOver, eventCardHtml } from '../lib/next-event.js';
 
 const DAY = 86400000;
+const HOUR = 3600000;
 const future = (days) => new Date(Date.now() + days * DAY);
 
 // Minimal Firestore-like db whose events come back in the given order
@@ -81,6 +82,56 @@ describe('getNextEvent', () => {
   it('fails soft to null if the query throws', async () => {
     const db = { collection: () => ({ orderBy: () => ({ get: async () => { throw new Error('boom'); } }) }) };
     expect(await getNextEvent(db)).toBeNull();
+  });
+
+  // Regression: a mixer that started an hour ago is still IN PROGRESS, not
+  // "already happened". A bare `date < now` check made a live event vanish
+  // from this lookup the instant its start time passed, which is also
+  // checkin.html's fallback whenever a check-in link has no ?eventId=
+  // pinned — so late arrivals got silently checked into whatever event is
+  // next on the calendar instead of tonight's.
+  it('still returns an event that started within its duration window', async () => {
+    const db = mockDb([
+      { id: 'tonight', date: new Date(Date.now() - HOUR), venue: 'Tonight' }, // started 1h ago, default 3h duration
+      { id: 'later', date: future(20), venue: 'Later' },
+    ]);
+    expect((await getNextEvent(db)).id).toBe('tonight');
+  });
+
+  it('treats an event as over once its (possibly custom) duration has elapsed', async () => {
+    const db = mockDb([
+      { id: 'tonight-short', date: new Date(Date.now() - HOUR), durationHours: 0.5, venue: 'Short mixer' },
+      { id: 'later', date: future(20), venue: 'Later' },
+    ]);
+    expect((await getNextEvent(db)).id).toBe('later');
+  });
+});
+
+describe('isEventOver', () => {
+  it('is false while inside the default 3h window', () => {
+    expect(isEventOver(new Date(Date.now() - HOUR), undefined)).toBe(false);
+  });
+
+  it('is true once the default 3h window has elapsed', () => {
+    expect(isEventOver(new Date(Date.now() - 4 * HOUR), undefined)).toBe(true);
+  });
+
+  it('honors a custom durationHours', () => {
+    const start = new Date(Date.now() - 2 * HOUR);
+    expect(isEventOver(start, 1)).toBe(true);
+    expect(isEventOver(start, 5)).toBe(false);
+  });
+});
+
+describe('getNextEventForCity', () => {
+  it('still returns an in-progress same-city event rather than skipping to the next one', async () => {
+    const db = mockDb([
+      { id: 'tonight', date: new Date(Date.now() - HOUR), city: 'Philadelphia', venue: 'Tonight' },
+      { id: 'later', date: future(20), city: 'Philadelphia', venue: 'Later' },
+    ]);
+    const { event, sameCity } = await getNextEventForCity(db, 'philadelphia');
+    expect(event.id).toBe('tonight');
+    expect(sameCity).toBe(true);
   });
 });
 
