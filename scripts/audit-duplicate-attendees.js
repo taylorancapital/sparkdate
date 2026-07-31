@@ -17,11 +17,21 @@
  * makes the admin check-in list show the same person twice.
  *
  * This groups every CONFIRMED event_registrations doc by (eventId,
- * normalized email) and flags any group with more than one doc AND more
- * than one distinct userId — the "different account, same person" case.
- * A group sharing one userId is dedupe-registrations.js's job, not this
- * script's, so it's deliberately excluded here to keep the two tools from
- * overlapping.
+ * normalized email) and reports BOTH duplicate shapes separately, because
+ * they need different fixes:
+ *
+ *   CROSS-ACCOUNT — one email spanning >1 distinct userId (or a real uid
+ *     plus a uid-less guest/plus-one row). dedupe-registrations.js cannot
+ *     fix these; it groups by userId and these have different ones.
+ *
+ *   SAME-ACCOUNT — one email, one userId, but >1 doc, meaning the
+ *     deterministic reg_{uid}_{eventId} ID never took for at least one of
+ *     them. This is exactly what dedupe-registrations.js is built for.
+ *
+ * Reporting both is deliberate: an earlier version of this script skipped
+ * the same-account case as "another tool's job" and consequently
+ * under-reported the real duplicate count by more than half, which made
+ * the roster total impossible to reconcile against the admin page.
  *
  * Makes NO writes. Run this first, review the report, THEN decide on a
  * follow-up fix once the actual scope is known.
@@ -129,17 +139,42 @@ function toIso(ts) {
     evDocs.forEach((d) => { if (d.exists) eventTitles.set(d.id, d.data().title || d.id); });
   }
 
+  // Two DIFFERENT duplicate shapes, and they need different fixes — so they
+  // are counted and reported separately rather than lumped together:
+  //
+  //   crossAccount — the same email spans >1 distinct userId (or a real uid
+  //     plus a uid-less guest/plus-one doc). Check-in couldn't match their
+  //     existing account, so a second Firebase account (or an orphan guest
+  //     row) exists. dedupe-registrations.js CANNOT fix these — it groups by
+  //     userId, and these have different ones.
+  //
+  //   sameAccount — the same email AND the same single userId across >1 doc.
+  //     That means the deterministic reg_{uid}_{eventId} ID never took for at
+  //     least one of them (a legacy auto-ID or eb_reg_ row that
+  //     migrate-registrations.js hasn't collapsed). This IS what
+  //     dedupe-registrations.js is built for. Reported here so the roster
+  //     total actually reconciles — an earlier version of this script
+  //     silently skipped these and under-reported the real duplicate count.
   const report = [];
   for (const [ev, m] of byEvent) {
-    const dupGroups = [];
+    const crossAccount = [];
+    const sameAccount = [];
+    let totalConfirmed = 0;
     for (const [email, rows] of m) {
+      totalConfirmed += rows.length;
       if (rows.length < 2) continue;
       const uids = new Set(rows.map((r) => r.uid));
-      if (uids.size < 2) continue; // same-uid dupes are dedupe-registrations.js's job
-      dupGroups.push({ email, rows });
+      if (uids.size >= 2) crossAccount.push({ email, rows });
+      else sameAccount.push({ email, rows });
     }
-    if (dupGroups.length) {
-      report.push({ eventId: ev, eventTitle: eventTitles.get(ev) || ev, duplicateGroups: dupGroups });
+    if (crossAccount.length || sameAccount.length) {
+      report.push({
+        eventId: ev,
+        eventTitle: eventTitles.get(ev) || ev,
+        totalConfirmed,
+        crossAccount,
+        sameAccount,
+      });
     }
   }
 
@@ -149,24 +184,42 @@ function toIso(ts) {
   }
 
   if (!report.length) {
-    console.log('No cross-account duplicates found.');
+    console.log('No duplicates found.');
     process.exit(0);
   }
 
-  let totalDupPeople = 0;
+  const printGroup = (g) => {
+    console.log(`\n  ${g.email}`);
+    for (const r of g.rows) {
+      console.log(`    - ${r.docId}`);
+      console.log(`        uid=${r.uid}  name=${r.name}  source=${r.source}  checkedInAt=${r.checkedInAt || 'not checked in'}`);
+    }
+  };
+
+  let totalCross = 0;
+  let totalSame = 0;
   for (const ev of report) {
-    console.log(`── ${ev.eventTitle} [${ev.eventId}] — ${ev.duplicateGroups.length} duplicated ${ev.duplicateGroups.length === 1 ? 'person' : 'people'} ──`);
-    for (const g of ev.duplicateGroups) {
-      totalDupPeople++;
-      console.log(`\n  ${g.email}`);
-      for (const r of g.rows) {
-        console.log(`    - ${r.docId}  uid=${r.uid}  name=${r.name}  source=${r.source}  checkedInAt=${r.checkedInAt || 'not checked in'}`);
-      }
+    const dupPeople = ev.crossAccount.length + ev.sameAccount.length;
+    const realPeople = ev.totalConfirmed - dupPeople;
+    console.log(`\n══ ${ev.eventTitle} [${ev.eventId}] ══`);
+    console.log(`   ${ev.totalConfirmed} confirmed registration docs`);
+    console.log(`   ${dupPeople} duplicated ${dupPeople === 1 ? 'person' : 'people'} → ~${realPeople} real unique attendees`);
+
+    if (ev.crossAccount.length) {
+      console.log(`\n  ── CROSS-ACCOUNT (${ev.crossAccount.length}) — different uids; dedupe-registrations.js CANNOT fix these ──`);
+      ev.crossAccount.forEach((g) => { totalCross++; printGroup(g); });
+    }
+    if (ev.sameAccount.length) {
+      console.log(`\n  ── SAME-ACCOUNT (${ev.sameAccount.length}) — one uid, stale doc IDs; dedupe-registrations.js handles these ──`);
+      ev.sameAccount.forEach((g) => { totalSame++; printGroup(g); });
     }
     console.log();
   }
-  console.log(`Total duplicated people across scanned event(s): ${totalDupPeople}`);
-  console.log('No changes were made. This is a report only.');
+  console.log('══ TOTALS across scanned event(s) ══');
+  console.log(`  cross-account duplicates: ${totalCross}  (need the email-match fix + manual merge)`);
+  console.log(`  same-account duplicates:  ${totalSame}  (run: node scripts/dedupe-registrations.js <eventId>)`);
+  console.log(`  total duplicated people:  ${totalCross + totalSame}`);
+  console.log('\nNo changes were made. This is a report only.');
   process.exit(0);
 })().catch((err) => {
   console.error('Fatal:', err);
