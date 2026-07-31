@@ -12,12 +12,14 @@
  * cleans up the rows created before that landed.
  *
  * What it does per duplicate group:
- *   1. Picks the keeper — the row with a real `checkedInAt`, because that is
- *      the only evidence the person physically attended. Ties break toward the
- *      canonical reg_{uid}_{eventId} id, then earliest createdAt.
+ *   1. Picks the keeper — the account holding MATCH HISTORY first, then the
+ *      one with a real `checkedInAt`, then the canonical reg_{uid}_{eventId}
+ *      id, then earliest createdAt. Match history leads because it is the one
+ *      thing here that cannot be rebuilt (see the `score` comment); attendance
+ *      is copied onto whichever row wins.
  *   2. Salvages fields the keeper lacks from the losers — critically the
- *      ticketId/paymentIntentId purchase linkage, which must not disappear
- *      with the row.
+ *      ticketId/paymentIntentId purchase linkage and `checkedInAt`, neither of
+ *      which must disappear with the row.
  *   3. RE-ATTRIBUTES, never deletes, any `tickets` doc belonging to a loser
  *      uid: its firebaseUid is repointed at the keeper uid. This is not
  *      optional bookkeeping — api/declare-connection.js builds the matches
@@ -27,12 +29,15 @@
  *      duplicate registration row is gone. Payment records are never deleted.
  *   4. Deletes the loser event_registrations row.
  *
- * SAFETY GATE: if a loser uid already has connection_intents or a matches
- * lock, deleting its registration would orphan real match history (that uid
- * would stop appearing as a co-attendee, and anyone who picked them could
- * never resolve to a mutual match). Those groups are REPORTED AND SKIPPED
- * unless --include-matched is passed, so the default run can't quietly
- * discard someone's picks.
+ * SAFETY GATE: when TWO OR MORE accounts in a group each hold match history,
+ * there is no safe deletion — whichever row goes takes irreplaceable matches
+ * with it (that uid stops appearing as a co-attendee, and anyone who picked
+ * them can never resolve to a mutual match). Those groups are REPORTED AND
+ * SKIPPED for a human decision unless --include-matched is passed, so a
+ * default run can never quietly discard someone's picks.
+ *
+ * A single account holding all the history is NOT blocked — the keeper rule
+ * simply keeps that one.
  *
  * Usage:
  *   node scripts/merge-cross-account-attendees.js <eventId>              # dry run
@@ -85,14 +90,27 @@ if (!eventId && !ALL) {
 const ms = (ts) => (ts && typeof ts.toMillis === 'function') ? ts.toMillis()
   : (ts ? new Date(ts).getTime() || 0 : 0);
 
-// Keeper preference: real attendance first, then the canonical doc id, then
-// oldest. checkedInAt outranks the canonical id here (the opposite of
-// dedupe-registrations.js) because in this shape the two rows belong to
-// DIFFERENT uids — we're choosing which account represents the person, and
-// the one that walked through the door is the right answer.
-function score(doc, evId) {
+// Keeper preference, highest priority first:
+//
+//   1. MATCH HISTORY (connection_intents / matches locks on that uid).
+//      This outranks everything because it is the only thing here that cannot
+//      be reconstructed: a match lock means contact info was already emailed
+//      to two real people. An earlier version of this script ranked
+//      checkedInAt first and would have deleted Helesha Shober's Eventbrite
+//      account — the one holding 11 intents and 3 completed mutual matches —
+//      purely because her check-in landed on the other account. Attendance is
+//      recoverable (checkedInAt is in SALVAGE_FIELDS and gets copied onto the
+//      keeper); a mutual match that stops resolving is not.
+//   2. checkedInAt — real attendance, salvageable but still meaningful.
+//   3. The canonical reg_{uid}_{eventId} id.
+//   4. Oldest createdAt.
+//
+// `history` is precomputed per doc by the caller (uid-less guest rows can't
+// have any, so they score 0 and never win against a real account).
+function score(doc, evId, history) {
   const d = doc.data();
   let s = 0;
+  if (history > 0) s += 10000;
   if (d.checkedInAt) s += 1000;
   if (doc.id === `reg_${d.userId}_${evId}`) s += 100;
   if (d.status === 'confirmed') s += 10;
@@ -138,8 +156,33 @@ const SALVAGE_FIELDS = [
       const uids = new Set(docs.map((d) => d.data().userId));
       if (uids.size < 2) continue; // same-uid → dedupe-registrations.js's job
 
+      // Match history has to be measured for EVERY candidate, not just the
+      // ones we were already planning to delete — it's the top-ranked keeper
+      // signal, so we cannot know who the keeper is until we have it.
+      const historyByDocId = new Map();
+      for (const d of docs) {
+        const u = d.data().userId;
+        if (!u) { historyByDocId.set(d.id, { intents: 0, matchLocks: 0 }); continue; }
+        const [out, inc] = await Promise.all([
+          db.collection('connection_intents').where('fromUserId', '==', u).where('eventId', '==', ev).get(),
+          db.collection('connection_intents').where('toUserId', '==', u).where('eventId', '==', ev).get(),
+        ]);
+        // Match locks are `${eventId}_${uidA}_${uidB}` (pair sorted), so scope
+        // to this event before substring-matching the uid — an unscoped
+        // includes() would count a lock from a different event this person
+        // legitimately matched at, and needlessly block the merge.
+        const matchLocks = allMatchLocks.filter(
+          (id) => id.startsWith(`${ev}_`) && id.includes(u)
+        ).length;
+        historyByDocId.set(d.id, { intents: out.size + inc.size, matchLocks });
+      }
+      const totalHistory = (d) => {
+        const h = historyByDocId.get(d.id);
+        return h.intents + h.matchLocks;
+      };
+
       const sorted = [...docs].sort((a, b) => {
-        const ds = score(b, ev) - score(a, ev);
+        const ds = score(b, ev, totalHistory(b)) - score(a, ev, totalHistory(a));
         if (ds !== 0) return ds;
         return ms(a.data().createdAt) - ms(b.data().createdAt);
       });
@@ -155,25 +198,16 @@ const SALVAGE_FIELDS = [
         }
       }
 
-      // Real-uid losers may carry match history. uid-less guest rows can't.
-      const loserUids = losers.map((l) => l.data().userId).filter(Boolean);
-      let intents = 0, matchLocks = 0;
-      for (const lu of loserUids) {
-        const [out, inc] = await Promise.all([
-          db.collection('connection_intents').where('fromUserId', '==', lu).where('eventId', '==', ev).get(),
-          db.collection('connection_intents').where('toUserId', '==', lu).where('eventId', '==', ev).get(),
-        ]);
-        intents += out.size + inc.size;
-        // Match locks are `${eventId}_${uidA}_${uidB}` (pair sorted), so scope
-        // to this event before substring-matching the uid — an unscoped
-        // includes() would count a lock from a different event this person
-        // legitimately matched at, and needlessly block the merge.
-        matchLocks += allMatchLocks.filter(
-          (id) => id.startsWith(`${ev}_`) && id.includes(lu)
-        ).length;
-      }
+      // Only a loser's surviving history is a problem — the keeper's is safe
+      // by definition. Blocking on "2+ docs have history" is the real test:
+      // whichever one we delete then takes irreplaceable matches with it.
+      const docsWithHistory = docs.filter((d) => totalHistory(d) > 0).length;
+      const loserHistory = losers.reduce((sum, l) => sum + totalHistory(l), 0);
+      const intents = losers.reduce((s, l) => s + historyByDocId.get(l.id).intents, 0);
+      const matchLocks = losers.reduce((s, l) => s + historyByDocId.get(l.id).matchLocks, 0);
 
       // Tickets owned by a loser uid get repointed at the keeper, not deleted.
+      const loserUids = losers.map((l) => l.data().userId).filter(Boolean);
       const ticketRepoints = [];
       for (const lu of loserUids) {
         const tk = await db.collection('tickets')
@@ -184,7 +218,9 @@ const SALVAGE_FIELDS = [
       plans.push({
         eventId: ev, email, keeper, losers, salvage,
         loserUids, intents, matchLocks, ticketRepoints,
-        blocked: (intents > 0 || matchLocks > 0) && !INCLUDE_MATCHED,
+        keeperHistory: totalHistory(keeper),
+        docsWithHistory,
+        blocked: docsWithHistory >= 2 && !INCLUDE_MATCHED,
       });
     }
   }
@@ -204,9 +240,12 @@ const SALVAGE_FIELDS = [
     }
     if (Object.keys(p.salvage).length) console.log(`   salvage → keeper: ${Object.keys(p.salvage).join(', ')}`);
     if (p.ticketRepoints.length) console.log(`   re-attribute tickets → keeper uid: ${p.ticketRepoints.join(', ')}`);
+    if (p.keeperHistory > 0) {
+      console.log(`   ✓ keeper holds the match history (${p.keeperHistory} intent(s)+lock(s)) — kept for that reason`);
+    }
     if (p.intents || p.matchLocks) {
-      console.log(`   ⚠ loser uid has ${p.intents} connection_intent(s) and ${p.matchLocks} match lock(s) for this event`);
-      console.log(`     ${p.blocked ? 'SKIPPED — pass --include-matched to merge anyway (match history WILL be orphaned)' : 'proceeding because --include-matched was passed'}`);
+      console.log(`   ⚠ a row being DELETED has ${p.intents} connection_intent(s) and ${p.matchLocks} match lock(s) for this event`);
+      console.log(`     ${p.blocked ? 'SKIPPED — both accounts hold match history, so either deletion loses matches. Needs a manual call.' : 'proceeding because --include-matched was passed'}`);
     }
     console.log();
   }
