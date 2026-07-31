@@ -45,6 +45,11 @@
  *   node scripts/merge-cross-account-attendees.js <eventId> --apply
  *   node scripts/merge-cross-account-attendees.js <eventId> --apply --include-matched
  *
+ *   # Same person under unrelated addresses — only a human can assert this:
+ *   node scripts/merge-cross-account-attendees.js <eventId> \
+ *     --alias=ed.atreides@gmail.com=ed.kidhardt@gmail.com \
+ *     --alias=amyc305@yahoo.com=amanganella29@gmail.com
+ *
  * Requires env vars (same as the other scripts/ tools):
  *   FIREBASE_PROJECT_ID
  *   FIREBASE_CLIENT_EMAIL
@@ -81,9 +86,46 @@ const ALL = process.argv.includes('--all');
 const INCLUDE_MATCHED = process.argv.includes('--include-matched');
 const eventId = process.argv.slice(2).find((a) => !a.startsWith('--'));
 
+// Human-asserted identity pairs, for the duplicates no algorithm can find.
+// lib/email-identity only merges what is provably the same inbox (case, Apple
+// aliases). It cannot know that ed.atreides@gmail.com and ed.kidhardt@gmail.com
+// are one person, or that amyc305@yahoo.com and amanganella29@gmail.com are —
+// those share nothing to normalize on, and guessing from a shared first name
+// would eventually join two strangers and leak one's phone number to the other
+// on a mutual match. So the only safe source for these is a person who knows,
+// stated explicitly here:
+//
+//   --alias=ed.atreides@gmail.com=ed.kidhardt@gmail.com
+//
+// Both sides are normalized first, so casing/alias variants still work. Left
+// side folds into the right side's identity group; the usual keeper rule,
+// history gate and ticket re-attribution then apply unchanged.
+const aliasMap = new Map();
+for (const arg of process.argv.filter((a) => a.startsWith('--alias='))) {
+  const [from, to] = arg.slice('--alias='.length).split('=');
+  if (!from || !to || !from.includes('@') || !to.includes('@')) {
+    console.error(`✗ Bad --alias (expected --alias=from@x.com=to@y.com): ${arg}`);
+    process.exit(2);
+  }
+  aliasMap.set(normalizeEmail(from), normalizeEmail(to));
+}
+
+// Follow the alias chain, with a hard cap so a mistyped cycle
+// (a=b plus b=a) can't hang the run.
+function resolveIdentity(email) {
+  let id = normalizeEmail(email);
+  for (let i = 0; i < 8 && aliasMap.has(id); i++) {
+    const next = aliasMap.get(id);
+    if (next === id) break;
+    id = next;
+  }
+  return id;
+}
+
 if (!eventId && !ALL) {
   console.error('✗ Usage: node scripts/merge-cross-account-attendees.js <eventId> [--apply]');
   console.error('         node scripts/merge-cross-account-attendees.js --all [--apply]');
+  console.error('         ... [--alias=other@x.com=real@y.com]  (repeatable; same person, different addresses)');
   process.exit(2);
 }
 
@@ -131,6 +173,13 @@ const SALVAGE_FIELDS = [
 (async () => {
   console.log(APPLY ? '── APPLYING ──' : '── DRY RUN (pass --apply to write) ──');
   console.log(ALL ? 'Scope: all events' : `Event: ${eventId}`);
+  if (aliasMap.size) {
+    // Echoed because these are human assertions, not derived facts — a wrong
+    // one silently joins two different people, so it has to be visible in the
+    // output that produced the change.
+    console.log(`Manual identity aliases (${aliasMap.size}):`);
+    for (const [from, to] of aliasMap) console.log(`   ${from}  →  ${to}`);
+  }
   console.log();
 
   let q = db.collection('event_registrations').where('status', '==', 'confirmed');
@@ -145,7 +194,7 @@ const SALVAGE_FIELDS = [
     const ev = r.eventId;
     if (!byEvent.has(ev)) byEvent.set(ev, new Map());
     const m = byEvent.get(ev);
-    const key = normalizeEmail(r.email);
+    const key = resolveIdentity(r.email);
     if (!key) continue;
     if (!m.has(key)) m.set(key, []);
     m.get(key).push(doc);
