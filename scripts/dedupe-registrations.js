@@ -74,7 +74,29 @@ function score(doc) {
 }
 
 // Fields worth salvaging from a loser onto a keeper that's missing them.
-const MERGE_FIELDS = ['photoConsent', 'firstTimeAttendee', 'phone', 'gender', 'name', 'source', 'eventTitle', 'ticketId', 'paymentIntentId', 'email'];
+//
+// `checkedInAt` is in this list for a reason that is easy to get wrong and
+// expensive to get wrong: the keeper is chosen primarily for having the
+// canonical reg_{uid}_{eventId} id (score +1000), which OUTWEIGHS having a
+// check-in timestamp (+100). So the very common shape after the check-in
+// event-drift bug — a canonical doc with no checkedInAt, plus a
+// wrong-event-id doc that carries the real check-in — picks the canonical
+// doc as keeper and the checked-in doc as the loser. Without checkedInAt
+// here, applying this script would delete the ONLY record that the person
+// physically attended. That was live on "SparkDate: Round 2 — Summer
+// Nights": 8 attendees each had a canonical doc (no check-in) plus a
+// reg_{uid}_{WRONG_eventId} doc holding the real checkedInAt, and running
+// this script before this fix would have silently dropped 8 of 21 check-ins.
+//
+// postEventPromptSent/At come along for the same reason in miniature — they
+// are the belt-and-suspenders idempotency flags for the match-link email
+// (post_event_prompts is the primary lock), and losing them risks
+// re-sending that email to someone who already got it.
+const MERGE_FIELDS = [
+  'photoConsent', 'firstTimeAttendee', 'phone', 'gender', 'name', 'source',
+  'eventTitle', 'ticketId', 'paymentIntentId', 'email',
+  'checkedInAt', 'postEventPromptSent', 'postEventPromptSentAt',
+];
 
 // ── Main ─────────────────────────────────────────────────────────
 (async () => {
@@ -134,11 +156,28 @@ const MERGE_FIELDS = ['photoConsent', 'firstTimeAttendee', 'phone', 'gender', 'n
 
   if (plannedDeletes.length) {
     console.log('── Duplicate groups ──');
+    let checkinSalvages = 0;
     for (const p of plannedDeletes) {
       const mergeNote = Object.keys(p.merge).length ? `  (merging ${Object.keys(p.merge).join(', ')} → keeper)` : '';
       console.log(`  uid=${p.uid}  keep=${p.keeperId}  delete=[${p.loserIds.join(', ')}]${mergeNote}`);
+      // Call this out on its own line rather than leaving it buried in the
+      // field list — it means the keeper had NO attendance record and the
+      // doc being deleted is the only proof this person showed up. If this
+      // ever prints 0 salvages on a group whose loser has a checkedInAt,
+      // stop: the merge is about to drop a real check-in.
+      if (p.merge.checkedInAt != null) {
+        checkinSalvages++;
+        const at = ms(p.merge.checkedInAt);
+        console.log(`      ↳ salvaging check-in ${at ? new Date(at).toISOString() : '(unparseable)'} onto keeper (keeper had none)`);
+      }
     }
     console.log();
+    if (checkinSalvages) {
+      console.log(`⚠ ${checkinSalvages} group(s) have their ONLY check-in timestamp on a doc slated for deletion.`);
+      console.log('  Those timestamps are being copied to the keeper first. Verify the count above matches');
+      console.log('  the roster\'s "Checked in" number before AND after applying.');
+      console.log();
+    }
   }
   if (nullUser.length) {
     console.log('── Null-userId rows (review by hand) ──');
