@@ -25,6 +25,7 @@ const { stripe } = require('../lib/stripe');
 const { SERVICE_FEE_CENTS } = require('../lib/pricing');
 const { seatFields, effectivePrice } = require('../lib/seat-model');
 const { makeProfileUrl } = require('../lib/profile-link');
+const { sameEmailIdentity } = require('../lib/email-identity');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const db = admin.firestore();
@@ -351,12 +352,18 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
       try {
         const canonicalId = `reg_${userRecord.uid}_${eventId}`;
         const canonicalRef = db.collection('event_registrations').doc(canonicalId);
-        // Find the guest temp doc by email+eventId+null userId
+        // Find the guest temp doc for this event. Deliberately NOT filtering on
+        // email in the query: Firestore equality is exact, so a guest row saved
+        // with different capitalization (or an Apple alias domain) than `norm`
+        // silently failed to match and the row was orphaned — leaving the buyer
+        // on the roster twice. Filter on the indexed fields, then compare email
+        // identity in code with the same rule check-in uses.
         const guestSnap = await db.collection('event_registrations')
-          .where('email', '==', norm).where('eventId', '==', eventId).where('userId', '==', null)
-          .limit(1).get();
-        if (!guestSnap.empty) {
-          const guestDoc = guestSnap.docs[0];
+          .where('eventId', '==', eventId).where('userId', '==', null)
+          .get();
+        const guestMatches = guestSnap.docs.filter((d) => sameEmailIdentity(d.data().email, norm));
+        if (guestMatches.length) {
+          const guestDoc = guestMatches[0];
           // Write to canonical ID (merge in case a checkin already created it)
           await canonicalRef.set({ ...guestDoc.data(), userId: userRecord.uid }, { merge: true });
           // Delete the temp doc only if it's different from canonical

@@ -51,6 +51,7 @@
 'use strict';
 
 const admin = require('firebase-admin');
+const { normalizeEmail } = require('../lib/email-identity');
 
 const need = (k) => {
   if (!process.env[k]) {
@@ -80,23 +81,10 @@ if (!eventId && !all) {
   process.exit(2);
 }
 
-// Apple issues @me.com, @mac.com, and @icloud.com as interchangeable
-// aliases for the SAME iCloud inbox — Luke DeBonis on the Round 2 roster
-// (lukedebonis@me.com at check-in vs lukedebonis@mac.com on his Eventbrite
-// ticket) is a real, confirmed instance of exactly this. Canonicalize all
-// three to one domain so that pair groups together; case/whitespace are
-// also normalized. Deliberately NOT doing Gmail dot/plus-tag folding here —
-// no evidence of that pattern in this dataset, and it's a more speculative
-// normalization with a higher false-positive risk.
-const APPLE_ALIAS_DOMAINS = new Set(['me.com', 'mac.com', 'icloud.com']);
-function normEmail(e) {
-  const s = String(e || '').toLowerCase().trim();
-  const at = s.lastIndexOf('@');
-  if (at === -1) return s;
-  const local = s.slice(0, at);
-  const domain = s.slice(at + 1);
-  return APPLE_ALIAS_DOMAINS.has(domain) ? `${local}@icloud.com` : s;
-}
+// Same identity rule the live check-in flow uses (lib/email-identity.js), so
+// this audit can never disagree with the code that decides whether to create a
+// second account. If that rule changes, both move together.
+const normEmail = normalizeEmail;
 
 function toIso(ts) {
   if (!ts) return null;
