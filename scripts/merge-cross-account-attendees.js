@@ -107,10 +107,16 @@ const ms = (ts) => (ts && typeof ts.toMillis === 'function') ? ts.toMillis()
 //
 // `history` is precomputed per doc by the caller (uid-less guest rows can't
 // have any, so they score 0 and never win against a real account).
+// History is weighted by MAGNITUDE, not as a yes/no flag. When both accounts
+// hold history the group is blocked anyway, but the reported keeper still has
+// to be the one holding MORE — otherwise the plan reads as nonsense ("keeping
+// the row with 5 matches, deleting the row with 14") and a later
+// --include-matched run would discard the larger set. Live example: Helesha's
+// check-in account holds 5 intents+locks and her Eventbrite account holds 14.
 function score(doc, evId, history) {
   const d = doc.data();
   let s = 0;
-  if (history > 0) s += 10000;
+  s += history * 10000;
   if (d.checkedInAt) s += 1000;
   if (doc.id === `reg_${d.userId}_${evId}`) s += 100;
   if (d.status === 'confirmed') s += 10;
