@@ -15,6 +15,7 @@ const { getNextEvent, eventCardHtml, ctaButtonHtml, shell, h1, p } = require('..
 const { verifyProfileToken, makeProfileUrl, sign: signProfileToken } = require('../lib/profile-link');
 const { logEventAttended } = require('../lib/activity-log');
 const { isValidGetawayPackageId } = require('../lib/getaway-packages');
+const { emailLookupVariants, sameEmailIdentity } = require('../lib/email-identity');
 
 const db = admin.firestore();
 
@@ -580,13 +581,59 @@ async function handleCheckin(req, res) {
   const FieldValue = admin.firestore.FieldValue;
 
   // 1. Find or create the Firebase Auth user.
+  //
+  // A single exact getUserByEmail() here was creating a SECOND account for
+  // people who already had one, which is how one attendee ended up as two
+  // roster rows with a split match list. Two real failure modes, both
+  // observed in production:
+  //
+  //   (a) Apple aliases — lukedebonis@mac.com (Eventbrite ticket) and
+  //       lukedebonis@me.com (typed at the door) are one inbox to Apple and
+  //       three unrelated addresses to Firebase Auth.
+  //   (b) An account exists for this event under a spelling Auth won't match
+  //       on, but THIS event's own registration/ticket rows already record
+  //       the right uid.
+  //
+  // So: try every alias spelling against Auth first (one lookup in the common
+  // case), then fall back to trusting this event's existing rows. Creating a
+  // new account is the last resort, not the default.
   let userRecord = null;
   let createdUser = false;
-  try {
-    userRecord = await admin.auth().getUserByEmail(email);
-  } catch (e) {
-    if (e.code !== 'auth/user-not-found') throw e;
+  for (const variant of emailLookupVariants(email)) {
+    try {
+      userRecord = await admin.auth().getUserByEmail(variant);
+      break;
+    } catch (e) {
+      if (e.code !== 'auth/user-not-found') throw e;
+    }
   }
+
+  // Fallback (b): scan only THIS event's confirmed rows — a few dozen docs,
+  // not the whole collection — for one whose email is the same identity and
+  // already carries a uid. Verified against Auth before it's trusted, so a
+  // stale row can't point check-in at an account that no longer exists.
+  if (!userRecord) {
+    try {
+      const [regSnap, tkSnap] = await Promise.all([
+        db.collection('event_registrations').where('eventId', '==', eventId).get(),
+        db.collection('tickets').where('eventId', '==', eventId).get(),
+      ]);
+      const candidates = [
+        ...regSnap.docs.map((d) => ({ email: d.data().email, uid: d.data().userId })),
+        ...tkSnap.docs.map((d) => ({ email: d.data().email, uid: d.data().firebaseUid })),
+      ];
+      const hit = candidates.find((c) => c.uid && sameEmailIdentity(c.email, email));
+      if (hit) {
+        userRecord = await admin.auth().getUser(hit.uid);
+        console.log(`[checkin] reused uid ${hit.uid} for ${email} via existing row for ${eventId} (Auth lookup missed it)`);
+      }
+    } catch (e) {
+      // Best-effort only — if this lookup fails we fall through to creating a
+      // new account, which is the pre-existing behavior, not a regression.
+      console.error('[checkin] existing-row uid lookup skipped:', e.message);
+    }
+  }
+
   if (!userRecord) {
     userRecord = await admin.auth().createUser({
       email,
@@ -645,6 +692,44 @@ async function handleCheckin(req, res) {
       createdAt: FieldValue.serverTimestamp(),
     } : {}),
   }, { merge: true });
+
+  // 3.2. Adopt any uid-less guest row for this event that belongs to this
+  // person. A native ticket purchase writes reg_guest_{paymentIntentId}_{eventId}
+  // (and a _plusone sibling) with userId: null when the buyer names a guest who
+  // has no account. purchase-ticket.js backfills those, but only via an exact
+  // `where email ==` query — so a guest row saved with different capitalization
+  // than what they type at the door is never claimed, and they show up on the
+  // roster twice: once as the unclaimed guest row, once as this check-in. That
+  // is exactly what happened to Rose marie Cotto and Casey Wright on Round 2.
+  //
+  // Fold the guest row's fields into the canonical doc (without clobbering
+  // anything check-in just wrote — the guest data is the fallback, not the
+  // winner) and delete it. Best-effort: the check-in itself already succeeded,
+  // so a failure here is a roster-tidiness issue, never a door problem.
+  try {
+    const guestSnap = await db.collection('event_registrations')
+      .where('eventId', '==', eventId).where('userId', '==', null).get();
+    const mine = guestSnap.docs.filter((d) => sameEmailIdentity(d.data().email, email));
+    for (const g of mine) {
+      if (g.id === regId) continue;
+      const gd = g.data();
+      const salvage = {};
+      // The purchase linkage proves they paid and must survive the row being
+      // deleted — check-in always writes these as null, so the guest row is
+      // strictly better here.
+      if (gd.ticketId != null) salvage.ticketId = gd.ticketId;
+      if (gd.paymentIntentId != null) salvage.paymentIntentId = gd.paymentIntentId;
+      // For everything else, what the person just told us at the door wins.
+      // Only fill a gap the check-in form left empty.
+      if (!phone && gd.phone) salvage.phone = gd.phone;
+      if (!gender && gd.gender) salvage.gender = gd.gender;
+      await regRef.set(salvage, { merge: true });
+      await g.ref.delete();
+      console.log(`[checkin] adopted guest row ${g.id} into ${regId} (${Object.keys(salvage).join(', ') || 'no fields'})`);
+    }
+  } catch (e) {
+    console.error('[checkin] guest-row adoption skipped:', e.message);
+  }
 
   // 3.5. Real "attended" activity-feed entry — check-in is the person
   // physically at the door right now, so this is a genuine attendance
