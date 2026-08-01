@@ -204,6 +204,18 @@ const SALVAGE_FIELDS = [
   // whole collection per candidate uid would be needlessly expensive.
   const allMatchLocks = (await db.collection('matches').get()).docs.map((d) => d.id);
 
+  // uid -> display name, so a blocked group can say WHO a surviving intent
+  // points at instead of a bare uid. Only covers people with a confirmed
+  // registration in the scanned scope — an intent pointing outside that
+  // (a different event, or a deleted account) prints the uid, which is
+  // itself useful information, not a bug.
+  const nameByUid = new Map();
+  for (const doc of snap.docs) {
+    const r = doc.data();
+    if (r.userId && !nameByUid.has(r.userId)) nameByUid.set(r.userId, r.name || r.email || r.userId);
+  }
+  const describeUid = (uid) => nameByUid.get(uid) || `(unknown uid ${uid})`;
+
   const plans = [];
   for (const [ev, m] of byEvent) {
     for (const [email, docs] of m) {
@@ -229,7 +241,17 @@ const SALVAGE_FIELDS = [
         const matchLocks = allMatchLocks.filter(
           (id) => id.startsWith(`${ev}_`) && id.includes(u)
         ).length;
-        historyByDocId.set(d.id, { intents: out.size + inc.size, matchLocks });
+        // Keep the actual intent docs, not just a count — a blocked group
+        // needs to say WHO the counterpart is and whether the pick was ever
+        // reciprocated, not just "N connection_intent(s)". A single unrequited
+        // intent (matchLocks 0) is a materially different risk than a
+        // completed mutual match, and that distinction is invisible in a
+        // bare number.
+        const intentDocs = [
+          ...out.docs.map((x) => ({ dir: 'sent to', other: x.data().toUserId, doc: x })),
+          ...inc.docs.map((x) => ({ dir: 'received from', other: x.data().fromUserId, doc: x })),
+        ];
+        historyByDocId.set(d.id, { intents: out.size + inc.size, matchLocks, intentDocs });
       }
       const totalHistory = (d) => {
         const h = historyByDocId.get(d.id);
@@ -257,9 +279,9 @@ const SALVAGE_FIELDS = [
       // by definition. Blocking on "2+ docs have history" is the real test:
       // whichever one we delete then takes irreplaceable matches with it.
       const docsWithHistory = docs.filter((d) => totalHistory(d) > 0).length;
-      const loserHistory = losers.reduce((sum, l) => sum + totalHistory(l), 0);
       const intents = losers.reduce((s, l) => s + historyByDocId.get(l.id).intents, 0);
       const matchLocks = losers.reduce((s, l) => s + historyByDocId.get(l.id).matchLocks, 0);
+      const loserIntentDetails = losers.flatMap((l) => historyByDocId.get(l.id).intentDocs);
 
       // Tickets owned by a loser uid get repointed at the keeper, not deleted.
       const loserUids = losers.map((l) => l.data().userId).filter(Boolean);
@@ -272,7 +294,7 @@ const SALVAGE_FIELDS = [
 
       plans.push({
         eventId: ev, email, keeper, losers, salvage,
-        loserUids, intents, matchLocks, ticketRepoints,
+        loserUids, intents, matchLocks, ticketRepoints, loserIntentDetails,
         keeperHistory: totalHistory(keeper),
         docsWithHistory,
         blocked: docsWithHistory >= 2 && !INCLUDE_MATCHED,
@@ -300,6 +322,16 @@ const SALVAGE_FIELDS = [
     }
     if (p.intents || p.matchLocks) {
       console.log(`   ⚠ a row being DELETED has ${p.intents} connection_intent(s) and ${p.matchLocks} match lock(s) for this event`);
+      // Spell out WHO and whether it's a completed match or a lone pick still
+      // waiting on a reply — those are very different risks, and a bare count
+      // can't tell them apart. This is exactly the distinction that mattered
+      // for Amy: her losing row's only history is one UNREQUITED pick (0
+      // match locks), not a completed match like Ed's and the Founders pairs.
+      for (const { dir, other, doc } of p.loserIntentDetails) {
+        const lockId = [p.eventId, ...[doc.data().fromUserId, doc.data().toUserId].sort()].join('_');
+        const resolved = allMatchLocks.includes(lockId);
+        console.log(`       - ${dir} ${describeUid(other)}${resolved ? '  [MUTUAL — contact info already emailed]' : '  [unrequited — no reply, nothing sent]'}`);
+      }
       console.log(`     ${p.blocked ? 'SKIPPED — both accounts hold match history, so either deletion loses matches. Needs a manual call.' : 'proceeding because --include-matched was passed'}`);
     }
     console.log();
