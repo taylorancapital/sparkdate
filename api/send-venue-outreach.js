@@ -47,20 +47,20 @@ function esc(s) {
 const OUTREACH_POSTAL_ADDRESS = process.env.OUTREACH_POSTAL_ADDRESS
   || 'Ancapital Group LLC · SparkDate · Philadelphia, PA';
 
-// The outreach copy is localized to the venue's own city so it doesn't
-// read as a mass-blast — a West Chester or Lancaster bar owner getting
-// an email about scouting "Center City" would bin it instantly. `city`
-// comes from the venue doc; when it's blank we fall back to neutral
-// phrasing rather than naming the wrong place.
-const venueOutreachHTML = (venueName, contactName, city) => {
-  const cityClean   = String(city || '').trim();
-  // Body: "...looking at bars around West Chester." / generic if no city.
-  const scoutPhrase = cityClean ? `around ${esc(cityClean)}` : 'in the area';
-  // Footer brand line: the venue's city, or the company HQ as the default.
-  const footerCity  = esc(cityClean || 'Philadelphia');
-  return `
-<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><style>
+// "Hosting a singles mixer here in early June" was a hardcoded literal month
+// — accurate the day it was written, quietly wrong forever after (an admin
+// sending this cold-open in November was still promising "early June").
+// Computes a live "early/mid/late <Month>" roughly 5 weeks out from send
+// time instead, so the pitch always names a plausible near-future date
+// without anyone having to remember to edit this file every few months.
+function upcomingMonthPhrase(fromDate = new Date()) {
+  const target = new Date(fromDate.getTime());
+  target.setDate(target.getDate() + 35);
+  const part = target.getDate() <= 10 ? 'early' : target.getDate() <= 20 ? 'mid' : 'late';
+  return `${part} ${target.toLocaleDateString('en-US', { month: 'long' })}`;
+}
+
+const EMAIL_STYLE = `
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f3f0;margin:0;padding:0}
 .container{max-width:600px;margin:0 auto;background:#fff}
 .content{padding:40px 30px;color:#0a0e27;font-size:15px;line-height:1.6}
@@ -68,15 +68,18 @@ p{margin:0 0 16px}
 .sign-off{margin-top:30px}
 .footer{padding:20px 30px;background:#f5f3f0;color:#666;font-size:12px;border-top:1px solid #e8e4df;line-height:1.6}
 .footer .addr{display:block;margin-top:6px;color:#888}
-a{color:#ff6b6b;text-decoration:none}
-</style></head><body>
+a{color:#ff6b6b;text-decoration:none}`;
+
+// Shared CAN-SPAM footer (postal address + opt-out) and sign-off, pulled out
+// so the first-touch and follow-up templates below can never drift apart on
+// the parts that are legally required rather than a copy choice.
+function emailShell(footerCity, bodyHtml) {
+  return `
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>${EMAIL_STYLE}</style></head><body>
 <div class="container">
   <div class="content">
-    <p>Hi ${esc(contactName)},</p>
-    <p>I'm launching a dating thing (called SparkDate — stop swiping, start living type vibe) and I've been looking at bars ${scoutPhrase}. ${esc(venueName)} keeps coming up as the place where people actually *want* to be.</p>
-    <p>I'm thinking about hosting a singles mixer here in early June. 25-30 people, pre-screened, actual vibes. You'd make $500-1000 off a few hours, we'd move bodies through, everyone wins.</p>
-    <p>Two questions:<br>1. Do you have private space or a section we could use one evening?<br>2. Who's the right person to talk to about this?</p>
-    <p>No pressure — just curious if it's something you'd consider. If you'd rather not hear from us again, just reply with "NO" and I'll take you off the list.</p>
+    ${bodyHtml}
     <div class="sign-off">
       <p>Taylor${OUTREACH_PHONE ? '<br>' + esc(OUTREACH_PHONE) : ''}<br><a href="https://sparkdate.date">sparkdate.date</a></p>
     </div>
@@ -90,11 +93,73 @@ a{color:#ff6b6b;text-decoration:none}
   </div>
 </div>
 </body></html>`;
+}
+
+// The outreach copy is localized to the venue's own city so it doesn't
+// read as a mass-blast — a West Chester or Lancaster bar owner getting
+// an email about scouting "Center City" would bin it instantly. `city`
+// comes from the venue doc; when it's blank we fall back to neutral
+// phrasing rather than naming the wrong place.
+const venueOutreachHTML = (venueName, contactName, city) => {
+  const cityClean   = String(city || '').trim();
+  // Body: "...looking at bars around West Chester." / generic if no city.
+  const scoutPhrase = cityClean ? `around ${esc(cityClean)}` : 'in the area';
+  // Footer brand line: the venue's city, or the company HQ as the default.
+  const footerCity  = esc(cityClean || 'Philadelphia');
+  return emailShell(footerCity, `
+    <p>Hi ${esc(contactName)},</p>
+    <p>I'm launching a dating thing (called SparkDate — stop swiping, start living type vibe) and I've been looking at bars ${scoutPhrase}. ${esc(venueName)} keeps coming up as the place where people actually *want* to be.</p>
+    <p>I'm thinking about hosting a singles mixer here ${upcomingMonthPhrase()}. 25-30 people, pre-screened, actual vibes. You'd make $500-1000 off a few hours, we'd move bodies through, everyone wins.</p>
+    <p>Two questions:<br>1. Do you have private space or a section we could use one evening?<br>2. Who's the right person to talk to about this?</p>
+    <p>No pressure — just curious if it's something you'd consider. If you'd rather not hear from us again, just reply with "NO" and I'll take you off the list.</p>
+  `);
+};
+
+// Follow-up template — for a venue that's already been sent the cold-open
+// above at least once (see the outreach_send_count check in the handler).
+// Deliberately NOT the same pitch repeated: a bar owner who gets the
+// identical "I'm launching a dating thing..." cold-open twice reads it as a
+// bot/mail-merge blast, which undercuts the whole "this is a personal
+// note" premise the first email leans on. This one acknowledges it's a
+// second touch, is shorter, and gives an easy, low-pressure out — the
+// pattern real follow-up emails use, not a re-blast of the pitch.
+const venueFollowUpHTML = (venueName, contactName, city) => {
+  const cityClean   = String(city || '').trim();
+  const scoutPhrase = cityClean ? `around ${esc(cityClean)}` : 'in the area';
+  const footerCity  = esc(cityClean || 'Philadelphia');
+  return emailShell(footerCity, `
+    <p>Hi ${esc(contactName)},</p>
+    <p>Following up on my note about hosting a SparkDate singles mixer at ${esc(venueName)} — inboxes get busy, so no worries if it got buried.</p>
+    <p>Still scouting ${scoutPhrase} for ${upcomingMonthPhrase()}, and ${esc(venueName)} is still my first pick. If you've got a minute, I'd love to know if it's worth exploring or just not a fit right now — either answer's totally fine, I just don't want to keep bugging you if it's a no.</p>
+    <p>If you'd rather not hear from us again, just reply "NO" and I'll take you off the list.</p>
+  `);
 };
 
 // Hash email for non-PII logging.
 const crypto = require('crypto');
 const hashEmail = (e) => crypto.createHash('sha256').update(String(e || '').toLowerCase()).digest('hex').slice(0, 12);
+
+// Which template a venue gets next: the cold-open if they've never been
+// emailed, the follow-up otherwise. Driven by outreach_send_count (already
+// incremented on every successful send below) rather than `status`, since
+// status can advance past "contacted" (interested/booked) while still only
+// reflecting a single send — send count is the direct count of past emails,
+// which is what actually determines whether repeating the cold pitch would
+// look like a bot. Shared by the preview path and the real send path so a
+// preview can never show a different email than clicking Send/Resend
+// would actually deliver right now.
+function templateFor(venue) {
+  const isFollowUp = (venue.outreach_send_count || 0) >= 1;
+  const contactName = venue.contact_name || 'there';
+  const safeSubjectName = String(venue.name || '').replace(/[\r\n]+/g, ' ').slice(0, 120);
+  return {
+    isFollowUp,
+    subject: isFollowUp ? `Following up: ${safeSubjectName}` : `Quick question about ${safeSubjectName}`,
+    html: isFollowUp
+      ? venueFollowUpHTML(venue.name, contactName, venue.city)
+      : venueOutreachHTML(venue.name, contactName, venue.city),
+  };
+}
 
 module.exports = async function handler(req, res) {
   if (applyCors(req, res)) return res.status(204).end();
@@ -119,20 +184,21 @@ module.exports = async function handler(req, res) {
 
     // Preview short-circuit: render the email body + headers, return JSON,
     // do NOT call Resend and do NOT mutate the venue doc. Same template
-    // path as the real send so previews can't drift from what's actually
-    // delivered. Skips the "already contacted" guard so admins can also
-    // preview what was sent earlier.
+    // path (templateFor) as the real send below, so a preview always shows
+    // exactly what clicking Send/Resend would deliver right now — including
+    // which of the two templates it'll be. Skips the "already contacted"
+    // guard so admins can preview a follow-up before deciding to send it.
     if (preview) {
-      const contactName = venue.contact_name || 'there';
-      const safeSubjectName = String(venue.name || '').replace(/[\r\n]+/g, ' ').slice(0, 120);
+      const tpl = templateFor(venue);
       return res.status(200).json({
         preview: true,
         venue_id,
         venue_name: venue.name,
         to:      venue.contact_email || null,
         from:    OUTREACH_FROM,
-        subject: `Quick question about ${safeSubjectName}`,
-        html:    venueOutreachHTML(venue.name, contactName, venue.city),
+        subject: tpl.subject,
+        html:    tpl.html,
+        is_follow_up: tpl.isFollowUp,
       });
     }
 
@@ -149,8 +215,12 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'No contact email on file' });
     }
 
-    const contactName = venue.contact_name || 'there';
-    console.log(`📧 Outreach to venue/${venue_id} (emailHash=${hashEmail(venue.contact_email)})`);
+    // Same selection the preview above already showed the admin — resolved
+    // fresh here rather than trusting anything from the request body, so
+    // there's no way for a client to ask for the cold-open on a venue
+    // that's already been emailed.
+    const tpl = templateFor(venue);
+    console.log(`📧 Outreach to venue/${venue_id} (emailHash=${hashEmail(venue.contact_email)}, ${tpl.isFollowUp ? 'follow-up' : 'first-touch'})`);
 
     // Hard precondition: RESEND_API_KEY must be set. The Resend SDK
     // accepts an undefined key at construction but throws on send, which
@@ -163,12 +233,6 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Strip CR/LF from subject — basic SMTP header-injection defense in
-    // case venue.name was uploaded with control chars. Cap length too.
-    const safeSubjectName = String(venue.name || '')
-      .replace(/[\r\n]+/g, ' ')
-      .slice(0, 120);
-
     // Wrap the Resend call so an SDK throw doesn't bubble up as a
     // generic 502 with an HTML body. We want every failure path to
     // return JSON the admin UI can render.
@@ -177,8 +241,8 @@ module.exports = async function handler(req, res) {
       emailResult = await resend.emails.send({
         from: OUTREACH_FROM,
         to: venue.contact_email,
-        subject: `Quick question about ${safeSubjectName}`,
-        html: venueOutreachHTML(venue.name, contactName, venue.city),
+        subject: tpl.subject,
+        html: tpl.html,
       });
     } catch (sendErr) {
       console.error('[send-venue-outreach] resend SDK threw:', sendErr.message, sendErr.stack);
@@ -223,6 +287,7 @@ module.exports = async function handler(req, res) {
       venue_name: venue.name,
       email_sent: true,
       message_id: emailResult.data?.id,
+      is_follow_up: tpl.isFollowUp,
     });
 
   } catch (err) {

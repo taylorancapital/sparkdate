@@ -3744,7 +3744,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 modal.innerHTML = `
                     <div style="background:#0a0e27;border:1px solid rgba(255,107,107,0.3);border-radius:8px;max-width:720px;width:100%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
                         <div style="padding:16px 24px;border-bottom:1px solid rgba(255,107,107,0.2);display:flex;justify-content:space-between;align-items:center;gap:16px;">
-                            <h3 style="margin:0;font-family:'Playfair Display',serif;font-size:18px;color:var(--white);">Email Preview</h3>
+                            <h3 style="margin:0;font-family:'Playfair Display',serif;font-size:18px;color:var(--white);">Email Preview${data.is_follow_up ? ' <span style="font-size:11px;font-weight:400;text-transform:uppercase;letter-spacing:1px;color:var(--gold);vertical-align:middle;margin-left:8px;">Follow-up version</span>' : ''}</h3>
                             <button onclick="document.getElementById('emailPreviewModal').style.display='none'" style="background:transparent;border:1px solid rgba(255,107,107,0.4);color:var(--coral);padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Close</button>
                         </div>
                         <div style="padding:14px 24px;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,107,107,0.1);font-size:12px;color:rgba(245,243,240,0.7);line-height:1.7;">
@@ -3947,7 +3947,13 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 alert(`No contact email on file for "${venueName}".\n\nAdd one via CSV upload (with "Overwrite existing" ON) or by clicking Update.`);
                 return;
             }
-            if (!confirm(`${venueName} is already marked "${venue.status}". Resend the outreach email to ${venue.contact_email} anyway?`)) return;
+            // The server picks the follow-up copy automatically once
+            // outreach_send_count is 1+ (api/send-venue-outreach.js's
+            // templateFor) — surfaced here so the admin isn't surprised
+            // that "Resend" doesn't repeat the exact same cold-open pitch.
+            const alreadySent = (venue.outreach_send_count || 0) >= 1;
+            const emailKind = alreadySent ? 'the FOLLOW-UP email (not the original pitch)' : 'the outreach email';
+            if (!confirm(`${venueName} is already marked "${venue.status}". Send ${emailKind} to ${venue.contact_email} anyway?`)) return;
 
             try {
                 const idToken = await auth.currentUser.getIdToken();
@@ -3971,7 +3977,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 }
 
                 if (response.ok && result.success) {
-                    alert('Email resent.');
+                    alert(result.is_follow_up ? 'Follow-up email sent.' : 'Email resent.');
                     loadVenues();
                 } else {
                     alert('Error: ' + (result.message || result.error || `HTTP ${response.status}`));
