@@ -922,6 +922,8 @@
         <p style="color: rgba(245,243,240,0.7); font-size: 15px; max-width: 520px; margin: 0 auto 24px;">Join the list — early access to Lancaster &amp; Philadelphia mixers, no spam, unsubscribe anytime.</p>
         <form id="newsletterForm" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; max-width: 480px; margin: 0 auto;">
             <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+            <input type="text" id="newsletterName" placeholder="First name" aria-label="First name" autocomplete="given-name"
+                style="flex: 1; min-width: 140px; padding: 14px 16px; background: #ffffff; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; color: #000000; font-family: inherit; font-size: 14px;">
             <input type="email" id="newsletterEmail" required placeholder="you@email.com" aria-label="Email address"
                 style="flex: 1; min-width: 220px; padding: 14px 16px; background: #ffffff; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; color: #000000; font-family: inherit; font-size: 14px;">
             <button type="submit" class="btn btn-primary" style="padding: 14px 28px;">Notify Me</button>
@@ -989,9 +991,11 @@
         });
         form.addEventListener('submit', async function (e) {
           e.preventDefault();
+          var nameEl = document.getElementById('newsletterName');
           var emailEl = document.getElementById('newsletterEmail');
           var msg = document.getElementById('newsletterMsg');
           var btn = form.querySelector('button[type="submit"]');
+          var name = (nameEl.value || '').trim();
           var email = (emailEl.value || '').trim();
           if (!email) return;
           var orig = btn.textContent;
@@ -1004,7 +1008,7 @@
             var res = await fetch('/api/lead-signup', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: email, source: 'newsletter', ref: ref, website: (form.querySelector('input[name="website"]') || {}).value || '' })
+              body: JSON.stringify({ name: name, email: email, source: 'newsletter', ref: ref, website: (form.querySelector('input[name="website"]') || {}).value || '' })
             });
             if (res.ok) {
               var leadData = await res.json().catch(function () { return {}; });
