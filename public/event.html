@@ -93,7 +93,6 @@
         }
 
         .event-hero {
-            background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
             height: 360px;
             border-radius: 6px;
             margin-bottom: 30px;
@@ -103,11 +102,35 @@
             align-items: flex-end;
             padding: 30px;
         }
+        /* Illustrated scene, injected by heroSceneSvg() in applyEventData()
+           below — same 4 concepts as events.html's card art (rooftop/
+           lounge/cork/quarters), replacing the old flat coral gradient.
+           Explicit z-index so it sits UNDER the ::before darkening overlay
+           regardless of DOM insertion order (::before is otherwise always
+           treated as preceding real children, but z-index:auto vs a real
+           child with no z-index would paint the child on top — pin both
+           explicitly instead of relying on that default). */
+        .event-hero svg.hero-scene { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
         .event-hero::before {
             content: '';
             position: absolute;
             inset: 0;
+            z-index: 1;
             background: linear-gradient(180deg, transparent 40%, rgba(10,14,39,0.7) 100%);
+        }
+        @keyframes heroFloatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        @keyframes heroFloatYSlow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        @keyframes heroGlowPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+        @keyframes heroPulseDot { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+        @keyframes heroBounceTwinkle { 0%, 100% { transform: scale(1); opacity: 0.75; } 50% { transform: scale(1.25); opacity: 1; } }
+        .hero-scene .anim-float { animation: heroFloatY 3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+        .hero-scene .anim-float-slow { animation: heroFloatYSlow 3.6s ease-in-out infinite 0.3s; transform-box: fill-box; transform-origin: center; }
+        .hero-scene .anim-glow { animation: heroGlowPulse 2.4s ease-in-out infinite; }
+        .hero-scene .anim-dot { animation: heroPulseDot 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+        .hero-scene .anim-dot-delay { animation: heroPulseDot 1.8s ease-in-out infinite 0.5s; transform-box: fill-box; transform-origin: center; }
+        .hero-scene .anim-bounce { animation: heroBounceTwinkle 2.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+        @media (prefers-reduced-motion: reduce) {
+            .hero-scene .anim-float, .hero-scene .anim-float-slow, .hero-scene .anim-glow, .hero-scene .anim-dot, .hero-scene .anim-dot-delay, .hero-scene .anim-bounce { animation: none; }
         }
         .event-tag {
             position: relative;
@@ -733,6 +756,73 @@
         function stateForCity(city) {
             return STATE_BY_CITY_NAME[String(city || '').toLowerCase().trim()] || null;
         }
+
+        // Illustrated hero scene — same 4 concepts as events.html's card art
+        // (rooftop/lounge/cork/quarters), duplicated here rather than shared
+        // (no client bundle exists in this repo). This page has no list
+        // index to cycle by (it loads a single event by id), so the scene is
+        // picked via a stable hash of the event id instead — deterministic
+        // per event, but NOT guaranteed to match whichever scene events.html
+        // happened to show that same event on the grid (different selection
+        // functions). Accepted tradeoff, not a bug: perfect cross-page
+        // agreement would need either a URL param threaded from the grid or
+        // a new Firestore field, both bigger than this is worth.
+        const HERO_SCENE_ALTS = ['lounge', 'rooftop', 'cork', 'quarters'];
+        function sceneForEventId(id) {
+            let hash = 0;
+            const s = String(id || '');
+            for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) | 0;
+            return HERO_SCENE_ALTS[Math.abs(hash) % HERO_SCENE_ALTS.length];
+        }
+        function heroSceneSvg(scene) {
+            const defs = '<defs><linearGradient id="hg-' + scene + '" x1="0" y1="0" x2="1" y2="1">' +
+                '<stop offset="0%" stop-color="#2a2f4a"/><stop offset="100%" stop-color="#0a0e27"/></linearGradient></defs>' +
+                '<rect width="640" height="360" fill="url(#hg-' + scene + ')"/>';
+
+            if (scene === 'rooftop') {
+                return '<svg class="hero-scene" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + defs +
+                    '<circle class="anim-glow" cx="470" cy="120" r="92" fill="#ff6b6b" opacity="0.85"/>' +
+                    '<rect x="36" y="236" width="60" height="124" fill="#0a0e27"/>' +
+                    '<rect x="116" y="192" width="48" height="168" fill="#0a0e27"/>' +
+                    '<rect x="524" y="208" width="56" height="152" fill="#0a0e27"/>' +
+                    '<rect x="0" y="300" width="640" height="4" fill="#d4af37" opacity="0.5" class="anim-float"/>' +
+                    '<circle class="anim-dot" cx="140" cy="180" r="4" fill="#d4af37"/>' +
+                    '<circle class="anim-dot-delay" cx="540" cy="196" r="4" fill="#d4af37"/></svg>';
+            }
+            if (scene === 'lounge') {
+                return '<svg class="hero-scene" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + defs +
+                    '<defs><radialGradient id="hwash-lounge" cx="25%" cy="70%" r="70%">' +
+                    '<stop offset="0%" stop-color="#ff6b6b" stop-opacity="0.32"/><stop offset="100%" stop-color="#ff6b6b" stop-opacity="0"/></radialGradient></defs>' +
+                    '<rect width="640" height="360" fill="url(#hwash-lounge)"/>' +
+                    '<ellipse class="anim-float" cx="180" cy="240" rx="60" ry="22" fill="#ff6b6b" opacity="0.5"/>' +
+                    '<rect x="240" y="40" width="3" height="140" fill="#f5f3f0" opacity="0.2"/>' +
+                    '<rect x="280" y="40" width="3" height="140" fill="#f5f3f0" opacity="0.15"/>' +
+                    '<rect x="320" y="40" width="3" height="140" fill="#f5f3f0" opacity="0.1"/>' +
+                    '<circle class="anim-glow" cx="504" cy="104" r="14" fill="#d4af37"/>' +
+                    '<circle class="anim-bounce" cx="540" cy="260" r="6" fill="#d4af37" opacity="0.7"/></svg>';
+            }
+            if (scene === 'cork') {
+                return '<svg class="hero-scene" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + defs +
+                    '<path class="anim-float" d="M340 48 L304 156 Q304 212 364 212 Q424 212 424 156 L388 48 Z" fill="none" stroke="#d4af37" stroke-width="5" opacity="0.9"/>' +
+                    '<rect x="356" y="208" width="16" height="52" fill="#d4af37" opacity="0.9"/>' +
+                    '<rect x="324" y="256" width="80" height="8" rx="4" fill="#d4af37" opacity="0.9"/>' +
+                    '<ellipse cx="364" cy="152" rx="52" ry="20" fill="#ff6b6b" opacity="0.5"/>' +
+                    '<circle class="anim-dot" cx="200" cy="120" r="6" fill="#ff6b6b" opacity="0.6"/>' +
+                    '<circle class="anim-dot-delay" cx="160" cy="180" r="4" fill="#ff6b6b" opacity="0.5"/>' +
+                    '<circle class="anim-bounce" cx="496" cy="100" r="5" fill="#d4af37"/></svg>';
+            }
+            return '<svg class="hero-scene" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + defs +
+                '<g class="anim-float">' +
+                '<rect x="120" y="120" width="172" height="140" rx="8" fill="none" stroke="#ff6b6b" stroke-width="4" opacity="0.85"/>' +
+                '<rect x="152" y="156" width="28" height="28" fill="#ff6b6b" opacity="0.6"/>' +
+                '<rect x="200" y="156" width="28" height="28" fill="#ff6b6b" opacity="0.6"/>' +
+                '<rect x="248" y="156" width="28" height="28" fill="#ff6b6b" opacity="0.6"/></g>' +
+                '<g class="anim-float-slow">' +
+                '<rect x="352" y="152" width="140" height="108" rx="8" fill="none" stroke="#d4af37" stroke-width="3.2" opacity="0.8"/>' +
+                '<rect x="376" y="180" width="92" height="6" fill="#d4af37" opacity="0.5"/>' +
+                '<rect x="376" y="200" width="60" height="6" fill="#d4af37" opacity="0.35"/></g>' +
+                '<circle class="anim-bounce" cx="532" cy="116" r="5" fill="#d4af37"/></svg>';
+        }
         // SERVICE_FEE mirrors SERVICE_FEE_CENTS in lib/pricing.js (which is
         // the server-side source of truth used by api/purchase-ticket.js).
         // We can't add a /api/public-config endpoint to fetch this — Vercel
@@ -809,6 +899,10 @@
         }
 
         function applyEventData(ev) {
+            const heroEl = document.querySelector('.event-hero');
+            if (heroEl && !heroEl.querySelector('svg.hero-scene')) {
+                heroEl.insertAdjacentHTML('afterbegin', heroSceneSvg(sceneForEventId(ev.id || eventId)));
+            }
             if (ev.title) document.getElementById('eventTitle').textContent = ev.title;
             if (ev.blurb) document.getElementById('eventTagline').textContent = ev.blurb;
             if (ev.date) {
