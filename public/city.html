@@ -762,10 +762,11 @@
                     body: JSON.stringify({ email, source: `city_${cityParam || 'unknown'}` })
                 });
                 if (res.ok) {
+                    const leadData = await res.json().catch(() => ({}));
                     msg.style.display = 'block'; msg.style.color = '#4ade80';
                     msg.textContent = "✓ You're on the list — we'll email you when the next event opens.";
                     if (window.gtag) gtag('event', 'generate_lead', { lead_type: 'city_page', city: cityParam });
-                    if (typeof fbq !== 'undefined') fbq('track', 'Lead');
+                    if (typeof fbq !== 'undefined') fbq('track', 'Lead', {}, leadData.lead_id ? { eventID: leadData.lead_id } : undefined);
                     e.target.reset();
                 } else {
                     msg.style.display = 'block'; msg.style.color = '#ff6b6b';

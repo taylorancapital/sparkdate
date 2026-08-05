@@ -608,11 +608,13 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'getaway_interest', packageId: packageId, email: email, website: (hp && hp.value) || '' })
                 }, 8000).then(function (res) {
-                    return res.ok ? { ok: true } : res.json().catch(function () { return {}; }).then(function (b) { return { ok: false, error: b.error }; });
+                    return res.json().catch(function () { return {}; }).then(function (b) {
+                        return res.ok ? { ok: true, lead_id: b.lead_id } : { ok: false, error: b.error };
+                    });
                 }).then(function (r) {
                     if (r.ok) {
                         if (typeof gtag === 'function') gtag('event', 'generate_lead', { lead_type: 'getaway_notify', package_id: packageId });
-                        if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: 'getaway_notify_' + packageId });
+                        if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: 'getaway_notify_' + packageId }, r.lead_id ? { eventID: r.lead_id } : undefined);
                         form.style.display = 'none';
                         msg.style.display = 'block'; msg.style.color = '#4ade80';
                         msg.textContent = '✓ You\'re on the list — first dibs when it opens.';

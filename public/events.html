@@ -792,10 +792,11 @@
               body: JSON.stringify({ email: email, source: 'newsletter', ref: ref, website: (form.querySelector('input[name="website"]') || {}).value || '' })
             });
             if (res.ok) {
+              var leadData = await res.json().catch(function () { return {}; });
               msg.style.display = 'block'; msg.style.color = '#4ade80';
               msg.textContent = '✓ You’re on the list.';
               if (window.gtag) gtag('event', 'generate_lead', { lead_type: 'newsletter' });
-              if (typeof fbq !== 'undefined') fbq('track', 'Lead');
+              if (typeof fbq !== 'undefined') fbq('track', 'Lead', {}, leadData.lead_id ? { eventID: leadData.lead_id } : undefined);
               form.reset();
             } else {
               msg.style.display = 'block'; msg.style.color = '#ff6b6b'; msg.textContent = '✕ Something went wrong. Try again.';
@@ -1248,8 +1249,9 @@
                     body: JSON.stringify({ action: 'getaway_interest', packageId: packageId, email: email, website: (hp && hp.value) || '' })
                 }, 8000);
                 if (res.ok) {
+                    const notifyData = await res.json().catch(() => ({}));
                     if (typeof gtag === 'function') gtag('event', 'generate_lead', { lead_type: 'getaway_notify', package_id: packageId });
-                    if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: 'getaway_notify_' + packageId });
+                    if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: 'getaway_notify_' + packageId }, notifyData.lead_id ? { eventID: notifyData.lead_id } : undefined);
                     form.style.display = 'none';
                     msg.style.display = 'block'; msg.style.color = '#4ade80';
                     msg.textContent = '✓ You\'re on the list — first dibs when it opens.';
