@@ -147,23 +147,26 @@
             border-color: var(--coral);
             transform: translateY(-5px);
         }
-        /* Image area: gradient with typographic date + optional emoji accent */
+        /* Image area: an illustrated SVG scene (rooftop/lounge/cork/quarters,
+           cycled by card index — see SCENE_ALTS below), with a typographic
+           date badge + optional emoji accent layered on top. Replaces the
+           old 4-cycle flat-gradient background; the SVG's own <rect>
+           supplies the background now, so there's nothing to set here. */
         .event-image {
             height: 180px;
-            background: linear-gradient(135deg, var(--coral) 0%, #c84b4b 100%);
             display: flex;
             align-items: center;
             justify-content: center;
             position: relative;
+            overflow: hidden;
+            cursor: pointer;
         }
-        .event-image.alt-1 {
-            background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
-        }
-        .event-image.alt-2 {
-            background: linear-gradient(135deg, #059669 0%, #065f46 100%);
-        }
-        .event-image.alt-3 {
-            background: linear-gradient(135deg, #b45309 0%, #78350f 100%);
+        .event-image svg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
         }
         .date-badge {
             text-align: center;
@@ -640,6 +643,130 @@
         .sp-polaroid:hover { transform: rotate(0deg) scale(1.08); z-index: 20 !important; }
         .sp-polaroid img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; }
         .sp-polaroid-cap { height: 58px; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 4px 6px 0; text-align: center; font-family: 'Caveat', cursive; font-size: 18px; font-weight: 700; color: #0a0e27; letter-spacing: 0.5px; line-height: 1.15; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+
+        /* ── Event dialog: details → checkout → done, in place of navigating
+           to /event?id=. Wrapper follows account.html's cancel-modal pattern
+           (own event-modal-* prefix to avoid any future collision); the form
+           fields inside reuse event.html's exact classes/copy verbatim so the
+           checkout experience stays identical to the one already proven
+           there — same required-gender rule, same 2-for-1 mechanic, same
+           price math. Mobile-first: the backdrop's own padding + the modal's
+           fluid width mean no separate small-screen rules are needed for the
+           shell; field stacking is handled per-field below. ── */
+        .event-modal-backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            display: none; align-items: center; justify-content: center;
+            z-index: 2000; padding: 16px;
+        }
+        .event-modal-backdrop.show { display: flex; }
+        .event-modal {
+            background: var(--primary-navy);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            border-radius: 8px;
+            padding: 32px 28px;
+            width: 100%;
+            max-width: 520px;
+            max-height: 92vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        @media (max-width: 480px) {
+            .event-modal { padding: 24px 18px; border-radius: 6px; }
+        }
+        .event-modal-close {
+            position: absolute; top: 14px; right: 14px; width: 32px; height: 32px;
+            border-radius: 50%; border: 1px solid rgba(245,243,240,0.2); background: transparent;
+            color: var(--cream); font-size: 18px; line-height: 1; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .event-modal-close:hover, .event-modal-close:focus-visible { border-color: var(--coral); color: var(--coral); outline: none; }
+        .event-modal-step { display: none; }
+        .event-modal-step.active { display: block; }
+        .modal-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--coral); margin-bottom: 14px; }
+        .event-modal h3 {
+            font-family: 'Playfair Display', serif; font-weight: 900; font-size: 26px;
+            color: var(--white); margin: 0 0 8px; line-height: 1.15;
+        }
+        .event-modal-meta { font-size: 13px; color: rgba(245,243,240,0.6); margin-bottom: 4px; }
+        .event-modal-blurb { font-size: 14.5px; line-height: 1.7; color: rgba(245,243,240,0.85); margin: 16px 0; }
+        .event-modal-divider { border-top: 1px solid rgba(255,107,107,0.12); padding-top: 20px; margin-top: 20px; }
+        .event-modal-price-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px; }
+        .event-modal-price-row .amount { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 26px; color: var(--gold); }
+
+        /* Checkout-step form — reused verbatim from public/event.html so the
+           two flows stay visually and functionally identical. Keep both in
+           sync if either changes. */
+        .form-group { margin-bottom: 20px; }
+        .event-modal label {
+            display: block; font-size: 12px; font-weight: 700; color: var(--cream);
+            margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .event-modal select, .event-modal input[type="email"], .event-modal input[type="text"], .event-modal input[type="tel"] {
+            width: 100%; padding: 12px 14px; background: #ffffff;
+            border: 2px solid rgba(255, 107, 107, 0.4); border-radius: 4px;
+            color: #000000; font-family: inherit; font-size: 14px;
+        }
+        .event-modal select:focus, .event-modal input:focus { outline: none; border-color: var(--coral); }
+        .event-modal input:disabled { opacity: 0.7; cursor: not-allowed; }
+        .field-row { display: flex; gap: 12px; }
+        .field-row .form-group { flex: 1; min-width: 0; }
+        @media (max-width: 480px) {
+            .field-row { flex-direction: column; gap: 0; }
+        }
+        #modalCardElement {
+            padding: 12px 15px; border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 4px; background: rgba(10, 14, 39, 0.5);
+        }
+        .price-breakdown { background: rgba(10, 14, 39, 0.5); padding: 16px; border-radius: 4px; margin-bottom: 20px; }
+        .price-breakdown .price-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; color: rgba(245, 243, 240, 0.8); }
+        .price-breakdown .price-row.subtotal { font-weight: 600; color: rgba(245, 243, 240, 0.95); }
+        .price-breakdown .price-row.total { border-top: 1px solid rgba(255, 107, 107, 0.2); margin-top: 10px; padding-top: 10px; font-size: 18px; font-weight: 700; color: var(--white); }
+        .price-breakdown .gold-text { color: var(--gold); }
+        .checkout-btn {
+            width: 100%; padding: 16px; background: linear-gradient(135deg, var(--coral), #ff5252);
+            color: var(--white); border: none; border-radius: 4px; font-family: inherit;
+            font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .checkout-btn:hover { transform: translateY(-2px); }
+        .checkout-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .trial-disclosure {
+            background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 4px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px;
+            line-height: 1.5; color: var(--cream);
+        }
+        .trial-disclosure strong { color: var(--gold); }
+        .checkout-reassurance {
+            background: rgba(74, 222, 128, 0.06); border: 1px solid rgba(74, 222, 128, 0.2);
+            border-radius: 4px; padding: 12px 14px; margin-bottom: 14px; font-size: 12.5px;
+            line-height: 1.5; color: var(--cream);
+        }
+        .checkout-reassurance .rq { font-style: italic; color: rgba(245,243,240,0.9); margin-bottom: 6px; }
+        .checkout-reassurance .rq .who { font-style: normal; font-weight: 600; color: var(--success); }
+        .checkout-reassurance .rp { font-size: 11.5px; color: rgba(245,243,240,0.65); }
+        .two-for-one-toggle {
+            display: flex; align-items: flex-start; gap: 10px; background: rgba(212, 175, 55, 0.08);
+            border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 4px; padding: 12px 14px; margin-bottom: 20px;
+        }
+        .two-for-one-toggle input[type="checkbox"] { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--gold); flex-shrink: 0; cursor: pointer; }
+        .two-for-one-toggle label { display: block; margin: 0; text-transform: none; font-weight: 400; letter-spacing: normal; font-size: 13px; line-height: 1.5; color: var(--cream); cursor: pointer; }
+        .two-for-one-toggle label strong { color: var(--gold); }
+        .plus-one-fields { display: none; border-top: 1px dashed rgba(255,107,107,0.25); margin-top: 4px; padding-top: 16px; }
+        .plus-one-fields.active { display: block; }
+        .plus-one-fields .po-heading { font-size: 12px; font-weight: 700; color: var(--coral); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+        .event-modal .legal { font-size: 11px; color: rgba(245, 243, 240, 0.5); text-align: center; margin-top: 14px; line-height: 1.5; }
+        .event-modal .legal a { color: var(--coral); text-decoration: none; }
+        .modal-success-message, .modal-error-message { padding: 14px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; display: none; }
+        .modal-success-message { background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.3); color: var(--success); }
+        .modal-error-message { background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.3); color: #f87171; }
+
+        .modal-summary-card {
+            background: rgba(255,107,107,0.05); border: 1px solid rgba(255,107,107,0.2);
+            border-radius: 4px; padding: 18px 20px; margin: 20px 0;
+        }
+        .modal-summary-card .k { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: rgba(245,243,240,0.5); margin-bottom: 8px; }
+        .modal-summary-card .t { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 19px; color: var(--white); margin-bottom: 4px; }
+        .modal-summary-card .m { font-size: 13px; color: rgba(245,243,240,0.65); }
     </style>
     <!-- Meta Pixel Code -->
     <script>
@@ -808,6 +935,146 @@
       })();
     </script>
 
+    <!-- ── Event dialog: details → checkout → done. Replaces navigating to a
+         separate /event?id= page for the primary purchase path; event.html
+         itself is untouched and still the canonical standalone URL (email
+         links, ads, shares). See openEventDialog()/closeEventDialog() below. -->
+    <div class="event-modal-backdrop" id="eventModalBackdrop">
+        <div class="event-modal" id="eventModal" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle">
+            <button type="button" class="event-modal-close" id="eventModalClose" aria-label="Close">&times;</button>
+
+            <div class="event-modal-step" id="stepDetails">
+                <div class="modal-eyebrow">Upcoming Mixer</div>
+                <h3 id="eventModalTitle">—</h3>
+                <div class="event-modal-meta" id="detailsWhen">—</div>
+                <div class="event-modal-meta" id="detailsWhere">—</div>
+                <p class="event-modal-blurb" id="detailsBlurb" style="display:none;"></p>
+                <div class="event-modal-divider">
+                    <div class="event-modal-price-row">
+                        <span id="detailsPriceLabel">Ticket price</span>
+                        <span class="amount" id="detailsPrice">—</span>
+                    </div>
+                    <button type="button" class="checkout-btn" id="toCheckoutBtn">Continue to Checkout</button>
+                    <div class="modal-error-message" id="detailsError"></div>
+                </div>
+            </div>
+
+            <div class="event-modal-step" id="stepCheckout">
+                <div class="modal-eyebrow">Step 2 of 2 · Checkout</div>
+                <h3>Reserve your spot</h3>
+                <p class="event-modal-meta" id="checkoutForLine" style="margin-bottom: 20px;">—</p>
+
+                <div class="modal-success-message" id="modalSuccessMessage"></div>
+                <div class="modal-error-message" id="modalErrorMessage"></div>
+
+                <form id="modalCheckoutForm">
+                    <div class="form-group">
+                        <label for="modalGender">Gender</label>
+                        <select id="modalGender" required>
+                            <option value="">Select...</option>
+                            <option value="woman">Woman</option>
+                            <option value="man">Man</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="modalName">Name</label>
+                        <input type="text" id="modalName" placeholder="Jane Doe" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="modalEmail">Email</label>
+                        <input type="email" id="modalEmail" placeholder="you@example.com" autocomplete="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="modalPhone">Phone <span style="font-weight:400;color:rgba(245,243,240,0.45);text-transform:none;">(optional)</span></label>
+                        <input type="tel" id="modalPhone" placeholder="+1 (555) 123-4567" autocomplete="tel">
+                    </div>
+
+                    <div class="two-for-one-toggle">
+                        <input type="checkbox" id="modalTwoForOne">
+                        <label for="modalTwoForOne"><strong>🎉 2-for-1:</strong> bring someone for free. Add their info below — you're only charged for one ticket.</label>
+                    </div>
+
+                    <div class="plus-one-fields" id="modalPlusOneFields">
+                        <div class="po-heading">Your +1 (free)</div>
+                        <div class="form-group">
+                            <label for="modalPlusOneGender">Their Gender</label>
+                            <select id="modalPlusOneGender">
+                                <option value="">Select...</option>
+                                <option value="woman">Woman</option>
+                                <option value="man">Man</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="modalPlusOneName">Their Name</label>
+                            <input type="text" id="modalPlusOneName" placeholder="Jane Doe">
+                        </div>
+                        <div class="form-group">
+                            <label for="modalPlusOneEmail">Their Email</label>
+                            <input type="email" id="modalPlusOneEmail" placeholder="them@example.com" autocomplete="email">
+                        </div>
+                        <div class="form-group">
+                            <label for="modalPlusOnePhone">Their Phone <span style="font-weight:400;color:rgba(245,243,240,0.45);text-transform:none;">(optional)</span></label>
+                            <input type="tel" id="modalPlusOnePhone" placeholder="+1 (555) 123-4567" autocomplete="tel">
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="modalCardFormGroup">
+                        <label>Payment Card</label>
+                        <div id="modalCardElement"></div>
+                        <div style="font-size:12px;color:rgba(245,243,240,0.5);margin-top:8px;">🔒 Payments processed securely by Stripe</div>
+                    </div>
+                    <div class="form-group" id="modalCardOnFileNotice" style="display:none;">
+                        <label>Payment Method</label>
+                        <div style="padding:14px 16px;background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.25);border-radius:4px;font-size:13px;color:var(--cream);">
+                            <strong style="color:var(--success);">Card on file</strong>
+                            <div style="font-size:12px;color:rgba(245,243,240,0.6);margin-top:4px;">We'll charge the card you used for your subscription.</div>
+                        </div>
+                    </div>
+
+                    <div class="price-breakdown">
+                        <div class="price-row subtotal"><span id="modalSubtotalLabel">Ticket</span><span id="modalSubtotalPrice">$0.00</span></div>
+                        <div class="price-row"><span>Service fee</span><span id="modalServiceFee">$0.00</span></div>
+                        <div class="price-row total"><span>Total</span><span class="gold-text" id="modalTotalPrice">$0.00</span></div>
+                    </div>
+
+                    <div class="trial-disclosure" id="modalTrialDisclosure">
+                        <strong>One-time ticket purchase.</strong>
+                        No membership and no subscription — you're only paying for this event. Nothing recurring.
+                    </div>
+
+                    <div class="checkout-reassurance">
+                        <div class="rq">"Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!" <span class="who">— Quang</span></div>
+                        <div class="rp">🔒 Secure checkout · 🔄 Free ticket transfer if your plans change · A real host is on-site the whole night</div>
+                    </div>
+
+                    <button type="submit" class="checkout-btn" id="modalCheckoutBtn" disabled>Select Gender</button>
+
+                    <div class="legal">
+                        By purchasing, you agree to our <a href="/terms">Terms</a> and
+                        <a href="/privacy">Privacy Policy</a>.<br>
+                        Must be 21+. Bring valid ID.
+                    </div>
+                </form>
+
+                <div style="margin-top: 14px;">
+                    <button type="button" class="btn" style="width:100%;background:transparent;" id="backToDetailsBtn">← Back</button>
+                </div>
+            </div>
+
+            <div class="event-modal-step" id="stepDone">
+                <div class="modal-eyebrow">You're in</div>
+                <h3>You're confirmed.</h3>
+                <p class="event-modal-blurb" id="doneLine">Check your email for event details.</p>
+                <div class="modal-summary-card">
+                    <div class="k">Your mixer</div>
+                    <div class="t" id="doneTitle">—</div>
+                    <div class="m" id="doneMeta">—</div>
+                </div>
+                <button type="button" class="checkout-btn" id="doneCloseBtn">Browse More Mixers</button>
+            </div>
+        </div>
+    </div>
+
     <footer>
         <p>SparkDate · <a href="/philadelphia" style="color: inherit;">Philadelphia</a> &amp; <a href="/lancaster" style="color: inherit;">Lancaster</a> · 2026</p>
         <div style="display: flex; gap: 14px; justify-content: center; margin-top: 16px;">
@@ -823,6 +1090,7 @@
         </p>
     </footer>
 
+    <script src="https://js.stripe.com/v3/"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
@@ -844,7 +1112,72 @@
         function stateForCity(city) {
             return STATE_BY_CITY_NAME[String(city || '').toLowerCase().trim()] || null;
         }
-        const GRADIENT_ALTS = ['', 'alt-1', 'alt-2', 'alt-3'];
+        // Illustrated card-header scenes, cycled by card index — same
+        // zero-friction mechanism the old GRADIENT_ALTS used (no Firestore
+        // field, no admin.html change, no backfill). Reuses the anim-float /
+        // anim-float-slow / anim-glow / anim-dot / anim-dot-delay /
+        // anim-bounce classes already defined above for the Getaways icons
+        // (including their prefers-reduced-motion override) rather than
+        // introducing a second motion vocabulary.
+        const SCENE_ALTS = ['lounge', 'rooftop', 'cork', 'quarters'];
+
+        function sceneSvg(scene) {
+            const defs = '<defs><linearGradient id="g-' + scene + '" x1="0" y1="0" x2="1" y2="1">' +
+                '<stop offset="0%" stop-color="#2a2f4a"/><stop offset="100%" stop-color="#0a0e27"/></linearGradient></defs>' +
+                '<rect width="320" height="180" fill="url(#g-' + scene + ')"/>';
+
+            if (scene === 'rooftop') {
+                // Exchange-style rooftop mixers: skyline silhouettes, string
+                // lights, a warm sunset glow.
+                return '<svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + defs +
+                    '<circle class="anim-glow" cx="238" cy="60" r="46" fill="#ff6b6b" opacity="0.85"/>' +
+                    '<rect x="18" y="118" width="30" height="62" fill="#0a0e27"/>' +
+                    '<rect x="58" y="96" width="24" height="84" fill="#0a0e27"/>' +
+                    '<rect x="264" y="104" width="28" height="76" fill="#0a0e27"/>' +
+                    '<rect x="0" y="150" width="320" height="2" fill="#d4af37" opacity="0.5" class="anim-float"/>' +
+                    '<circle class="anim-dot" cx="70" cy="90" r="2" fill="#d4af37"/>' +
+                    '<circle class="anim-dot-delay" cx="270" cy="98" r="2" fill="#d4af37"/></svg>';
+            }
+            if (scene === 'lounge') {
+                // House/lounge mixers: a warm coral wash, soft glass
+                // silhouette, dim bottle-rack lines.
+                return '<svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + defs +
+                    '<defs><radialGradient id="wash-lounge" cx="25%" cy="70%" r="70%">' +
+                    '<stop offset="0%" stop-color="#ff6b6b" stop-opacity="0.32"/><stop offset="100%" stop-color="#ff6b6b" stop-opacity="0"/></radialGradient></defs>' +
+                    '<rect width="320" height="180" fill="url(#wash-lounge)"/>' +
+                    '<ellipse class="anim-float" cx="90" cy="120" rx="30" ry="11" fill="#ff6b6b" opacity="0.5"/>' +
+                    '<rect x="120" y="20" width="1.5" height="70" fill="#f5f3f0" opacity="0.2"/>' +
+                    '<rect x="140" y="20" width="1.5" height="70" fill="#f5f3f0" opacity="0.15"/>' +
+                    '<rect x="160" y="20" width="1.5" height="70" fill="#f5f3f0" opacity="0.1"/>' +
+                    '<circle class="anim-glow" cx="252" cy="52" r="7" fill="#d4af37"/>' +
+                    '<circle class="anim-bounce" cx="270" cy="130" r="3" fill="#d4af37" opacity="0.7"/></svg>';
+            }
+            if (scene === 'cork') {
+                // Wine-room mixers (e.g. Lancaster's Cork Room): a wine-glass
+                // line-art silhouette, floating bubbles.
+                return '<svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + defs +
+                    '<path class="anim-float" d="M170 24 L152 78 Q152 106 182 106 Q212 106 212 78 L194 24 Z" fill="none" stroke="#d4af37" stroke-width="2.5" opacity="0.9"/>' +
+                    '<rect x="178" y="104" width="8" height="26" fill="#d4af37" opacity="0.9"/>' +
+                    '<rect x="162" y="128" width="40" height="4" rx="2" fill="#d4af37" opacity="0.9"/>' +
+                    '<ellipse cx="182" cy="76" rx="26" ry="10" fill="#ff6b6b" opacity="0.5"/>' +
+                    '<circle class="anim-dot" cx="100" cy="60" r="3" fill="#ff6b6b" opacity="0.6"/>' +
+                    '<circle class="anim-dot-delay" cx="80" cy="90" r="2" fill="#ff6b6b" opacity="0.5"/>' +
+                    '<circle class="anim-bounce" cx="248" cy="50" r="2.5" fill="#d4af37"/></svg>';
+            }
+            // 'quarters' — Kensington-Quarters-style dance-floor mixers: two
+            // illuminated venue-front icons.
+            return '<svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + defs +
+                '<g class="anim-float">' +
+                '<rect x="60" y="60" width="86" height="70" rx="4" fill="none" stroke="#ff6b6b" stroke-width="2" opacity="0.85"/>' +
+                '<rect x="76" y="78" width="14" height="14" fill="#ff6b6b" opacity="0.6"/>' +
+                '<rect x="100" y="78" width="14" height="14" fill="#ff6b6b" opacity="0.6"/>' +
+                '<rect x="124" y="78" width="14" height="14" fill="#ff6b6b" opacity="0.6"/></g>' +
+                '<g class="anim-float-slow">' +
+                '<rect x="176" y="76" width="70" height="54" rx="4" fill="none" stroke="#d4af37" stroke-width="1.6" opacity="0.8"/>' +
+                '<rect x="188" y="90" width="46" height="3" fill="#d4af37" opacity="0.5"/>' +
+                '<rect x="188" y="100" width="30" height="3" fill="#d4af37" opacity="0.35"/></g>' +
+                '<circle class="anim-bounce" cx="266" cy="58" r="2.5" fill="#d4af37"/></svg>';
+        }
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -864,6 +1197,10 @@
                 .replace(/\//g, '&#x2F;');
         }
 
+        // Cached by loadEvents() — the event dialog reads from this instead
+        // of re-querying Firestore on every open.
+        let loadedEvents = [];
+
         async function loadEvents() {
             const grid = document.getElementById('eventsGrid');
             try {
@@ -880,7 +1217,9 @@
                     query(collection(db, 'events'), where('date', '>=', new Date()), orderBy('date', 'asc'), limit(20))
                 );
                 const events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                loadedEvents = events;
                 renderEvents(events, grid);
+                maybeOpenDialogFromUrl();
                 injectEventsListSchema(events);
                 updateHeroForNextEvent(events);
             } catch (err) {
@@ -1002,13 +1341,13 @@
                 const priceVal = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
                 const priceLabel = priceVal > 0 ? `$${priceVal}` : 'TBA';
                 const statusLabel = ev.status === 'full' ? 'Full' : ev.status === 'almost' ? 'Almost Full' : 'Open';
-                const gradientClass = GRADIENT_ALTS[i % GRADIENT_ALTS.length];
+                const scene = SCENE_ALTS[i % SCENE_ALTS.length];
 
                 let reserveBtn;
                 if (ev.status === 'full') {
                     reserveBtn = `<span class="btn disabled">Sold Out</span>`;
                 } else {
-                    reserveBtn = `<a href="/event?id=${encodeURIComponent(ev.id)}" class="btn">Reserve</a>`;
+                    reserveBtn = `<button type="button" class="btn" data-event-id="${safe(ev.id)}">Reserve</button>`;
                 }
 
                 const venueLine = (ev.venue || '') + (ev.neighborhood ? ' · ' + ev.neighborhood : '');
@@ -1021,9 +1360,15 @@
                     ? `<div class="venue-rating" title="Venue rating, Google reviews">★ ${ev.venueStars.toFixed(1)}</div>`
                     : '';
 
+                // The whole card opens the dialog (details step) instead of
+                // navigating to /event?id= — see the delegated click handler
+                // on #eventsGrid below. Sold-out cards get no data-event-id,
+                // so a click on them is a no-op (matches the current "Sold
+                // Out" span already being non-interactive).
                 return `
-                    <div class="event-card">
-                        <div class="event-image ${gradientClass}">
+                    <div class="event-card" ${ev.status !== 'full' ? `data-event-id="${safe(ev.id)}"` : ''}>
+                        <div class="event-image">
+                            ${sceneSvg(scene)}
                             <div class="date-badge">
                                 <span class="month">${safe(month)}</span>
                                 <span class="day">${day}</span>
@@ -1055,6 +1400,417 @@
                     </div>`;
             }).join('');
         }
+
+        // ── Event dialog: details → checkout → done, replacing navigation
+        // to a separate /event?id= page for the primary purchase path.
+        // public/event.html is untouched and stays the canonical standalone
+        // URL for email links, ads, and shares — this is a self-contained
+        // copy of its checkout logic (no shared client bundle exists
+        // anywhere in this repo; keep both in sync if either changes). ──
+
+        // SERVICE_FEE mirrors SERVICE_FEE_CENTS in lib/pricing.js (same
+        // constant event.html also hardcodes) — tests/pricing.test.js
+        // checks BOTH copies now.
+        const SERVICE_FEE = 2.50;
+        const MONTHLY_LIMITS_MODAL = { free: Infinity, mid: Infinity, premium: Infinity };
+
+        let currentUser = null;
+        let userProfile = null;
+        let userTier = 'free';
+
+        let dialogEventId = null;
+        let dialogPaying = false;
+        // True only when THIS script pushed the history entry that opened
+        // the dialog — decides whether closeEventDialog() goes back() (undo
+        // that push) or pushes a fresh /events entry (the dialog was opened
+        // by a popstate restoring a bookmarked/shared URL, so there's no
+        // "back to before the dialog" entry to return to).
+        let dialogOpenedViaPush = false;
+        // Focus returns here on close — whichever card/button opened the
+        // dialog, or null when it was opened by a popstate/initial-URL
+        // restore with no real trigger element to return to.
+        let dialogTriggerEl = null;
+        // AddToCart/add_to_cart is a one-time-per-event milestone (mirrors
+        // event.html's addToCartTracked) — a Set instead of a boolean since
+        // one page load here can cover many different events' dialogs.
+        const addToCartTrackedIds = new Set();
+
+        function isInAppBrowserModal() {
+            return /FBAN|FBAV|Instagram|Line\/|TikTok|BytedanceWebview|Twitter/i.test(navigator.userAgent);
+        }
+
+        const stripeModal = Stripe('pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1');
+        const elementsModal = stripeModal.elements({
+            appearance: {
+                theme: 'night',
+                variables: { colorPrimary: '#ff6b6b', colorBackground: '#0d1230', colorText: '#f5f3f0', fontFamily: 'Inter, sans-serif', borderRadius: '4px' }
+            }
+        });
+        const cardElementModal = elementsModal.create('card');
+        cardElementModal.mount('#modalCardElement');
+
+        function findLoadedEvent(id) { return loadedEvents.find(e => e.id === id) || null; }
+        function money(n) { return `$${Number(n).toFixed(2)}`; }
+        function ticketPriceFor(ev) {
+            if (!ev) return 0;
+            const n = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+            return (isFinite(n) && n > 0) ? n : 0;
+        }
+
+        function showModalStep(id) {
+            ['stepDetails', 'stepCheckout', 'stepDone'].forEach(s => {
+                document.getElementById(s).classList.toggle('active', s === id);
+            });
+        }
+
+        function openEventDialog(id, opts) {
+            opts = opts || {};
+            const ev = findLoadedEvent(id);
+            if (!ev) return; // sold out / gone / not loaded yet — silent no-op
+
+            dialogEventId = id;
+            const date = ev.date && ev.date.toDate ? ev.date.toDate() : new Date(ev.date);
+            const validDate = date instanceof Date && !isNaN(date);
+            const dateLabel = validDate
+                ? date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) + (ev.time ? ' · ' + ev.time : '')
+                : '';
+            const venueLine = [ev.venue, ev.neighborhood, ev.city].filter(Boolean).join(' · ');
+
+            document.getElementById('eventModalTitle').textContent = ev.title || 'SparkDate Mixer';
+            document.getElementById('detailsWhen').textContent = dateLabel;
+            document.getElementById('detailsWhere').textContent = venueLine;
+            const blurbEl = document.getElementById('detailsBlurb');
+            if (ev.blurb) { blurbEl.textContent = ev.blurb; blurbEl.style.display = 'block'; }
+            else { blurbEl.style.display = 'none'; }
+
+            const price = ticketPriceFor(ev);
+            document.getElementById('detailsPriceLabel').textContent = ev.status === 'full' ? 'Status' : 'Ticket price';
+            document.getElementById('detailsPrice').textContent = ev.status === 'full' ? 'Sold out' : (price > 0 ? money(price) : 'TBA');
+            document.getElementById('checkoutForLine').textContent = `${ev.title || 'SparkDate Mixer'} · ${dateLabel}`;
+            const toCheckout = document.getElementById('toCheckoutBtn');
+            toCheckout.disabled = ev.status === 'full';
+            toCheckout.textContent = ev.status === 'full' ? 'Sold Out' : 'Continue to Checkout';
+            document.getElementById('detailsError').style.display = 'none';
+
+            resetCheckoutForm();
+            showModalStep('stepDetails');
+            document.getElementById('eventModalBackdrop').classList.add('show');
+            // Move focus into the dialog (the close button — always present
+            // and keyboard-reachable regardless of which step is active) so
+            // a keyboard/screen-reader user isn't left focused on a card
+            // that's now behind the backdrop.
+            if (!opts.fromPopstate && document.activeElement instanceof HTMLElement) {
+                dialogTriggerEl = document.activeElement;
+            }
+            document.getElementById('eventModalClose').focus();
+
+            // Meta Pixel + GA4: this event's detail view. Mirrors event.html's
+            // applyEventData() ViewContent/view_item firing, moved to
+            // dialog-open — the true "viewed this event's detail" moment in
+            // this flow. Fires on every open (not deduped like AddToCart
+            // below) since each open is a genuine new detail view.
+            if (typeof fbq !== 'undefined') {
+                fbq('track', 'ViewContent', { content_ids: [ev.id], content_name: ev.title || 'SparkDate Mixer', content_type: 'product', value: price, currency: 'USD' });
+            }
+            if (typeof gtag === 'function') {
+                gtag('event', 'view_item', { currency: 'USD', value: price, items: [{ item_id: ev.id, item_name: ev.title || 'SparkDate Mixer', price }] });
+            }
+
+            if (!opts.fromPopstate) {
+                history.pushState({ sdEventDialog: true, eventId: id }, '', '/events?event=' + encodeURIComponent(id));
+                dialogOpenedViaPush = true;
+            }
+        }
+
+        function closeEventDialog(opts) {
+            opts = opts || {};
+            if (dialogPaying) return; // never close mid-payment — see the submit handler
+            document.getElementById('eventModalBackdrop').classList.remove('show');
+            dialogEventId = null;
+            if (!opts.fromPopstate) {
+                if (dialogOpenedViaPush) history.back();
+                else history.pushState({}, '', '/events');
+            }
+            dialogOpenedViaPush = false;
+            if (dialogTriggerEl) { dialogTriggerEl.focus(); dialogTriggerEl = null; }
+        }
+
+        function maybeOpenDialogFromUrl() {
+            const id = new URLSearchParams(location.search).get('event');
+            if (id) openEventDialog(id, { fromPopstate: true }); // don't push again — the URL is already current
+        }
+
+        // Reads state only, never pushes — a pushing popstate handler
+        // creates a broken back-stack loop.
+        window.addEventListener('popstate', function (e) {
+            const id = e.state && e.state.eventId;
+            if (id) {
+                openEventDialog(id, { fromPopstate: true });
+            } else if (document.getElementById('eventModalBackdrop').classList.contains('show')) {
+                closeEventDialog({ fromPopstate: true });
+            }
+        });
+
+        document.getElementById('eventModalClose').addEventListener('click', () => closeEventDialog());
+        document.getElementById('eventModalBackdrop').addEventListener('click', (e) => {
+            if (e.target.id === 'eventModalBackdrop') closeEventDialog();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !dialogPaying && document.getElementById('eventModalBackdrop').classList.contains('show')) closeEventDialog();
+        });
+        document.getElementById('eventsGrid').addEventListener('click', (e) => {
+            const card = e.target.closest('[data-event-id]');
+            if (card) openEventDialog(card.getAttribute('data-event-id'));
+        });
+        document.getElementById('toCheckoutBtn').addEventListener('click', () => {
+            showModalStep('stepCheckout');
+            // InitiateCheckout fires on arriving at the checkout step —
+            // more accurate than event.html's focusin-based trigger, since
+            // the dialog's own step model already gates this moment.
+            const ev = findLoadedEvent(dialogEventId);
+            if (typeof gtag === 'function') gtag('event', 'checkout_form_started', {});
+            if (typeof fbq !== 'undefined') fbq('track', 'InitiateCheckout', { content_ids: [dialogEventId], value: ticketPriceFor(ev), currency: 'USD' });
+        });
+        document.getElementById('backToDetailsBtn').addEventListener('click', () => showModalStep('stepDetails'));
+        document.getElementById('doneCloseBtn').addEventListener('click', () => closeEventDialog());
+
+        function resetCheckoutForm() {
+            document.getElementById('modalCheckoutForm').reset();
+            document.getElementById('modalPlusOneFields').classList.remove('active');
+            ['modalPlusOneGender', 'modalPlusOneName', 'modalPlusOneEmail'].forEach(id => { document.getElementById(id).required = false; });
+            document.getElementById('modalSuccessMessage').style.display = 'none';
+            document.getElementById('modalErrorMessage').style.display = 'none';
+            cardElementModal.clear();
+            applyUserContextToModal();
+            updateModalPricing();
+        }
+
+        function updateModalPricing() {
+            const ev = findLoadedEvent(dialogEventId);
+            const gender = document.getElementById('modalGender').value;
+            const btn = document.getElementById('modalCheckoutBtn');
+            if (!gender) {
+                document.getElementById('modalSubtotalLabel').textContent = 'Ticket';
+                document.getElementById('modalSubtotalPrice').textContent = '$0.00';
+                document.getElementById('modalServiceFee').textContent = '$0.00';
+                document.getElementById('modalTotalPrice').textContent = '$0.00';
+                btn.textContent = 'Select Gender';
+                btn.disabled = true;
+                return;
+            }
+            if (dialogEventId && ev && !addToCartTrackedIds.has(dialogEventId)) {
+                addToCartTrackedIds.add(dialogEventId);
+                const price = ticketPriceFor(ev);
+                if (typeof fbq !== 'undefined') fbq('track', 'AddToCart', { content_ids: [ev.id], content_name: ev.title || 'SparkDate Mixer', content_type: 'product', value: price, currency: 'USD' });
+                if (typeof gtag === 'function') gtag('event', 'add_to_cart', { currency: 'USD', value: price, items: [{ item_id: ev.id, item_name: ev.title || 'SparkDate Mixer', price }] });
+            }
+            const ticket = ticketPriceFor(ev);
+            const total = ticket + SERVICE_FEE;
+            const twoForOne = document.getElementById('modalTwoForOne').checked;
+            document.getElementById('modalSubtotalLabel').textContent = twoForOne ? 'Subtotal (2 tickets, 2-for-1)' : 'Ticket';
+            document.getElementById('modalSubtotalPrice').textContent = money(ticket);
+            document.getElementById('modalServiceFee').textContent = money(SERVICE_FEE);
+            document.getElementById('modalTotalPrice').textContent = money(total);
+            btn.textContent = twoForOne ? `Reserve 2 Spots (2-for-1) · ${money(total)}` : `Reserve Spot · ${money(total)}`;
+            btn.disabled = false;
+        }
+        document.getElementById('modalGender').addEventListener('change', updateModalPricing);
+        document.getElementById('modalTwoForOne').addEventListener('change', (e) => {
+            const fields = document.getElementById('modalPlusOneFields');
+            const on = e.target.checked;
+            fields.classList.toggle('active', on);
+            ['modalPlusOneGender', 'modalPlusOneName', 'modalPlusOneEmail'].forEach(id => { document.getElementById(id).required = on; });
+            updateModalPricing();
+        });
+
+        // Pre-fill + lock fields for a signed-in member, and swap in the
+        // card-on-file notice — mirrors event.html's applyUserContext(),
+        // called on every dialog (re)open so it reflects whichever auth
+        // state has resolved by then (auth can resolve before or after the
+        // first dialog open).
+        function applyUserContextToModal() {
+            const genderSelect = document.getElementById('modalGender');
+            const nameInput = document.getElementById('modalName');
+            const emailInput = document.getElementById('modalEmail');
+            const phoneInput = document.getElementById('modalPhone');
+            const cardGroup = document.getElementById('modalCardFormGroup');
+            const cardOnFileNotice = document.getElementById('modalCardOnFileNotice');
+            const trialDisclosure = document.getElementById('modalTrialDisclosure');
+
+            genderSelect.disabled = false;
+            nameInput.disabled = false;
+            cardGroup.style.display = '';
+            cardOnFileNotice.style.display = 'none';
+            trialDisclosure.style.display = '';
+
+            if (!userProfile) return;
+
+            if (userProfile.gender === 'man' || userProfile.gender === 'woman') {
+                genderSelect.value = userProfile.gender;
+                genderSelect.disabled = true;
+            }
+            const profileName = userProfile.name || userProfile.displayName;
+            if (profileName) { nameInput.value = profileName; nameInput.disabled = true; }
+            if (userProfile.email && !emailInput.value) emailInput.value = userProfile.email;
+            if (userProfile.phone && !phoneInput.value) phoneInput.value = userProfile.phone;
+
+            if (userProfile.stripeCustomerId) {
+                cardGroup.style.display = 'none';
+                cardOnFileNotice.style.display = 'block';
+                trialDisclosure.style.display = 'none';
+            }
+        }
+
+        async function checkQuotaModal(user) {
+            const userSnap = await getDoc(doc(db, 'users', user.uid));
+            userTier = userSnap.exists() ? (userSnap.data().tier || 'free') : 'free';
+            const limit = MONTHLY_LIMITS_MODAL[userTier] || 1;
+            if (limit === Infinity) return true;
+            const now = new Date();
+            const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const regSnap = await getDocs(query(collection(db, 'event_registrations'), where('userId', '==', user.uid), where('month', '==', monthKey)));
+            const confirmed = regSnap.docs.filter(d => d.data().status === 'confirmed').length;
+            return confirmed < limit;
+        }
+
+        document.getElementById('modalCheckoutForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const ev = findLoadedEvent(dialogEventId);
+            const gender = document.getElementById('modalGender').value;
+            const name = document.getElementById('modalName').value.trim();
+            const email = document.getElementById('modalEmail').value.trim();
+            const phone = document.getElementById('modalPhone').value.trim();
+            const btn = document.getElementById('modalCheckoutBtn');
+            const errorMsg = document.getElementById('modalErrorMessage');
+            const successMsg = document.getElementById('modalSuccessMessage');
+
+            errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
+            // Disables the modal's close paths (backdrop click / Escape / X)
+            // for the duration — see closeEventDialog()'s guard — so an
+            // in-flight purchase can never be abandoned mid-fetch.
+            dialogPaying = true;
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+
+            try {
+                if (!name) throw new Error('Please enter your name.');
+
+                const twoForOne = document.getElementById('modalTwoForOne').checked;
+                let plusOne = null;
+                if (twoForOne) {
+                    const poGender = document.getElementById('modalPlusOneGender').value;
+                    const poName = document.getElementById('modalPlusOneName').value.trim();
+                    const poEmail = document.getElementById('modalPlusOneEmail').value.trim();
+                    const poPhone = document.getElementById('modalPlusOnePhone').value.trim();
+                    if (!poGender || !poName || !poEmail) {
+                        throw new Error("Please fill in your +1's gender, name, and email — or uncheck 2-for-1.");
+                    }
+                    plusOne = { gender: poGender, name: poName, email: poEmail, phone: poPhone };
+                }
+
+                if (currentUser) {
+                    const allowed = await checkQuotaModal(currentUser);
+                    if (!allowed) {
+                        const tierLabels = { free: 'Spark (1/month)', mid: 'Kindling (3/month)', premium: 'Fire' };
+                        throw new Error(`You've reached your monthly event limit for ${tierLabels[userTier] || 'your tier'}. Upgrade your plan to attend more events.`);
+                    }
+                }
+
+                const ticket = ticketPriceFor(ev);
+                const evName = (ev && ev.title) || 'SparkDate Mixer';
+                const evId = (ev && ev.id) || dialogEventId;
+
+                if (ev) {
+                    const cap = ev.spots || ev.spotsTotal || ((ev.spotsMen ?? 0) + (ev.spotsWomen ?? 0));
+                    if (cap <= 0) throw new Error('This event has no spots available.');
+                    if (plusOne && cap < 2) throw new Error('Only 1 spot left — the 2-for-1 deal needs 2. You can still buy a single ticket.');
+                }
+
+                const useCardOnFile = currentUser && userProfile && userProfile.stripeCustomerId;
+                let payload;
+                let idToken = null;
+
+                if (useCardOnFile) {
+                    idToken = await currentUser.getIdToken();
+                    payload = { firebaseUid: currentUser.uid, email, name, phone, gender, eventId: evId, plusOne };
+                } else {
+                    const { paymentMethod, error: stripeError } = await stripeModal.createPaymentMethod({
+                        type: 'card', card: cardElementModal, billing_details: { name, email, phone: phone || undefined }
+                    });
+                    if (stripeError) throw new Error(stripeError.message);
+
+                    if (typeof fbq !== 'undefined') {
+                        fbq('track', 'AddPaymentInfo', { content_ids: [evId], value: ticket + SERVICE_FEE, currency: 'USD' });
+                    }
+
+                    payload = { paymentMethodId: paymentMethod.id, email, name, phone, gender, eventId: evId, plusOne };
+                }
+
+                const headers = { 'Content-Type': 'application/json' };
+                if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+
+                const res = await fetch('/api/purchase-ticket', { method: 'POST', headers, body: JSON.stringify(payload) });
+                const result = await res.json();
+                if (!res.ok) throw new Error(result.error || 'Payment failed');
+
+                // Same PaymentIntent id server-side CAPI uses as event_id
+                // (api/stripe-webhook.js) — required for Meta's browser/
+                // server dedup. Sync response carries it directly; the 3DS
+                // response fills it in from confirmCardPayment's own result.
+                let purchasePaymentIntentId = result.paymentIntentId || null;
+
+                if (result.requiresAction) {
+                    if (typeof gtag === 'function') gtag('event', 'checkout_3ds_required', { in_app_browser: isInAppBrowserModal() });
+                    const { error: confirmError, paymentIntent } = await stripeModal.confirmCardPayment(result.clientSecret);
+                    if (confirmError) throw new Error(confirmError.message || 'Payment authentication failed.');
+                    if (paymentIntent && paymentIntent.status !== 'succeeded') throw new Error('Payment did not complete. Please try again.');
+                    if (paymentIntent) purchasePaymentIntentId = paymentIntent.id;
+                    if (typeof gtag === 'function') gtag('event', 'checkout_3ds_completed', { in_app_browser: isInAppBrowserModal() });
+                }
+
+                if (!result.duplicate) {
+                    const purchaseValue = typeof result.amount === 'number' ? result.amount / 100 : ticket + SERVICE_FEE;
+                    if (typeof gtag === 'function') {
+                        gtag('event', 'purchase', {
+                            transaction_id: evId, value: parseFloat(purchaseValue.toFixed(2)), currency: 'USD',
+                            items: [{ item_id: evId, item_name: evName, price: parseFloat(ticket.toFixed(2)) }]
+                        });
+                    }
+                    if (typeof fbq !== 'undefined') {
+                        fbq('track', 'Purchase', { value: parseFloat(purchaseValue.toFixed(2)), currency: 'USD' },
+                            purchasePaymentIntentId ? { eventID: purchasePaymentIntentId } : undefined);
+                    }
+                }
+
+                document.getElementById('doneLine').textContent = `We emailed your ${plusOne ? 'tickets' : 'ticket'} to ${email}. Bring nothing but yourself.`;
+                document.getElementById('doneTitle').textContent = evName;
+                const evDate = ev && ev.date && ev.date.toDate ? ev.date.toDate() : (ev && ev.date ? new Date(ev.date) : null);
+                const doneDateValid = evDate instanceof Date && !isNaN(evDate);
+                const doneDateLabel = doneDateValid
+                    ? evDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) + (ev.time ? ' · ' + ev.time : '')
+                    : '';
+                document.getElementById('doneMeta').textContent = [doneDateLabel, ev && ev.venue].filter(Boolean).join(' · ');
+                showModalStep('stepDone');
+                dialogPaying = false;
+            } catch (err) {
+                console.error('[events] checkout error', err);
+                const msg = (err.message || '').toLowerCase();
+                let friendly, category;
+                if (msg.includes('enter your name')) { friendly = err.message; category = 'name_missing'; }
+                else if (msg.includes('limit') || msg.includes('full on') || msg.includes('event is full')) { friendly = err.message; category = 'capacity'; }
+                else if (msg.includes('declin')) { friendly = 'Your card was declined. Please try a different payment method.'; category = 'card_declined'; }
+                else if (msg.includes('network')) { friendly = 'Network error. Please check your connection and try again.'; category = 'network'; }
+                else if (msg.includes('incomplete')) { friendly = 'Please complete all payment details.'; category = 'card_incomplete'; }
+                else { friendly = 'We could not complete your purchase. Please try again, or contact support@sparkdate.date.'; category = 'other'; }
+                if (typeof gtag === 'function') gtag('event', 'checkout_error', { in_app_browser: isInAppBrowserModal(), category, reason: msg.slice(0, 100) });
+                errorMsg.textContent = friendly;
+                errorMsg.style.display = 'block';
+                dialogPaying = false;
+                btn.disabled = false;
+                updateModalPricing();
+            }
+        });
 
         // ── Getaways: coming-soon retreat packages ──────────────────
         // Mirrors lib/getaway-packages.js (server-side validation source of
@@ -1270,7 +2026,25 @@
 
         loadGetaways(); // independent of auth state — public read, no need to wait
 
-        onAuthStateChanged(auth, async () => {
+        onAuthStateChanged(auth, async (user) => {
+            currentUser = user;
+            if (user) {
+                try {
+                    const snap = await getDoc(doc(db, 'users', user.uid));
+                    if (snap.exists()) {
+                        userProfile = snap.data();
+                        userTier = userProfile.tier || 'free';
+                        // Auth can resolve after a dialog is already open (a
+                        // guest starts checkout, signs in mid-session) — if
+                        // so, re-apply card-on-file/pre-fill immediately.
+                        if (document.getElementById('eventModalBackdrop').classList.contains('show')) {
+                            applyUserContextToModal();
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Could not load user profile:', e.message);
+                }
+            }
             await loadEvents();
         });
     </script>
