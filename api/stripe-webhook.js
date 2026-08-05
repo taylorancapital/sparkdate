@@ -6,6 +6,7 @@ const { seatFields } = require('../lib/seat-model');
 // handler has already returned `requiresAction`) still gets the welcome email,
 // the Spark trial, the profile magic link, and a nurture-lead row (audit P1).
 const { enrollGuestAsMember, recordLead } = require('./purchase-ticket');
+const { sendMetaEvent } = require('../lib/meta-capi');
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const db = admin.firestore();
@@ -170,6 +171,7 @@ module.exports = async function handler(req, res) {
         if (pi.metadata?.type !== 'ticket') break;
         const ticketSnap = await db.collection('tickets')
           .where('paymentIntentId', '==', pi.id).limit(1).get();
+        const ticketData = !ticketSnap.empty ? ticketSnap.docs[0].data() : null;
 
         // Atomically flip pending_3ds/pending → confirmed. Only the txn that
         // WINS the flip should trigger guest enrollment, so a non-3DS echo
@@ -221,6 +223,30 @@ module.exports = async function handler(req, res) {
             eventId: confirmedTicket.eventId,
             eventName: confirmedTicket.eventName,
           }).catch((e) => console.error('[webhook] 3DS guest lead failed:', e.message));
+        }
+
+        // Meta CAPI Purchase. Stripe delivers payment_intent.succeeded for
+        // EVERY successful charge, not just the 3DS-recovery path this case
+        // is named for — so this covers the synchronous checkout path too.
+        // The idempotency lock above already deduped webhook redelivery, so
+        // this runs exactly once per real payment. event_id = the
+        // PaymentIntent id, the SAME id event.html passes as fbq's eventID
+        // (see purchasePaymentIntentId there) — that's what lets Meta
+        // collapse the browser + server copies of one purchase instead of
+        // double-counting it. No client_ip_address/user_agent here: this
+        // handler runs from Stripe's servers, not the buyer's browser, so we
+        // don't have the buyer's real IP/UA at this point — email alone is
+        // still valid match data, just lower quality than the Lead path.
+        if (ticketData) {
+          await sendMetaEvent({
+            eventName: 'Purchase',
+            eventId: pi.id,
+            userData: { email: ticketData.email },
+            customData: {
+              value: (pi.amount_received || pi.amount || 0) / 100,
+              currency: (pi.currency || 'usd').toUpperCase(),
+            },
+          });
         }
         break;
       }

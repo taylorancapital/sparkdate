@@ -16,6 +16,7 @@ const { verifyProfileToken, makeProfileUrl, sign: signProfileToken } = require('
 const { logEventAttended } = require('../lib/activity-log');
 const { isValidGetawayPackageId } = require('../lib/getaway-packages');
 const { emailLookupVariants, sameEmailIdentity } = require('../lib/email-identity');
+const { sendMetaEvent } = require('../lib/meta-capi');
 
 const db = admin.firestore();
 
@@ -141,11 +142,13 @@ async function handleGetawayInterest(req, res) {
     // a launch list per package so "we're opening the Singles Cruise"
     // can email exactly the people who asked for it.
     const existing = await db.collection('leads').where('email', '==', email).limit(1).get();
+    let leadId;
     if (!existing.empty) {
       // Re-subscribe on an explicit opt-in: typing your address into a
       // "notify me" form is fresh consent, so flip `subscribed` back on for a
       // previously-unsubscribed lead — otherwise the launch email we just
       // promised gets filtered out by every sender's subscribed==true gate.
+      leadId = existing.docs[0].id;
       await existing.docs[0].ref.update({
         subscribed: true,
         getaway_packages: admin.firestore.FieldValue.arrayUnion(packageId),
@@ -158,7 +161,7 @@ async function handleGetawayInterest(req, res) {
       // stays false on purpose — no welcome was sent (the newsletter reaches
       // them regardless), so if they later sign up through a real lead form
       // they still get the welcome then (see the dedupe branch's resend below).
-      await db.collection('leads').add({
+      const newLead = await db.collection('leads').add({
         email,
         name: '',
         source: 'getaway_interest',
@@ -172,9 +175,20 @@ async function handleGetawayInterest(req, res) {
         getaway_packages: [packageId],
         getaway_interest_at: new Date().toISOString(),
       });
+      leadId = newLead.id;
     }
     console.log(`✅ getaway notify-me → ${packageId} (emailHash=${hashEmail(email)})`);
-    return res.status(200).json({ success: true, notified: true });
+    // Both branches above are fresh opt-in intent (see the re-subscribe
+    // comment) — a genuine Lead, unlike a plain duplicate-submit resend.
+    // event_id = leadId, the same id returned as `lead_id` below for the
+    // client's paired fbq('track','Lead',...,{eventID: lead_id}) call.
+    await sendMetaEvent({
+      eventName: 'Lead',
+      eventId: leadId,
+      userData: { email, ip: clientIp(req), userAgent: req.headers['user-agent'] },
+      customData: { content_name: `getaway_notify_${packageId}` },
+    });
+    return res.status(200).json({ success: true, notified: true, lead_id: leadId });
   }
 
   // Anonymous vote path — loose bucket, counter only.
@@ -933,6 +947,16 @@ module.exports = async function handler(req, res) {
       if (!prev.welcome_sent && prev.subscribed !== false) {
         const dedupeName = (patch.name || prev.name) ? String(patch.name || prev.name).split(' ')[0] : 'there';
         const emailResult = await sendWelcomeEmail(email, dedupeName, doc.ref);
+        // First real welcome for this lead (e.g. came in via getaway
+        // notify-me earlier, now signing up for real) — genuine new signal,
+        // unlike the plain-resubmit branch below, which fires no CAPI event
+        // (nothing new happened, so there's nothing to pair a server event
+        // against).
+        await sendMetaEvent({
+          eventName: 'Lead',
+          eventId: doc.id,
+          userData: { email, phone: patch.phone || prev.phone, ip: clientIp(req), userAgent: req.headers['user-agent'] },
+        });
         return res.status(200).json({ success: true, lead_id: doc.id, duplicate: true, email_sent: !emailResult.error });
       }
       console.log('↩️ duplicate lead — welcome already handled for', hashEmail(email));
@@ -961,6 +985,16 @@ module.exports = async function handler(req, res) {
       day25_sent: false,
     });
     console.log('✅ Firestore lead saved:', docRef.id);
+
+    // event_id = docRef.id, the same id returned as `lead_id` below for the
+    // client's paired fbq('track','Lead',...,{eventID: lead_id}) call — lets
+    // Meta collapse the browser + server copies of this one signup instead
+    // of double-counting it.
+    await sendMetaEvent({
+      eventName: 'Lead',
+      eventId: docRef.id,
+      userData: { email, phone, ip: clientIp(req), userAgent: req.headers['user-agent'] },
+    });
 
     // 2. Build + send the welcome email and stamp welcome_sent (shared helper,
     //    also used by the dedupe branch above to back-fill a missing welcome).

@@ -1372,6 +1372,15 @@
                 const result = await res.json();
                 if (!res.ok) throw new Error(result.error || 'Payment failed');
 
+                // Shared with the Meta Pixel Purchase fire below. The
+                // synchronous (non-3DS) response already carries it; the 3DS
+                // response doesn't (see api/purchase-ticket.js's
+                // requiresAction branch), so that path fills it in from
+                // confirmCardPayment's own result below. Same PaymentIntent
+                // id server-side CAPI uses as event_id (api/stripe-webhook.js)
+                // — required for Meta to dedupe the browser/server pair.
+                let purchasePaymentIntentId = result.paymentIntentId || null;
+
                 // 3-D Secure: bank requires extra auth. We must confirm
                 // the PaymentIntent client-side; the Stripe webhook will
                 // promote the server-written ticket from `pending_3ds`
@@ -1389,6 +1398,7 @@
                     if (paymentIntent && paymentIntent.status !== 'succeeded') {
                         throw new Error('Payment did not complete. Please try again.');
                     }
+                    if (paymentIntent) purchasePaymentIntentId = paymentIntent.id;
                     gtag('event', 'checkout_3ds_completed', { in_app_browser: isInAppBrowser() });
                 }
 
@@ -1433,7 +1443,7 @@
                         fbq('track', 'Purchase', {
                             value: parseFloat(purchaseValue.toFixed(2)),
                             currency: 'USD'
-                        });
+                        }, purchasePaymentIntentId ? { eventID: purchasePaymentIntentId } : undefined);
                     }
                 }
 

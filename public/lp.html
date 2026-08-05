@@ -515,8 +515,9 @@
               body: JSON.stringify({ email: email, source: 'ad_landing', ref: refOf(), website: hp })
             });
             if (res.ok) {
+              var leadData = await res.json().catch(function () { return {}; });
               if (typeof gtag === 'function') gtag('event', 'generate_lead', { lead_type: 'lp' });
-              if (typeof fbq !== 'undefined') fbq('track', 'Lead');
+              if (typeof fbq !== 'undefined') fbq('track', 'Lead', {}, leadData.lead_id ? { eventID: leadData.lead_id } : undefined);
               f.style.display = 'none';
               msg.style.display = 'block'; msg.style.color = 'var(--success)';
               msg.textContent = "✓ You're on the list — check your email.";
