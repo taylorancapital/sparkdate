@@ -204,7 +204,10 @@
                     document.getElementById('evtMeta').textContent = [dateStr + (timeStr ? ' · ' + timeStr : ''), venue].filter(Boolean).join(' · ');
                     document.getElementById('evtBanner').style.display = '';
                     const bl = document.getElementById('buyLink');
-                    bl.href = `/event?id=${encodeURIComponent(event.id)}`;
+                    // Deep-links straight into the events-page dialog (added
+                    // in the events-dialog rebuild) instead of the
+                    // standalone /event page — same low-friction checkout.
+                    bl.href = `/events?event=${encodeURIComponent(event.id)}`;
                     document.getElementById('buyLinkWrap').style.display = '';
                 } else {
                     document.getElementById('formCard').style.display = 'none';

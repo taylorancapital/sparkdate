@@ -173,7 +173,7 @@
             <div class="eyebrow" id="lpEyebrow">Upcoming Mixer</div>
             <h3 id="lpTitle">SparkDate Mixer</h3>
             <div class="meta" id="lpMeta">📍 Venue announced soon</div>
-            <a class="ticket" id="lpTicketBtn" href="/event">🎟️ Get Tickets</a>
+            <a class="ticket" id="lpTicketBtn" href="/events">🎟️ Get Tickets</a>
             <div class="fine">Secure checkout · no account needed</div>
         </div>
 
@@ -266,7 +266,7 @@
 
         var refOf = function () { try { return new URLSearchParams(location.search).get('ref') || localStorage.getItem('sparkdate_ref'); } catch (_) { return null; } };
         // carry: utm_* from the URL, plus `ref` (from the URL or the capture
-        // above) so the Get Tickets button's outbound link to /event?id=...
+        // above) so the Get Tickets button's outbound link to /events?event=...
         // preserves referral attribution end-to-end. Previously only utm_*
         // survived this hop -- the email waitlist form already threads
         // refOf() through (see the lead-signup POST below), but a referred
@@ -413,13 +413,16 @@
             if (ev.isEarlyBird && ev.regularPrice && Number(ev.regularPrice) > Number(ev.price)) html += ' <span style="opacity:0.6;text-decoration:line-through;font-weight:500;">' + fmt(ev.regularPrice) + '</span>';
             btn.innerHTML = html;
           }
-          btn.href = '/event?id=' + encodeURIComponent(ev.id) + carry;
+          // Deep-links straight into the events-page dialog (added in the
+          // events-dialog rebuild) instead of the standalone /event page —
+          // same low-friction checkout, one fewer page load.
+          btn.href = '/events?event=' + encodeURIComponent(ev.id) + carry;
 
           // Prewarm the checkout hop: prefetch the destination page and
-          // preload Stripe.js (which event.html loads synchronously), so the
-          // click pays neither page-nav nor Stripe-download latency — the
-          // handoff feels near-instant. Best-effort; ignored by browsers that
-          // don't support the hints.
+          // preload Stripe.js (both events.html and event.html load it
+          // synchronously), so the click pays neither page-nav nor
+          // Stripe-download latency — the handoff feels near-instant.
+          // Best-effort; ignored by browsers that don't support the hints.
           try {
             var pf = document.createElement('link');
             pf.rel = 'prefetch'; pf.href = btn.href;
