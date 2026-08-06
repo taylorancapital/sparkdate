@@ -1297,9 +1297,23 @@
                             item.endDate = new Date(d.getTime() + hrs * 60 * 60 * 1000).toISOString();
                         }
                         if (ev.blurb) item.description = ev.blurb;
-                        const price = ticketPriceFor(ev);
+                        const pricing = eventPricing(ev, '');
+                        const price = pricing.price;
                         if (price > 0) {
-                            item.offers = { '@type': 'Offer', price: price.toFixed(2), priceCurrency: 'USD', url: url, availability: 'https://schema.org/InStock' };
+                            item.offers = {
+                                '@type': 'Offer',
+                                price: price.toFixed(2),
+                                priceCurrency: 'USD',
+                                url: url,
+                                availability: 'https://schema.org/InStock',
+                                // An early-bird price is only honoured until the
+                                // window closes. Without an expiry Google treats
+                                // the discounted number as the standing price and
+                                // keeps showing it after we stop charging it.
+                                ...(pricing.isEarlyBird && pricing.earlyBirdEnds
+                                    ? { priceValidUntil: pricing.earlyBirdEnds.toISOString() }
+                                    : {})
+                            };
                         }
                         return { '@type': 'ListItem', position: i + 1, item: item };
                     })
@@ -1420,6 +1434,11 @@
 
         let dialogEventId = null;
         let dialogPaying = false;
+        // The ticket price the buyer was last SHOWN in the checkout step.
+        // Compared against a fresh resolve at submit time so a dialog left open
+        // across earlyBirdEnds (or a device clock running behind) can't be
+        // charged a price that was never on screen. Reset per dialog open.
+        let lastQuotedTicket = null;
         // True only when THIS script pushed the history entry that opened
         // the dialog — decides whether closeEventDialog() goes back() (undo
         // that push) or pushes a fresh /events entry (the dialog was opened
@@ -1451,18 +1470,48 @@
 
         function findLoadedEvent(id) { return loadedEvents.find(e => e.id === id) || null; }
         function money(n) { return `$${Number(n).toFixed(2)}`; }
-        // Early-bird-aware, mirroring lib/seat-model.js's effectivePrice()
-        // (the same resolver /api/purchase-ticket.js charges from) — duplicated
-        // here since this page has no bundler to import it.
-        function ticketPriceFor(ev) {
-            if (!ev) return 0;
-            const regular = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+        // Mirrors lib/seat-model.js's effectivePrice()/ticketPriceDollars() —
+        // the resolver /api/purchase-ticket.js charges from. Duplicated here
+        // since this page has no bundler. Three rules are load-bearing:
+        //   1. A numeric `price` WINS outright, including `price: 0` — it does
+        //      NOT fall through to the legacy gendered fields. A 0 there is a
+        //      pricing error the server rejects with a 500, so quoting the
+        //      legacy price instead would advertise an unpayable total.
+        //   2. Legacy gender-split docs pick priceWomen for 'woman', else
+        //      priceMen. Passing no gender resolves the same way the server's
+        //      own marketing surfaces do (api/next-event.js uses 'any').
+        //   3. Early-bird price applies only while earlyBirdEnds is in the future.
+        function eventPricing(ev, gender) {
+            const out = { price: 0, regularPrice: 0, isEarlyBird: false, earlyBirdEnds: null };
+            if (!ev) return out;
+            const flat = Number(ev.price);
+            const regular = Number.isFinite(flat)
+                ? flat
+                : Number((gender === 'woman' ? ev.priceWomen : ev.priceMen) || 0);
             const ends = ev.earlyBirdEnds;
             const endsMs = ends ? (ends.toDate ? ends.toDate().getTime() : new Date(ends).getTime()) : NaN;
             const eb = Number(ev.earlyBirdPrice);
             const isEarlyBird = Number.isFinite(eb) && eb > 0 && Number.isFinite(endsMs) && Date.now() < endsMs;
-            const n = isEarlyBird ? eb : regular;
-            return (isFinite(n) && n > 0) ? n : 0;
+            const chosen = isEarlyBird ? eb : regular;
+            out.price = (Number.isFinite(chosen) && chosen > 0) ? chosen : 0;
+            out.regularPrice = (Number.isFinite(regular) && regular > 0) ? regular : 0;
+            out.isEarlyBird = isEarlyBird;
+            out.earlyBirdEnds = Number.isFinite(endsMs) ? new Date(endsMs) : null;
+            return out;
+        }
+
+        // Listing/details price: no buyer gender is known yet on the card grid,
+        // the JSON-LD, or the dialog's details step, so this resolves legacy
+        // docs the 'any' way — same as the server's marketing surfaces. The
+        // checkout step re-resolves with the gender the buyer actually picked.
+        function ticketPriceFor(ev) {
+            return eventPricing(ev, '').price;
+        }
+
+        // The gender selected in the checkout step, or '' before it's picked.
+        function modalGender() {
+            const el = document.getElementById('modalGender');
+            return el ? el.value : '';
         }
 
         function showModalStep(id) {
@@ -1577,7 +1626,10 @@
             // the dialog's own step model already gates this moment.
             const ev = findLoadedEvent(dialogEventId);
             if (typeof gtag === 'function') gtag('event', 'checkout_form_started', {});
-            if (typeof fbq !== 'undefined') fbq('track', 'InitiateCheckout', { content_ids: [dialogEventId], value: ticketPriceFor(ev), currency: 'USD' });
+            // Gender may already be pre-filled for a signed-in member, so price
+            // with whatever is selected (modalGender() returns '' if nothing is,
+            // which resolves the same 'any' way the listing surfaces do).
+            if (typeof fbq !== 'undefined') fbq('track', 'InitiateCheckout', { content_ids: [dialogEventId], value: eventPricing(ev, modalGender()).price, currency: 'USD' });
         });
         document.getElementById('backToDetailsBtn').addEventListener('click', () => showModalStep('stepDetails'));
         document.getElementById('doneCloseBtn').addEventListener('click', () => closeEventDialog());
@@ -1604,15 +1656,23 @@
                 document.getElementById('modalTotalPrice').textContent = '$0.00';
                 btn.textContent = 'Select Gender';
                 btn.disabled = true;
+                // No priced total is on screen, so there's no quote to hold the
+                // submit handler to — and clearing it stops a previous dialog's
+                // quote from leaking into the next event's staleness check.
+                lastQuotedTicket = null;
                 return;
             }
+            // Gender is known by this point (the !gender early-return above
+            // guards it), so price with it — a legacy gender-split event charges
+            // priceWomen vs priceMen and the quote has to match.
             if (dialogEventId && ev && !addToCartTrackedIds.has(dialogEventId)) {
                 addToCartTrackedIds.add(dialogEventId);
-                const price = ticketPriceFor(ev);
+                const price = eventPricing(ev, gender).price;
                 if (typeof fbq !== 'undefined') fbq('track', 'AddToCart', { content_ids: [ev.id], content_name: ev.title || 'SparkDate Mixer', content_type: 'product', value: price, currency: 'USD' });
                 if (typeof gtag === 'function') gtag('event', 'add_to_cart', { currency: 'USD', value: price, items: [{ item_id: ev.id, item_name: ev.title || 'SparkDate Mixer', price }] });
             }
-            const ticket = ticketPriceFor(ev);
+            const ticket = eventPricing(ev, gender).price;
+            lastQuotedTicket = ticket;
             const total = ticket + SERVICE_FEE;
             const twoForOne = document.getElementById('modalTwoForOne').checked;
             document.getElementById('modalSubtotalLabel').textContent = twoForOne ? 'Subtotal (2 tickets, 2-for-1)' : 'Ticket';
@@ -1725,7 +1785,17 @@
                     }
                 }
 
-                const ticket = ticketPriceFor(ev);
+                // Price with the buyer's own gender, matching what the server
+                // will charge for a legacy gender-split event.
+                const ticket = eventPricing(ev, gender).price;
+                // The server re-resolves price at charge time, so if the
+                // early-bird window closed while this dialog sat open the buyer
+                // would be charged more than the total they're looking at.
+                // Re-quote and stop rather than silently charging the difference.
+                if (lastQuotedTicket !== null && ticket !== lastQuotedTicket) {
+                    updateModalPricing();
+                    throw new Error('Heads up — early-bird pricing for this event just ended, so the total changed. The updated price is shown above; tap again to continue at the new price.');
+                }
                 const evName = (ev && ev.title) || 'SparkDate Mixer';
                 const evId = (ev && ev.id) || dialogEventId;
 

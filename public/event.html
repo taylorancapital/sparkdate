@@ -1036,12 +1036,13 @@
                 return;
             }
 
-            const now = Date.now();
-            const ends = ev.earlyBirdEnds;
-            const endsMs = ends ? (ends.toDate ? ends.toDate().getTime() : new Date(ends).getTime()) : NaN;
-            const eb = Number(ev.earlyBirdPrice);
-            if (Number.isFinite(eb) && eb > 0 && Number.isFinite(endsMs) && now < endsMs) {
-                tag.textContent = 'Early-bird · ends ' + new Date(endsMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            // Same resolver the checkout quotes from, so the badge can't claim a
+            // price the buyer will never be charged (notably a `price: 0` doc,
+            // where the old inline `price || priceMen` read advertised the legacy
+            // amount for an event the server refuses to sell).
+            const pricing = eventPricing(ev, '');
+            if (pricing.isEarlyBird && pricing.earlyBirdEnds) {
+                tag.textContent = 'Early-bird · ends ' + pricing.earlyBirdEnds.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 return;
             }
 
@@ -1050,7 +1051,7 @@
                 return;
             }
 
-            const price = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+            const price = pricing.price;
             tag.textContent = price > 0 ? `🎟️ $${price % 1 === 0 ? price.toFixed(0) : price.toFixed(2)}` : 'Upcoming Mixer';
         }
 
@@ -1084,15 +1085,11 @@
                 setMeta('name', 'twitter:description', desc);
                 setMeta('name', 'twitter:image', img);
 
-                // schema.org Event JSON-LD — early-bird-aware, same resolver
-                // as ticketPrice() below (duplicated since this function takes
-                // its own `ev` param rather than reading the module-scope
-                // eventData that ticketPrice() reads from).
-                const ebEnds = ev.earlyBirdEnds;
-                const ebEndsMs = ebEnds ? (ebEnds.toDate ? ebEnds.toDate().getTime() : new Date(ebEnds).getTime()) : NaN;
-                const ebPrice = Number(ev.earlyBirdPrice);
-                const ebActive = Number.isFinite(ebPrice) && ebPrice > 0 && Number.isFinite(ebEndsMs) && Date.now() < ebEndsMs;
-                const price = ebActive ? ebPrice : Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+                // schema.org Event JSON-LD — no gender is passed because a
+                // crawler has no buyer; that resolves legacy docs the same way
+                // api/next-event.js prices this event server-side ('any').
+                const pricing = eventPricing(ev, '');
+                const price = pricing.price;
                 const ld = {
                     '@context': 'https://schema.org',
                     '@type': 'Event',
@@ -1146,7 +1143,14 @@
                         availability: 'https://schema.org/InStock',
                         validFrom: (ev.createdAt && ev.createdAt.toDate
                             ? ev.createdAt.toDate()
-                            : new Date()).toISOString()
+                            : new Date()).toISOString(),
+                        // An early-bird price is only honoured until the window
+                        // closes. Advertising it with no expiry tells Google the
+                        // discounted number is the standing price, so the rich
+                        // result keeps showing it after we've stopped charging it.
+                        ...(pricing.isEarlyBird && pricing.earlyBirdEnds
+                            ? { priceValidUntil: pricing.earlyBirdEnds.toISOString() }
+                            : {})
                     };
                 }
                 let tag = document.getElementById('event-jsonld');
@@ -1239,24 +1243,58 @@
             return confirmed < limit;
         }
 
-        // Pricing — must mirror /api/purchase-ticket exactly, which charges
-        // via lib/seat-model.js's effectivePrice() (early-bird price while
-        // earlyBirdEnds hasn't passed, else the regular price). Duplicated
-        // here rather than imported since this page has no bundler — same
-        // early-bird check as the "Early-bird · ends ..." tag above.
-        function ticketPrice() {
-            if (!eventData) return 0;
-            const raw = eventData.price || eventData.priceMen || eventData.priceWomen || 0;
-            const regular = Number(raw);
-            const ends = eventData.earlyBirdEnds;
+        // Pricing — must mirror /api/purchase-ticket exactly, which charges via
+        // lib/seat-model.js's effectivePrice()/ticketPriceDollars(). Duplicated
+        // here rather than imported since this page has no bundler. Three rules
+        // are load-bearing and easy to get subtly wrong:
+        //   1. A numeric `price` WINS outright, including `price: 0` — it does
+        //      NOT fall through to the legacy gendered fields. A 0 there is a
+        //      pricing error the server rejects with a 500, so quoting the
+        //      legacy price instead would advertise a total that can't be paid.
+        //   2. Legacy gender-split docs pick priceWomen for 'woman', else
+        //      priceMen. Passing no gender therefore resolves the same way the
+        //      server's own marketing surfaces do (api/next-event.js uses 'any').
+        //   3. Early-bird price applies only while earlyBirdEnds is in the future.
+        function eventPricing(ev, gender) {
+            const out = { price: 0, regularPrice: 0, isEarlyBird: false, earlyBirdEnds: null };
+            if (!ev) return out;
+            const flat = Number(ev.price);
+            const regular = Number.isFinite(flat)
+                ? flat
+                : Number((gender === 'woman' ? ev.priceWomen : ev.priceMen) || 0);
+            const ends = ev.earlyBirdEnds;
             const endsMs = ends ? (ends.toDate ? ends.toDate().getTime() : new Date(ends).getTime()) : NaN;
-            const eb = Number(eventData.earlyBirdPrice);
+            const eb = Number(ev.earlyBirdPrice);
             const isEarlyBird = Number.isFinite(eb) && eb > 0 && Number.isFinite(endsMs) && Date.now() < endsMs;
-            const n = isEarlyBird ? eb : regular;
-            return (isFinite(n) && n > 0) ? n : 0;
+            const chosen = isEarlyBird ? eb : regular;
+            out.price = (Number.isFinite(chosen) && chosen > 0) ? chosen : 0;
+            out.regularPrice = (Number.isFinite(regular) && regular > 0) ? regular : 0;
+            out.isEarlyBird = isEarlyBird;
+            out.earlyBirdEnds = Number.isFinite(endsMs) ? new Date(endsMs) : null;
+            return out;
+        }
+
+        // The gender the buyer has actually selected, or '' before they pick one.
+        // '' is not 'woman', so it resolves legacy docs to priceMen — matching
+        // how the server prices the same event on its marketing surfaces.
+        function selectedGender() {
+            const el = document.getElementById('ticketGender');
+            return el ? el.value : '';
+        }
+
+        // Reads the gender select itself so every caller (page-load ViewContent,
+        // the AddToCart/checkout breakdown, and the submit handler) resolves the
+        // same price the server will charge that same buyer.
+        function ticketPrice() {
+            return eventPricing(eventData, selectedGender()).price;
         }
 
         let addToCartTracked = false;
+        // The ticket price the buyer was last SHOWN. Compared against a fresh
+        // resolve at submit time so a session that straddles earlyBirdEnds (a
+        // tab left open, or a device clock that was running behind) can't be
+        // charged a price that was never on screen. null until first render.
+        let lastQuotedTicket = null;
 
         function updatePricing() {
             const gender = document.getElementById('ticketGender').value;
@@ -1298,6 +1336,7 @@
             }
 
             const ticket = ticketPrice();
+            lastQuotedTicket = ticket;
             const total = ticket + SERVICE_FEE;
             // 2-for-1 never changes what's actually charged (see
             // /api/purchase-ticket.js — the +1's ticket/service fee are both
@@ -1399,6 +1438,14 @@
                 }
 
                 const ticket = ticketPrice();
+                // The server re-resolves price at charge time, so if the
+                // early-bird window closed while this form sat open the buyer
+                // would be charged more than the total they're looking at.
+                // Re-quote and stop rather than silently charging the difference.
+                if (lastQuotedTicket !== null && ticket !== lastQuotedTicket) {
+                    updatePricing();
+                    throw new Error('Heads up — early-bird pricing for this event just ended, so the total changed. The updated price is shown above; tap again to continue at the new price.');
+                }
                 const total = (ticket + SERVICE_FEE) * 100;
                 const evName = eventData?.title || 'SparkDate Mixer';
                 const evId = eventData?.id || eventId;

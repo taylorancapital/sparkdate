@@ -113,7 +113,8 @@ async function renderEventPage(req, res) {
           || `${ev.title || 'A SparkDate event'} on ${dateLabel} at ${venueLabel}. Reserve your spot — real dates, real venues, real people in ${ev.city || 'Philadelphia & Lancaster'}.`;
         const pageUrl = `https://sparkdate.date/event?id=${encodeURIComponent(id)}`;
         const img = 'https://sparkdate.date/og-image.jpg';
-        const price = effectivePrice(ev, 'any').price;
+        const pricing = effectivePrice(ev, 'any');
+        const price = pricing.price;
 
         pageTitle = title;
         headInject =
@@ -198,6 +199,13 @@ async function renderEventPage(req, res) {
               validFrom: (ev.createdAt && ev.createdAt.toDate
                 ? ev.createdAt.toDate()
                 : new Date()).toISOString(),
+              // `price` above is early-bird-aware, and an early-bird price is
+              // only honoured until the window closes. Without an expiry Google
+              // treats the discounted number as the standing price and keeps
+              // surfacing it in rich results after we stop charging it.
+              ...(pricing.isEarlyBird && pricing.earlyBirdEnds
+                ? { priceValidUntil: pricing.earlyBirdEnds }
+                : {}),
             };
           }
           headInject += `\n    <script type="application/ld+json" id="event-jsonld">${escapeJsonLd(ld)}</script>\n`;

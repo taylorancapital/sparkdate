@@ -485,18 +485,38 @@
             return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
-        // Early-bird-aware, mirroring lib/seat-model.js's effectivePrice()
-        // (the same resolver /api/purchase-ticket.js charges from) — duplicated
-        // here since this page has no bundler to import it.
-        function ticketPriceFor(ev) {
-            if (!ev) return 0;
-            const regular = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+        // Mirrors lib/seat-model.js's effectivePrice()/ticketPriceDollars() —
+        // the resolver /api/purchase-ticket.js charges from. Duplicated here
+        // since this page has no bundler. Three rules are load-bearing:
+        //   1. A numeric `price` WINS outright, including `price: 0` — it does
+        //      NOT fall through to the legacy gendered fields. A 0 there is a
+        //      pricing error the server rejects with a 500, so quoting the
+        //      legacy price instead would advertise an unpayable total.
+        //   2. Legacy gender-split docs pick priceWomen for 'woman', else
+        //      priceMen. This is a listing page with no buyer, so nothing is
+        //      passed — resolving the same 'any' way api/next-event.js does.
+        //   3. Early-bird price applies only while earlyBirdEnds is in the future.
+        function eventPricing(ev, gender) {
+            const out = { price: 0, regularPrice: 0, isEarlyBird: false, earlyBirdEnds: null };
+            if (!ev) return out;
+            const flat = Number(ev.price);
+            const regular = Number.isFinite(flat)
+                ? flat
+                : Number((gender === 'woman' ? ev.priceWomen : ev.priceMen) || 0);
             const ends = ev.earlyBirdEnds;
             const endsMs = ends ? (ends.toDate ? ends.toDate().getTime() : new Date(ends).getTime()) : NaN;
             const eb = Number(ev.earlyBirdPrice);
             const isEarlyBird = Number.isFinite(eb) && eb > 0 && Number.isFinite(endsMs) && Date.now() < endsMs;
-            const n = isEarlyBird ? eb : regular;
-            return (isFinite(n) && n > 0) ? n : 0;
+            const chosen = isEarlyBird ? eb : regular;
+            out.price = (Number.isFinite(chosen) && chosen > 0) ? chosen : 0;
+            out.regularPrice = (Number.isFinite(regular) && regular > 0) ? regular : 0;
+            out.isEarlyBird = isEarlyBird;
+            out.earlyBirdEnds = Number.isFinite(endsMs) ? new Date(endsMs) : null;
+            return out;
+        }
+
+        function ticketPriceFor(ev) {
+            return eventPricing(ev, '').price;
         }
 
         // ── Read city from URL path ─────────────────────────────────────────
@@ -603,8 +623,22 @@
                     obj.endDate = new Date(d.getTime() + hrs * 60 * 60 * 1000).toISOString();
                 }
                 if (ev.blurb) obj.description = ev.blurb;
-                const price = ticketPriceFor(ev);
-                if (price > 0) obj.offers = { '@type': 'Offer', price: price.toFixed(2), priceCurrency: 'USD', url, availability: 'https://schema.org/InStock' };
+                const pricing = eventPricing(ev, '');
+                const price = pricing.price;
+                if (price > 0) obj.offers = {
+                    '@type': 'Offer',
+                    price: price.toFixed(2),
+                    priceCurrency: 'USD',
+                    url,
+                    availability: 'https://schema.org/InStock',
+                    // An early-bird price is only honoured until the window
+                    // closes. Without an expiry Google treats the discounted
+                    // number as the standing price and keeps showing it after
+                    // we stop charging it.
+                    ...(pricing.isEarlyBird && pricing.earlyBirdEnds
+                        ? { priceValidUntil: pricing.earlyBirdEnds.toISOString() }
+                        : {})
+                };
                 return obj;
             });
 
