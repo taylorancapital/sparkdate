@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/next-event.js": {
-      "includeFiles": "public/event.html"
+      "includeFiles": ["public/event.html", "public/index.html"]
     },
     "api/lead-signup.js": {
       "maxDuration": 60
@@ -74,7 +74,7 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "/index.html"
+      "destination": "/api/next-event?render=home"
     },
     {
       "source": "/signup",
