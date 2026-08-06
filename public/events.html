@@ -1297,7 +1297,7 @@
                             item.endDate = new Date(d.getTime() + hrs * 60 * 60 * 1000).toISOString();
                         }
                         if (ev.blurb) item.description = ev.blurb;
-                        const price = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+                        const price = ticketPriceFor(ev);
                         if (price > 0) {
                             item.offers = { '@type': 'Offer', price: price.toFixed(2), priceCurrency: 'USD', url: url, availability: 'https://schema.org/InStock' };
                         }
@@ -1338,7 +1338,7 @@
                 // render correctly (gender-based pricing was removed).
                 const totalSpots = ev.spots || ev.spotsTotal || ((ev.spotsMen || 0) + (ev.spotsWomen || 0));
                 const capacity = totalSpots ? `${totalSpots} spots` : '';
-                const priceVal = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+                const priceVal = ticketPriceFor(ev);
                 const priceLabel = priceVal > 0 ? `$${priceVal}` : 'TBA';
                 const statusLabel = ev.status === 'full' ? 'Full' : ev.status === 'almost' ? 'Almost Full' : 'Open';
                 const scene = SCENE_ALTS[i % SCENE_ALTS.length];
@@ -1451,9 +1451,17 @@
 
         function findLoadedEvent(id) { return loadedEvents.find(e => e.id === id) || null; }
         function money(n) { return `$${Number(n).toFixed(2)}`; }
+        // Early-bird-aware, mirroring lib/seat-model.js's effectivePrice()
+        // (the same resolver /api/purchase-ticket.js charges from) — duplicated
+        // here since this page has no bundler to import it.
         function ticketPriceFor(ev) {
             if (!ev) return 0;
-            const n = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+            const regular = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+            const ends = ev.earlyBirdEnds;
+            const endsMs = ends ? (ends.toDate ? ends.toDate().getTime() : new Date(ends).getTime()) : NaN;
+            const eb = Number(ev.earlyBirdPrice);
+            const isEarlyBird = Number.isFinite(eb) && eb > 0 && Number.isFinite(endsMs) && Date.now() < endsMs;
+            const n = isEarlyBird ? eb : regular;
             return (isFinite(n) && n > 0) ? n : 0;
         }
 

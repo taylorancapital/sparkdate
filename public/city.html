@@ -485,6 +485,20 @@
             return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
+        // Early-bird-aware, mirroring lib/seat-model.js's effectivePrice()
+        // (the same resolver /api/purchase-ticket.js charges from) — duplicated
+        // here since this page has no bundler to import it.
+        function ticketPriceFor(ev) {
+            if (!ev) return 0;
+            const regular = Number(ev.price || ev.priceMen || ev.priceWomen || 0);
+            const ends = ev.earlyBirdEnds;
+            const endsMs = ends ? (ends.toDate ? ends.toDate().getTime() : new Date(ends).getTime()) : NaN;
+            const eb = Number(ev.earlyBirdPrice);
+            const isEarlyBird = Number.isFinite(eb) && eb > 0 && Number.isFinite(endsMs) && Date.now() < endsMs;
+            const n = isEarlyBird ? eb : regular;
+            return (isFinite(n) && n > 0) ? n : 0;
+        }
+
         // ── Read city from URL path ─────────────────────────────────────────
         // Vercel rewrites /philadelphia → /city.html?city=philadelphia
         const params = new URLSearchParams(location.search);
@@ -589,7 +603,7 @@
                     obj.endDate = new Date(d.getTime() + hrs * 60 * 60 * 1000).toISOString();
                 }
                 if (ev.blurb) obj.description = ev.blurb;
-                const price = Number(ev.price || 0);
+                const price = ticketPriceFor(ev);
                 if (price > 0) obj.offers = { '@type': 'Offer', price: price.toFixed(2), priceCurrency: 'USD', url, availability: 'https://schema.org/InStock' };
                 return obj;
             });
@@ -644,7 +658,7 @@
         function renderEventCard(ev) {
             const d = ev.date && ev.date.toDate ? ev.date.toDate() : (ev.date ? new Date(ev.date) : null);
             const dateStr = d ? `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}` : '';
-            const price = Number(ev.price || 0);
+            const price = ticketPriceFor(ev);
             const priceStr = price > 0 ? `$${price.toFixed(2)}` : 'Free';
             // Deep-links straight into the events-page dialog (added in the
             // events-dialog rebuild) instead of the standalone /event page —
