@@ -749,6 +749,17 @@
         .sp-polaroid:hover { transform: rotate(0deg) scale(1.08); z-index: 20 !important; }
         .sp-polaroid img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; }
         .sp-polaroid-cap { height: 58px; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 4px 6px 0; text-align: center; font-family: 'Caveat', cursive; font-size: 18px; font-weight: 700; color: #0a0e27; letter-spacing: 0.5px; line-height: 1.15; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+        /* The whole polaroid scatter is one frozen 850x500 design scaled down
+           as a single unit (see fitPolaroidScatter() below), so the caption's
+           18px font shrinks right along with everything else -- below ~600px
+           wide that renders under 11px and is no longer legible. Hiding the
+           caption on narrow viewports and letting the photo carry it is
+           simpler and more reliable than counter-scaling just the text back
+           up inside a rigidly-scaled parent. Homepage-only for now (this
+           block is duplicated across 8 other files; not touched here). */
+        @media (max-width: 640px) {
+            .sp-polaroid-cap { display: none; }
+        }
     </style>
     <!-- Meta Pixel Code -->
     <script>
