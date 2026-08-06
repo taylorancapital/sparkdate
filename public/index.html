@@ -642,6 +642,13 @@
         }
 
         /* ── Event-first "Get Tickets" block (top-of-page conversion CTA) ── */
+        /* "Find us on" logo strip — platform presence (listings/profiles),
+           reused verbatim from lp.html so above-the-fold proof isn't
+           limited to the event-cta block alone. */
+        .find-us-bar { background: var(--cream); border-bottom: 2px solid rgba(255,107,107,0.2); padding: 10px 16px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 14px 20px; }
+        .find-us-bar .fu-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(10,14,39,0.55); }
+        .find-us-bar img { display: block; height: 16px; width: auto; object-fit: contain; mix-blend-mode: multiply; }
+
         .event-cta {
             background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%);
             padding: 30px 20px;
@@ -697,6 +704,26 @@
             color: #ffffff;
         }
         .event-cta-soon { font-size: 16px; color: #ffffff; margin-bottom: 16px; }
+        /* Real attendee quote (same one used near checkout on lp.html and
+           event.html) — proof sitting right next to the ask, not just
+           further down the page in the testimonials grid. */
+        .event-cta-quote {
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin: 18px auto 0;
+            max-width: 480px;
+            text-align: left;
+        }
+        .event-cta-quote p {
+            font-size: 14px; line-height: 1.55; color: #ffffff;
+            font-style: italic; margin: 0 0 6px;
+        }
+        .event-cta-quote .who {
+            font-size: 12px; font-weight: 700; color: #ffffff;
+            font-style: normal; opacity: 0.85;
+        }
         @media (max-width: 600px) {
             .event-cta { padding: 24px 16px; }
             .event-cta-button { display: block; padding: 16px 20px; }
@@ -787,6 +814,19 @@
       })();
     </script>
 
+    <!-- Platform-presence logo strip, directly above the event card so the
+         first screen carries proof, not just a brand promise. -->
+    <div class="find-us-bar">
+        <span class="fu-label">As Seen On</span>
+        <img class="fu-logo fu-google" src="/images/press/google-news.png" alt="Google News" loading="lazy">
+        <img class="fu-logo fu-eventbrite" src="/images/press/eventbrite.png" alt="Eventbrite" loading="lazy">
+        <img class="fu-logo fu-pinterest" src="/images/press/pinterest.png" alt="Pinterest" loading="lazy">
+        <img class="fu-logo fu-yahoo" src="/images/press/yahoo-news.png" alt="Yahoo News" loading="lazy">
+        <img class="fu-logo fu-facebook" src="/images/press/facebook.png" alt="Facebook" loading="lazy">
+        <img class="fu-logo fu-patch" src="/images/press/patch.png" alt="Patch" loading="lazy">
+        <img class="fu-logo fu-tickettailor" src="/images/press/tickettailor.png" alt="Ticket Tailor" loading="lazy">
+    </div>
+
     <!-- Event-first "Get Tickets" block — the first thing a visitor sees.
          Promotional copy is hardcoded so the page renders the full CTA on
          first paint (no loading flash). The checkout link target is filled
@@ -808,6 +848,10 @@
                 <li>We aim for a balanced gender mix</li>
                 <li>Know who you clicked with that same night</li>
             </ul>
+            <div class="event-cta-quote">
+                <p>"Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!"</p>
+                <div class="who">— Quang</div>
+            </div>
         </div>
     </section>
     <script>
