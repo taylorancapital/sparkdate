@@ -646,7 +646,10 @@
             const dateStr = d ? `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}` : '';
             const price = Number(ev.price || 0);
             const priceStr = price > 0 ? `$${price.toFixed(2)}` : 'Free';
-            const eventUrl = `/event?id=${encodeURIComponent(ev.id)}`;
+            // Deep-links straight into the events-page dialog (added in the
+            // events-dialog rebuild) instead of the standalone /event page —
+            // same low-friction checkout, one fewer page load.
+            const eventUrl = `/events?event=${encodeURIComponent(ev.id)}`;
             const isSoldOut = ev.status === 'full';
             return `
                 <div class="event-card">
@@ -726,9 +729,10 @@
                 grid.innerHTML = local.slice(0, 6).map(renderEventCard).join('');
                 injectCitySchema(local);
 
-                // Update hero CTA to link to first event
+                // Update hero CTA to link to first event — deep-links into
+                // the events-page dialog, same as renderEventCard() above.
                 if (local.length === 1) {
-                    document.getElementById('heroTicketBtn').href = `/event?id=${encodeURIComponent(local[0].id)}`;
+                    document.getElementById('heroTicketBtn').href = `/events?event=${encodeURIComponent(local[0].id)}`;
                     document.getElementById('heroTicketBtn').textContent = 'Get Tickets';
                 }
             } catch (err) {

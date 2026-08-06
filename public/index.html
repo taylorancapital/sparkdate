@@ -716,9 +716,10 @@
     </section>
     <script>
       // Resolve the actual event ID from /api/next-event so the Get Tickets
-      // button deep-links straight into /event?id=… checkout. The visible
-      // copy is static (rendered above) so a slow / failing API never
-      // affects what the user sees — only where they land on click.
+      // button deep-links straight into the events-page dialog
+      // (/events?event=…). The visible copy is static (rendered above) so a
+      // slow / failing API never affects what the user sees — only where
+      // they land on click.
       (function () {
         var btn = document.getElementById('eventCtaBtn');
         if (!btn) return;
@@ -762,7 +763,10 @@
             // Carry ad UTMs through to checkout so GA4 attributes the sale.
             var qs = window.location.search;
             var carry = (qs && qs.indexOf('utm_') !== -1) ? '&' + qs.replace(/^\?/, '') : '';
-            btn.href = '/event?id=' + encodeURIComponent(ev.id) + carry;
+            // Deep-links straight into the events-page dialog (added in the
+            // events-dialog rebuild) instead of the standalone /event page —
+            // same low-friction checkout, one fewer page load.
+            btn.href = '/events?event=' + encodeURIComponent(ev.id) + carry;
           })
           .catch(function () { /* keep generic copy + /events fallback */ });
 

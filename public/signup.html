@@ -705,7 +705,10 @@
           }
           var qs = window.location.search;
           var carry = (qs && qs.indexOf('utm_') !== -1) ? '&' + qs.replace(/^\?/, '') : '';
-          btn.href = '/event?id=' + encodeURIComponent(ev.id) + carry;
+          // Deep-links straight into the events-page dialog (added in the
+          // events-dialog rebuild) instead of the standalone /event page —
+          // same low-friction checkout, one fewer page load.
+          btn.href = '/events?event=' + encodeURIComponent(ev.id) + carry;
         }).catch(function () { /* keep /events fallback */ });
 
         var f = $('suLeadForm');
