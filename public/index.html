@@ -441,6 +441,16 @@
             transform: translateY(-5px);
         }
 
+        .testimonial-mark {
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            font-size: 40px;
+            color: var(--coral);
+            line-height: 0.6;
+            opacity: 0.5;
+            margin-bottom: 6px;
+        }
+
         .testimonial-quote {
             font-size: 16px;
             font-style: italic;
@@ -452,7 +462,7 @@
         .testimonial-attribution {
             font-size: 13px;
             font-weight: 600;
-            color: var(--coral);
+            color: var(--gold);
         }
 
         /* CTA Section */
@@ -501,9 +511,9 @@
 
         /* Footer */
         footer {
-            background: rgba(0, 0, 0, 0.3);
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
             border-top: 1px solid rgba(255, 107, 107, 0.1);
-            padding: 60px 40px;
+            padding: 60px 40px 36px;
             text-align: center;
         }
 
@@ -511,9 +521,27 @@
             max-width: 1400px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 40px;
             margin-bottom: 40px;
+            text-align: left;
+        }
+
+        .footer-brand-logo {
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            font-size: 24px;
+            letter-spacing: -1px;
+            margin-bottom: 14px;
+        }
+        .footer-brand-logo span:first-child { color: var(--white); }
+        .footer-brand-logo span:last-child { color: var(--coral); }
+        .footer-brand-tagline {
+            font-size: 14px;
+            line-height: 1.7;
+            color: rgba(245, 243, 240, 0.5);
+            max-width: 250px;
+            margin: 0;
         }
 
         .footer-section h4 {
@@ -563,10 +591,16 @@
         }
 
         .footer-bottom {
+            max-width: 1400px;
+            margin: 0 auto;
             border-top: 1px solid rgba(255, 107, 107, 0.1);
-            padding-top: 30px;
+            padding-top: 24px;
             color: rgba(245, 243, 240, 0.5);
-            font-size: 12px;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
         }
 
         /* Mobile */
@@ -1007,22 +1041,27 @@
         <h2 class="section-title">What People Are <span class="highlight">Saying</span></h2>
         <div class="testimonials-grid">
             <div class="testimonial-card">
+                <div class="testimonial-mark">&ldquo;</div>
                 <p class="testimonial-quote">A night to remember!</p>
                 <div class="testimonial-attribution">— Alex</div>
             </div>
             <div class="testimonial-card">
+                <div class="testimonial-mark">&ldquo;</div>
                 <p class="testimonial-quote">Everyone was so lively and some of us connected so well we chatted well into the evening.</p>
                 <div class="testimonial-attribution">— Molly</div>
             </div>
             <div class="testimonial-card">
+                <div class="testimonial-mark">&ldquo;</div>
                 <p class="testimonial-quote">Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!</p>
                 <div class="testimonial-attribution">— Quang</div>
             </div>
             <div class="testimonial-card">
+                <div class="testimonial-mark">&ldquo;</div>
                 <p class="testimonial-quote">Good networking opportunities!</p>
                 <div class="testimonial-attribution">— Jeff</div>
             </div>
             <div class="testimonial-card">
+                <div class="testimonial-mark">&ldquo;</div>
                 <p class="testimonial-quote">Fantastic people & fantastic vibes. Great fun.</p>
                 <div class="testimonial-attribution">— Luke</div>
             </div>
@@ -1091,8 +1130,12 @@
     <!-- Footer -->
     <footer>
         <div class="footer-content">
+            <div class="footer-brand">
+                <div class="footer-brand-logo"><span>Spark</span><span>Date</span></div>
+                <p class="footer-brand-tagline">Curated dating events in Lancaster &amp; Philadelphia. Your app matched you — we host the date.</p>
+            </div>
             <div class="footer-section">
-                <h4>SparkDate</h4>
+                <h4>Explore</h4>
                 <a href="/">Home</a>
                 <a href="#how-it-works">How It Works</a>
                 <a href="/events">Events</a>
@@ -1109,7 +1152,6 @@
                 <h4>Connect</h4>
                 <a href="mailto:hello@sparkdate.date" onclick="if(typeof fbq!=='undefined')fbq('track','Contact')">hello@sparkdate.date</a>
                 <a href="/about">About</a>
-                <a href="/events">Events</a>
                 <div class="social-links">
                     <a href="https://www.instagram.com/sparkdate.date" target="_blank" rel="noopener" aria-label="Instagram" title="Instagram">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.79.31-1.46.72-2.13 1.38C1.35 2.68.94 3.35.63 4.14.33 4.9.13 5.78.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.72 1.46 1.38 2.13.67.67 1.34 1.07 2.13 1.38.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.79-.31 1.46-.72 2.13-1.38.67-.67 1.07-1.34 1.38-2.13.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91-.31-.79-.72-1.46-1.38-2.13C21.32 1.35 20.65.94 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0zm0 5.84a6.16 6.16 0 100 12.32 6.16 6.16 0 000-12.32zM12 16a4 4 0 110-8 4 4 0 010 8zm6.41-10.85a1.44 1.44 0 100 2.88 1.44 1.44 0 000-2.88z"/></svg>
@@ -1127,7 +1169,8 @@
             </div>
         </div>
         <div class="footer-bottom">
-            <p>&copy; 2026 SparkDate. Lancaster &amp; Philadelphia. Real people. Real venues.</p>
+            <span>&copy; 2026 SparkDate. Real people. Real venues.</span>
+            <span>Lancaster &amp; Philadelphia, PA</span>
         </div>
     </footer>
 
