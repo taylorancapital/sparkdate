@@ -763,6 +763,55 @@
             .event-cta-button { display: block; padding: 16px 20px; }
         }
 
+        /* Persistent bottom ticket bar. Hidden by default (JS reveals it once
+           the top event-cta card scrolls out of view, so this never doubles
+           up with the identical CTA already on screen) and re-hidden once the
+           bottom .cta-section band scrolls into view, so it doesn't sit on
+           top of that same ask a second time right at the page's own close.
+           z-index 500: above normal content, below the sticky nav (1000) and
+           the exit-intent modal (9999) -- both pinned to the opposite edge or
+           only shown occasionally, so there's no real overlap either way. */
+        .sticky-ticket-bar {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            z-index: 500;
+            background: rgba(10, 14, 39, 0.96);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 107, 107, 0.15);
+            padding: 14px 40px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+            animation: stickyBarUp 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .sticky-ticket-bar.show { display: flex; }
+        @keyframes stickyBarUp {
+            from { opacity: 0; transform: translateY(100%); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .sticky-ticket-bar-eyebrow {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1px; color: var(--coral); margin-bottom: 4px;
+        }
+        .sticky-ticket-bar-line {
+            font-size: 15px; color: #ffffff; font-weight: 500;
+        }
+        .sticky-ticket-bar-btn {
+            flex-shrink: 0; display: inline-block; background: var(--coral);
+            color: #ffffff; font-weight: 700; font-size: 14px;
+            padding: 12px 26px; border-radius: 4px; text-decoration: none;
+            white-space: nowrap; transition: transform 0.15s ease;
+        }
+        .sticky-ticket-bar-btn:hover { transform: translateY(-2px); }
+        @media (prefers-reduced-motion: reduce) {
+            .sticky-ticket-bar { animation: none; }
+        }
+        @media (max-width: 600px) {
+            .sticky-ticket-bar { padding: 12px 16px; }
+        }
+
         /* Social proof: real event photos, no fabricated stats -- shared
            block, kept in sync across signup.html/events.html/event.html/lp.html. */
         .sp-social-proof { padding: 56px 24px; text-align: center; border-top: 1px solid rgba(255,107,107,0.1); border-bottom: 1px solid rgba(255,107,107,0.1); }
@@ -951,7 +1000,21 @@
             // Deep-links straight into the events-page dialog (added in the
             // events-dialog rebuild) instead of the standalone /event page —
             // same low-friction checkout, one fewer page load.
-            btn.href = '/events?event=' + encodeURIComponent(ev.id) + carry;
+            var href = '/events?event=' + encodeURIComponent(ev.id) + carry;
+            btn.href = href;
+
+            // Same real event data populates the sticky bottom bar — no
+            // second /api/next-event call.
+            var stickyLine = $('stickyBarLine');
+            var stickyBtn = $('stickyBarBtn');
+            if (stickyLine) {
+              stickyLine.textContent = [ev.title || 'SparkDate Mixer', venue, dateLabel]
+                .filter(Boolean).join(' · ');
+            }
+            if (stickyBtn) {
+              stickyBtn.href = href;
+              if (ev.price != null) stickyBtn.innerHTML = '🎟️ Get Tickets — ' + fmt(ev.price);
+            }
           })
           .catch(function () { /* keep generic copy + /events fallback */ });
 
@@ -1234,6 +1297,51 @@
         });
       })();
     </script>
+<!-- Persistent bottom ticket bar -- shows once the top event-cta card
+     scrolls out of view (see the IntersectionObserver script below), hides
+     again near the bottom .cta-section so it never doubles up with that
+     identical ask. Populated with the same real event data eventCtaBtn
+     above already fetched -- no second /api/next-event call. -->
+<div class="sticky-ticket-bar" id="stickyTicketBar" role="complementary" aria-label="Next mixer ticket bar">
+    <div>
+        <div class="sticky-ticket-bar-eyebrow">Next mixer</div>
+        <div class="sticky-ticket-bar-line" id="stickyBarLine">SparkDate Mixer · A real Philly venue</div>
+    </div>
+    <a class="sticky-ticket-bar-btn" id="stickyBarBtn" href="/events">🎟️ Get Tickets</a>
+</div>
+<script>
+  // Shows the sticky bar only in the stretch of the page between the top
+  // event-cta card and the bottom .cta-section band -- both already carry
+  // the identical ask, so showing this the whole time would just duplicate
+  // whichever one is on screen.
+  (function () {
+    var bar = document.getElementById('stickyTicketBar');
+    var topCta = document.getElementById('eventCta');
+    var bottomCta = document.querySelector('.cta-section');
+    if (!bar || !topCta || !bottomCta || typeof IntersectionObserver === 'undefined') return;
+
+    var topCtaVisible = true;
+    var bottomCtaVisible = false;
+    function sync() {
+      bar.classList.toggle('show', !topCtaVisible && !bottomCtaVisible);
+    }
+
+    new IntersectionObserver(function (entries) {
+      topCtaVisible = entries[0].isIntersecting;
+      sync();
+    }).observe(topCta);
+
+    new IntersectionObserver(function (entries) {
+      bottomCtaVisible = entries[0].isIntersecting;
+      sync();
+    }).observe(bottomCta);
+
+    document.getElementById('stickyBarBtn').addEventListener('click', function () {
+      if (typeof gtag === 'function') gtag('event', 'begin_checkout', { source: 'sticky_ticket_bar' });
+    });
+  })();
+</script>
+
 <!-- Exit-intent / scroll email capture (once per visitor) -->
 <div id="sdExit" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,14,39,0.82);align-items:center;justify-content:center;padding:20px;">
   <div style="background:#0a0e27;border:1px solid rgba(255,107,107,0.35);border-radius:14px;max-width:420px;width:100%;padding:34px 28px;text-align:center;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
