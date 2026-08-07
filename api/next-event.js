@@ -20,7 +20,7 @@ const { admin } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
 const { effectivePrice, spotsRemaining } = require('../lib/seat-model');
 const { buildSitemapXml } = require('../lib/sitemap-xml');
-const { isEventOver, getNextEvent } = require('../lib/next-event');
+const { isEventOver } = require('../lib/next-event');
 
 const db = admin.firestore();
 
@@ -310,97 +310,24 @@ function renderCityPage(req, res) {
   return res.status(200).send(html);
 }
 
-// ── Server-rendered homepage ──────────────────────────────────────────
-// Same "don't make Googlebot/first-paint wait on client JS" problem as
-// /event and /philadelphia above, applied to the homepage's "Get Tickets"
-// block: public/index.html ships generic placeholder copy
-// (#eventCtaTitle/#eventCtaMeta/#eventCtaBtn) and only becomes a real,
-// credible event card after index.html's own client-side fetch to this
-// same endpoint's default JSON path resolves. On slow connections or a
-// bot that doesn't run JS, that's a blank-looking promise instead of a
-// dated event. vercel.json rewrites / here with ?render=home instead of
-// straight to the static file. The client-side fetch in index.html is
-// left in place unchanged — it just re-fetches and overwrites with the
-// same data, which is harmless and keeps the page self-healing if this
-// render path ever serves stale/generic copy.
-
-let HOME_TEMPLATE = null;
-function loadHomeTemplate() {
-  if (HOME_TEMPLATE) return HOME_TEMPLATE;
-  HOME_TEMPLATE = fs.readFileSync(path.join(process.cwd(), 'public', 'index.html'), 'utf8');
-  return HOME_TEMPLATE;
-}
-
-function fmtPrice(n) {
-  n = Number(n);
-  return '$' + (n % 1 === 0 ? n.toFixed(0) : n.toFixed(2));
-}
-
-async function renderHomePage(req, res) {
-  let html;
-  try {
-    html = loadHomeTemplate();
-  } catch (e) {
-    // Same reasoning as renderEventPage/renderCityPage above: if the
-    // bundled template can't be read there is no HTML to fail soft to.
-    console.error('[next-event] home template load failed:', e && e.message);
-    res.setHeader('Cache-Control', 'no-store');
-    return res.redirect(302, '/events');
-  }
-
-  try {
-    // getNextEvent already fails soft to null on a Firestore error — this
-    // try/catch exists so a bug in the string-replace below can never take
-    // the homepage down with it; on any failure here `html` is still the
-    // untouched template with its static placeholder copy.
-    const event = await getNextEvent(db);
-    if (event && event.id) {
-      const eyebrow = (event.isEarlyBird && event.regularPrice)
-        ? 'Early-bird pricing'
-        : 'Upcoming Mixer';
-      const metaParts = [];
-      if (event.venueLabel) metaParts.push(`📍 ${event.venueLabel}`);
-      if (event.dateLabel) metaParts.push(`📅 ${event.dateLabel}${event.daysAwayLabel ? ' · ' + event.daysAwayLabel : ''}`);
-      const metaSpans = metaParts.map((t) => `<span>${escAttr(t)}</span>`).join('');
-
-      let btnLabel = '🎟️ Get Tickets';
-      if (event.price > 0) {
-        btnLabel += ` — ${fmtPrice(event.price)}`;
-        if (event.isEarlyBird && event.regularPrice > event.price) {
-          btnLabel += ` <span class="regular-price">${fmtPrice(event.regularPrice)}</span>`;
-        }
-      }
-      // Deep-links into the events-page dialog, same target the client-side
-      // fetch in index.html builds (/events?event=<id>) — not /event?id=.
-      const btnHref = `/events?event=${encodeURIComponent(event.id)}`;
-
-      html = html.replace(
-        /<div class="event-cta-eyebrow" id="eventCtaEyebrow">[\s\S]*?<\/div>/,
-        () => `<div class="event-cta-eyebrow" id="eventCtaEyebrow">${escAttr(eyebrow)}</div>`
-      );
-      html = html.replace(
-        /<h2 class="event-cta-title" id="eventCtaTitle">[\s\S]*?<\/h2>/,
-        () => `<h2 class="event-cta-title" id="eventCtaTitle">${escAttr(event.title)}</h2>`
-      );
-      if (metaSpans) {
-        html = html.replace(
-          /<div class="event-cta-meta" id="eventCtaMeta">[\s\S]*?<\/div>/,
-          () => `<div class="event-cta-meta" id="eventCtaMeta">${metaSpans}</div>`
-        );
-      }
-      html = html.replace(
-        /<a class="event-cta-button" id="eventCtaBtn" href="[^"]*">[\s\S]*?<\/a>/,
-        () => `<a class="event-cta-button" id="eventCtaBtn" href="${escAttr(btnHref)}">${btnLabel}</a>`
-      );
-    }
-  } catch (err) {
-    console.error('[next-event] home render error:', err && err.message);
-  }
-
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.setHeader('Cache-Control', 'public, s-maxage=120, max-age=60');
-  return res.status(200).send(html);
-}
+// ── Why there is no server-rendered homepage ──────────────────────────
+// A ?render=home mode used to live here, rewriting / to this function so the
+// "Get Tickets" card could ship real event data in the initial HTML. It was
+// removed because it never actually ran: Vercel resolves the filesystem BEFORE
+// applying rewrites, and public/index.html inherently answers /, so the
+// { "source": "/" } rewrite could never reach this function. The symptom was
+// silent — / kept serving the static placeholder with Vercel's own
+// cache-control (public, max-age=0, must-revalidate) instead of the
+// s-maxage=120 this file sets, while /api/next-event returned a real event.
+//
+// This is why /event and /philadelphia DO work: no static file answers those
+// paths (public/event.html is served at /event.html, not /event), so the
+// rewrite is consulted. / is the one path a static file always claims.
+//
+// Reviving it means making sure nothing static answers / — e.g. renaming the
+// template to public/home.html and redirecting /index.html to / — not just
+// re-adding the rewrite. tests/vercel-config.test.js guards the includeFiles
+// half of that change.
 
 // ── Dynamic sitemap ───────────────────────────────────────────────────
 // /sitemap.xml is rewritten here (vercel.json) with ?render=sitemap; the
@@ -443,11 +370,6 @@ async function renderSitemap(req, res) {
 module.exports = async function handler(req, res) {
   if (applyCors(req, res)) return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
-
-  // / is rewritten here with ?render=home.
-  if (req.query && req.query.render === 'home') {
-    return renderHomePage(req, res);
-  }
 
   // /event and /event/:id are rewritten here with ?render=page.
   if (req.query && req.query.render === 'page') {
