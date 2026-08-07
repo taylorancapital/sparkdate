@@ -159,9 +159,36 @@
             transform: translateY(-2px);
         }
 
+        /* Mobile nav toggle — hidden on desktop; .nav-menu itself becomes a
+           slide-down panel under it at <=768px (see the mobile media query
+           near the bottom of this stylesheet, alongside .nav-menu.open). */
+        .nav-toggle {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            gap: 5px;
+            width: 32px;
+            height: 32px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+        }
+        .nav-toggle span {
+            display: block;
+            width: 100%;
+            height: 2px;
+            background: var(--white);
+            border-radius: 2px;
+            transition: transform 0.25s ease, opacity 0.25s ease;
+        }
+        .nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+        .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
         /* Hero */
         .hero {
-            min-height: 100vh;
+            min-height: auto;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -204,7 +231,7 @@
 
         .hero h1 {
             font-family: 'Playfair Display', serif;
-            font-size: clamp(52px, 12vw, 104px);
+            font-size: clamp(34px, 9vw, 104px);
             font-weight: 900;
             line-height: 1.05;
             margin-bottom: 24px;
@@ -546,10 +573,48 @@
         @media (max-width: 768px) {
             nav {
                 padding: 16px 20px;
+                position: relative;
             }
 
+            .nav-toggle {
+                display: flex;
+            }
+
+            /* Collapsed by default (no .open class); JS toggles .open and
+               the toggle button's aria-expanded together. Full-width panel
+               anchored to `nav` (position:relative above), not
+               .nav-container, so it spans edge-to-edge under the bar rather
+               than stopping at the container's max-width. */
             .nav-menu {
                 display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                flex-direction: column;
+                gap: 0;
+                background: rgba(10, 14, 39, 0.98);
+                border-bottom: 1px solid rgba(255, 107, 107, 0.15);
+                padding: 8px 20px 20px;
+            }
+            .nav-menu.open {
+                display: flex;
+            }
+            .nav-menu li {
+                width: 100%;
+            }
+            .nav-menu a {
+                display: block;
+                padding: 14px 0;
+                border-bottom: 1px solid rgba(255, 107, 107, 0.08);
+            }
+            .nav-menu li:last-child a {
+                border-bottom: none;
+            }
+            .nav-menu .cta-nav {
+                display: inline-block;
+                margin-top: 10px;
+                text-align: center;
             }
 
             .hero {
@@ -577,6 +642,13 @@
         }
 
         /* ── Event-first "Get Tickets" block (top-of-page conversion CTA) ── */
+        /* "Find us on" logo strip — platform presence (listings/profiles),
+           reused verbatim from lp.html so above-the-fold proof isn't
+           limited to the event-cta block alone. */
+        .find-us-bar { background: var(--cream); border-bottom: 2px solid rgba(255,107,107,0.2); padding: 10px 16px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 14px 20px; }
+        .find-us-bar .fu-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(10,14,39,0.55); }
+        .find-us-bar img { display: block; height: 16px; width: auto; object-fit: contain; mix-blend-mode: multiply; }
+
         .event-cta {
             background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%);
             padding: 30px 20px;
@@ -632,6 +704,26 @@
             color: #ffffff;
         }
         .event-cta-soon { font-size: 16px; color: #ffffff; margin-bottom: 16px; }
+        /* Real attendee quote (same one used near checkout on lp.html and
+           event.html) — proof sitting right next to the ask, not just
+           further down the page in the testimonials grid. */
+        .event-cta-quote {
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin: 18px auto 0;
+            max-width: 480px;
+            text-align: left;
+        }
+        .event-cta-quote p {
+            font-size: 14px; line-height: 1.55; color: #ffffff;
+            font-style: italic; margin: 0 0 6px;
+        }
+        .event-cta-quote .who {
+            font-size: 12px; font-weight: 700; color: #ffffff;
+            font-style: normal; opacity: 0.85;
+        }
         @media (max-width: 600px) {
             .event-cta { padding: 24px 16px; }
             .event-cta-button { display: block; padding: 16px 20px; }
@@ -657,6 +749,17 @@
         .sp-polaroid:hover { transform: rotate(0deg) scale(1.08); z-index: 20 !important; }
         .sp-polaroid img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; }
         .sp-polaroid-cap { height: 58px; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 4px 6px 0; text-align: center; font-family: 'Caveat', cursive; font-size: 18px; font-weight: 700; color: #0a0e27; letter-spacing: 0.5px; line-height: 1.15; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+        /* The whole polaroid scatter is one frozen 850x500 design scaled down
+           as a single unit (see fitPolaroidScatter() below), so the caption's
+           18px font shrinks right along with everything else -- below ~600px
+           wide that renders under 11px and is no longer legible. Hiding the
+           caption on narrow viewports and letting the photo carry it is
+           simpler and more reliable than counter-scaling just the text back
+           up inside a rigidly-scaled parent. Homepage-only for now (this
+           block is duplicated across 8 other files; not touched here). */
+        @media (max-width: 640px) {
+            .sp-polaroid-cap { display: none; }
+        }
     </style>
     <!-- Meta Pixel Code -->
     <script>
@@ -681,7 +784,10 @@
     <nav>
         <div class="nav-container">
             <a href="/" class="logo">Spark<span>Date</span></a>
-            <ul class="nav-menu">
+            <button type="button" class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navMenu" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
                 <li><a href="#how-it-works">How It Works</a></li>
                 <li><a href="#why-sparkdate">Why SparkDate</a></li>
                 <li><a href="/blog">Blog</a></li>
@@ -690,6 +796,47 @@
             </ul>
         </div>
     </nav>
+    <script>
+      // Mobile nav toggle. Self-contained, no framework — matches every
+      // other inline script on this page.
+      (function () {
+        var toggle = document.getElementById('navToggle');
+        var menu = document.getElementById('navMenu');
+        if (!toggle || !menu) return;
+        function closeMenu() {
+          menu.classList.remove('open');
+          toggle.setAttribute('aria-expanded', 'false');
+        }
+        function openMenu() {
+          menu.classList.add('open');
+          toggle.setAttribute('aria-expanded', 'true');
+        }
+        toggle.addEventListener('click', function () {
+          if (menu.classList.contains('open')) closeMenu(); else openMenu();
+        });
+        // Close on link tap so the panel doesn't linger after navigating
+        // (in-page #anchor links especially — those don't cause a reload).
+        menu.addEventListener('click', function (e) {
+          if (e.target.tagName === 'A') closeMenu();
+        });
+        document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') closeMenu();
+        });
+      })();
+    </script>
+
+    <!-- Platform-presence logo strip, directly above the event card so the
+         first screen carries proof, not just a brand promise. -->
+    <div class="find-us-bar">
+        <span class="fu-label">As Seen On</span>
+        <img class="fu-logo fu-google" src="/images/press/google-news.png" alt="Google News" loading="lazy">
+        <img class="fu-logo fu-eventbrite" src="/images/press/eventbrite.png" alt="Eventbrite" loading="lazy">
+        <img class="fu-logo fu-pinterest" src="/images/press/pinterest.png" alt="Pinterest" loading="lazy">
+        <img class="fu-logo fu-yahoo" src="/images/press/yahoo-news.png" alt="Yahoo News" loading="lazy">
+        <img class="fu-logo fu-facebook" src="/images/press/facebook.png" alt="Facebook" loading="lazy">
+        <img class="fu-logo fu-patch" src="/images/press/patch.png" alt="Patch" loading="lazy">
+        <img class="fu-logo fu-tickettailor" src="/images/press/tickettailor.png" alt="Ticket Tailor" loading="lazy">
+    </div>
 
     <!-- Event-first "Get Tickets" block — the first thing a visitor sees.
          Promotional copy is hardcoded so the page renders the full CTA on
@@ -712,6 +859,10 @@
                 <li>We aim for a balanced gender mix</li>
                 <li>Know who you clicked with that same night</li>
             </ul>
+            <div class="event-cta-quote">
+                <p>"Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!"</p>
+                <div class="who">— Quang</div>
+            </div>
         </div>
     </section>
     <script>
@@ -878,14 +1029,9 @@
         </div>
     </section>
 
-    <!-- CTA Section -->
-    <section class="cta-section">
-        <h2>Ready to meet in person?</h2>
-        <p>Real venues, curated guest lists, no algorithm — just people who showed up. Grab your ticket to the next mixer.</p>
-        <a href="/events" class="btn-cta">Claim Your Spot</a>
-    </section>
-
-    <!-- Social proof: real photos from real mixers, no fabricated stats -->
+    <!-- Social proof: real photos from real mixers, no fabricated stats.
+         Placed above the CTA band (moved 2026-08) so the site's strongest
+         visual asset lands before the conversion ask, not after it. -->
     <section class="sp-social-proof">
         <div class="sp-proof-eyebrow">Straight From Our Mixers</div>
         <h2 class="sp-proof-title">Real People. Real Nights.</h2>
@@ -919,6 +1065,13 @@
             window.addEventListener('resize', fitPolaroidScatter);
         })();
     </script>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <h2>Ready to meet in person?</h2>
+        <p>Real venues, curated guest lists, no algorithm — just people who showed up. Grab your ticket to the next mixer.</p>
+        <a href="/events" class="btn-cta">Claim Your Spot</a>
+    </section>
 
     <!-- Newsletter capture -->
     <section style="background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%); border-top: 1px solid rgba(255,107,107,0.1); padding: 56px 40px; text-align: center;">

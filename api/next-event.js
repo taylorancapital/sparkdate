@@ -310,6 +310,25 @@ function renderCityPage(req, res) {
   return res.status(200).send(html);
 }
 
+// ── Why there is no server-rendered homepage ──────────────────────────
+// A ?render=home mode used to live here, rewriting / to this function so the
+// "Get Tickets" card could ship real event data in the initial HTML. It was
+// removed because it never actually ran: Vercel resolves the filesystem BEFORE
+// applying rewrites, and public/index.html inherently answers /, so the
+// { "source": "/" } rewrite could never reach this function. The symptom was
+// silent — / kept serving the static placeholder with Vercel's own
+// cache-control (public, max-age=0, must-revalidate) instead of the
+// s-maxage=120 this file sets, while /api/next-event returned a real event.
+//
+// This is why /event and /philadelphia DO work: no static file answers those
+// paths (public/event.html is served at /event.html, not /event), so the
+// rewrite is consulted. / is the one path a static file always claims.
+//
+// Reviving it means making sure nothing static answers / — e.g. renaming the
+// template to public/home.html and redirecting /index.html to / — not just
+// re-adding the rewrite. tests/vercel-config.test.js guards the includeFiles
+// half of that change.
+
 // ── Dynamic sitemap ───────────────────────────────────────────────────
 // /sitemap.xml is rewritten here (vercel.json) with ?render=sitemap; the
 // static public/sitemap.xml was deleted so the rewrite can fire. Reason:
