@@ -253,7 +253,11 @@
             border-radius: 4px;
             color: #000000;
             font-family: inherit;
-            font-size: 14px;
+            /* 16px, not 14px: iOS Safari auto-zooms the viewport when a
+               focused input's font-size is under 16px, which yanks the page
+               into a zoomed state the instant a buyer taps into this field
+               mid-checkout. */
+            font-size: 16px;
         }
         select:focus, input[type="email"]:focus, input[type="text"]:focus, input[type="tel"]:focus { outline: none; border-color: var(--coral); background: #ffffff; color: #000000; }
         input:disabled { opacity: 0.7; cursor: not-allowed; }
