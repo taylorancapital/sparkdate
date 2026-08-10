@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Admin-only dashboard; never index. -->
+    <meta name="robots" content="noindex, nofollow">
     <!-- Canonical-domain guard — must run BEFORE anything else.
          Canonical host is the apex sparkdate.date. Vercel redirects
          www → apex at the edge, but this catches the (rare) case where
