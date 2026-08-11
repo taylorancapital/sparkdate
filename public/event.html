@@ -317,7 +317,13 @@
         /* Pre-billing trial disclosure — visible BEFORE the buy button for
            FTC ROSCA compliance (clear & conspicuous material terms,
            express informed consent via the buy action). */
-        .trial-disclosure {
+        /* One box combining the ROSCA disclosure and the logistics
+           reassurance line (secure checkout / free transfer / host on-site)
+           — was two separate boxes, merged per Taylor's request. The inner
+           #trialDisclosure div keeps its own id so applyUserContext() can
+           still hide just that line for card-on-file members while the
+           reassurance line underneath stays visible for everyone. */
+        .checkout-trust {
             background: rgba(212, 175, 55, 0.08);
             border: 1px solid rgba(212, 175, 55, 0.3);
             border-radius: 4px;
@@ -327,20 +333,19 @@
             line-height: 1.5;
             color: var(--cream);
         }
-        .trial-disclosure strong { color: var(--gold); }
-        .trial-disclosure a { color: var(--coral); text-decoration: none; }
+        .checkout-trust .trial-disclosure strong { color: var(--gold); }
+        .checkout-trust .trial-disclosure a { color: var(--coral); text-decoration: none; }
+        .checkout-trust .rp { font-size: 11.5px; color: rgba(245,243,240,0.65); margin-top: 8px; }
 
         /* Reassurance right at the moment of decision -- immediately before
            the buy button, the exact spot someone hesitates or bounces.
            Testimonial rotates through all live quotes (see public/index.html's
            testimonials section for the canonical wording, kept verbatim here;
-           same rotator pattern duplicated on events.html/lp.html/index.html)
-           plus a restated version of the cancellation policy already spelled
-           out in "What to Expect" above; repeating the free-transfer point
-           right here targets the "what if my plans change" hesitation at the
-           exact moment it would otherwise cause someone to close the tab
-           instead of buying. */
-        .checkout-reassurance {
+           same rotator pattern duplicated on events.html/lp.html/index.html).
+           Own standalone box, swapped above .checkout-trust (the restated
+           cancellation policy + disclosure) per Taylor's request -- social
+           proof leads, logistics follow. */
+        .checkout-testimonial {
             background: rgba(74, 222, 128, 0.06);
             border: 1px solid rgba(74, 222, 128, 0.2);
             border-radius: 4px;
@@ -349,12 +354,13 @@
             font-size: 12.5px;
             line-height: 1.5;
             color: var(--cream);
+            font-style: italic;
+            min-height: 3em;
+            transition: opacity 0.4s ease;
         }
-        .checkout-reassurance .rq { font-style: italic; color: rgba(245,243,240,0.9); margin-bottom: 6px; min-height: 3em; transition: opacity 0.4s ease; }
-        .checkout-reassurance .rq.fade-out { opacity: 0; }
-        .checkout-reassurance .rq #rqText::before, .checkout-reassurance .rq #rqText::after { content: '"'; }
-        .checkout-reassurance .rq .who { font-style: normal; font-weight: 600; color: var(--success); }
-        .checkout-reassurance .rp { font-size: 11.5px; color: rgba(245,243,240,0.65); }
+        .checkout-testimonial.fade-out { opacity: 0; }
+        .checkout-testimonial #rqText::before, .checkout-testimonial #rqText::after { content: '"'; }
+        .checkout-testimonial .who { font-style: normal; font-weight: 600; color: var(--success); }
 
         /* 2-for-1 promo: previously Eventbrite-only, now offered on the
            site's own checkout too. Reveals a second attendee's fields when
@@ -697,21 +703,22 @@
                             </div>
                         </div>
 
+                        <div class="checkout-testimonial" id="rqBox"><span id="rqText"></span> <span class="who" id="rqWho"></span></div>
+
                         <!-- Memberships are paused pre-launch: a ticket purchase
                              creates NO trial and NO subscription (see enrollGuestAsMember
                              in api/purchase-ticket.js — stripeCustomerId/subscriptionId
                              are null). State that plainly so buyers aren't misled into
                              expecting a recurring charge. Hidden for logged-in members
                              in applyUserContext() (card-on-file path) for when
-                             memberships return. -->
-                        <div class="trial-disclosure" id="trialDisclosure">
-                            <strong>One-time ticket purchase.</strong>
-                            No membership and no subscription — you're only paying for
-                            this event. Nothing recurring.
-                        </div>
-
-                        <div class="checkout-reassurance">
-                            <div class="rq" id="rqBox"><span id="rqText"></span> <span class="who" id="rqWho"></span></div>
+                             memberships return — the reassurance line below it stays
+                             visible either way. -->
+                        <div class="checkout-trust">
+                            <div class="trial-disclosure" id="trialDisclosure">
+                                <strong>One-time ticket purchase.</strong>
+                                No membership and no subscription — you're only paying for
+                                this event. Nothing recurring.
+                            </div>
                             <div class="rp">🔒 Secure checkout · 🔄 Free ticket transfer if your plans change · A real host is on-site the whole night</div>
                         </div>
                         <script>
