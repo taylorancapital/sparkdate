@@ -745,20 +745,30 @@
         }
         .checkout-btn:hover { transform: translateY(-2px); }
         .checkout-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-        .trial-disclosure {
+        /* One box combining the ROSCA disclosure and the logistics
+           reassurance line (secure checkout / free transfer / host on-site)
+           — was two separate boxes, merged per Taylor's request. The inner
+           #modalTrialDisclosure div keeps its own id so applyUserContext()
+           can still hide just that line for card-on-file members while the
+           reassurance line underneath stays visible for everyone. */
+        .checkout-trust {
             background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.3);
             border-radius: 4px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px;
             line-height: 1.5; color: var(--cream);
         }
-        .trial-disclosure strong { color: var(--gold); }
-        .checkout-reassurance {
+        .checkout-trust .trial-disclosure strong { color: var(--gold); }
+        .checkout-trust .rp { font-size: 11.5px; color: rgba(245,243,240,0.65); margin-top: 8px; }
+        /* Standalone testimonial box, swapped above .checkout-trust per
+           Taylor's request -- social proof leads, logistics follow. */
+        .checkout-testimonial {
             background: rgba(74, 222, 128, 0.06); border: 1px solid rgba(74, 222, 128, 0.2);
             border-radius: 4px; padding: 12px 14px; margin-bottom: 14px; font-size: 12.5px;
-            line-height: 1.5; color: var(--cream);
+            line-height: 1.5; color: var(--cream); font-style: italic; min-height: 3em;
+            transition: opacity 0.4s ease;
         }
-        .checkout-reassurance .rq { font-style: italic; color: rgba(245,243,240,0.9); margin-bottom: 6px; }
-        .checkout-reassurance .rq .who { font-style: normal; font-weight: 600; color: var(--success); }
-        .checkout-reassurance .rp { font-size: 11.5px; color: rgba(245,243,240,0.65); }
+        .checkout-testimonial.fade-out { opacity: 0; }
+        .checkout-testimonial #rqText::before, .checkout-testimonial #rqText::after { content: '"'; }
+        .checkout-testimonial .who { font-style: normal; font-weight: 600; color: var(--success); }
         .two-for-one-toggle {
             display: flex; align-items: flex-start; gap: 10px; background: rgba(212, 175, 55, 0.08);
             border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 4px; padding: 12px 14px; margin-bottom: 20px;
@@ -1069,15 +1079,66 @@
                         <div class="price-row total"><span>Total</span><span class="gold-text" id="modalTotalPrice">$0.00</span></div>
                     </div>
 
-                    <div class="trial-disclosure" id="modalTrialDisclosure">
-                        <strong>One-time ticket purchase.</strong>
-                        No membership and no subscription — you're only paying for this event. Nothing recurring.
-                    </div>
+                    <div class="checkout-testimonial" id="rqBox"><span id="rqText"></span> <span class="who" id="rqWho"></span></div>
 
-                    <div class="checkout-reassurance">
-                        <div class="rq">"Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!" <span class="who">— Quang</span></div>
+                    <div class="checkout-trust">
+                        <div class="trial-disclosure" id="modalTrialDisclosure">
+                            <strong>One-time ticket purchase.</strong>
+                            No membership and no subscription — you're only paying for this event. Nothing recurring.
+                        </div>
                         <div class="rp">🔒 Secure checkout · 🔄 Free ticket transfer if your plans change · A real host is on-site the whole night</div>
                     </div>
+                    <script>
+                      // Rotating testimonial — see index.html for the canonical copy of this pattern.
+                      (function () {
+                        var TESTIMONIALS = [
+                          { q: "Everyone was so lively and some of us connected so well we chatted well into the evening.", who: "Molly" },
+                          { q: "Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!", who: "Quang" },
+                          { q: "Good networking opportunities!", who: "Jeff" },
+                          { q: "Fantastic people & fantastic vibes. Great fun.", who: "Luke" },
+                          { q: "Cool Atmosphere!", who: "James" },
+                          { q: "A night to remember!", who: "Alex" }
+                        ];
+                        var textEl = document.getElementById('rqText');
+                        var whoEl = document.getElementById('rqWho');
+                        var fadeEl = document.getElementById('rqBox');
+                        if (!textEl || !whoEl || !fadeEl) return;
+                        var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                        var idx = 0, TYPE_MS = 32, HOLD_MS = 3400, FADE_MS = 400;
+
+                        function typeNext() {
+                          var item = TESTIMONIALS[idx];
+                          whoEl.textContent = '— ' + item.who;
+                          textEl.textContent = '';
+                          var i = 0;
+                          (function type() {
+                            if (i <= item.q.length) {
+                              textEl.textContent = item.q.slice(0, i);
+                              i++;
+                              setTimeout(type, TYPE_MS);
+                            } else {
+                              setTimeout(advance, HOLD_MS);
+                            }
+                          })();
+                        }
+                        function advance() {
+                          fadeEl.classList.add('fade-out');
+                          setTimeout(function () {
+                            idx = (idx + 1) % TESTIMONIALS.length;
+                            fadeEl.classList.remove('fade-out');
+                            typeNext();
+                          }, FADE_MS);
+                        }
+                        function tickStatic() {
+                          var item = TESTIMONIALS[idx];
+                          textEl.textContent = item.q;
+                          whoEl.textContent = '— ' + item.who;
+                          idx = (idx + 1) % TESTIMONIALS.length;
+                          setTimeout(tickStatic, HOLD_MS);
+                        }
+                        if (reduceMotion) { tickStatic(); } else { typeNext(); }
+                      })();
+                    </script>
 
                     <button type="submit" class="checkout-btn" id="modalCheckoutBtn" disabled>Select Gender</button>
 
