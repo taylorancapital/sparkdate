@@ -72,11 +72,13 @@
         .iab-checkout-block .icb-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
         .iab-checkout-block .icb-copy { flex: 1; min-width: 140px; padding: 10px 14px; background: rgba(255,107,107,0.22); color: #fff; border: 1px solid rgba(255,107,107,0.5); border-radius: 4px; font-weight: 600; font-family: inherit; font-size: 13px; cursor: pointer; }
         .iab-checkout-block .icb-continue { display: block; text-align: center; font-size: 11px; color: rgba(245,243,240,0.45); text-decoration: underline; cursor: pointer; background: none; border: none; font-family: inherit; padding: 4px; width: 100%; }
-        /* Social proof: one real testimonial, between the ticket card and the
-           waitlist. The 3 real quotes otherwise only live on the homepage —
-           not on /lp, the page paid traffic actually lands on. */
-        .lp-quote { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,107,107,0.18); border-radius: 10px; padding: 20px 22px; margin-bottom: 28px; }
-        .lp-quote p { font-size: 15px; line-height: 1.6; color: rgba(245,243,240,0.92); font-style: italic; margin-bottom: 8px; }
+        /* Social proof: rotates through all live testimonials, between the
+           ticket card and the waitlist. Same rotator pattern duplicated on
+           index.html/event.html/events.html. */
+        .lp-quote { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,107,107,0.18); border-radius: 10px; padding: 20px 22px; margin-bottom: 28px; transition: opacity 0.4s ease; }
+        .lp-quote.fade-out { opacity: 0; }
+        .lp-quote p { font-size: 15px; line-height: 1.6; color: rgba(245,243,240,0.92); font-style: italic; margin-bottom: 8px; min-height: 2.4em; }
+        .lp-quote p::before, .lp-quote p::after { content: '"'; }
         .lp-quote .who { font-size: 13px; font-weight: 600; color: var(--coral); font-style: normal; }
         /* In-app-browser mode: Stripe 3DS checkout physically breaks inside
            Instagram/Facebook webviews, so for that ~17% we steer to the email
@@ -191,11 +193,62 @@
             <button type="button" class="icb-continue" id="icbContinueAnyway">Continue to checkout anyway (may not work) →</button>
         </div>
 
-        <!-- Real attendee testimonial (same quote used on the homepage). -->
-        <div class="lp-quote">
-            <p>"Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!"</p>
-            <div class="who">— Quang</div>
+        <!-- Real attendee testimonials (rotates through all of them, same as the homepage). -->
+        <div class="lp-quote" id="lpQuoteBox">
+            <p id="lpQuoteText"></p>
+            <div class="who" id="lpQuoteWho"></div>
         </div>
+        <script>
+          // Rotating testimonial — see index.html for the canonical copy of this pattern.
+          (function () {
+            var TESTIMONIALS = [
+              { q: "Everyone was so lively and some of us connected so well we chatted well into the evening.", who: "Molly" },
+              { q: "Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!", who: "Quang" },
+              { q: "Good networking opportunities!", who: "Jeff" },
+              { q: "Fantastic people & fantastic vibes. Great fun.", who: "Luke" },
+              { q: "Cool Atmosphere!", who: "James" },
+              { q: "A night to remember!", who: "Alex" }
+            ];
+            var textEl = document.getElementById('lpQuoteText');
+            var whoEl = document.getElementById('lpQuoteWho');
+            var fadeEl = document.getElementById('lpQuoteBox');
+            if (!textEl || !whoEl || !fadeEl) return;
+            var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            var idx = 0, TYPE_MS = 32, HOLD_MS = 3400, FADE_MS = 400;
+
+            function typeNext() {
+              var item = TESTIMONIALS[idx];
+              whoEl.textContent = '— ' + item.who;
+              textEl.textContent = '';
+              var i = 0;
+              (function type() {
+                if (i <= item.q.length) {
+                  textEl.textContent = item.q.slice(0, i);
+                  i++;
+                  setTimeout(type, TYPE_MS);
+                } else {
+                  setTimeout(advance, HOLD_MS);
+                }
+              })();
+            }
+            function advance() {
+              fadeEl.classList.add('fade-out');
+              setTimeout(function () {
+                idx = (idx + 1) % TESTIMONIALS.length;
+                fadeEl.classList.remove('fade-out');
+                typeNext();
+              }, FADE_MS);
+            }
+            function tickStatic() {
+              var item = TESTIMONIALS[idx];
+              textEl.textContent = item.q;
+              whoEl.textContent = '— ' + item.who;
+              idx = (idx + 1) % TESTIMONIALS.length;
+              setTimeout(tickStatic, HOLD_MS);
+            }
+            if (reduceMotion) { tickStatic(); } else { typeNext(); }
+          })();
+        </script>
 
         <!-- Social proof: real photos from real mixers, no fabricated stats -->
         <div class="sp-social-proof">

@@ -738,9 +738,10 @@
             color: #ffffff;
         }
         .event-cta-soon { font-size: 16px; color: #ffffff; margin-bottom: 16px; }
-        /* Real attendee quote (same one used near checkout on lp.html and
-           event.html) — proof sitting right next to the ask, not just
-           further down the page in the testimonials grid. */
+        /* Real attendee quote (rotates through all live testimonials — same
+           rotator pattern duplicated on lp.html/event.html/events.html) —
+           proof sitting right next to the ask, not just further down the
+           page in the testimonials grid. */
         .event-cta-quote {
             background: rgba(255, 255, 255, 0.14);
             border: 1px solid rgba(255, 255, 255, 0.3);
@@ -749,11 +750,15 @@
             margin: 18px auto 0;
             max-width: 480px;
             text-align: left;
+            transition: opacity 0.4s ease;
         }
+        .event-cta-quote.fade-out { opacity: 0; }
         .event-cta-quote p {
             font-size: 14px; line-height: 1.55; color: #ffffff;
             font-style: italic; margin: 0 0 6px;
+            min-height: 2.4em;
         }
+        .event-cta-quote p::before, .event-cta-quote p::after { content: '"'; }
         .event-cta-quote .who {
             font-size: 12px; font-weight: 700; color: #ffffff;
             font-style: normal; opacity: 0.85;
@@ -942,12 +947,65 @@
                 <li>We aim for a balanced gender mix</li>
                 <li>Know who you clicked with that same night</li>
             </ul>
-            <div class="event-cta-quote">
-                <p>"Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!"</p>
-                <div class="who">— Quang</div>
+            <div class="event-cta-quote" id="ctaQuote">
+                <p id="ctaQuoteText"></p>
+                <div class="who" id="ctaQuoteWho"></div>
             </div>
         </div>
     </section>
+    <script>
+      // Rotating testimonial — cycles through all live testimonials instead of
+      // freezing on one. Same rotator pattern duplicated on lp.html/event.html/
+      // events.html, each adapted to that file's own quote-box markup.
+      (function () {
+        var TESTIMONIALS = [
+          { q: "Everyone was so lively and some of us connected so well we chatted well into the evening.", who: "Molly" },
+          { q: "Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!", who: "Quang" },
+          { q: "Good networking opportunities!", who: "Jeff" },
+          { q: "Fantastic people & fantastic vibes. Great fun.", who: "Luke" },
+          { q: "Cool Atmosphere!", who: "James" },
+          { q: "A night to remember!", who: "Alex" }
+        ];
+        var textEl = document.getElementById('ctaQuoteText');
+        var whoEl = document.getElementById('ctaQuoteWho');
+        var fadeEl = document.getElementById('ctaQuote');
+        if (!textEl || !whoEl || !fadeEl) return;
+        var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var idx = 0, TYPE_MS = 32, HOLD_MS = 3400, FADE_MS = 400;
+
+        function typeNext() {
+          var item = TESTIMONIALS[idx];
+          whoEl.textContent = '— ' + item.who;
+          textEl.textContent = '';
+          var i = 0;
+          (function type() {
+            if (i <= item.q.length) {
+              textEl.textContent = item.q.slice(0, i);
+              i++;
+              setTimeout(type, TYPE_MS);
+            } else {
+              setTimeout(advance, HOLD_MS);
+            }
+          })();
+        }
+        function advance() {
+          fadeEl.classList.add('fade-out');
+          setTimeout(function () {
+            idx = (idx + 1) % TESTIMONIALS.length;
+            fadeEl.classList.remove('fade-out');
+            typeNext();
+          }, FADE_MS);
+        }
+        function tickStatic() {
+          var item = TESTIMONIALS[idx];
+          textEl.textContent = item.q;
+          whoEl.textContent = '— ' + item.who;
+          idx = (idx + 1) % TESTIMONIALS.length;
+          setTimeout(tickStatic, HOLD_MS);
+        }
+        if (reduceMotion) { tickStatic(); } else { typeNext(); }
+      })();
+    </script>
     <script>
       // Resolve the actual event ID from /api/next-event so the Get Tickets
       // button deep-links straight into the events-page dialog

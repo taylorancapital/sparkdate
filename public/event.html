@@ -332,13 +332,14 @@
 
         /* Reassurance right at the moment of decision -- immediately before
            the buy button, the exact spot someone hesitates or bounces.
-           Real testimonial (same one already proven near checkout on
-           lp.html — see public/index.html's testimonials section for the
-           canonical wording, kept verbatim here) plus a restated version of
-           the cancellation policy already spelled out in "What to Expect"
-           above; repeating the free-transfer point right here targets the
-           "what if my plans change" hesitation at the exact moment it would
-           otherwise cause someone to close the tab instead of buying. */
+           Testimonial rotates through all live quotes (see public/index.html's
+           testimonials section for the canonical wording, kept verbatim here;
+           same rotator pattern duplicated on events.html/lp.html/index.html)
+           plus a restated version of the cancellation policy already spelled
+           out in "What to Expect" above; repeating the free-transfer point
+           right here targets the "what if my plans change" hesitation at the
+           exact moment it would otherwise cause someone to close the tab
+           instead of buying. */
         .checkout-reassurance {
             background: rgba(74, 222, 128, 0.06);
             border: 1px solid rgba(74, 222, 128, 0.2);
@@ -349,7 +350,9 @@
             line-height: 1.5;
             color: var(--cream);
         }
-        .checkout-reassurance .rq { font-style: italic; color: rgba(245,243,240,0.9); margin-bottom: 6px; }
+        .checkout-reassurance .rq { font-style: italic; color: rgba(245,243,240,0.9); margin-bottom: 6px; min-height: 3em; transition: opacity 0.4s ease; }
+        .checkout-reassurance .rq.fade-out { opacity: 0; }
+        .checkout-reassurance .rq #rqText::before, .checkout-reassurance .rq #rqText::after { content: '"'; }
         .checkout-reassurance .rq .who { font-style: normal; font-weight: 600; color: var(--success); }
         .checkout-reassurance .rp { font-size: 11.5px; color: rgba(245,243,240,0.65); }
 
@@ -708,9 +711,60 @@
                         </div>
 
                         <div class="checkout-reassurance">
-                            <div class="rq">"Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!" <span class="who">— Quang</span></div>
+                            <div class="rq" id="rqBox"><span id="rqText"></span> <span class="who" id="rqWho"></span></div>
                             <div class="rp">🔒 Secure checkout · 🔄 Free ticket transfer if your plans change · A real host is on-site the whole night</div>
                         </div>
+                        <script>
+                          // Rotating testimonial — see index.html for the canonical copy of this pattern.
+                          (function () {
+                            var TESTIMONIALS = [
+                              { q: "Everyone was so lively and some of us connected so well we chatted well into the evening.", who: "Molly" },
+                              { q: "Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!", who: "Quang" },
+                              { q: "Good networking opportunities!", who: "Jeff" },
+                              { q: "Fantastic people & fantastic vibes. Great fun.", who: "Luke" },
+                              { q: "Cool Atmosphere!", who: "James" },
+                              { q: "A night to remember!", who: "Alex" }
+                            ];
+                            var textEl = document.getElementById('rqText');
+                            var whoEl = document.getElementById('rqWho');
+                            var fadeEl = document.getElementById('rqBox');
+                            if (!textEl || !whoEl || !fadeEl) return;
+                            var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                            var idx = 0, TYPE_MS = 32, HOLD_MS = 3400, FADE_MS = 400;
+
+                            function typeNext() {
+                              var item = TESTIMONIALS[idx];
+                              whoEl.textContent = '— ' + item.who;
+                              textEl.textContent = '';
+                              var i = 0;
+                              (function type() {
+                                if (i <= item.q.length) {
+                                  textEl.textContent = item.q.slice(0, i);
+                                  i++;
+                                  setTimeout(type, TYPE_MS);
+                                } else {
+                                  setTimeout(advance, HOLD_MS);
+                                }
+                              })();
+                            }
+                            function advance() {
+                              fadeEl.classList.add('fade-out');
+                              setTimeout(function () {
+                                idx = (idx + 1) % TESTIMONIALS.length;
+                                fadeEl.classList.remove('fade-out');
+                                typeNext();
+                              }, FADE_MS);
+                            }
+                            function tickStatic() {
+                              var item = TESTIMONIALS[idx];
+                              textEl.textContent = item.q;
+                              whoEl.textContent = '— ' + item.who;
+                              idx = (idx + 1) % TESTIMONIALS.length;
+                              setTimeout(tickStatic, HOLD_MS);
+                            }
+                            if (reduceMotion) { tickStatic(); } else { typeNext(); }
+                          })();
+                        </script>
 
                         <button type="submit" class="checkout-btn" id="checkoutBtn" disabled>Select Gender</button>
 
