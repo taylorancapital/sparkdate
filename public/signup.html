@@ -570,6 +570,31 @@
         .sp-polaroid:hover { transform: rotate(0deg) scale(1.08); z-index: 20 !important; }
         .sp-polaroid img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; }
         .sp-polaroid-cap { height: 58px; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 4px 6px 0; text-align: center; font-family: 'Caveat', cursive; font-size: 18px; font-weight: 700; color: #0a0e27; letter-spacing: 0.5px; line-height: 1.15; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+        /* Real attendee quote, rotating through all live testimonials --
+           same rotator pattern duplicated on index.html/lp.html/event.html/
+           events.html/city.html, styled here to match this page's own
+           coral CTA card (same treatment as index.html's .event-cta-quote). */
+        .signup-cta-quote {
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin: 18px auto 0;
+            max-width: 480px;
+            text-align: left;
+            transition: opacity 0.4s ease;
+        }
+        .signup-cta-quote.fade-out { opacity: 0; }
+        .signup-cta-quote p {
+            font-size: 14px; line-height: 1.55; color: #ffffff;
+            font-style: italic; margin: 0 0 6px;
+            min-height: 2.4em;
+        }
+        .signup-cta-quote p::before, .signup-cta-quote p::after { content: '"'; }
+        .signup-cta-quote .who {
+            font-size: 12px; font-weight: 700; color: #ffffff;
+            font-style: normal; opacity: 0.85;
+        }
     </style>
     <!-- Meta Pixel Code -->
     <script>
@@ -625,7 +650,63 @@
                 <a id="suTicketBtn" href="/events" style="display:inline-block;background:#0a0e27;color:#fff;padding:16px 40px;border-radius:4px;text-decoration:none;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:14px;">🎟️ Get Tickets</a>
                 <div style="font-size:12px;opacity:0.85;margin-top:14px;">Secure checkout · no account needed</div>
                 <div style="margin-top:14px;"><a href="/events" style="color:#fff;text-decoration:underline;font-size:13px;opacity:0.9;">See all upcoming events →</a></div>
+
+                <div class="signup-cta-quote" id="suQuote">
+                    <p id="suQuoteText"></p>
+                    <div class="who" id="suQuoteWho"></div>
+                </div>
             </div>
+            <script>
+              // Rotating testimonial — see index.html for the canonical copy of this pattern.
+              (function () {
+                var TESTIMONIALS = [
+                  { q: "Everyone was so lively and some of us connected so well we chatted well into the evening.", who: "Molly" },
+                  { q: "Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!", who: "Quang" },
+                  { q: "Good networking opportunities!", who: "Jeff" },
+                  { q: "Fantastic people & fantastic vibes. Great fun.", who: "Luke" },
+                  { q: "Cool Atmosphere!", who: "James" },
+                  { q: "A night to remember!", who: "Alex" }
+                ];
+                var textEl = document.getElementById('suQuoteText');
+                var whoEl = document.getElementById('suQuoteWho');
+                var fadeEl = document.getElementById('suQuote');
+                if (!textEl || !whoEl || !fadeEl) return;
+                var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                var idx = 0, TYPE_MS = 32, HOLD_MS = 3400, FADE_MS = 400;
+
+                function typeNext() {
+                  var item = TESTIMONIALS[idx];
+                  whoEl.textContent = '— ' + item.who;
+                  textEl.textContent = '';
+                  var i = 0;
+                  (function type() {
+                    if (i <= item.q.length) {
+                      textEl.textContent = item.q.slice(0, i);
+                      i++;
+                      setTimeout(type, TYPE_MS);
+                    } else {
+                      setTimeout(advance, HOLD_MS);
+                    }
+                  })();
+                }
+                function advance() {
+                  fadeEl.classList.add('fade-out');
+                  setTimeout(function () {
+                    idx = (idx + 1) % TESTIMONIALS.length;
+                    fadeEl.classList.remove('fade-out');
+                    typeNext();
+                  }, FADE_MS);
+                }
+                function tickStatic() {
+                  var item = TESTIMONIALS[idx];
+                  textEl.textContent = item.q;
+                  whoEl.textContent = '— ' + item.who;
+                  idx = (idx + 1) % TESTIMONIALS.length;
+                  setTimeout(tickStatic, HOLD_MS);
+                }
+                if (reduceMotion) { tickStatic(); } else { typeNext(); }
+              })();
+            </script>
 
             <!-- Memberships coming soon (de-emphasized) -->
             <p style="text-align:center;color:rgba(245,243,240,0.6);font-size:14px;margin:24px auto 8px;max-width:560px;line-height:1.6;">
