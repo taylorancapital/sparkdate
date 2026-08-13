@@ -3,19 +3,29 @@
  * scripts/fetch-meta-insights.js
  *
  * Read-only. Pulls Meta Ads campaign-level performance (spend, clicks,
- * results, cost-per-result) via the Marketing API's Insights endpoint, so it
- * can sit next to the manually-exported GA4 files in the nightly review
- * instead of being hand-exported from Ads Manager separately.
+ * results, cost-per-result) via the Marketing API's Insights endpoint and
+ * drops it into the same "Night Tasks" folder the GA4 exports are manually
+ * saved to, so the nightly Cowork review picks it up as just another input
+ * file alongside them.
+ *
+ * Run this yourself before the nightly task fires — same manual step as
+ * exporting the GA4 CSVs. The scheduled task only sees files already sitting
+ * in that folder; it does not fetch anything itself and holds no Meta token.
  *
  * Reuses the same system-user access token wired up for the Conversions API
  * (META_CAPI_ACCESS_TOKEN) — it was minted with ads_management +
  * business_management scope, which also covers reading Insights, so no new
  * Meta-side token or permission is needed.
  *
+ * The CSV opens with a `# <since>-<until>` date-range header line matching the
+ * convention GA4's own exports use, since the nightly review identifies each
+ * file's reporting window by reading exactly that line.
+ *
  * Usage:
- *   node scripts/fetch-meta-insights.js                  # yesterday
+ *   node scripts/fetch-meta-insights.js                   # yesterday -> Night Tasks/
  *   node scripts/fetch-meta-insights.js --days=7          # last 7 days
- *   node scripts/fetch-meta-insights.js --out=report.csv  # also write CSV
+ *   node scripts/fetch-meta-insights.js --out=other.csv   # write somewhere else
+ *   node scripts/fetch-meta-insights.js --no-file         # print only, write nothing
  *
  * Env vars:
  *   META_CAPI_ACCESS_TOKEN  required — same token used by lib/meta-capi.js
@@ -28,8 +38,14 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
 
 const GRAPH_VERSION = 'v21.0';
+
+// Where the nightly Cowork review looks for its input files. Resolved from
+// this script's own location so it lands in the right place no matter which
+// directory the script is invoked from.
+const NIGHT_TASKS_DIR = path.join(__dirname, '..', 'Business Plan', 'files', 'Night Tasks');
 
 const need = (k) => {
   if (!process.env[k]) {
@@ -42,12 +58,13 @@ const need = (k) => {
 const accessToken = need('META_CAPI_ACCESS_TOKEN');
 
 function parseArgs(argv) {
-  const out = { days: 1, out: null };
+  const out = { days: 1, out: null, noFile: false };
   for (const arg of argv) {
     const daysMatch = arg.match(/^--days=(\d+)$/);
     const outMatch = arg.match(/^--out=(.+)$/);
     if (daysMatch) out.days = parseInt(daysMatch[1], 10);
     else if (outMatch) out.out = outMatch[1];
+    else if (arg === '--no-file') out.noFile = true;
   }
   return out;
 }
@@ -138,10 +155,18 @@ function printTable(rows) {
   }
 }
 
-function writeCsv(rows, outPath) {
+function writeCsv(rows, outPath, since, until) {
   const header = ['campaign_name', 'adset_name', 'spend', 'impressions', 'clicks', 'cpc', 'actions'];
   const escape = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
-  const lines = [header.join(',')];
+
+  // Leading `#` metadata lines mirror GA4's own CSV exports — the nightly
+  // review reads the `# <since>-<until>` line to establish each file's
+  // reporting window, so this file needs to carry one in the same shape.
+  const lines = [
+    `# ${since.replace(/-/g, '')}-${until.replace(/-/g, '')}`,
+    '# source: Meta Marketing API (Insights, level=campaign)',
+    header.join(','),
+  ];
   for (const r of rows) {
     lines.push([
       r.campaign_name,
@@ -153,12 +178,14 @@ function writeCsv(rows, outPath) {
       summarizeActions(r.actions),
     ].map(escape).join(','));
   }
+
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, lines.join('\n') + '\n', 'utf8');
   console.log(`\nWrote ${rows.length} row(s) to ${outPath}`);
 }
 
 (async () => {
-  const { days, out } = parseArgs(process.argv.slice(2));
+  const { days, out, noFile } = parseArgs(process.argv.slice(2));
 
   const until = new Date();
   until.setDate(until.getDate() - 1); // yesterday, so a same-day partial day never shows as a suspicious dip
@@ -175,7 +202,13 @@ function writeCsv(rows, outPath) {
   console.log('');
   printTable(rows);
 
-  if (out) writeCsv(rows, out);
+  // Default destination is the Night Tasks folder, so the plain no-argument
+  // run puts the file exactly where the nightly review will find it without
+  // anyone having to remember the path.
+  if (!noFile) {
+    const outPath = out || path.join(NIGHT_TASKS_DIR, `meta-insights-${ymd(until)}.csv`);
+    writeCsv(rows, outPath, ymd(since), ymd(until));
+  }
 
   console.log('────────────────────────────────────────────────────');
   // No explicit process.exit() here: fetch's underlying socket handles can
