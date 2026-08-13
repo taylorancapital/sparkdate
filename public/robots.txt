@@ -1,10 +1,20 @@
 # SparkDate — robots.txt
 # Public landing pages are indexable. Auth-gated and conversion pages are not.
+#
+# /account and /admin are deliberately NOT disallowed here even though we
+# never want them indexed. They carry <meta name="robots" content="noindex,
+# nofollow"> instead, and a robots.txt block would defeat that: a page Google
+# is forbidden to crawl is a page whose noindex tag Google can never read, so
+# the URL can still surface in results (bare, via inbound links) with no way
+# to remove it. Blocking crawl and requesting de-indexing are mutually
+# exclusive — pick one, and for these two the meta tag is the one that works.
+# Both are auth-gated client-side, so a crawl only ever sees an empty shell.
+#
+# /api/ stays disallowed: those endpoints return JSON, carry no meta tags of
+# their own, and have nothing to de-index.
 
 User-agent: *
 Allow: /
-Disallow: /account
-Disallow: /admin
 Disallow: /api/
 
 Sitemap: https://sparkdate.date/sitemap.xml
