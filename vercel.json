@@ -189,6 +189,14 @@
       "destination": "/api/next-event?render=city&city=lancaster"
     },
     {
+      "source": "/colorado-springs",
+      "destination": "/api/next-event?render=city&city=colorado-springs"
+    },
+    {
+      "source": "/wilmington",
+      "destination": "/api/next-event?render=city&city=wilmington"
+    },
+    {
       "source": "/sitemap.xml",
       "destination": "/api/next-event?render=sitemap"
     }
