@@ -57,21 +57,6 @@
         .iab-banner button { padding: 6px 12px; font-size: 12px; border-radius: 4px; }
         .iab-banner #iabDismiss { background: transparent; color: var(--cream); opacity: 0.6; padding: 4px 8px; }
 
-        /* Checkout intercept for in-app browsers: GA4 showed the dismissible
-           top banner alone wasn't stopping people from clicking straight into
-           a checkout that's known to fail here (Facebook paid traffic was
-           59% of visits and $0 revenue). This panel takes over the ticket
-           button's own click instead of just hoping they read the banner
-           above it first. Not display:none by default in CSS -- JS toggles
-           it, matching the .event card's own visibility pattern. */
-        .iab-checkout-block { display: none; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.35); border-radius: 8px; padding: 16px 18px; margin-top: -6px; margin-bottom: 8px; text-align: left; }
-        .iab-checkout-block.active { display: block; }
-        .iab-checkout-block .icb-title { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 14px; color: #fff; margin-bottom: 6px; }
-        .iab-checkout-block .icb-body { font-size: 13px; line-height: 1.5; color: rgba(245,243,240,0.8); margin-bottom: 14px; }
-        .iab-checkout-block .icb-body strong { color: var(--coral); }
-        .iab-checkout-block .icb-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-        .iab-checkout-block .icb-copy { flex: 1; min-width: 140px; padding: 10px 14px; background: rgba(255,107,107,0.22); color: #fff; border: 1px solid rgba(255,107,107,0.5); border-radius: 4px; font-weight: 600; font-family: inherit; font-size: 13px; cursor: pointer; }
-        .iab-checkout-block .icb-continue { display: block; text-align: center; font-size: 11px; color: rgba(245,243,240,0.45); text-decoration: underline; cursor: pointer; background: none; border: none; font-family: inherit; padding: 4px; width: 100%; }
         /* Social proof: rotates through all live testimonials, between the
            ticket card and the waitlist. Same rotator pattern duplicated on
            index.html/event.html/events.html. */
@@ -85,7 +70,9 @@
            capture (which works fine — no Stripe) rather than a dead-end
            checkout. Applied via a body class so it's pure CSS, no DOM reorder. */
         body.iab .capture { border-color: var(--coral); box-shadow: 0 0 0 1px var(--coral), 0 8px 30px rgba(255,107,107,0.18); }
-        body.iab .event { opacity: 0.9; }
+        /* The ticket card used to be dimmed here (opacity 0.9) to push in-app
+           visitors toward email instead. Now that the tap isn't blocked, they
+           are the cohort we most want buying -- no de-emphasis. */
 
         /* Social proof: real event photos, no fabricated stats -- shared
            block, kept in sync across signup.html/events.html/event.html/lp.html.
@@ -163,6 +150,10 @@
              page works normally underneath. -->
         <div class="iab-banner" id="iabBanner" style="display:none">
             <span>Checkout can fail inside Instagram/Facebook. Tap <strong>⋮</strong> or <strong>•••</strong> → <strong>"Open in browser"</strong> to buy — or join the list below and we'll email you a link that works.</span>
+            <!-- Android only: revealed by the script below, which can hand the
+                 page straight to Chrome. Hidden on iOS, where no such jump
+                 exists and the instructions above are the only route out. -->
+            <button type="button" id="iabOpenChrome" style="display:none">Open in Chrome</button>
             <button type="button" id="iabCopyLink">Copy link</button>
             <button type="button" id="iabDismiss" aria-label="Dismiss">×</button>
         </div>
@@ -179,19 +170,16 @@
             <div class="fine">Secure checkout · no account needed</div>
         </div>
 
-        <!-- Checkout intercept: shown INSTEAD of navigating to checkout when
-             the Get Tickets tap is caught inside an in-app browser (see the
-             click handler below). The dismissible banner above stays as an
-             early heads-up, but doesn't stop the tap itself from proceeding
-             into a checkout that's known to fail here -- this does. -->
-        <div class="iab-checkout-block" id="iabCheckoutBlock">
-            <div class="icb-title">This won't complete inside Instagram/Facebook</div>
-            <div class="icb-body">Checkout uses a security step (3D Secure) that <strong>can't run in this app's built-in browser</strong> — your card could get declined or the page could hang, even though nothing's wrong with your card. Tap <strong>⋮</strong> or <strong>•••</strong> in the top corner → <strong>"Open in browser"</strong>, or copy the link below and paste it into Safari/Chrome.</div>
-            <div class="icb-actions">
-                <button type="button" class="icb-copy" id="icbCopyLink">📋 Copy Link</button>
-            </div>
-            <button type="button" class="icb-continue" id="icbContinueAnyway">Continue to checkout anyway (may not work) →</button>
-        </div>
+        <!-- The checkout-intercept panel that used to sit here has been removed.
+             It caught the Get Tickets tap inside an in-app browser and showed a
+             copy-paste wall instead of navigating. Meta Insights for Aug 7-13
+             showed why that had to go: 409 ad clicks produced 321 landing-page
+             views but only 2 view-content events and zero purchases -- almost
+             nobody reached checkout at all, because the tap itself was being
+             stopped here. Blocking everyone to avoid a 3DS failure that only
+             hits some cards converted a possible loss into a certain one. The
+             dismissible banner above still warns (and offers the Chrome jump on
+             Android), but the button now navigates for everyone. -->
 
         <!-- Real attendee testimonials (rotates through all of them, same as the homepage). -->
         <div class="lp-quote" id="lpQuoteBox">
@@ -341,23 +329,69 @@
         function isInAppBrowser() {
           return /FBAN|FBAV|Instagram|Line\/|TikTok|BytedanceWebview|Twitter/i.test(navigator.userAgent);
         }
+
+        // Android-only escape hatch out of the Instagram/Facebook webview.
+        // An intent:// URL hands the page to Chrome, which is the only
+        // reliable way to get this cohort into a browser where Stripe's 3DS
+        // iframe actually works. iOS deliberately has no equivalent -- Apple
+        // gives a webview no supported way to pass a URL to Safari, and the
+        // old x-safari-https:// trick no longer works in current FB/IG
+        // webviews -- so that cohort falls through to the steer/banner below.
+        // Duplicated verbatim in event.html and events.html (no shared
+        // bundle; see the polaroid/nav precedent).
+        // isAuto=true is the unprompted attempt on page load, which webviews
+        // may refuse for lacking a user gesture; it is therefore best-effort
+        // and capped at once per session so a silent failure doesn't retry
+        // forever. isAuto=false is the button press, which carries a real
+        // gesture, is the reliable path, and is never rate-limited.
+        function tryEscapeInAppBrowser(isAuto) {
+          if (!/Android/i.test(navigator.userAgent)) return false;
+          if (isAuto) {
+            var tried; try { tried = sessionStorage.getItem('iabEscapeTried'); } catch (_) { tried = null; }
+            if (tried) return false;
+            try { sessionStorage.setItem('iabEscapeTried', '1'); } catch (_) {}
+          }
+          if (typeof gtag === 'function') {
+            gtag('event', 'in_app_browser_escape_attempt', { platform: 'android', source: 'lp', trigger: isAuto ? 'auto' : 'button' });
+          }
+          try {
+            location.href = 'intent://' + location.href.replace(/^https?:\/\//, '') +
+              '#Intent;scheme=https;package=com.android.chrome;end';
+            return true;
+          } catch (_) { return false; }
+        }
+
         (function () {
           if (!isInAppBrowser()) return;
-          // Stripe 3DS checkout physically breaks in these webviews, so steer
-          // this cohort (~17% of traffic, per GA4) to the email capture, which
-          // uses no Stripe and works fine here — better a captured lead than a
-          // bounce at a dead-end checkout. The steer (body.iab highlight CSS +
-          // reworded divider/waitlist copy) applies even if the banner was
-          // previously dismissed; only the banner itself respects dismissal.
+          // Best-effort: try to leave outright before falling back to the
+          // email-capture steer -- a buyer who lands in Chrome can just
+          // complete checkout normally.
+          tryEscapeInAppBrowser(true);
+          // Email capture is offered as a fallback, not a replacement. It used
+          // to be a steer away from buying (the ticket card was dimmed and the
+          // copy told people checkout wouldn't work) -- which made sense while
+          // the tap was blocked outright, and stopped making sense the moment
+          // it wasn't. 3DS only fails for some cards, so the ticket card stays
+          // at full strength and the email line is now a genuine "or".
+          // Applies even if the banner was dismissed; only the banner itself
+          // respects dismissal.
           try { document.body.classList.add('iab'); } catch (_) {}
-          if ($('lpDivider')) $('lpDivider').textContent = 'In-app browser? Get a working checkout link by email ↓';
-          if ($('lpWaitlistCopy')) $('lpWaitlistCopy').textContent = "Checkout can glitch inside Instagram/Facebook. Drop your email and we'll send a link that opens in your normal browser.";
+          if ($('lpDivider')) $('lpDivider').textContent = 'Or get a checkout link by email ↓';
+          if ($('lpWaitlistCopy')) $('lpWaitlistCopy').textContent = "If checkout gives you trouble in Instagram/Facebook, drop your email and we'll send a link that opens in your normal browser.";
           var dismissed; try { dismissed = sessionStorage.getItem('iabDismissed'); } catch (_) { dismissed = null; }
           if (dismissed) return;
           var banner = $('iabBanner');
           if (!banner) return;
           banner.style.display = 'flex';
           if (typeof gtag === 'function') gtag('event', 'in_app_browser_detected', { source: 'lp' });
+          // Only Android can actually make this jump, so only Android is
+          // offered it -- an iOS button that silently did nothing would be
+          // worse than the "Open in browser" instructions it sits beside.
+          var openChromeBtn = $('iabOpenChrome');
+          if (openChromeBtn && /Android/i.test(navigator.userAgent)) {
+            openChromeBtn.style.display = '';
+            openChromeBtn.addEventListener('click', function () { tryEscapeInAppBrowser(false); });
+          }
           var dismissBtn = $('iabDismiss');
           if (dismissBtn) dismissBtn.addEventListener('click', function () {
             banner.style.display = 'none';
@@ -508,45 +542,28 @@
           // instead of only inferable from Vercel logs after the fact.
           if (typeof gtag === 'function') gtag('event', 'next_event_fetch_failed', { source: 'lp', target_event_id: requestedEventId || undefined });
         });
-        // Checkout intercept for in-app browsers. GA4 (2026-07-24 analysis)
-        // showed Facebook paid traffic was 59% of visits and $0 revenue while
-        // Eventbrite (opens in a real browser) converted fine -- strong
-        // evidence the old passive banner wasn't stopping people from
-        // tapping straight into a checkout that's known to fail here. This
-        // catches the tap itself instead of just hoping the banner got read.
-        // Respects an explicit "continue anyway" choice for the rest of the
-        // session, and never blocks anyone the UA sniff doesn't flag.
-        if (btn) btn.addEventListener('click', function (e) {
-          var override; try { override = sessionStorage.getItem('iabCheckoutOverride'); } catch (_) { override = null; }
-          if (isInAppBrowser() && !override) {
-            e.preventDefault();
-            var block = $('iabCheckoutBlock');
-            if (block) {
-              block.classList.add('active');
-              block.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-            if (typeof gtag === 'function') gtag('event', 'in_app_browser_checkout_blocked', { source: 'lp', target_event_id: requestedEventId || undefined });
-            return;
+        // The Get Tickets tap now navigates for everyone. It used to be
+        // intercepted inside in-app browsers and answered with a copy-paste
+        // wall; Meta Insights for Aug 7-13 showed that costing more than it
+        // saved (409 clicks -> 321 landing-page views -> 2 view-content -> 0
+        // purchases: the tap was the wall, not checkout). 3DS only fails for
+        // some cards, so blocking every in-app visitor turned a possible loss
+        // into a certain one.
+        //
+        // in_app_browser is tagged on the event so the follow-up is
+        // measurable: compare begin_checkout -> purchase for in-app vs normal
+        // browsers over the next couple of weeks. If in-app conversion really
+        // is near zero, that's the argument for Stripe hosted Checkout (a
+        // full-page redirect works in these webviews because what breaks is
+        // the embedded iframe, not top-level navigation).
+        if (btn) btn.addEventListener('click', function () {
+          if (typeof gtag === 'function') {
+            gtag('event', 'begin_checkout', {
+              source: 'lp',
+              in_app_browser: isInAppBrowser(),
+              target_event_id: requestedEventId || undefined
+            });
           }
-          if (typeof gtag === 'function') gtag('event', 'begin_checkout', { source: 'lp', target_event_id: requestedEventId || undefined });
-        });
-
-        var icbCopyBtn = $('icbCopyLink');
-        if (icbCopyBtn) icbCopyBtn.addEventListener('click', function () {
-          try {
-            navigator.clipboard.writeText(location.href);
-            icbCopyBtn.textContent = '✓ Copied!';
-            setTimeout(function () { icbCopyBtn.textContent = '📋 Copy Link'; }, 2000);
-          } catch (_) {}
-          if (typeof gtag === 'function') gtag('event', 'in_app_browser_copy_link', { source: 'lp', target_event_id: requestedEventId || undefined });
-        });
-
-        var icbContinueBtn = $('icbContinueAnyway');
-        if (icbContinueBtn) icbContinueBtn.addEventListener('click', function () {
-          try { sessionStorage.setItem('iabCheckoutOverride', '1'); } catch (_) {}
-          if (typeof gtag === 'function') gtag('event', 'in_app_browser_checkout_override', { source: 'lp', target_event_id: requestedEventId || undefined });
-          if (typeof gtag === 'function') gtag('event', 'begin_checkout', { source: 'lp', target_event_id: requestedEventId || undefined });
-          if (btn && btn.href) location.href = btn.href;
         });
 
         // Email capture

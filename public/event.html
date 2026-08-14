@@ -503,6 +503,10 @@
     <div class="iab-banner">
         <div class="iab-banner-inner" id="iabBanner" style="display:none">
             <span>Having trouble? Tap <strong>⋮</strong> or <strong>•••</strong> and choose "Open in Browser" for a smoother checkout.</span>
+            <!-- Android only: revealed by the script below, which can hand the
+                 page straight to Chrome. Hidden on iOS, where no such jump
+                 exists and the copy-link instructions are the only option. -->
+            <button type="button" id="iabOpenChrome" style="display:none">Open in Chrome</button>
             <button type="button" id="iabCopyLink">Copy link</button>
             <button type="button" id="iabDismiss" aria-label="Dismiss">×</button>
         </div>
@@ -806,14 +810,58 @@
         function isInAppBrowser() {
           return /FBAN|FBAV|Instagram|Line\/|TikTok|BytedanceWebview|Twitter/i.test(navigator.userAgent);
         }
+
+        // Android-only escape hatch out of the Instagram/Facebook webview.
+        // An intent:// URL hands the page to Chrome, which is the only
+        // reliable way to get this cohort into a browser where Stripe's 3DS
+        // iframe actually works. iOS deliberately has no equivalent -- Apple
+        // gives a webview no supported way to pass a URL to Safari, and the
+        // old x-safari-https:// trick no longer works in current FB/IG
+        // webviews -- so that cohort falls through to the banner below.
+        // Duplicated verbatim in lp.html and events.html (no shared bundle;
+        // see the polaroid/nav precedent).
+        // isAuto=true is the unprompted attempt on page load, which webviews
+        // may refuse for lacking a user gesture; it is therefore best-effort
+        // and capped at once per session so a silent failure doesn't retry
+        // forever. isAuto=false is the button press, which carries a real
+        // gesture, is the reliable path, and is never rate-limited.
+        function tryEscapeInAppBrowser(isAuto) {
+          if (!/Android/i.test(navigator.userAgent)) return false;
+          if (isAuto) {
+            var tried; try { tried = sessionStorage.getItem('iabEscapeTried'); } catch (_) { tried = null; }
+            if (tried) return false;
+            try { sessionStorage.setItem('iabEscapeTried', '1'); } catch (_) {}
+          }
+          if (typeof gtag === 'function') {
+            gtag('event', 'in_app_browser_escape_attempt', { platform: 'android', trigger: isAuto ? 'auto' : 'button' });
+          }
+          try {
+            location.href = 'intent://' + location.href.replace(/^https?:\/\//, '') +
+              '#Intent;scheme=https;package=com.android.chrome;end';
+            return true;
+          } catch (_) { return false; }
+        }
+
         (function () {
           if (!isInAppBrowser()) return;
+          // Best-effort: try to leave outright. If the webview refuses (no
+          // gesture) we're still here, and the banner below offers the same
+          // jump as a real button press.
+          tryEscapeInAppBrowser(true);
           var dismissed; try { dismissed = sessionStorage.getItem('iabDismissed'); } catch (_) { dismissed = null; }
           if (dismissed) return;
           var banner = document.getElementById('iabBanner');
           if (!banner) return;
           banner.style.display = 'flex';
           if (typeof gtag === 'function') gtag('event', 'in_app_browser_detected', { source: 'event' });
+          // Only Android can actually make this jump, so only Android is
+          // offered it -- an iOS button that silently did nothing would be
+          // worse than the copy-link instructions it sits next to.
+          var openChromeBtn = document.getElementById('iabOpenChrome');
+          if (openChromeBtn && /Android/i.test(navigator.userAgent)) {
+            openChromeBtn.style.display = '';
+            openChromeBtn.addEventListener('click', function () { tryEscapeInAppBrowser(false); });
+          }
           var dismissBtn = document.getElementById('iabDismiss');
           if (dismissBtn) dismissBtn.addEventListener('click', function () {
             banner.style.display = 'none';

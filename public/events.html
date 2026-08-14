@@ -751,6 +751,21 @@
            #modalTrialDisclosure div keeps its own id so applyUserContext()
            can still hide just that line for card-on-file members while the
            reassurance line underneath stays visible for everyone. */
+        /* In-app-browser warning inside the checkout step. Amber rather than
+           the usual coral: this is a "this will probably fail" caution, and
+           it needs to out-rank the green reassurance box directly beneath it. */
+        .modal-iab-warn {
+            display: block; background: rgba(212, 175, 55, 0.1);
+            border: 1px solid rgba(212, 175, 55, 0.45); border-radius: 4px;
+            padding: 12px 14px; margin-bottom: 14px; font-size: 12.5px;
+            line-height: 1.5; color: var(--cream);
+        }
+        .modal-iab-warn strong { display: block; color: var(--gold); margin-bottom: 4px; }
+        .modal-iab-warn button {
+            margin: 8px 8px 0 0; padding: 8px 14px; font-size: 12px; font-weight: 700;
+            border-radius: 4px; border: 1px solid rgba(212, 175, 55, 0.5);
+            background: rgba(212, 175, 55, 0.15); color: var(--cream); cursor: pointer;
+        }
         .checkout-trust {
             background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.3);
             border-radius: 4px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px;
@@ -1077,6 +1092,20 @@
                         <div class="price-row subtotal"><span id="modalSubtotalLabel">Ticket</span><span id="modalSubtotalPrice">$0.00</span></div>
                         <div class="price-row"><span>Service fee</span><span id="modalServiceFee">$0.00</span></div>
                         <div class="price-row total"><span>Total</span><span class="gold-text" id="modalTotalPrice">$0.00</span></div>
+                    </div>
+
+                    <!-- In-app-browser warning. This page had no user-facing
+                         handling at all despite being a checkout surface --
+                         Stripe's 3DS step can't run inside the Instagram /
+                         Facebook webview, so say so here rather than letting
+                         the card silently fail. Revealed by script below only
+                         for those webviews; the Chrome button within it is
+                         Android-only (iOS has no way out of a webview). -->
+                    <div class="modal-iab-warn" id="modalIabWarn" style="display:none">
+                        <strong>Checkout may fail in this app's browser.</strong>
+                        <span>Instagram and Facebook block the security step your card needs. Open this page in Chrome or Safari to pay.</span>
+                        <button type="button" id="modalIabChrome" style="display:none">🚀 Open in Chrome</button>
+                        <button type="button" id="modalIabCopy">📋 Copy link</button>
                     </div>
 
                     <div class="checkout-testimonial" id="rqBox"><span id="rqText"></span> <span class="who" id="rqWho"></span></div>
@@ -1550,6 +1579,58 @@
         function isInAppBrowserModal() {
             return /FBAN|FBAV|Instagram|Line\/|TikTok|BytedanceWebview|Twitter/i.test(navigator.userAgent);
         }
+
+        // Android-only escape hatch out of the Instagram/Facebook webview: an
+        // intent:// URL hands the page to Chrome, the only reliable way to get
+        // this cohort somewhere Stripe's 3DS iframe actually works. iOS has no
+        // equivalent -- Apple gives a webview no supported way to pass a URL to
+        // Safari -- so iOS sees the warning and copy-link only. isAuto=true is
+        // the unprompted load-time attempt, which a webview may refuse for
+        // lacking a user gesture, so it's best-effort and capped once per
+        // session; the button press carries a gesture and is never capped.
+        // Duplicated verbatim in event.html and lp.html (no shared bundle).
+        function tryEscapeInAppBrowser(isAuto) {
+            if (!/Android/i.test(navigator.userAgent)) return false;
+            if (isAuto) {
+                let tried; try { tried = sessionStorage.getItem('iabEscapeTried'); } catch (_) { tried = null; }
+                if (tried) return false;
+                try { sessionStorage.setItem('iabEscapeTried', '1'); } catch (_) {}
+            }
+            if (typeof gtag === 'function') {
+                gtag('event', 'in_app_browser_escape_attempt', { platform: 'android', source: 'events', trigger: isAuto ? 'auto' : 'button' });
+            }
+            try {
+                location.href = 'intent://' + location.href.replace(/^https?:\/\//, '') +
+                    '#Intent;scheme=https;package=com.android.chrome;end';
+                return true;
+            } catch (_) { return false; }
+        }
+
+        (function () {
+            if (!isInAppBrowserModal()) return;
+            // Best-effort jump out before they ever reach the card field.
+            tryEscapeInAppBrowser(true);
+            if (typeof gtag === 'function') gtag('event', 'in_app_browser_detected', { source: 'events' });
+
+            const warn = document.getElementById('modalIabWarn');
+            if (warn) warn.style.display = 'block';
+
+            const chromeBtn = document.getElementById('modalIabChrome');
+            if (chromeBtn && /Android/i.test(navigator.userAgent)) {
+                chromeBtn.style.display = '';
+                chromeBtn.addEventListener('click', () => tryEscapeInAppBrowser(false));
+            }
+
+            const copyBtn = document.getElementById('modalIabCopy');
+            if (copyBtn) copyBtn.addEventListener('click', () => {
+                try {
+                    navigator.clipboard.writeText(location.href);
+                    copyBtn.textContent = '✓ Copied!';
+                    setTimeout(() => { copyBtn.textContent = '📋 Copy link'; }, 2000);
+                } catch (_) {}
+                if (typeof gtag === 'function') gtag('event', 'in_app_browser_copy_link', { source: 'events' });
+            });
+        })();
 
         const stripeModal = Stripe('pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1');
         const elementsModal = stripeModal.elements({
