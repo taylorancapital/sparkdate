@@ -54,7 +54,11 @@ const GRAPH_VERSION = 'v21.0';
 // Where the nightly Cowork review looks for its input files. Resolved from
 // this script's own location so it lands in the right place no matter which
 // directory the script is invoked from.
-const NIGHT_TASKS_DIR = path.join(__dirname, '..', 'Business Plan', 'files', 'Night Tasks');
+// The repo has two folders by this name. This is the live one -- it holds the
+// freshest GA4 exports and the sparkdate-nightly-claude-code-prompts.md task
+// library the nightly run reads. "Business Plan/files/Night Tasks" is an older
+// copy; writing there means the nightly review never sees the file.
+const NIGHT_TASKS_DIR = path.join(__dirname, '..', 'Night Tasks');
 
 const need = (k) => {
   if (!process.env[k]) {
