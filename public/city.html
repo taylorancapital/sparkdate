@@ -538,6 +538,67 @@
                         a: "Tickets aren't refundable, but you're always welcome to transfer yours to a friend if your plans change."
                     }
                 ]
+            },
+            wilmington: {
+                name: 'Wilmington',
+                state: 'DE',
+                displayName: 'Wilmington, DE',
+                canonicalSlug: 'wilmington',
+                headline: 'Singles Mixers in',
+                headlineHighlight: 'Wilmington',
+                subtitle: 'Curated mixers for Wilmington singles, coming soon. Real venues, real conversations — no swiping required.',
+                content: `
+                    <h2>Dating in Wilmington — a different approach</h2>
+                    <p>Wilmington sits close enough to Philadelphia that a lot of singles here end up on the same handful of apps as everyone else in the region — and run into the same problem: endless swiping, few actual dates. SparkDate is bringing our in-person mixer format to Wilmington, built around the same idea that's already working in Philadelphia and Lancaster — meet people in a real room instead of a photo grid.</p>
+                    <p>We host intimate mixers — 20 to 30 people, with an eye toward a balanced gender mix — at venues with real character. Every guest list is curated ahead of time: we look at intent, vibe, and shared interests before you arrive, so you're not walking into a room of strangers who have nothing in common with you.</p>
+                    <h2>How SparkDate is different from other Wilmington dating events</h2>
+                    <p>Traditional speed dating gives you 3 minutes per person and a scorecard. Our events don't work that way. You arrive, meet a trained host, and spend the evening moving through genuine conversations at your own pace — no whistle, no rigid rotation. Read our guide on <a href="/blog/how-same-night-matching-works">how same-night matching works</a> and <a href="/blog/what-to-wear">what to wear</a> for exactly what to expect.</p>
+                    <p>That night, you tell us who you'd like to stay in touch with. If they feel the same way, we exchange your contact information directly — name and phone number. No Instagram hunting, no "did they mean it?" guessing. Just a direct connection.</p>
+                    <h2>The kind of venue we're building around</h2>
+                    <p>We're looking at spots around the Riverfront and Trolley Square — Wilmington's two liveliest strips for bars and restaurants — for the same relaxed-but-real-occasion energy that's worked well in our other cities. We're still finalizing the Wilmington venue lineup; details will land here as the calendar fills in. Events will run about 6:30 to 9 PM on weeknights, with tickets at $24.99, including entry and — at most venues — a welcome drink.</p>
+                `,
+                faqs: [
+                    {
+                        q: 'Where do SparkDate events take place in Wilmington?',
+                        a: "We're finalizing our Wilmington venue lineup, with a focus on the Riverfront and Trolley Square — the city's most walkable strips for bars and restaurants. The specific venue will be listed on each event page once tickets go live."
+                    },
+                    {
+                        q: 'When do Wilmington events start?',
+                        a: "We're bringing SparkDate to Wilmington soon. Sign up for email updates above and we'll notify you the moment the first Wilmington events open for tickets."
+                    },
+                    {
+                        q: "What's the vibe at a Wilmington SparkDate event?",
+                        a: "Relaxed but intentional, matching the format we run in Philadelphia and Lancaster. Everyone's there to actually meet someone, but there's no rigid rotation or timer — just genuine conversations at your own pace."
+                    },
+                    {
+                        q: 'How many people attend each event?',
+                        a: "We keep events to 20–30 guests, and we aim for a balanced gender mix. We'd rather keep the room intimate so you can have real conversations, rather than burn through 40 faces in 3 minutes each."
+                    },
+                    {
+                        q: 'Can I attend if I bought my ticket on Eventbrite?',
+                        a: "Yes — Eventbrite tickets are fully valid at the door. We recommend also creating a SparkDate account (free) so you can use the same-night matching feature after the event."
+                    },
+                    {
+                        q: 'Is there parking near the venues?',
+                        a: "We'll include specific parking notes on each Wilmington event page once venues are confirmed — the Riverfront and Trolley Square both have garage and metered street options nearby."
+                    },
+                    {
+                        q: 'How do you keep the room safe and comfortable?',
+                        a: "Every attendee's profile is reviewed before we approve their registration, and a trained host is on-site for the whole event. If anything ever feels off, you can flag it to your host in the moment or email support@sparkdate.date afterward — we follow up on every report."
+                    },
+                    {
+                        q: 'How much does a SparkDate event cost in Wilmington?',
+                        a: "Tickets will be $24.99, which includes entry and — at most venues — a welcome drink. No subscription and no hidden fees."
+                    },
+                    {
+                        q: 'What should I wear to a Wilmington SparkDate event?',
+                        a: "Smart casual is a safe bet for any of our venues — think what you'd wear to a nice dinner date. Our blog has a full breakdown by dress code if you want more specifics."
+                    },
+                    {
+                        q: "What if I can't make it after I've registered?",
+                        a: "Tickets aren't refundable, but you're always welcome to transfer yours to a friend if your plans change."
+                    }
+                ]
             }
         };
 
@@ -656,6 +717,14 @@
         }
 
         // ── Schema.org ──────────────────────────────────────────────────────
+        // Event city name -> US state, derived from CITIES so a new city added
+        // there needs no second edit here. Mirrors api/next-event.js's
+        // STATE_BY_CITY_NAME (matched by name, since events store free text
+        // like "Lancaster", not a slug).
+        const STATE_BY_CITY_NAME = Object.fromEntries(
+            Object.values(CITIES).map(c => [c.name.toLowerCase(), c.state])
+        );
+
         function injectCitySchema(events) {
             const schemaEvents = events.slice(0, 10).map(ev => {
                 const d = ev.date && ev.date.toDate ? ev.date.toDate() : (ev.date ? new Date(ev.date) : null);
@@ -668,6 +737,11 @@
                 // unset -- exactly the bug this comment warns against. Matches the
                 // fix already applied in event.html/events.html: omit
                 // addressLocality entirely rather than guess when we don't know.
+                // addressRegion follows the same rule: resolve it from the
+                // EVENT's city, never config.state. Using the page's state was
+                // invisible while every city was PA, but on /wilmington it
+                // tagged Lancaster and Philadelphia events as being in DE.
+                const evState = STATE_BY_CITY_NAME[String(ev.city || '').toLowerCase().trim()];
                 const obj = {
                     '@type': 'Event',
                     name: ev.title || 'SparkDate Event',
@@ -681,7 +755,7 @@
                         address: {
                             '@type': 'PostalAddress',
                             ...(ev.city ? { addressLocality: ev.city } : {}),
-                            addressRegion: config.state || 'PA',
+                            ...(evState ? { addressRegion: evState } : {}),
                             addressCountry: 'US'
                         }
                     },

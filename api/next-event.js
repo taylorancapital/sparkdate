@@ -257,6 +257,8 @@ function loadCityTemplate() {
 const CITY_SEO = {
   philadelphia: { name: 'Philadelphia', state: 'PA' },
   lancaster: { name: 'Lancaster', state: 'PA' },
+  'colorado-springs': { name: 'Colorado Springs', state: 'CO' },
+  wilmington: { name: 'Wilmington', state: 'DE' },
 };
 
 // Looks up an event's addressRegion (US state) from its free-text `city`
