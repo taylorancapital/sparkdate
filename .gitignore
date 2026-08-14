@@ -6,6 +6,11 @@
 *.key
 serviceAccount*.json
 firebase-adminsdk-*.json
+# Broader than the line above on purpose: a real key file was found named
+# "sparkdate-philly-firebase-adminsdk-fbsvc-....json" -- Firebase's own
+# console names downloaded keys "<project>-firebase-adminsdk-....json", so
+# the marker can land anywhere in the filename, not just as a prefix.
+*firebase-adminsdk*.json
 sparkdate_strike_keys.txt
 sparkdate_firebase_config.txt
 *service-account*
