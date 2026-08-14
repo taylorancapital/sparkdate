@@ -234,7 +234,15 @@
               fadeEl.classList.add('fade-out');
               setTimeout(function () {
                 idx = (idx + 1) % TESTIMONIALS.length;
+                // Snap back to visible with no transition instead of letting
+                // opacity fade back in while new text is already typing --
+                // that race (box still mostly transparent while characters
+                // were already appearing) is what read as testimonials
+                // "surfacing too soon" / overlapping.
+                fadeEl.style.transition = 'none';
                 fadeEl.classList.remove('fade-out');
+                void fadeEl.offsetWidth;
+                fadeEl.style.transition = '';
                 typeNext();
               }, FADE_MS);
             }
