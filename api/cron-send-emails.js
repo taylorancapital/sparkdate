@@ -968,8 +968,13 @@ async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAt
       const firstName = esc(firstNameRaw || lead.name || '');
       const unsubUrl = makeUnsubscribeUrl(leadRef.id, email);
       const ctaUrl = buildUtmUrl('/event?id=' + event.id, 'email', 'returning', 'next_mixer');
+      // pastAttendeeUids is a membership Set (attended >=1 past event), not a
+      // count -- there's no per-user attendance tally to say whether this is
+      // someone's 2nd, 3rd, or 10th mixer. Copy is deliberately round-agnostic
+      // rather than hardcoding "Round two?", which read as wrong for anyone
+      // beyond their actual second event.
       const html = shell(
-        h1('Round two?') +
+        h1('Back for more?') +
         p(lede(firstName, `it was great having you at a SparkDate night. We're lining up the next one — and the room's always better with familiar faces.`)) +
         eventCardHtml(event) +
         ctaButtonHtml(ctaUrl, 'Save my spot') +
@@ -980,7 +985,7 @@ async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAt
         const result = await resend.emails.send({
           from: 'SparkDate <hello@mail.sparkdate.date>',
           to: u.email,
-          subject: `Round two? ${event.title} is coming up`,
+          subject: `Back for more? ${event.title} is coming up`,
           html,
           headers: {
             'List-Unsubscribe': `<${unsubUrl}>, <mailto:hello@sparkdate.date?subject=Unsubscribe>`,
