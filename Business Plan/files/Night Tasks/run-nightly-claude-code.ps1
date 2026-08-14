@@ -20,6 +20,15 @@
 
 $ErrorActionPreference = "Stop"
 
+# Windows PowerShell 5.1 decodes a child process's console output using the
+# active codepage, not UTF-8, regardless of how that output is captured --
+# confirmed by testing: even plain variable-capture (not just *>> redirection)
+# garbled non-ASCII text from node. This makes that decoding correct for any
+# UTF-8 output this script's children produce (node, the claude CLI), as
+# defense in depth alongside keeping fetch-meta-insights.js's own output
+# ASCII-only.
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 $RepoPath   = "C:\Users\penns\source\repos\sparkdate"
 # The repo has two "Night Tasks" folders. This one -- under "Business
 # Plan\files\" -- is the live one: it's where fresh GA4 exports actually land
@@ -37,8 +46,30 @@ New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
 function Log($msg) {
     $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  $msg"
-    Add-Content -Path $LogFile -Value $line
+    Add-Content -Path $LogFile -Value $line -Encoding Unicode
     Write-Host $line
+}
+
+# *>> file-redirection writes raw bytes straight from a native process's
+# output handles under an ambient encoding assumption that doesn't match
+# Add-Content's -Encoding Unicode above -- confirmed empirically: mixing the
+# two in one file produced unreadable CJK-range garbage, not just wrong
+# characters here and there. Capturing through PowerShell's own string layer
+# (plain variable assignment) instead avoids the mismatch entirely, since
+# PowerShell decodes the child process's output into .NET strings itself
+# before this ever touches a file.
+#
+# Merging stderr via 2>&1 wraps each stderr line in an ErrorRecord whose
+# default ToString() prepends "System.Management.Automation.RemoteException"
+# -- unwrap to .Exception.Message so the log reads as plain text either way.
+function Write-ProcessOutputToLog($output) {
+    foreach ($item in $output) {
+        if ($item -is [System.Management.Automation.ErrorRecord]) {
+            Add-Content -Path $LogFile -Value $item.Exception.Message -Encoding Unicode
+        } else {
+            Add-Content -Path $LogFile -Value $item.ToString() -Encoding Unicode
+        }
+    }
 }
 
 Log "=== Nightly run starting ==="
@@ -56,7 +87,8 @@ try {
         try {
             # 7 days, not 1: gives the review a trend to read rather than a
             # single day, and covers nights this didn't run.
-            & node "scripts\fetch-meta-insights.js" --days=7 *>> $LogFile
+            $metaOutput = & node "scripts\fetch-meta-insights.js" --days=7 2>&1
+            Write-ProcessOutputToLog $metaOutput
             if ($LASTEXITCODE -eq 0) {
                 Log "Meta insights written to Night Tasks."
             } else {
@@ -108,7 +140,8 @@ Set-Location $RepoPath
 $metaPrompt = "Read and follow the instructions in the file 'Business Plan\files\Night Tasks\TONIGHT_PROMPT.md' exactly as written, including opening the PR at the end. There is no one here to answer questions -- if something is genuinely ambiguous, stop and document it in the PR instead of asking."
 
 try {
-    claude --print --dangerously-skip-permissions "$metaPrompt" *>> $LogFile
+    $claudeOutput = claude --print --dangerously-skip-permissions "$metaPrompt" 2>&1
+    Write-ProcessOutputToLog $claudeOutput
     Log "Claude Code run finished (exit code $LASTEXITCODE)."
 } catch {
     Log "ERROR: Claude Code run threw an exception: $_"
