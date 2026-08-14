@@ -90,8 +90,31 @@ async function resolveAdAccountId() {
   if (process.env.META_AD_ACCOUNT_ID) return process.env.META_AD_ACCOUNT_ID;
 
   console.log('META_AD_ACCOUNT_ID not set — looking up accessible ad accounts...');
-  const body = await graphGet('me/adaccounts', { fields: 'id,name', access_token: accessToken });
-  const accounts = body.data || [];
+
+  // /me/adaccounts is the fragile step, not the useful one. For a system-user
+  // token /me resolves to the system user itself, and Meta commonly answers
+  // this edge with "(#200) Missing Permissions" even when the token can read
+  // the ad account's insights perfectly well. So a discovery failure must not
+  // kill the run — it just means we can't guess, and the caller should say
+  // which account they want.
+  let accounts;
+  try {
+    const body = await graphGet('me/adaccounts', { fields: 'id,name', access_token: accessToken });
+    accounts = body.data || [];
+  } catch (err) {
+    throw new Error(
+      `Could not list ad accounts (${err.message}).\n\n` +
+      `This lookup is unreliable for system-user tokens and is not required.\n` +
+      `Set the account id explicitly and re-run — that skips this call entirely:\n\n` +
+      `  $env:META_AD_ACCOUNT_ID = "act_<your-id>"\n\n` +
+      `Find <your-id> in the Ads Manager URL (…?act=1234567890…), or in the\n` +
+      `account dropdown at the top-left of Ads Manager.\n\n` +
+      `If it still fails after that, the ad account itself is not assigned to\n` +
+      `the system user: Business Settings → System Users → (your user) →\n` +
+      `Add Assets → Ad Accounts. To see exactly which scopes the token really\n` +
+      `carries, paste it into https://developers.facebook.com/tools/debug/accesstoken/`
+    );
+  }
 
   if (accounts.length === 0) {
     throw new Error(
