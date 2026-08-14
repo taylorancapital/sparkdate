@@ -1,21 +1,33 @@
 # run-nightly-claude-code.ps1
 #
-# Reads TONIGHT_PROMPT.md (prepared nightly by the Cowork "sparkdate-nightly-claude-code"
-# scheduled task, ~3:08 AM) and runs it through your LOCAL Claude Code CLI unattended --
-# the one that already has working git/gh credentials (it's what made the 90+ existing
-# claude/* branches in this repo). Meant to be launched by Windows Task Scheduler at
-# 3:30 AM daily, giving the Cowork task a head start so this isn't racing an empty file.
+# Nightly local prep for the Cowork review. Two jobs, in order:
 #
-# Why this exists / what it's NOT: Cowork's own sandbox cannot do this part of the job --
-# its network policy blocks api.github.com (so `gh` can't work at all) and its mounted
-# filesystem is too slow for git operations on this repo. This script runs on your actual
-# machine instead, where neither problem applies.
+#   1. Pull Meta Ads insights into the Night Tasks folder, so the Cowork
+#      scheduled task finds them sitting next to the manually-exported GA4
+#      files. Cowork cannot do this itself -- it runs in a cloud sandbox with
+#      no access to this machine and no Meta token -- so it has to happen here.
+#
+#   2. If a fresh TONIGHT_PROMPT.md exists, run it through the local Claude
+#      Code CLI (the one with working git/gh credentials). This is the older
+#      half of the job and is now usually a no-op: Cowork writes its reports
+#      directly as PRs rather than queuing a prompt for this script.
+#
+# Launched by Windows Task Scheduler. Schedule it far enough ahead of the
+# Cowork task that step 1's CSV is on disk before Cowork starts reading.
+#
+# Why the local CLI for step 2: Cowork's sandbox blocks api.github.com (so `gh`
+# can't work) and its mounted filesystem is too slow for git on this repo.
 
 $ErrorActionPreference = "Stop"
 
 $RepoPath   = "C:\Users\penns\source\repos\sparkdate"
-$PromptFile = Join-Path $RepoPath "Business Plan\files\Night Tasks\TONIGHT_PROMPT.md"
-$LogDir     = Join-Path $RepoPath "Business Plan\files\Night Tasks\logs"
+# The repo has two "Night Tasks" folders. This is the live one -- it holds the
+# freshest GA4 exports and sparkdate-nightly-claude-code-prompts.md. The copy
+# under "Business Plan\files\" is stale; writing there means the nightly review
+# never sees the file.
+$NightTasks = Join-Path $RepoPath "Night Tasks"
+$PromptFile = Join-Path $NightTasks "TONIGHT_PROMPT.md"
+$LogDir     = Join-Path $NightTasks "logs"
 $Today      = Get-Date -Format "yyyy-MM-dd"
 $LogFile    = Join-Path $LogDir "$Today.log"
 
@@ -27,24 +39,54 @@ function Log($msg) {
     Write-Host $line
 }
 
-Log "=== Nightly Claude Code run starting ==="
+Log "=== Nightly run starting ==="
 
+# ── Step 1: Meta Ads insights ────────────────────────────────────────────
+# Deliberately non-fatal. A Meta API hiccup or an expired token must not stop
+# the rest of the night: the GA4 files are already in place and the review can
+# run without the Meta numbers, just less completely.
+try {
+    if (-not $env:META_ADS_ACCESS_TOKEN -and -not $env:META_CAPI_ACCESS_TOKEN) {
+        Log "SKIP (meta): neither META_ADS_ACCESS_TOKEN nor META_CAPI_ACCESS_TOKEN is set for this user. Insights need a token carrying ads_read -- see scripts/fetch-meta-insights.js."
+    } else {
+        Log "Pulling Meta Ads insights (last 7 days)..."
+        Push-Location $RepoPath
+        try {
+            # 7 days, not 1: gives the review a trend to read rather than a
+            # single day, and covers nights this didn't run.
+            & node "scripts\fetch-meta-insights.js" --days=7 *>> $LogFile
+            if ($LASTEXITCODE -eq 0) {
+                Log "Meta insights written to Night Tasks."
+            } else {
+                Log "WARN (meta): fetch-meta-insights.js exited $LASTEXITCODE -- see output above. Continuing."
+            }
+        } finally {
+            Pop-Location
+        }
+    }
+} catch {
+    Log "WARN (meta): pull threw '$_'. Continuing -- this does not block the review."
+}
+
+# ── Step 2: queued Claude Code prompt (usually absent) ───────────────────
 if (-not (Test-Path $PromptFile)) {
-    Log "BLOCKED: TONIGHT_PROMPT.md not found at '$PromptFile'. The Cowork queue task may not have run yet tonight (it only fires if the Claude desktop app was open at 3am) -- skipping rather than guessing at a prompt."
-    exit 1
+    Log "No TONIGHT_PROMPT.md -- nothing queued for the local CLI. Done."
+    exit 0
 }
 
 $content = Get-Content $PromptFile -Raw
 
-# Staleness check: the file's header line should read "# Tonight's Claude Code Prompt — YYYY-MM-DD"
 if ($content -notmatch "# Tonight's Claude Code Prompt.*?(\d{4}-\d{2}-\d{2})") {
-    Log "BLOCKED: couldn't find a dated header in TONIGHT_PROMPT.md -- format may have changed. Skipping rather than guessing."
-    exit 1
+    Log "TONIGHT_PROMPT.md has no dated header -- format may have changed. Skipping rather than guessing."
+    exit 0
 }
 $promptDate = $Matches[1]
 if ($promptDate -ne $Today) {
-    Log "BLOCKED: TONIGHT_PROMPT.md is dated $promptDate, not today ($Today) -- Cowork's 3am queue task likely didn't run (app closed?). Skipping rather than re-running a stale/already-handled prompt."
-    exit 1
+    # Exit 0, not 1. Cowork no longer queues a prompt here nightly, so a stale
+    # file is the steady state, not a failure -- and exiting non-zero made
+    # Task Scheduler report this task as broken every single night.
+    Log "TONIGHT_PROMPT.md is dated $promptDate, not today ($Today) -- nothing fresh queued. Skipping the CLI run (this is normal; Cowork writes its reports directly as PRs now)."
+    exit 0
 }
 
 Log "Found today's prompt (dated $promptDate). Launching Claude Code..."
@@ -60,8 +102,8 @@ Set-Location $RepoPath
 # the prompt library file if you ever change how it's generated.
 #
 # NOTE: verify these flag names against `claude --help` on this machine before trusting the
-# schedule -- CLI flags can change between versions and this hasn't been run end-to-end yet.
-$metaPrompt = "Read and follow the instructions in the file 'Business Plan\files\Night Tasks\TONIGHT_PROMPT.md' exactly as written, including opening the PR at the end. There is no one here to answer questions -- if something is genuinely ambiguous, stop and document it in the PR instead of asking."
+# schedule -- CLI flags can change between versions.
+$metaPrompt = "Read and follow the instructions in the file 'Night Tasks\TONIGHT_PROMPT.md' exactly as written, including opening the PR at the end. There is no one here to answer questions -- if something is genuinely ambiguous, stop and document it in the PR instead of asking."
 
 try {
     claude --print --dangerously-skip-permissions "$metaPrompt" *>> $LogFile
