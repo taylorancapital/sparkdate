@@ -12,10 +12,13 @@
  * exporting the GA4 CSVs. The scheduled task only sees files already sitting
  * in that folder; it does not fetch anything itself and holds no Meta token.
  *
- * Reuses the same system-user access token wired up for the Conversions API
- * (META_CAPI_ACCESS_TOKEN) — it was minted with ads_management +
- * business_management scope, which also covers reading Insights, so no new
- * Meta-side token or permission is needed.
+ * Needs its OWN token — this does not ride along on the Conversions API one.
+ * Verified against Meta's Access Token Debugger: the token the CAPI setup
+ * wizard mints carries only `read_ads_dataset_quality`, which is enough to
+ * send events to a dataset but cannot read Insights. Reading campaign
+ * performance requires `ads_read` (or `ads_management`), so generate a
+ * separate system-user token with that scope and put it in
+ * META_ADS_ACCESS_TOKEN, leaving the working CAPI token untouched.
  *
  * The CSV opens with a `# <since>-<until>` date-range header line matching the
  * convention GA4's own exports use, since the nightly review identifies each
@@ -28,11 +31,17 @@
  *   node scripts/fetch-meta-insights.js --no-file         # print only, write nothing
  *
  * Env vars:
- *   META_CAPI_ACCESS_TOKEN  required — same token used by lib/meta-capi.js
+ *   META_ADS_ACCESS_TOKEN   required — system-user token carrying ads_read (or
+ *                           ads_management). Falls back to
+ *                           META_CAPI_ACCESS_TOKEN only so an existing setup
+ *                           keeps running; that token will fail here unless it
+ *                           happens to carry an ads scope of its own.
  *   META_AD_ACCOUNT_ID      optional — e.g. "act_1234567890". If unset, the
  *                           script looks up accounts the token can see via
  *                           /me/adaccounts and auto-picks when there's only
- *                           one, or prints the list when there's more.
+ *                           one, or prints the list when there's more. That
+ *                           lookup is unreliable for system-user tokens, so
+ *                           setting this explicitly is the safer path.
  */
 
 'use strict';
@@ -55,7 +64,11 @@ const need = (k) => {
   return process.env[k];
 };
 
-const accessToken = need('META_CAPI_ACCESS_TOKEN');
+// Prefer a dedicated ads-scoped token. The CAPI token is accepted as a
+// fallback so an existing setup doesn't break outright, but it is not
+// expected to work: the one Meta's CAPI wizard mints carries only
+// read_ads_dataset_quality, which cannot read Insights.
+const accessToken = process.env.META_ADS_ACCESS_TOKEN || need('META_CAPI_ACCESS_TOKEN');
 
 function parseArgs(argv) {
   const out = { days: 1, out: null, noFile: false };
@@ -81,6 +94,27 @@ async function graphGet(path, params) {
   if (!res.ok || body.error) {
     const msg = body.error ? body.error.message : `HTTP ${res.status}`;
     const code = body.error ? body.error.code : res.status;
+
+    // Meta reports a missing ads scope as if it were an ad-account ownership
+    // problem ("Ad account owner has NOT grant..."), which sends you into
+    // Business Settings reassigning assets that were never the issue. The
+    // token itself is what's short a scope — say so, and name the one-step
+    // check that settles it.
+    if (/ads_management or ads_read/i.test(msg)) {
+      throw new Error(
+        `Meta API error (${code}): ${msg}\n\n` +
+        `Despite the wording, this is usually the TOKEN's scopes, not the ad\n` +
+        `account's assignments. Paste the token into\n` +
+        `https://developers.facebook.com/tools/debug/accesstoken/ and read the\n` +
+        `"Scopes" row: reading Insights needs ads_read (or ads_management).\n` +
+        `A token minted by the Conversions API wizard carries only\n` +
+        `read_ads_dataset_quality and can never work here.\n\n` +
+        `Fix: Business Settings → System Users → (your user) → Generate New\n` +
+        `Token, check ads_read, then set it as META_ADS_ACCESS_TOKEN. Leave\n` +
+        `META_CAPI_ACCESS_TOKEN alone — CAPI is working and uses a different scope.`
+      );
+    }
+
     throw new Error(`Meta API error (${code}): ${msg}`);
   }
   return body;
@@ -90,8 +124,31 @@ async function resolveAdAccountId() {
   if (process.env.META_AD_ACCOUNT_ID) return process.env.META_AD_ACCOUNT_ID;
 
   console.log('META_AD_ACCOUNT_ID not set — looking up accessible ad accounts...');
-  const body = await graphGet('me/adaccounts', { fields: 'id,name', access_token: accessToken });
-  const accounts = body.data || [];
+
+  // /me/adaccounts is the fragile step, not the useful one. For a system-user
+  // token /me resolves to the system user itself, and Meta commonly answers
+  // this edge with "(#200) Missing Permissions" even when the token can read
+  // the ad account's insights perfectly well. So a discovery failure must not
+  // kill the run — it just means we can't guess, and the caller should say
+  // which account they want.
+  let accounts;
+  try {
+    const body = await graphGet('me/adaccounts', { fields: 'id,name', access_token: accessToken });
+    accounts = body.data || [];
+  } catch (err) {
+    throw new Error(
+      `Could not list ad accounts (${err.message}).\n\n` +
+      `This lookup is unreliable for system-user tokens and is not required.\n` +
+      `Set the account id explicitly and re-run — that skips this call entirely:\n\n` +
+      `  $env:META_AD_ACCOUNT_ID = "act_<your-id>"\n\n` +
+      `Find <your-id> in the Ads Manager URL (…?act=1234567890…), or in the\n` +
+      `account dropdown at the top-left of Ads Manager.\n\n` +
+      `If it still fails after that, the ad account itself is not assigned to\n` +
+      `the system user: Business Settings → System Users → (your user) →\n` +
+      `Add Assets → Ad Accounts. To see exactly which scopes the token really\n` +
+      `carries, paste it into https://developers.facebook.com/tools/debug/accesstoken/`
+    );
+  }
 
   if (accounts.length === 0) {
     throw new Error(
