@@ -21,11 +21,13 @@
 $ErrorActionPreference = "Stop"
 
 $RepoPath   = "C:\Users\penns\source\repos\sparkdate"
-# The repo has two "Night Tasks" folders. This is the live one -- it holds the
-# freshest GA4 exports and sparkdate-nightly-claude-code-prompts.md. The copy
-# under "Business Plan\files\" is stale; writing there means the nightly review
-# never sees the file.
-$NightTasks = Join-Path $RepoPath "Night Tasks"
+# The repo has two "Night Tasks" folders. This one -- under "Business
+# Plan\files\" -- is the live one: it's where fresh GA4 exports actually land
+# (confirmed by file dates, not assumed) and where TONIGHT_PROMPT.md gets
+# refreshed. The bare "Night Tasks" folder at the repo root is a dormant
+# leftover; an earlier version of this script pointed here by mistake, based
+# on a one-time snapshot comparison that didn't hold up under a second look.
+$NightTasks = Join-Path $RepoPath "Business Plan\files\Night Tasks"
 $PromptFile = Join-Path $NightTasks "TONIGHT_PROMPT.md"
 $LogDir     = Join-Path $NightTasks "logs"
 $Today      = Get-Date -Format "yyyy-MM-dd"
@@ -103,7 +105,7 @@ Set-Location $RepoPath
 #
 # NOTE: verify these flag names against `claude --help` on this machine before trusting the
 # schedule -- CLI flags can change between versions.
-$metaPrompt = "Read and follow the instructions in the file 'Night Tasks\TONIGHT_PROMPT.md' exactly as written, including opening the PR at the end. There is no one here to answer questions -- if something is genuinely ambiguous, stop and document it in the PR instead of asking."
+$metaPrompt = "Read and follow the instructions in the file 'Business Plan\files\Night Tasks\TONIGHT_PROMPT.md' exactly as written, including opening the PR at the end. There is no one here to answer questions -- if something is genuinely ambiguous, stop and document it in the PR instead of asking."
 
 try {
     claude --print --dangerously-skip-permissions "$metaPrompt" *>> $LogFile
