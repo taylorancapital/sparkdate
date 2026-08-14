@@ -460,8 +460,8 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
 
   // 3. Best-effort: create a `leads` doc so this person enters the
   // engagement pipeline. day2/5/14/25 nurture, the newsletter, the
-  // post-nurture campaign, and the returning-attendee "Round two?" invite
-  // all read from `leads` and nothing else — without this, an
+  // post-nurture campaign, and the returning-attendee "Back for more?"
+  // invite all read from `leads` and nothing else — without this, an
   // Eventbrite-enrolled buyer is invisible to all of it, for this event
   // and every future one. Wrapped in its own try/catch so a Firestore
   // hiccup here can never break ticket enrollment.
