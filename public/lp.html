@@ -188,6 +188,10 @@
             <div class="icb-title">This won't complete inside Instagram/Facebook</div>
             <div class="icb-body">Checkout uses a security step (3D Secure) that <strong>can't run in this app's built-in browser</strong> — your card could get declined or the page could hang, even though nothing's wrong with your card. Tap <strong>⋮</strong> or <strong>•••</strong> in the top corner → <strong>"Open in browser"</strong>, or copy the link below and paste it into Safari/Chrome.</div>
             <div class="icb-actions">
+                <!-- Android only: revealed by the script below, which can hand
+                     the page straight to Chrome. Hidden on iOS, where no such
+                     jump exists and copy-paste is the only route out. -->
+                <button type="button" class="icb-copy" id="icbOpenChrome" style="display:none">🚀 Open in Chrome</button>
                 <button type="button" class="icb-copy" id="icbCopyLink">📋 Copy Link</button>
             </div>
             <button type="button" class="icb-continue" id="icbContinueAnyway">Continue to checkout anyway (may not work) →</button>
@@ -341,8 +345,44 @@
         function isInAppBrowser() {
           return /FBAN|FBAV|Instagram|Line\/|TikTok|BytedanceWebview|Twitter/i.test(navigator.userAgent);
         }
+
+        // Android-only escape hatch out of the Instagram/Facebook webview.
+        // An intent:// URL hands the page to Chrome, which is the only
+        // reliable way to get this cohort into a browser where Stripe's 3DS
+        // iframe actually works. iOS deliberately has no equivalent -- Apple
+        // gives a webview no supported way to pass a URL to Safari, and the
+        // old x-safari-https:// trick no longer works in current FB/IG
+        // webviews -- so that cohort falls through to the steer/banner below.
+        // Duplicated verbatim in event.html and events.html (no shared
+        // bundle; see the polaroid/nav precedent).
+        // isAuto=true is the unprompted attempt on page load, which webviews
+        // may refuse for lacking a user gesture; it is therefore best-effort
+        // and capped at once per session so a silent failure doesn't retry
+        // forever. isAuto=false is the button press, which carries a real
+        // gesture, is the reliable path, and is never rate-limited.
+        function tryEscapeInAppBrowser(isAuto) {
+          if (!/Android/i.test(navigator.userAgent)) return false;
+          if (isAuto) {
+            var tried; try { tried = sessionStorage.getItem('iabEscapeTried'); } catch (_) { tried = null; }
+            if (tried) return false;
+            try { sessionStorage.setItem('iabEscapeTried', '1'); } catch (_) {}
+          }
+          if (typeof gtag === 'function') {
+            gtag('event', 'in_app_browser_escape_attempt', { platform: 'android', source: 'lp', trigger: isAuto ? 'auto' : 'button' });
+          }
+          try {
+            location.href = 'intent://' + location.href.replace(/^https?:\/\//, '') +
+              '#Intent;scheme=https;package=com.android.chrome;end';
+            return true;
+          } catch (_) { return false; }
+        }
+
         (function () {
           if (!isInAppBrowser()) return;
+          // Best-effort: try to leave outright before falling back to the
+          // email-capture steer -- a buyer who lands in Chrome can just
+          // complete checkout normally.
+          tryEscapeInAppBrowser(true);
           // Stripe 3DS checkout physically breaks in these webviews, so steer
           // this cohort (~17% of traffic, per GA4) to the email capture, which
           // uses no Stripe and works fine here — better a captured lead than a
@@ -530,6 +570,15 @@
           }
           if (typeof gtag === 'function') gtag('event', 'begin_checkout', { source: 'lp', target_event_id: requestedEventId || undefined });
         });
+
+        // Only Android can actually make this jump, so only Android is offered
+        // it -- an iOS button that silently did nothing would be worse than
+        // the copy-link instructions it sits beside.
+        var icbChromeBtn = $('icbOpenChrome');
+        if (icbChromeBtn && isInAppBrowser() && /Android/i.test(navigator.userAgent)) {
+          icbChromeBtn.style.display = '';
+          icbChromeBtn.addEventListener('click', function () { tryEscapeInAppBrowser(false); });
+        }
 
         var icbCopyBtn = $('icbCopyLink');
         if (icbCopyBtn) icbCopyBtn.addEventListener('click', function () {
