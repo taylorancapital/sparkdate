@@ -58,7 +58,7 @@ const NIGHT_TASKS_DIR = path.join(__dirname, '..', 'Business Plan', 'files', 'Ni
 
 const need = (k) => {
   if (!process.env[k]) {
-    console.error(`✗ Missing env var: ${k}`);
+    console.error(`ERROR: Missing env var: ${k}`);
     process.exit(2);
   }
   return process.env[k];
@@ -109,9 +109,9 @@ async function graphGet(path, params) {
         `"Scopes" row: reading Insights needs ads_read (or ads_management).\n` +
         `A token minted by the Conversions API wizard carries only\n` +
         `read_ads_dataset_quality and can never work here.\n\n` +
-        `Fix: Business Settings → System Users → (your user) → Generate New\n` +
+        `Fix: Business Settings -> System Users -> (your user) -> Generate New\n` +
         `Token, check ads_read, then set it as META_ADS_ACCESS_TOKEN. Leave\n` +
-        `META_CAPI_ACCESS_TOKEN alone — CAPI is working and uses a different scope.`
+        `META_CAPI_ACCESS_TOKEN alone -- CAPI is working and uses a different scope.`
       );
     }
 
@@ -123,7 +123,7 @@ async function graphGet(path, params) {
 async function resolveAdAccountId() {
   if (process.env.META_AD_ACCOUNT_ID) return process.env.META_AD_ACCOUNT_ID;
 
-  console.log('META_AD_ACCOUNT_ID not set — looking up accessible ad accounts...');
+  console.log('META_AD_ACCOUNT_ID not set -- looking up accessible ad accounts...');
 
   // /me/adaccounts is the fragile step, not the useful one. For a system-user
   // token /me resolves to the system user itself, and Meta commonly answers
@@ -139,13 +139,13 @@ async function resolveAdAccountId() {
     throw new Error(
       `Could not list ad accounts (${err.message}).\n\n` +
       `This lookup is unreliable for system-user tokens and is not required.\n` +
-      `Set the account id explicitly and re-run — that skips this call entirely:\n\n` +
+      `Set the account id explicitly and re-run -- that skips this call entirely:\n\n` +
       `  $env:META_AD_ACCOUNT_ID = "act_<your-id>"\n\n` +
-      `Find <your-id> in the Ads Manager URL (…?act=1234567890…), or in the\n` +
+      `Find <your-id> in the Ads Manager URL (...?act=1234567890...), or in the\n` +
       `account dropdown at the top-left of Ads Manager.\n\n` +
       `If it still fails after that, the ad account itself is not assigned to\n` +
-      `the system user: Business Settings → System Users → (your user) →\n` +
-      `Add Assets → Ad Accounts. To see exactly which scopes the token really\n` +
+      `the system user: Business Settings -> System Users -> (your user) ->\n` +
+      `Add Assets -> Ad Accounts. To see exactly which scopes the token really\n` +
       `carries, paste it into https://developers.facebook.com/tools/debug/accesstoken/`
     );
   }
@@ -164,7 +164,7 @@ async function resolveAdAccountId() {
 
   const list = accounts.map((a) => `  ${a.id}  ${a.name}`).join('\n');
   throw new Error(
-    `Found ${accounts.length} accessible ad accounts — set META_AD_ACCOUNT_ID to ` +
+    `Found ${accounts.length} accessible ad accounts -- set META_AD_ACCOUNT_ID to ` +
     `one of these and re-run:\n${list}`
   );
 }
@@ -206,7 +206,7 @@ function printTable(rows) {
     return;
   }
   for (const r of rows) {
-    console.log(`• ${r.campaign_name || '(unnamed campaign)'}${r.adset_name ? ` / ${r.adset_name}` : ''}`);
+    console.log(`- ${r.campaign_name || '(unnamed campaign)'}${r.adset_name ? ` / ${r.adset_name}` : ''}`);
     console.log(`    spend: $${r.spend || '0.00'}   impressions: ${r.impressions || 0}   clicks: ${r.clicks || 0}   cpc: $${r.cpc || '0.00'}`);
     console.log(`    actions: ${summarizeActions(r.actions)}`);
   }
@@ -249,9 +249,9 @@ function writeCsv(rows, outPath, since, until) {
   const since = new Date(until);
   since.setDate(since.getDate() - (days - 1));
 
-  console.log('────────────────────────────────────────────────────');
+  console.log('------------------------------------------------------');
   console.log(`Meta Ads Insights: ${ymd(since)} to ${ymd(until)}`);
-  console.log('────────────────────────────────────────────────────');
+  console.log('------------------------------------------------------');
 
   const adAccountId = await resolveAdAccountId();
   const rows = await fetchInsights(adAccountId, ymd(since), ymd(until));
@@ -267,13 +267,13 @@ function writeCsv(rows, outPath, since, until) {
     writeCsv(rows, outPath, ymd(since), ymd(until));
   }
 
-  console.log('────────────────────────────────────────────────────');
+  console.log('------------------------------------------------------');
   // No explicit process.exit() here: fetch's underlying socket handles can
   // still be settling right after the last request resolves, and forcing an
   // immediate exit while that's in flight crashes Node natively on Windows
   // (UV_HANDLE_CLOSING assertion). Letting the event loop drain naturally
   // avoids it; the process exits on its own once nothing is left pending.
 })().catch((e) => {
-  console.error('✗ error:', e.message);
+  console.error('ERROR:', e.message);
   process.exitCode = 1;
 });
