@@ -1,157 +1,123 @@
-# Search Console Coverage — 2026-08-13
+# Search Console Coverage Review — 2026-08-13
 
-Read-only analysis of a Google Search Console "Page indexing" coverage export
-(`sparkdate.date-Coverage-2026-08-13/`: `Chart.csv`, `Critical issues.csv`,
-`Metadata.csv`, `Non-critical issues.csv`). One code change came out of it, described
-under Finding 1 and shipped alongside this report; everything else is either expected
-behavior or needs the actual URL lists from GSC before it can be acted on.
+**This run made zero code changes, and none are proposed.** Read-only review of the
+Google Search Console "Page indexing" export (`sparkdate.date-Coverage-2026-08-13/`:
+`Chart.csv`, `Critical issues.csv`, `Non-critical issues.csv`, `Metadata.csv`), checked
+line-by-line against the current codebase. Headline: **7 of the 9 non-indexed pages are
+deliberate and correct**, and the technical SEO surface this export can see is clean.
 
-## Data used
+## The data
 
-- `Chart.csv` — daily Not indexed / Indexed / Impressions, **2026-07-23 → 2026-08-06**
-  (15 rows). Note the chart data ends a week before the export date; GSC lags.
-- `Critical issues.csv` — 6 issue rows, counts only.
-- `Non-critical issues.csv` — **header row only, no issues**.
-- `Metadata.csv` — `Sitemap: All known pages` (report is scoped to all discovered
-  URLs, not filtered to the submitted sitemap).
-
-**Important limitation, stated up front:** this export contains *counts only, no URLs*.
-Every "which page is this?" below is a candidate, not a confirmation. To resolve them,
-open each issue row in GSC and read its URL list, or run the offending URL through the
-URL Inspection tool.
-
-## The numbers
-
-| Date | Indexed | Not indexed | Impressions |
+| Date range | Indexed | Not indexed | Total known |
 |---|---|---|---|
-| 07-23 | 20 | 4 | 14 |
-| 07-24 → 08-04 | 20 | 7 | 8–39 |
-| 08-05 | 19 | 9 | 30 |
-| 08-06 | 19 | 9 | 7 |
+| 2026-07-23 | 20 | 4 | 24 |
+| 2026-07-24 → 08-04 | 20 | 7 | 27 |
+| 2026-08-05 → 08-06 | 19 | 9 | 28 |
 
-Two step changes, both unexplained by anything in this export:
+Impressions ranged 7–39/day across the window with no visible trend (high 39 on 07-26,
+low 7 on 08-06). `Non-critical issues.csv` is empty — header row only, zero rows.
+`Metadata.csv` records the scope as "All known pages" (not sitemap-filtered), which
+matters for reading the redirect and robots.txt rows below: they cover URLs Google
+discovered by any means, not just ones we submitted.
 
-- **07-24: not-indexed 4 → 7** (+3), indexed unchanged at 20. Three newly-discovered
-  URLs that were never going to be indexed — consistent with the 3 redirect pages
-  below being crawled for the first time.
-- **08-05: indexed 20 → 19, not-indexed 7 → 9.** One page left the index and two more
-  became not-indexed.
+### Critical issues (9 pages, all six reasons)
 
-**The 08-05 shift is NOT explained by the noindex work.** PR #158 (adding
-`noindex, nofollow` to `account.html` / `admin.html`) came out of
-`reports/SITEMAP_ROUTES_DIFF_2026-08-10.md` and shipped on/after 08-10 — four-plus days
-after this shift, and after this chart's data ends entirely. Whatever moved on 08-05 is
-something else, and this export doesn't say what. Worth pulling a fresh coverage export
-once GSC data catches up past 08-11 to see the noindex change land separately.
+| Reason | Source | Validation | Pages |
+|---|---|---|---|
+| Page with redirect | Website | **Failed** | 3 |
+| Excluded by 'noindex' tag | Website | Not started | 2 |
+| Not found (404) | Website | Not started | 1 |
+| Blocked by robots.txt | Website | Not started | 1 |
+| Alternate page with proper canonical tag | Website | Not started | 1 |
+| Duplicate, Google chose different canonical than user | Google systems | Not started | 1 |
 
-Impressions are noisy and low (7–39/day) with no trend either direction. At this volume
-day-to-day movement is not signal.
+## What's intentional (7 of 9 — no action)
 
-The issue counts reconcile exactly against the chart, which is a good sign the export is
-internally consistent: 3 + 2 + 1 + 1 + 1 + 1 = **9 = the 08-06 not-indexed figure.**
+**Page with redirect (3).** These are the marketing shortlinks in `vercel.json`:
+`/flyer`, `/flyer/`, `/card` (→ `/lp` with UTM params, 302) and `/founding` (→ `/`, 301).
+They redirect *by design* — that is the entire reason they exist. Confirmed none of them
+appear in `lib/sitemap-xml.js`'s `STATIC_PATHS`, and a grep of `public/` found zero
+internal `href` links to any of them, so Google is finding them from off-site (printed
+flyers, QR codes, business cards — exactly as intended).
 
-## Findings
+The **"Validation: Failed"** status on this row is the one thing worth explicitly
+un-worrying about: it does not mean a fix broke. It means someone clicked "Validate fix"
+in Search Console, Google re-crawled, and correctly found the URLs still redirecting.
+Validation on an intentional redirect will fail every time it is run, forever. This row
+should be left alone, not re-validated.
 
-### 1. `robots.txt` was blocking the two pages we had just told to de-index — FIXED
+**Excluded by 'noindex' (2).** Six pages deliberately carry `<meta name="robots"
+content="noindex, nofollow">`: `account.html`, `admin.html` (both added in #158),
+`profile.html`, `checkin.html`, `lp.html`, `matches.html`. Only 2 show here because
+Google reports only what it has actually crawled. Working as designed.
 
-`public/robots.txt` disallowed `/account` and `/admin`. Both pages also carry
-`<meta name="robots" content="noindex, nofollow">` (added in PR #158, whose stated intent
-was "never index").
+**Blocked by robots.txt (1).** `public/robots.txt` disallows exactly one path prefix,
+`/api/`. Those endpoints return JSON, carry no meta tags, and have nothing to de-index.
+Note this row is *not* evidence of the noindex-vs-robots conflict fixed in `41865ab` —
+that commit stopped robots.txt from blocking `/account` and `/admin`, and the current
+file correctly documents why those two are allowed to be crawled so their noindex tags
+remain readable.
 
-These two mechanisms cancel each other out. Google's documented behavior: for a noindex
-rule to take effect the page must be crawlable, because the crawler has to actually fetch
-the page to see the tag. A robots.txt-disallowed URL is never fetched, so the noindex is
-never read — and the URL can still appear in results as a bare link if anything points at
-it, with no way to request removal.
+**Alternate page with proper canonical tag (1).** Normal canonical consolidation working
+as intended — Google found a duplicate and honored our canonical. The phrase "with proper
+canonical tag" is Google confirming we got it right.
 
-So PR #158's tag was inert on exactly the two pages it was written for. GSC reporting
-`Blocked by robots.txt: 1 page` is consistent with this, though as noted the export
-doesn't name the URL.
+## What can't be resolved from this export (2 of 9)
 
-**Fix applied:** dropped the `/account` and `/admin` Disallow lines so the noindex tags
-are actually reachable and can do their job. `Disallow: /api/` is kept — those endpoints
-return JSON, carry no meta tags, and have nothing to de-index. Both pages are auth-gated
-client-side, so a crawl only ever reaches an empty shell.
+Both remaining rows need the actual URL, and **`Critical issues.csv` does not contain
+URLs** — it only carries reason/source/validation/count. To act on either, open that row
+in Search Console and copy the example URLs from the detail view.
 
-Expect `Blocked by robots.txt` to go to 0 and `Excluded by 'noindex' tag` to rise
-correspondingly over the next few crawl cycles. That is the intended outcome, not a
-regression.
+**Not found — 404 (1).** Could be a genuinely stale inbound link, an old URL from before
+a rename, or a typo'd external link. Harmless at this count either way; a 404 that
+nothing links to costs nothing.
 
-### 2. `Page with redirect` (3 pages, validation **Failed**) — expected, no action
+**Duplicate, Google chose different canonical than user (1).** This one is worth the
+click, because it means Google actively disagreed with a canonical we asserted. The most
+plausible candidate found by inspection: `/getaways` and `/events` carry substantially
+overlapping getaway-package content (131 vs 92 occurrences of "getaway" respectively —
+the package list is hand-duplicated across both, per this repo's no-shared-bundle
+convention). If the flagged URL turns out to be `/getaways`, the fix is a content
+decision (differentiate the two pages, or canonicalize one to the other), not a bug.
+**Unverified** — stated as the leading hypothesis, not a finding.
 
-`vercel.json` defines exactly the redirects that would produce this: `/flyer`, `/flyer/`,
-`/card` → `/lp` (temporary), and `/founding` → `/` (permanent). Redirecting URLs are
-correctly not indexed; the destination is what gets indexed.
+## Canonical + sitemap audit (clean, no changes needed)
 
-The `Failed` validation state reads alarming but isn't: it means a fix was submitted for
-re-checking and Google confirmed the URLs still redirect — which they do, deliberately
-and permanently. There is nothing to fix, and re-requesting validation will fail again
-for the same reason. These are campaign entry points (QR codes, flyers), not pages meant
-to rank.
+Checked directly rather than assumed:
 
-### 3. `Not found (404)` (1 page) — needs the URL, can't diagnose from counts
+- All 12 top-level `public/*.html` pages that should have one carry `rel="canonical"`;
+  all 11 `public/blog/*.html` posts do too.
+- `events.html`'s canonical is the bare `https://sparkdate.date/events`, with no query
+  string. This matters more than it looks: every site-wide "Get Tickets" link now points
+  at `/events?event=<id>` (the dialog deep-link retarget), so without a query-stripped
+  canonical every event would spawn a duplicate `/events?event=…` URL. It resolves
+  correctly as-is.
+- `api/next-event.js` injects a real per-event canonical server-side (`:82`, `:122`) and
+  a per-city canonical for `/philadelphia` and `/lancaster` (`:299`, `:307`) — both in the
+  raw HTML, before JS runs.
+- `renderSitemap` (`api/next-event.js:349-376`) excludes past events by start-time cutoff
+  (`:362`), matching the `noindex` those same pages get from `renderEventPage`. So the
+  sitemap never submits a URL it also tells Google not to index — the specific
+  self-contradiction that would show up here as a real error, and doesn't.
 
-Something Google knows about returns 404. Without the URL this is not diagnosable from
-the repo. Two plausible sources worth checking first when the URL is available: a
-`/event?id=<id>` for an event since deleted from Firestore (`api/next-event.js` correctly
-404s an unresolvable id), or a URL from an old campaign//external link that never existed.
-If it's a dead event id, no action — that's correct behavior and the URL will age out.
+## The finding that isn't in the "issues" list
 
-### 4. Duplicate-URL surface: every page answers at both `/route` and `/route.html`
+Indexing health is not the problem. **20 indexed pages producing 7–39 impressions/day
+is the problem.** Every technical gate a crawler passes through is working; there simply
+isn't enough indexed content, or enough authority behind it, to surface in results at
+meaningful volume. No amount of coverage-error cleanup moves that number — the 9 "errors"
+above could all be resolved tomorrow and impressions would be unchanged, because 7 of
+them are pages that *should* stay out of the index and the other 2 are single URLs.
 
-Verified live against production — all return 200:
+Worth watching rather than acting on yet: indexed dropped 20 → 19 on 2026-08-05 while
+total known rose 27 → 28. One page fell out of the index the same day one new page was
+discovered. At n=1 that is noise, not a trend — but if indexed keeps drifting down while
+not-indexed climbs, that becomes the thing to investigate.
 
-```
-/city.html 200   /index.html 200   /events.html 200
-/about.html 200  /signup.html 200  /account.html 200
-```
-
-So `/events` and `/events.html` are two URLs serving identical content, and so on for
-every page. This is standard Vercel static-file behavior alongside the `vercel.json`
-rewrites, not a misconfiguration per se.
-
-It is **mostly already handled**: each page carries a self-referencing canonical pointing
-at the *clean* URL (`events.html` → `https://sparkdate.date/events`), so a crawl of the
-`.html` variant consolidates correctly. That is almost certainly what
-`Alternate page with proper canonical tag: 1 page` is reporting — the mechanism working
-as designed.
-
-**One exception worth flagging, deliberately not changed here:** `public/city.html:9`
-defaults its canonical to `https://sparkdate.date/` — the homepage. The server-side
-render in `api/next-event.js` replaces this with the correct per-city URL for
-`/philadelphia` and `/lancaster`, so the real city pages are fine. But the raw
-`/city.html`, which is publicly reachable, declares the homepage as its canonical, which
-is simply false.
-
-I did not change it, because the safe-looking fixes are the dangerous ones: `city.html`
-is the same file the server renders from, so adding a `noindex` to the template would
-propagate straight into `/philadelphia` and `/lancaster` and de-index two of the site's
-actual money pages. Any fix here needs to happen in `renderCityPage()`'s replacement
-logic, not the template's static defaults, and deserves its own change with its own
-verification. Flagged rather than guessed at.
-
-### 5. `Duplicate, Google chose different canonical than user` (1 page) — needs the URL
-
-Google found a declared canonical it disagreed with and picked its own. Given Finding 4,
-the leading candidate is `/city.html` (declaring the homepage as canonical while serving
-different content — exactly the kind of mismatch Google overrides). But that is inference
-from the counts, not evidence. Get the URL from GSC before acting.
-
-## What to do next
-
-1. **Merged/deployed already:** the `robots.txt` fix (Finding 1). Nothing else to do for it.
-2. **Pull the URL lists** for `Not found (404)` and `Duplicate, Google chose different
-   canonical` in GSC — those are the only two findings that might hide a real problem, and
-   neither is diagnosable from counts alone.
-3. **Re-export coverage once GSC data passes 2026-08-11** so the PR #158 noindex change
-   and the robots.txt fix show up as distinct, attributable movements rather than blending
-   into the unexplained 08-05 step.
-4. **Leave the redirects alone** (Finding 2) and stop re-requesting validation on them.
-5. **`city.html`'s default canonical** (Finding 4) — worth a separate, carefully-verified
-   change if the 404/duplicate URLs turn out to implicate it.
-
-### Files referenced
-- `public/robots.txt` — changed (Finding 1)
-- `public/city.html:9`, `api/next-event.js` (`renderCityPage`) — read-only, flagged not changed
-- `vercel.json` — read-only, explains Finding 2
-- `lib/sitemap-xml.js` — read-only; `STATIC_PATHS` correctly excludes all noindex routes
+### Source files
+- `sparkdate.date-Coverage-2026-08-13/Chart.csv` (15 daily rows, 07-23 → 08-06)
+- `sparkdate.date-Coverage-2026-08-13/Critical issues.csv` (6 reasons, 9 pages)
+- `sparkdate.date-Coverage-2026-08-13/Non-critical issues.csv` (empty)
+- `sparkdate.date-Coverage-2026-08-13/Metadata.csv` (scope: All known pages)
+- Checked against: `public/robots.txt`, `lib/sitemap-xml.js`, `api/next-event.js`,
+  `vercel.json`, and the canonical tags across `public/*.html` + `public/blog/*.html`
