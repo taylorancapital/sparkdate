@@ -140,8 +140,29 @@ $disallow = @(
     'Bash(gh pr merge *)', 'Bash(gh pr close *)', 'Bash(gh pr review *)'
 )
 
+$prevEAP = $ErrorActionPreference
+
 try {
+    # Why $ErrorActionPreference is lowered for exactly this call:
+    #
+    #   PowerShell 5.1 wraps every stderr line from a native executable in an
+    #   ErrorRecord when you redirect it with 2>&1. Combined with this script's
+    #   top-level $ErrorActionPreference = "Stop", that promotes ANY stderr output
+    #   to a terminating error -- even when the CLI exits 0. Claude Code writes
+    #   routine notices to stderr, so the run died before evaluating a single PR
+    #   on a warning that wasn't a failure at all ("this workspace has not been
+    #   trusted", which only means a permissions.allow entry was ignored -- moot
+    #   under --dangerously-skip-permissions).
+    #
+    #   Dropping to Continue makes stderr arrive as DATA, which is exactly what
+    #   Write-ProcessOutputToLog already exists to unwrap. Restored in finally so
+    #   the rest of the script keeps fail-fast behaviour.
+    $ErrorActionPreference = 'Continue'
     $claudeOutput = & $ClaudeCli --print "$reviewPrompt" --dangerously-skip-permissions --disallowedTools @disallow 2>&1
+    # Capture immediately: any later command can clobber $LASTEXITCODE.
+    $claudeExit = $LASTEXITCODE
+    $ErrorActionPreference = $prevEAP
+
     Write-ProcessOutputToLog $claudeOutput
 
     # Being installed is not the same as being usable: a fresh `npm install -g`
@@ -155,12 +176,23 @@ try {
         exit 1
     }
 
-    Log "Review run finished (exit code $LASTEXITCODE)."
+    # A non-zero exit is a real failure and must reach Task Scheduler. This used
+    # to be logged and then swallowed -- the script exited 0 regardless, so a
+    # broken review run reported as a healthy task.
+    if ($claudeExit -ne 0) {
+        Log "ERROR: review run failed (exit code $claudeExit). See the CLI output above."
+        exit $claudeExit
+    }
+
+    Log "Review run finished (exit code $claudeExit)."
 } catch {
     # A missing CLI can no longer reach here -- Resolve-ClaudeCli exits above with
-    # actionable instructions -- so anything caught now is a genuine runtime fault.
+    # actionable instructions -- and neither can plain stderr output, so anything
+    # caught now is a genuine runtime fault.
     Log "ERROR: review run threw an exception: $_"
     exit 1
+} finally {
+    $ErrorActionPreference = $prevEAP
 }
 
 Log "=== Run complete ==="
