@@ -61,12 +61,47 @@ Set-Location $RepoPath
 
 $reviewPrompt = "Read and follow the instructions in the file 'Business Plan\files\Night Tasks\REVIEW_PROMPT.md' exactly as written. There is no one here to approve actions before they happen -- if anything is ambiguous or a PR doesn't clearly meet the scope described there, skip it rather than guess."
 
+# Why both flags, and why the prompt comes FIRST:
+#
+#   --dangerously-skip-permissions stays because nobody is here to approve tool
+#   calls; without it the run just hangs (same reason run-nightly-claude-code.ps1
+#   uses it). But it does NOT restrict anything -- it only suppresses prompts, so
+#   on its own the orchestrating Claude keeps full Edit/Write access and the only
+#   thing stopping it editing the site is the wording of REVIEW_PROMPT.md.
+#
+#   --disallowedTools is what actually closes that. A BARE tool name removes the
+#   tool from Claude's context entirely, which is a hard removal rather than a
+#   permission gate -- so it still applies under skip-permissions. That makes the
+#   orchestrator match the pr-reviewer subagent, which is already hard-gated by
+#   simply not being granted Edit/Write in its frontmatter.
+#
+#   Note --allowedTools would NOT work here: skip-permissions takes precedence
+#   over it (no prompts occur, so an allowlist gates nothing). Deny, not allow,
+#   is the mechanism that bites.
+#
+#   The scoped Bash(...) rules are defence in depth: Bash necessarily stays
+#   available for the gh calls, and Bash can still write files by other means, so
+#   these block the specific commands that would ship or merge something. The
+#   bare-name removals above are the guaranteed part; treat these as a backstop.
+#
+#   The prompt is passed BEFORE the flags because --disallowedTools is variadic
+#   (space-separated) -- a positional argument after it would be swallowed into
+#   the tool list.
+$disallow = @(
+    'Edit', 'Write', 'NotebookEdit',
+    'Bash(git commit *)', 'Bash(git push *)',
+    'Bash(gh pr merge *)', 'Bash(gh pr close *)', 'Bash(gh pr review *)'
+)
+
 try {
-    $claudeOutput = claude --print --dangerously-skip-permissions "$reviewPrompt" 2>&1
+    $claudeOutput = claude --print "$reviewPrompt" --dangerously-skip-permissions --disallowedTools @disallow 2>&1
     Write-ProcessOutputToLog $claudeOutput
     Log "Review run finished (exit code $LASTEXITCODE)."
 } catch {
     Log "ERROR: review run threw an exception: $_"
+    Log "If this is a 'claude is not recognized' error, the Claude Code CLI is not on"
+    Log "PATH for the scheduled task's environment -- check 'claude --version' in a"
+    Log "normal terminal, and use the full path to the executable here if needed."
     exit 1
 }
 
