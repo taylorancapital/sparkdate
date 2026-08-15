@@ -433,7 +433,30 @@
         // also when present-but-invalid (the API returns {event: null} for
         // an unknown id — the .then() handler below already no-ops on that,
         // same as the fetch-failure path).
-        var requestedEventId = new URLSearchParams(location.search).get('eventId');
+        // .get() returns null when ?eventId is absent entirely and '' when it's
+        // present but blank. Those are DIFFERENT situations and conflating them
+        // is what made a broken campaign invisible — keep the raw value so the
+        // check below can tell them apart, and trim so a whitespace-only id
+        // ('?eventId=%20') degrades the same way a blank one does instead of
+        // being sent to the API as a lookup that can only ever miss.
+        var rawEventIdParam = new URLSearchParams(location.search).get('eventId');
+        var requestedEventId = (rawEventIdParam || '').trim();
+
+        // A present-but-blank ?eventId= is a BROKEN campaign link, not an
+        // untargeted visit, and it is the most expensive failure here because it
+        // is completely silent: the URL looks targeted, the visitor is quietly
+        // sold whichever event is soonest instead, and nothing in GA4 separates
+        // it from ordinary /lp traffic. It is also easy to produce by accident —
+        // SparkDate_UTM_Campaign_Links.xlsx builds exactly this shape
+        // ('/lp?eventId=&utm_source=...') on every row where the Event ID column
+        // was left blank, so one copied-out row silently reallocates a campaign's
+        // revenue to a different event, potentially in a different city.
+        //
+        // Deliberately does NOT change the fallback: still sell the soonest event
+        // rather than nothing. This only makes it visible within a day.
+        if (rawEventIdParam !== null && !requestedEventId && typeof gtag === 'function') {
+          gtag('event', 'targeted_event_missing_id', { source: 'lp' });
+        }
 
         // Fire as soon as we know which campaign-targeted event this visit is
         // for — independent of whether they ever reach checkout — so GA4 can
