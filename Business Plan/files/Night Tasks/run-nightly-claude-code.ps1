@@ -125,6 +125,46 @@ if ($promptDate -ne $Today) {
 
 Log "Found today's prompt (dated $promptDate). Launching Claude Code..."
 
+# ── Resolve the Claude Code CLI ───────────────────────────────────────
+# See review-nightly-reports.ps1 for the full rationale. Short version: this
+# called a bare `claude`, which isn't installed on this machine -- that failure
+# has been masked because the date guard above skips the CLI run on almost every
+# night, so the first day a fresh prompt IS queued would have been the first day
+# this broke, with a raw CommandNotFoundException and no hint why.
+#
+# Deliberately duplicated rather than dot-sourced: two independently-scheduled
+# scripts shouldn't share an include whose absence breaks both at once.
+function Resolve-ClaudeCli {
+    if ($env:CLAUDE_CLI) {
+        if (Test-Path $env:CLAUDE_CLI) { return $env:CLAUDE_CLI }
+        Log "WARN: CLAUDE_CLI is set to '$($env:CLAUDE_CLI)' but nothing exists there -- ignoring it."
+    }
+    $cmd = Get-Command claude -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Source) { return $cmd.Source }
+    try {
+        $prefix = (& npm config get prefix 2>$null | Select-Object -First 1)
+        if ($prefix) {
+            foreach ($name in @('claude.cmd', 'claude.exe', 'claude.ps1', 'claude')) {
+                $candidate = Join-Path $prefix.Trim() $name
+                if (Test-Path $candidate) { return $candidate }
+            }
+        }
+    } catch { }
+    return $null
+}
+
+$ClaudeCli = Resolve-ClaudeCli
+if (-not $ClaudeCli) {
+    Log "ERROR: Claude Code CLI not found -- today's queued prompt cannot be run."
+    Log "  Checked: CLAUDE_CLI override, PATH, and the npm global prefix."
+    Log "  Fix: npm install -g @anthropic-ai/claude-code"
+    Log "  ...or set the CLAUDE_CLI environment variable to the executable's full path."
+    Log "  NOTE: TONIGHT_PROMPT.md is still dated today, so this prompt stays queued"
+    Log "        and will be picked up on the next run once the CLI is available."
+    exit 1
+}
+Log "Using Claude CLI: $ClaudeCli"
+
 Set-Location $RepoPath
 
 # --print runs one non-interactive turn and exits when done.
@@ -135,13 +175,27 @@ Set-Location $RepoPath
 # anything ambiguous instead of deciding it) -- verify those guardrails are still intact in
 # the prompt library file if you ever change how it's generated.
 #
-# NOTE: verify these flag names against `claude --help` on this machine before trusting the
-# schedule -- CLI flags can change between versions.
+# NOTE: verify these flag names against `& $ClaudeCli --help` before trusting the schedule
+# -- CLI flags can change between versions. (Use the resolved path, not a bare `claude`:
+# the CLI is not necessarily on PATH, which is the whole reason Resolve-ClaudeCli exists.)
 $metaPrompt = "Read and follow the instructions in the file 'Business Plan\files\Night Tasks\TONIGHT_PROMPT.md' exactly as written, including opening the PR at the end. There is no one here to answer questions -- if something is genuinely ambiguous, stop and document it in the PR instead of asking."
 
 try {
-    $claudeOutput = claude --print --dangerously-skip-permissions "$metaPrompt" 2>&1
+    $claudeOutput = & $ClaudeCli --print --dangerously-skip-permissions "$metaPrompt" 2>&1
     Write-ProcessOutputToLog $claudeOutput
+
+    # See review-nightly-reports.ps1: installed != authenticated. A fresh global
+    # install exits 1 with "Not logged in · Please run /login", which otherwise
+    # looks like an ordinary run failure in the log.
+    if ($claudeOutput -match 'Not logged in|Please run /login') {
+        Log "ERROR: the Claude Code CLI is installed but NOT AUTHENTICATED."
+        Log "  Fix: run 'claude' in an interactive terminal and complete /login."
+        Log "  Credentials are per-Windows-user and this task runs as '$env:USERNAME',"
+        Log "  so log in while signed in as that same user or it won't see them."
+        Log "  TONIGHT_PROMPT.md stays dated today, so the prompt remains queued."
+        exit 1
+    }
+
     Log "Claude Code run finished (exit code $LASTEXITCODE)."
 } catch {
     Log "ERROR: Claude Code run threw an exception: $_"

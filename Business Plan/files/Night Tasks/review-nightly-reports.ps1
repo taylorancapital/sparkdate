@@ -50,7 +50,54 @@ function Write-ProcessOutputToLog($output) {
     }
 }
 
+# ── Resolve the Claude Code CLI ───────────────────────────────────────
+# This used to call a bare `claude`, which produced a raw CommandNotFoundException
+# when the CLI wasn't on PATH -- and it wasn't: the CLI had never been installed on
+# this machine, so every run of this task failed at invocation with an error that
+# didn't say what was actually wrong. Task Scheduler's environment is also narrower
+# than an interactive shell, so "it works when I type it" does not imply "it works
+# at 9 AM"; resolving explicitly and failing with instructions beats either.
+#
+# Deliberately duplicated in run-nightly-claude-code.ps1 rather than dot-sourced
+# from a shared file: these are two independently-scheduled scripts, and a shared
+# include would add a path-resolution failure mode that breaks BOTH when it breaks.
+# Same reasoning as this repo's no-shared-bundle convention on the web side.
+function Resolve-ClaudeCli {
+    # 1. Explicit override wins -- lets you pin a version or an odd install path
+    #    without editing this script.
+    if ($env:CLAUDE_CLI) {
+        if (Test-Path $env:CLAUDE_CLI) { return $env:CLAUDE_CLI }
+        Log "WARN: CLAUDE_CLI is set to '$($env:CLAUDE_CLI)' but nothing exists there -- ignoring it."
+    }
+    # 2. Whatever PATH this process actually has.
+    $cmd = Get-Command claude -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Source) { return $cmd.Source }
+    # 3. npm's global prefix -- where `npm install -g` lands on Windows. Checked
+    #    explicitly because the npm global bin is frequently absent from the PATH
+    #    a scheduled task inherits, even when it's present interactively.
+    try {
+        $prefix = (& npm config get prefix 2>$null | Select-Object -First 1)
+        if ($prefix) {
+            foreach ($name in @('claude.cmd', 'claude.exe', 'claude.ps1', 'claude')) {
+                $candidate = Join-Path $prefix.Trim() $name
+                if (Test-Path $candidate) { return $candidate }
+            }
+        }
+    } catch { }
+    return $null
+}
+
 Log "=== Nightly report-PR review starting ==="
+
+$ClaudeCli = Resolve-ClaudeCli
+if (-not $ClaudeCli) {
+    Log "ERROR: Claude Code CLI not found -- this task cannot run."
+    Log "  Checked: CLAUDE_CLI override, PATH, and the npm global prefix."
+    Log "  Fix: npm install -g @anthropic-ai/claude-code"
+    Log "  ...or set the CLAUDE_CLI environment variable to the executable's full path."
+    exit 1
+}
+Log "Using Claude CLI: $ClaudeCli"
 
 if (-not (Test-Path $PromptFile)) {
     Log "ERROR: REVIEW_PROMPT.md not found at '$PromptFile'. Nothing to run."
@@ -94,14 +141,25 @@ $disallow = @(
 )
 
 try {
-    $claudeOutput = claude --print "$reviewPrompt" --dangerously-skip-permissions --disallowedTools @disallow 2>&1
+    $claudeOutput = & $ClaudeCli --print "$reviewPrompt" --dangerously-skip-permissions --disallowedTools @disallow 2>&1
     Write-ProcessOutputToLog $claudeOutput
+
+    # Being installed is not the same as being usable: a fresh `npm install -g`
+    # leaves the CLI unauthenticated, and it then exits 1 with "Not logged in ·
+    # Please run /login". That reads as a generic failure in a log, so name it.
+    if ($claudeOutput -match 'Not logged in|Please run /login') {
+        Log "ERROR: the Claude Code CLI is installed but NOT AUTHENTICATED."
+        Log "  Fix: run 'claude' in an interactive terminal and complete /login."
+        Log "  Credentials are per-Windows-user and this task runs as '$env:USERNAME',"
+        Log "  so log in while signed in as that same user or it won't see them."
+        exit 1
+    }
+
     Log "Review run finished (exit code $LASTEXITCODE)."
 } catch {
+    # A missing CLI can no longer reach here -- Resolve-ClaudeCli exits above with
+    # actionable instructions -- so anything caught now is a genuine runtime fault.
     Log "ERROR: review run threw an exception: $_"
-    Log "If this is a 'claude is not recognized' error, the Claude Code CLI is not on"
-    Log "PATH for the scheduled task's environment -- check 'claude --version' in a"
-    Log "normal terminal, and use the full path to the executable here if needed."
     exit 1
 }
 
