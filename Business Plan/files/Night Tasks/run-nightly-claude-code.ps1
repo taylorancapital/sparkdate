@@ -180,8 +180,21 @@ Set-Location $RepoPath
 # the CLI is not necessarily on PATH, which is the whole reason Resolve-ClaudeCli exists.)
 $metaPrompt = "Read and follow the instructions in the file 'Business Plan\files\Night Tasks\TONIGHT_PROMPT.md' exactly as written, including opening the PR at the end. There is no one here to answer questions -- if something is genuinely ambiguous, stop and document it in the PR instead of asking."
 
+$prevEAP = $ErrorActionPreference
+
 try {
+    # See review-nightly-reports.ps1 for the full explanation. Short version:
+    # PS 5.1 + 2>&1 on a native exe turns every stderr line into an ErrorRecord,
+    # and with $ErrorActionPreference = "Stop" that makes any stderr output a
+    # terminating error even on exit 0. Claude Code writes routine notices to
+    # stderr, so this aborted runs on warnings that weren't failures. Lowered to
+    # Continue for the call so stderr arrives as data, restored in finally.
+    $ErrorActionPreference = 'Continue'
     $claudeOutput = & $ClaudeCli --print --dangerously-skip-permissions "$metaPrompt" 2>&1
+    # Capture immediately: any later command can clobber $LASTEXITCODE.
+    $claudeExit = $LASTEXITCODE
+    $ErrorActionPreference = $prevEAP
+
     Write-ProcessOutputToLog $claudeOutput
 
     # See review-nightly-reports.ps1: installed != authenticated. A fresh global
@@ -196,10 +209,21 @@ try {
         exit 1
     }
 
-    Log "Claude Code run finished (exit code $LASTEXITCODE)."
+    # A non-zero exit means today's queued prompt did not run. Surface it instead
+    # of logging the code and exiting 0, which reported a broken run as healthy.
+    # (Distinct from the deliberate exit 0 on the "nothing queued" path above --
+    # that's a normal no-op, this is a genuine failure.)
+    if ($claudeExit -ne 0) {
+        Log "ERROR: Claude Code run failed (exit code $claudeExit). See the CLI output above."
+        exit $claudeExit
+    }
+
+    Log "Claude Code run finished (exit code $claudeExit)."
 } catch {
     Log "ERROR: Claude Code run threw an exception: $_"
     exit 1
+} finally {
+    $ErrorActionPreference = $prevEAP
 }
 
 Log "=== Run complete ==="
