@@ -181,6 +181,26 @@
       "destination": "/blog/how-to-ask-for-a-second-date.html"
     },
     {
+      "source": "/blog/speed-dating-vs-singles-mixer",
+      "destination": "/blog/speed-dating-vs-singles-mixer.html"
+    },
+    {
+      "source": "/blog/how-to-meet-people-without-dating-apps",
+      "destination": "/blog/how-to-meet-people-without-dating-apps.html"
+    },
+    {
+      "source": "/blog/going-to-a-singles-event-alone",
+      "destination": "/blog/going-to-a-singles-event-alone.html"
+    },
+    {
+      "source": "/blog/dating-in-your-30s",
+      "destination": "/blog/dating-in-your-30s.html"
+    },
+    {
+      "source": "/blog/wilmington-date-night-spots",
+      "destination": "/blog/wilmington-date-night-spots.html"
+    },
+    {
       "source": "/philadelphia",
       "destination": "/api/next-event?render=city&city=philadelphia"
     },
