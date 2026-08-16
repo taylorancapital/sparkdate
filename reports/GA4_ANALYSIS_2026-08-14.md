@@ -12,6 +12,39 @@ API (campaign-level spend, clicks, impressions, and pixel actions for Aug 7–13
 report in this project's history with real ad-spend numbers to set against the GA4 side. This
 report replaces the earlier placeholder in the same commit history.
 
+## CORRECTION — added 2026-08-16
+
+**Finding 1 below is withdrawn. There was no engagement collapse.** The 1.3% figure for Aug 13 is
+an artifact of when this report's export was taken, not a measurement.
+
+The export behind this report carries the header `# 20260519-20260813` and was **created at 10:00
+pm on Aug 13** — so Aug 13, its final row, was still roughly two hours from over, and had not been
+through GA4's normal 24–48h processing window at all. The next export
+(`# 20260519-20260815`, created 11:55 pm on Aug 15), used by the 08-16 report, puts the same day at
+**64.9%**. The day did not crater and then recover; it was simply read before it existed.
+
+| Aug 13 engagement rate | Source |
+|---|---|
+| 1.3% (withdrawn) | this report — export taken 10:00 pm *on* Aug 13 |
+| **64.9%** | 08-16 report — export taken 11:55 pm Aug 15, day fully processed |
+
+**Also unresolved:** the two exports disagree on Aug 11 (21.8% here vs 15.1% in the 08-16 report)
+and Aug 12 (15.1% here vs 52.4% there). Those days were already settled when this export ran and
+should not have moved. Until the raw `download (4).csv` and `download (14).csv` are compared
+directly, treat this report's **entire daily engagement series as unverified**, not just the last
+row. The Aug 5–10 values are uncontested only because no second export covers them.
+
+**What this correction does NOT touch.** The traffic record and the Meta-spend findings stand:
+they come from aggregate tables and the Meta Marketing API pull, not the daily-indexed trend
+files. Finding 2 ($104.69 across 9 campaigns, zero pixel-confirmed purchases for Aug 7–13) is
+unaffected and was independently reconfirmed by the 08-16 report.
+
+**Root cause, and the standing fix.** Every nightly export is taken late on the last evening of
+its own range, so its final row is always a partial day — and this report read that row as real.
+The 08-16 report inherits the same flaw (its Aug 14 value came from an export run ~24h later,
+still inside the processing window). Either pull the export the morning *after* the range ends, or
+have the report drop its final daily row by default.
+
 ## Data used
 
 17 GA4 CSVs (`download.csv` through `download (16).csv`), each confirmed via its own
@@ -26,10 +59,13 @@ screens" report in this export**, so page-level engagement/bounce analysis still
 
 ## Headline: traffic hit an all-time high while engagement quality collapsed to near zero — same week Meta spend produced zero pixel-confirmed purchases
 
+> **Half of this headline is withdrawn — see the CORRECTION above.** The engagement collapse was a
+> partial-day export artifact. The traffic record and the zero-purchase finding stand.
+
 Three things happened in the same 5-day window (Aug 9–13) and line up too closely to treat as
 unrelated:
 
-**1. Engagement rate cratered from 75.9% to 1.3% in eight days**, tracking almost exactly against
+**1. ~~Engagement rate cratered from 75.9% to 1.3% in eight days~~ — WITHDRAWN**, tracking almost exactly against
 the paid-traffic ramp (`download (4).csv`, Monthly Trends–Engagement Rate Trend, each day
 individually mapped from the `Nth day` index against the `20260519` range start):
 
@@ -43,12 +79,18 @@ individually mapped from the `Nth day` index against the `20260519` range start)
 | Aug 10 | 31.6% | 64 | 8 |
 | Aug 11 | 21.8% | 74 | 5 |
 | Aug 12 | 15.1% | 58 | 4 |
-| **Aug 13** | **1.3%** | **55** | **1** |
+| ~~**Aug 13**~~ | ~~**1.3%**~~ → **64.9%** | **55** | **1** |
 
-(`download (6).csv`, Active Users: Direct vs Paid, same day-index mapping.) As paid traffic
-climbed and direct traffic stayed near-flat, engagement rate fell almost monotonically to a value
-that is functionally "visitors leaving immediately" — 1.3% engagement on a 60-active-user day is
-not noise, it's close to nobody engaging at all.
+(`download (6).csv`, Active Users: Direct vs Paid, same day-index mapping.)
+
+> **The conclusion drawn from this table was wrong.** Aug 13's 1.3% was a partial day — the export
+> ran at 10:00 pm that same evening. Its real value is 64.9%. Aug 11 and Aug 12 are also disputed
+> by the later export. The paid/direct user counts in the right-hand columns are unaffected; only
+> the engagement-rate column is in question. Original text follows, struck through:
+>
+> ~~As paid traffic climbed and direct traffic stayed near-flat, engagement rate fell almost
+> monotonically to a value that is functionally "visitors leaving immediately" — 1.3% engagement on
+> a 60-active-user day is not noise, it's close to nobody engaging at all.~~
 
 **2. That same week set an all-time traffic record.** The weekly cohort table
 (`download (14).csv`, `Weekly cohort = 0000`, `date_range_0` rows) shows Aug 9–13 (a partial,
@@ -190,10 +232,13 @@ between the two service-fee constants. Nothing mechanical to fix from what this 
 
 ## NEEDS TAYLOR INPUT (ranked)
 
-1. **The engagement-rate collapse (75.9% → 1.3% over 8 days) is the most urgent item in this
-   report.** It's concrete, dated, and directly overlaps the Meta spend ramp. Recommend checking
-   GA4 Realtime traffic quality and the actual landing experience these 9 campaigns point to before
-   any further spend — the current pattern is "pay for clicks, visitor leaves almost immediately."
+1. ~~**The engagement-rate collapse (75.9% → 1.3% over 8 days) is the most urgent item in this
+   report.**~~ **WITHDRAWN — this was not real.** Aug 13's 1.3% was a partial-day export artifact;
+   the day settled at 64.9%. No action was warranted and none should be taken on this basis. The
+   replacement action item is the export-timing fix in the CORRECTION above, so no future report
+   reads an incomplete final day as a real number. *(Original recommendation, for the record:
+   check GA4 Realtime traffic quality and the landing experience behind the 9 campaigns before
+   further spend.)*
 2. **Meta ad spend vs. confirmed-zero pixel purchases.** $104.69 for 413 clicks and zero purchase
    actions, confirmed at the Meta pixel level (not just a GA4 attribution question this time). The
    "Event 4 Good Good – Retargeting" ad set in particular ($16.43, $1.64 CPC, no funnel signal at
@@ -213,7 +258,9 @@ between the two service-fee constants. Nothing mechanical to fix from what this 
 
 ## What to re-check in ~1 week
 
-- Whether the engagement-rate collapse reverses, stabilizes, or continues past 1.3%.
+- ~~Whether the engagement-rate collapse reverses, stabilizes, or continues past 1.3%.~~
+  Moot — there was no collapse. Instead: reconcile `download (4).csv` against `download (14).csv`
+  for Aug 11–12, the two days the exports still disagree on.
 - Whether Meta's pixel registers any `purchase` action in the next weekly pull, or continues at
   zero across all campaigns.
 - Whether `in_app_browser_detected` keeps climbing past 31.4%, and whether the two new
