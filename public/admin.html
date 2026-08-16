@@ -3780,16 +3780,25 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             if (!grid) return;
             if (!kpiSnapshot) { grid.innerHTML = '<div class="empty">Waiting for data…</div>'; return; }
             const k = kpiSnapshot;
+            // ORDER ONLY — every value, label and note here is unchanged.
+            // Revenue metrics first, operational metrics second.
+            //
+            // Within revenue, the money runs in the order it actually flows:
+            // gross, then net, then what a buyer is worth, then what a buyer
+            // costs, then the ratio that judges the two. Within operational,
+            // pace then headcount, with Active Subscriptions last.
             const cards = [
-                ['Total Members', k.members, k.membersTrend],
-                ['Active Subscriptions', k.active, 'Paying + trialing'],
+                // — Revenue —
                 ['Ticket Revenue', money(k.ticketRevenue), `${k.paidTickets} paid`],
                 ['Net Revenue', money(k.netRevenue), 'After fees + spend'],
                 ['Revenue / Buyer', money(k.arpu), `${k.uniqueBuyers} buyers`],
                 ['Est. LTV', money(k.ltv), `${k.avgEvents.toFixed(1)} events/buyer`],
                 ['Blended CAC', k.cac > 0 ? money(k.cac) : '—', `${money(k.totalAcquisition)} spend`],
                 ['LTV : CAC', k.ltvCac === '—' ? '—' : `${k.ltvCac}:1`, 'Target 3:1+'],
+                // — Operational —
                 ['Ticket Velocity', k.velocity, k.velocityNote],
+                ['Total Members', k.members, k.membersTrend],
+                ['Active Subscriptions', k.active, 'Paying + trialing'],
             ];
             grid.innerHTML = cards.map(([label, value, note]) => `
                 <div class="kpi-card">
