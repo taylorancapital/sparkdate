@@ -813,7 +813,13 @@
                 <span class="live-dot"></span>
                 <span>Live · <span id="lastUpdate">just now</span></span>
             </div>
-            <button id="dashboardRefreshBtn" onclick="loadDashboard()" title="Reload dashboard data now" style="margin-left:12px;background:rgba(255,255,255,0.08);color:#f5f3f0;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;">↻ Refresh</button>
+            <!-- Wired by id in the module below, NOT with an inline handler.
+                 loadDashboard() is declared inside a type="module" script, and
+                 module declarations never reach window, so the old inline
+                 onclick threw ReferenceError and this button did nothing.
+                 (No literal script tag in this comment on purpose - it trips
+                  naive script-block extractors.) -->
+            <button id="dashboardRefreshBtn" title="Reload dashboard data now" style="margin-left:12px;background:rgba(255,255,255,0.08);color:#f5f3f0;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;">↻ Refresh</button>
             <button id="adminLogoutBtn" onclick="adminLogout()" style="margin-left:16px;background:rgba(255,255,255,0.08);color:#f5f3f0;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;">Log out</button>
         </div>
     </header>
@@ -1666,6 +1672,33 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
         }
 
+        // ↻ Refresh. Wired here rather than via an inline handler because this
+        // is a module: nothing declared in it is reachable from an HTML
+        // attribute, so the old inline onclick threw ReferenceError on every
+        // click and the button did nothing at all. (loadRetention and loadFunnel
+        // avoid this by being assigned onto window explicitly; this one was
+        // missed.)
+        //
+        // Also guards against overlapping loads — loadDashboard reads several
+        // whole collections, and double-clicking used to be able to start a
+        // second pass while the first was still in flight.
+        let refreshInFlight = false;
+        async function refreshDashboardNow() {
+            if (refreshInFlight) return;
+            refreshInFlight = true;
+            const btn = document.getElementById('dashboardRefreshBtn');
+            const label = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '↻ Refreshing…'; }
+            try {
+                await loadDashboard();
+            } finally {
+                refreshInFlight = false;
+                if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.textContent = label; }
+            }
+        }
+        document.getElementById('dashboardRefreshBtn')
+            ?.addEventListener('click', refreshDashboardNow);
+
         window.adminLogout = async () => {
             stopRefresh();
             try { await auth.signOut(); } catch (_) {}
@@ -1691,7 +1724,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             document.getElementById('loginOverlay').style.display = 'none';
             loadDashboard();
             stopRefresh();
-            refreshTimer = setInterval(loadDashboard, 300000);
+            // Route the auto-refresh through the same guarded path as the button
+            // so a timer tick can't start a second full load on top of a manual
+            // one the user just kicked off.
+            refreshTimer = setInterval(refreshDashboardNow, 300000);
         });
 
         // ─── Data Loaders ──────────────────────────────────
