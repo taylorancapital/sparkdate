@@ -206,8 +206,11 @@
             margin-bottom: 4px;
             line-height: 1;
         }
-        .kpi-value.coral { color: var(--coral); }
-        .kpi-value.gold { color: var(--gold); }
+        /* No .coral / .gold modifiers on .kpi-value. A KPI figure is always
+           white; colour on a KPI card means a trend, and that lives on
+           .kpi-delta (.up green / .down red). Both modifiers were dead — never
+           applied by any renderer — and re-tinting the number by metric type
+           made a card look like it was flagging something when it wasn't. */
         .kpi-trend {
             font-size: 11px;
             color: rgba(245, 243, 240, 0.5);
@@ -917,7 +920,9 @@
             font-size: 12px;
             color: rgba(245,243,240,0.7);
         }
-        .candidate-stat strong { color: var(--gold); font-size: 16px; display: block; font-family: 'Playfair Display', serif; }
+        /* Reads as a KPI card, so it follows the KPI rule: white figure, no
+           hue. (Gold here is what made the Revenue stat strip look yellow.) */
+        .candidate-stat strong { color: var(--white); font-size: 16px; display: block; font-family: 'Playfair Display', serif; }
 
         .score-cell {
             font-family: 'Playfair Display', serif;
@@ -3622,7 +3627,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 bars.innerHTML = rows.length ? `<div style="display:flex;flex-direction:column;gap:10px;">${rows.map(r => `
                     <div>
                         <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:4px;">
-                            <span>${safe(r.name)}</span><span style="color:var(--gold)">${r.n}</span>
+                            <span>${safe(r.name)}</span><span style="color:var(--white)">${r.n}</span>
                         </div>
                         <div style="height:6px;border-radius:3px;background:var(--surface-hover);">
                             <div style="height:100%;border-radius:3px;background:var(--grad-coral);width:${(r.n / max * 100).toFixed(1)}%"></div>
@@ -3951,7 +3956,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <td>${tierBadge(tier)}</td>
                         <td style="color: var(--white); font-weight: 600;">${users.length}</td>
                         <td style="color: rgba(245,243,240,0.7);">${pct}%</td>
-                        <td style="color: var(--gold); font-weight: 600;">$${monthlyRev.toFixed(2)}</td>
+                        <td style="color: var(--white); font-weight: 600;">$${monthlyRev.toFixed(2)}</td>
                     </tr>
                 `;
             }).join('');
@@ -4141,7 +4146,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <div style="font-size:11px;color:rgba(245,243,240,0.5);">${safe(email)}</div>
                     </td>
                     <td>${typeBadge}</td>
-                    <td style="color:var(--gold);font-weight:600;">$${(amount / 100).toFixed(2)}</td>
+                    <td style="color:var(--white);font-weight:600;">$${(amount / 100).toFixed(2)}</td>
                     <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(event)}</td>
                     <td style="color:rgba(245,243,240,0.6);">${formatDate(when)}</td>
                 </tr>`;
@@ -4223,7 +4228,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     <td style="color:var(--white);font-weight:500;">${safe(ev.title)}</td>
                     <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(dateStr)}</td>
                     <td style="color:rgba(245,243,240,0.7);font-size:12px;" title="${safe(mixTitle)}">${safe(mix)} <span style="opacity:0.45">(${c.paidCount})</span>${c.compCount ? ` <span style="opacity:0.45;" title="Comped seats — attendance only">+${c.compCount}c</span>` : ''}</td>
-                    <td style="color:var(--gold);font-weight:600;">${money(c.gross)}</td>
+                    <td style="color:var(--white);font-weight:600;">${money(c.gross)}</td>
                     <td style="color:rgba(245,243,240,0.6);">${c.total > 0 ? money(c.total) : '<span style="opacity:0.3">—</span>'}</td>
                     <td style="color:${col};font-weight:600;">${money(net)}</td>
                     <td style="color:${col};font-weight:600;">${marginPct.toFixed(0)}%</td>
@@ -4286,7 +4291,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 return `<tr>
                     <td style="color:var(--white);font-weight:500;">${CHANNEL_LABELS[k]}</td>
                     <td style="color:rgba(245,243,240,0.7);">${tix.length}${comps ? ` <span style="opacity:0.45;font-size:11px;" title="Comped seats — attendance only, not counted as revenue">+${comps} comp</span>` : ''}</td>
-                    <td style="color:var(--gold);font-weight:600;">${money(gross)}</td>
+                    <td style="color:var(--white);font-weight:600;">${money(gross)}</td>
                     <td style="color:rgba(245,243,240,0.6);">${dim(acq)}</td>
                     <td style="color:rgba(245,243,240,0.6);">${dim(fees)}</td>
                     <td style="color:${col};font-weight:600;">${money(net)}</td>
