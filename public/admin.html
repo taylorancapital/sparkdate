@@ -306,6 +306,132 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
+        /* ── Overview hero band ───────────────────────────────────
+           The editorial top from the mockup: eyebrow, one big display
+           number, a plain-English sentence, and a link onward. */
+        .hero-band {
+            background: var(--grad-elevated);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 22px 26px;
+            margin-bottom: 18px;
+        }
+        .hero-eyebrow {
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--coral);
+            margin-bottom: 8px;
+        }
+        .hero-figure {
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: 38px;
+            letter-spacing: -1px;
+            color: var(--white);
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+        .hero-figure span {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-family: var(--font-body);
+            font-weight: 500;
+        }
+        .hero-sub {
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            margin-bottom: 14px;
+        }
+        .hero-cta {
+            font-family: var(--font-body);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 8px 18px;
+            border-radius: 4px;
+            background: var(--grad-coral);
+            color: var(--white);
+            border: 1px solid transparent;
+            box-shadow: var(--shadow-coral);
+            cursor: pointer;
+        }
+
+        /* ── Rotating metric chart ────────────────────────────────
+           One card that cycles through Revenue / Cost / Tickets /
+           Sales by gender. Line metrics draw an area+polyline; the
+           gender metric is a stacked bar instead, so the card has two
+           mutually exclusive bodies. */
+        .metric-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 16px 18px;
+            margin-bottom: 18px;
+        }
+        .metric-body { transition: opacity .35s ease, transform .35s ease; }
+        .metric-body.fading { opacity: 0; transform: translateY(6px); }
+        .metric-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 8px;
+            gap: 12px;
+        }
+        .metric-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+        .metric-value {
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 16px;
+        }
+        .metric-value small {
+            font-family: var(--font-body);
+            font-weight: 500;
+            font-size: 10.5px;
+            color: var(--text-faint);
+        }
+        .metric-axis {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: var(--text-faint);
+            margin-top: 6px;
+        }
+        .metric-dots { display: flex; gap: 5px; justify-content: center; margin-top: 12px; }
+        .metric-dots span {
+            width: 6px; height: 6px;
+            border-radius: 3px;
+            background: var(--surface-hover);
+            transition: all .3s ease;
+            cursor: pointer;
+        }
+        .metric-dots span.on { width: 18px; background: var(--coral); }
+        .gender-bar {
+            height: 14px;
+            border-radius: 7px;
+            overflow: hidden;
+            display: flex;
+            margin: 26px 0 14px;
+        }
+        .gender-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; }
+        .gender-legend > div { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+        .gender-legend .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+        /* Sparkline + delta inside the existing KPI cards. */
+        .kpi-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            margin-top: 4px;
+        }
+        .kpi-delta { font-size: 10px; }
+        .kpi-delta.up { color: var(--success); }
+        .kpi-delta.down { color: var(--danger); }
+        .kpi-delta.flat { color: var(--text-faint); }
+
         /* Sub-items: Leads / Funnel / Retention live under Activity. Indent
            plus a vertical rule so the hierarchy reads without needing a
            disclosure triangle — there are only three, and hiding them behind
@@ -1076,7 +1202,13 @@
 
     <div class="container">
         <h1 class="page-title">Dashboard</h1>
-        <p class="page-subtitle">Real-time view of SparkDate operations · auto-refreshes every 5 min · click ↻ Refresh above for the latest</p>
+        <p class="page-subtitle">Real-time view of SparkDate operations · auto-refreshes every 5 min · click ↻ Refresh in the sidebar for the latest</p>
+
+        <!-- Hero band + rotating chart are Overview-only, so they live inside
+             #tab-overview below. The KPI grid stays here, above the panes, so
+             the headline numbers remain visible on every tab — that's existing
+             behaviour and removing it would be a downgrade dressed as a
+             redesign. -->
 
         <!-- KPI Cards -->
         <div class="kpi-grid">
@@ -1131,6 +1263,30 @@
 
         <!-- Overview Tab -->
         <div class="tab-content active" id="tab-overview">
+
+            <!-- Editorial hero band, from the mockup. Numbers are the real
+                 trailing 7 days vs the 7 before, computed in renderHero(). -->
+            <div class="hero-band" id="heroBand" style="display:none;">
+                <div class="hero-eyebrow" id="heroEyebrow">—</div>
+                <div class="hero-figure" id="heroFigure">—</div>
+                <div class="hero-sub" id="heroSub">—</div>
+                <button class="hero-cta" id="heroCta">View revenue detail →</button>
+            </div>
+
+            <!-- Rotating metric chart. Cycles Revenue / Cost / Tickets /
+                 Sales by gender every 6s; the dots are clickable to stop
+                 fighting the timer when you want to read one. -->
+            <div class="metric-card" id="metricCard" style="display:none;">
+                <div class="metric-body" id="metricBody">
+                    <div class="metric-head">
+                        <div class="metric-title" id="metricTitle">—</div>
+                        <div class="metric-value" id="metricValue">—</div>
+                    </div>
+                    <div id="metricChart"></div>
+                </div>
+                <div class="metric-dots" id="metricDots"></div>
+            </div>
+
             <div class="two-col">
                 <div>
                     <!-- Recent Signups -->
@@ -1939,6 +2095,20 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         document.getElementById('dashboardRefreshBtn')
             ?.addEventListener('click', refreshDashboardNow);
 
+        // The mockup's "View full report →" points at a Report section that
+        // doesn't exist yet (that's the next pass). Rather than ship a dead
+        // button, send it to Revenue — the fullest financial view there is
+        // today — and relabel when Report lands.
+        document.getElementById('heroCta')
+            ?.addEventListener('click', () => switchTab('revenue'));
+
+        // Stop the chart rotating while the tab is hidden, and repaint on
+        // return so it isn't showing a stale frame.
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) stopMetricRotation();
+            else if (document.getElementById('metricCard')) { renderMetric(); startMetricRotation(); }
+        });
+
         window.adminLogout = async () => {
             stopRefresh();
             try { await auth.signOut(); } catch (_) {}
@@ -1979,8 +2149,11 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 // loadRecurring must resolve before renderKPIs: CAC and every
                 // margin figure now include allocated monthly costs, so rendering
                 // ahead of it would flash a too-rosy number and then correct it.
-                await Promise.all([loadUsers(), loadActivity(), loadPayments(), loadAdminEvents(), loadRecurring()]);
+                await Promise.all([loadUsers(), loadActivity(), loadPayments(), loadAdminEvents(), loadRecurring(), loadTrendTickets()]);
                 renderKPIs();
+                renderHero();
+                renderMetric();
+                startMetricRotation();
                 renderRecentSignups();
                 renderTierBreakdown();
                 renderActivityFeed();
@@ -3082,6 +3255,219 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 console.warn('[recurring_costs] load failed:', e && e.message);
                 allRecurring = {};
             }
+        }
+
+        // ─── Trend window ──────────────────────────────────
+        // loadPayments() caps at the 200 newest tickets, which is fine for the
+        // "all time" totals it feeds but WRONG as a basis for date-windowed
+        // charts: once 200 tickets sell inside the window the oldest days
+        // silently flatten to zero and every trend reads as a collapse.
+        // This is a separate, date-bounded read instead — a range filter on the
+        // same field it's ordered by, so it needs no composite index (same
+        // shape as city.html's upcoming-events query).
+        const TREND_DAYS = 60;
+        let trendTickets = [];
+
+        async function loadTrendTickets() {
+            const cutoff = new Date(Date.now() - TREND_DAYS * 86400000);
+            try {
+                const snap = await getDocs(query(
+                    collection(db, 'tickets'),
+                    where('createdAt', '>=', cutoff),
+                    orderBy('createdAt', 'asc')
+                ));
+                trendTickets = snap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter(t => t.status === 'confirmed');
+            } catch (e) {
+                console.warn('[trend] load failed:', e && e.message);
+                trendTickets = [];
+            }
+        }
+
+        const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const toDate = (ts) => ts && ts.toDate ? ts.toDate() : (ts ? new Date(ts) : null);
+
+        // Bucket a value per day across the last n days, oldest first.
+        function dailySeries(days, pick) {
+            const out = new Map();
+            for (let i = days - 1; i >= 0; i--) {
+                out.set(dayKey(new Date(Date.now() - i * 86400000)), 0);
+            }
+            trendTickets.forEach(t => {
+                const d = toDate(t.createdAt);
+                if (!d) return;
+                const k = dayKey(d);
+                if (out.has(k)) out.set(k, out.get(k) + pick(t));
+            });
+            return [...out.values()];
+        }
+
+        // SVG polyline points for a series, normalised into a w×h box.
+        function sparkPoints(vals, w, h, pad = 2) {
+            if (!vals.length) return '';
+            const max = Math.max(...vals, 1);
+            const step = vals.length > 1 ? w / (vals.length - 1) : 0;
+            return vals.map((v, i) => `${(i * step).toFixed(1)},${(h - pad - (v / max) * (h - pad * 2)).toFixed(1)}`).join(' ');
+        }
+
+        // ─── Overview hero band ────────────────────────────
+        function renderHero() {
+            const band = document.getElementById('heroBand');
+            if (!band) return;
+            const now = Date.now();
+            const inWindow = (t, from, to) => {
+                const d = toDate(t.createdAt);
+                return d && d.getTime() >= from && d.getTime() < to;
+            };
+            const wk   = trendTickets.filter(t => !t.isComp && inWindow(t, now - 7 * 86400000, now));
+            const prev = trendTickets.filter(t => !t.isComp && inWindow(t, now - 14 * 86400000, now - 7 * 86400000));
+
+            // Nothing in the last 7 days is a legitimate state for a business
+            // running a handful of events a month — say so rather than showing
+            // "$0.00, down 100%", which reads like an outage.
+            if (!wk.length && !prev.length) { band.style.display = 'none'; return; }
+            band.style.display = '';
+
+            const sum = (arr) => arr.reduce((s, t) => s + num(t.amount), 0) / 100;
+            const rev = sum(wk), prevRev = sum(prev);
+            const buyers = new Set(wk.map(t => (t.email || '').toLowerCase()).filter(Boolean)).size;
+            const events = new Set(wk.map(t => t.eventId).filter(Boolean)).size;
+
+            const fmtRange = (from, to) => {
+                const o = { month: 'short', day: 'numeric' };
+                return `${from.toLocaleDateString('en-US', o)}–${to.toLocaleDateString('en-US', o)}`;
+            };
+            document.getElementById('heroEyebrow').textContent =
+                'Week of ' + fmtRange(new Date(now - 7 * 86400000), new Date(now));
+            document.getElementById('heroFigure').innerHTML =
+                `${money(rev)} <span>ticket revenue</span>`;
+
+            let cmp;
+            if (prevRev > 0) {
+                const pct = Math.round(((rev - prevRev) / prevRev) * 100);
+                cmp = `${pct >= 0 ? 'up' : 'down'} ${Math.abs(pct)}% from ${money(prevRev)} the week before`;
+            } else {
+                cmp = 'no sales the week before';
+            }
+            document.getElementById('heroSub').textContent =
+                `${wk.length} ticket${wk.length === 1 ? '' : 's'} across ${events} event${events === 1 ? '' : 's'} and ${buyers} buyer${buyers === 1 ? '' : 's'}, ${cmp}.`;
+        }
+
+        // ─── Rotating metric chart ─────────────────────────
+        // "Cost" is attributed to each event's DATE — per-event ad spend isn't
+        // stored with a spend date, so the event it bought is the only honest
+        // day to hang it on.
+        let metricIdx = 0, metricTimer = null;
+
+        function metricDefs() {
+            const revenue = dailySeries(30, t => t.isComp ? 0 : num(t.amount) / 100);
+            const tickets = dailySeries(30, t => t.isComp ? 0 : 1);
+            const cost = (() => {
+                const out = new Map();
+                for (let i = 29; i >= 0; i--) out.set(dayKey(new Date(Date.now() - i * 86400000)), 0);
+                allEvents.forEach(e => {
+                    const d = toDate(e.date);
+                    if (!d) return;
+                    const k = dayKey(d);
+                    if (out.has(k)) out.set(k, out.get(k) + eventAdSpend(e) + num(e.costOther));
+                });
+                return [...out.values()];
+            })();
+            const g = { woman: 0, man: 0, other: 0 };
+            trendTickets.forEach(t => {
+                const d = toDate(t.createdAt);
+                if (!d || d.getTime() < Date.now() - 30 * 86400000 || t.isComp) return;
+                const k = String(t.gender || '').toLowerCase();
+                if (k === 'woman') g.woman++; else if (k === 'man') g.man++; else g.other++;
+            });
+            return [
+                { key: 'revenue', title: 'Ticket revenue', series: revenue, color: '#d4af37',
+                  value: money(revenue.reduce((s, v) => s + v, 0)), sub: 'last 30 days' },
+                { key: 'cost', title: 'Cost', series: cost, color: '#ff6b6b',
+                  value: money(cost.reduce((s, v) => s + v, 0)), sub: 'ads + venue, by event date' },
+                { key: 'tickets', title: 'Tickets sold', series: tickets, color: '#4ade80',
+                  value: String(tickets.reduce((s, v) => s + v, 0)), sub: 'last 30 days' },
+                { key: 'gender', title: 'Ticket sales by gender', breakdown: g, color: '#60a5fa',
+                  value: String(g.woman + g.man + g.other), sub: 'last 30 days' },
+            ];
+        }
+
+        function renderMetric() {
+            const card = document.getElementById('metricCard');
+            if (!card) return;
+            const defs = metricDefs();
+            const anyData = defs.some(d => d.series ? d.series.some(v => v > 0)
+                                                    : Object.values(d.breakdown).some(v => v > 0));
+            if (!anyData) { card.style.display = 'none'; return; }
+            card.style.display = '';
+
+            const m = defs[metricIdx % defs.length];
+            document.getElementById('metricTitle').textContent = `${m.title} — last 30 days`;
+            document.getElementById('metricValue').innerHTML =
+                `<span style="color:${m.color}">${safe(m.value)}</span> <small>${safe(m.sub)}</small>`;
+
+            const chart = document.getElementById('metricChart');
+            if (m.breakdown) {
+                const total = Object.values(m.breakdown).reduce((s, v) => s + v, 0) || 1;
+                const rows = [
+                    { label: 'Women', n: m.breakdown.woman, c: '#ff6b6b' },
+                    { label: 'Men',   n: m.breakdown.man,   c: '#60a5fa' },
+                    { label: 'Other / unset', n: m.breakdown.other, c: 'rgba(245,243,240,0.3)' },
+                ].filter(r => r.n > 0);
+                chart.innerHTML = `
+                    <div class="gender-bar">${rows.map(r => `<div style="width:${(r.n/total*100).toFixed(1)}%;background:${r.c}"></div>`).join('')}</div>
+                    <div class="gender-legend">${rows.map(r => `
+                        <div><span class="dot" style="background:${r.c}"></span>
+                        <span style="color:var(--text-secondary)">${safe(r.label)}</span>
+                        <span style="color:var(--text-faint)">${r.n} · ${(r.n/total*100).toFixed(0)}%</span></div>`).join('')}</div>`;
+            } else {
+                const pts = sparkPoints(m.series, 760, 150, 6);
+                const area = pts ? `0,150 ${pts} 760,150` : '';
+                const gid = 'metricGrad';
+                chart.innerHTML = `
+                    <svg width="100%" height="120" viewBox="0 0 760 160" preserveAspectRatio="none">
+                        <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="${m.color}" stop-opacity="0.35"></stop>
+                            <stop offset="100%" stop-color="${m.color}" stop-opacity="0"></stop>
+                        </linearGradient></defs>
+                        <polygon points="${area}" fill="url(#${gid})"></polygon>
+                        <polyline points="${pts}" fill="none" stroke="${m.color}" stroke-width="2.5"></polyline>
+                    </svg>
+                    <div class="metric-axis">
+                        <span>${new Date(Date.now() - 29 * 86400000).toLocaleDateString('en-US', { month:'short', day:'numeric' })}</span>
+                        <span>${new Date().toLocaleDateString('en-US', { month:'short', day:'numeric' })}</span>
+                    </div>`;
+            }
+
+            const dots = document.getElementById('metricDots');
+            dots.innerHTML = defs.map((d, i) =>
+                `<span class="${i === metricIdx % defs.length ? 'on' : ''}" data-i="${i}" title="${safe(d.title)}"></span>`).join('');
+            dots.querySelectorAll('span').forEach(s => s.addEventListener('click', () => {
+                metricIdx = Number(s.dataset.i);
+                stopMetricRotation();   // clicking a dot means "let me read this one"
+                renderMetric();
+            }));
+        }
+
+        function stopMetricRotation() {
+            if (metricTimer) { clearInterval(metricTimer); metricTimer = null; }
+        }
+        function startMetricRotation() {
+            stopMetricRotation();
+            metricTimer = setInterval(() => {
+                const body = document.getElementById('metricBody');
+                const card = document.getElementById('metricCard');
+                // Don't animate a hidden card, and don't burn cycles while the
+                // tab is in the background.
+                if (!card || card.style.display === 'none' || document.hidden) return;
+                if (body) body.classList.add('fading');
+                setTimeout(() => {
+                    metricIdx++;
+                    renderMetric();
+                    if (body) body.classList.remove('fading');
+                }, 350);
+            }, 6000);
         }
 
         // ─── KPI Calculations ──────────────────────────────
