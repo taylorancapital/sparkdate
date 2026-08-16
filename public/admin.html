@@ -1436,10 +1436,14 @@
                     </div>
                     <div>
                         <label style="display:block;font-size:12px;color:rgba(245,243,240,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Sales channel</label>
-                        <select id="eb-channel" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px 12px;color:#f5f3f0;font-size:14px;box-sizing:border-box;">
-                            <option value="eventbrite">Eventbrite</option>
-                            <option value="meetup">Meetup</option>
+                        <select id="eb-channel" onchange="window.enrollChannelPicked&&window.enrollChannelPicked(this)" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px 12px;color:#f5f3f0;font-size:14px;box-sizing:border-box;">
+                            <option value="eventbrite">Eventbrite — sold on eventbrite.com</option>
+                            <option value="meetup">Meetup — sold on meetup.com</option>
+                            <option value="direct">Direct — sold by us (cash, Venmo, DM)</option>
+                            <option value="comp">Comp / +1 — free seat, no revenue</option>
+                            <option value="correction">Correction — fix an existing record</option>
                         </select>
+                        <div id="eb-channel-hint" style="font-size:11px;color:rgba(245,243,240,0.45);margin-top:6px;line-height:1.5;"></div>
                     </div>
                     <div>
                         <label style="display:block;font-size:12px;color:rgba(245,243,240,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Ticket Price (USD) <span style="font-weight:400;text-transform:none;">(face value each)</span></label>
@@ -2821,17 +2825,34 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             document.getElementById('kpiActiveTrend').textContent = `${total > 0 ? Math.round(active/total*100) : 0}% of total`;
 
             // ── Ticket revenue (allPayments populated after loadPayments) ──
+            // Comps are excluded from revenue as well as from the buyer counts
+            // below. They're normally $0 so this usually changes nothing — but if
+            // a comp is ever saved with a price (a partial make-good, a fat
+            // finger), counting it here while excluding its buyer from the
+            // denominator would silently inflate ARPU. Excluding it in BOTH
+            // places keeps the ratio honest either way.
             const tickets = allPayments.filter(p => p._type === 'ticket');
-            const ticketRevenue = tickets.reduce((s, p) => s + (Number(p.amount) || 0), 0) / 100;
+            const ticketRevenue = tickets
+                .filter(p => !p.isComp)
+                .reduce((s, p) => s + (Number(p.amount) || 0), 0) / 100;
 
             // Unique buyers by email
-            const buyerEmails = new Set(tickets.map(p => (p.email || '').toLowerCase()).filter(Boolean));
+            // Comped seats (+1s, freebies, make-goods) are real ATTENDEES but not
+            // BUYERS, so every per-buyer figure below is computed on paid tickets
+            // only. Counting them would drag ARPU down toward zero and — worse —
+            // pad the first-time-buyer denominator CAC divides by, making
+            // acquisition look cheaper the more seats you give away.
+            // They still appear on the roster and in headcount, which read from
+            // event_registrations and are untouched by this.
+            const paidTickets = tickets.filter(p => !p.isComp);
+            const compCount = tickets.length - paidTickets.length;
+            const buyerEmails = new Set(paidTickets.map(p => (p.email || '').toLowerCase()).filter(Boolean));
             const uniqueBuyers = buyerEmails.size;
             const arpu = uniqueBuyers > 0 ? ticketRevenue / uniqueBuyers : 0;
 
-            // Avg events per buyer — count confirmed tickets per email, average it
+            // Avg events per buyer — count confirmed PAID tickets per email
             const ticketsPerBuyer = {};
-            tickets.forEach(p => {
+            paidTickets.forEach(p => {
                 const em = (p.email || '').toLowerCase();
                 if (em) ticketsPerBuyer[em] = (ticketsPerBuyer[em] || 0) + 1;
             });
@@ -2874,7 +2895,8 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                              - (totalRecurring - totalAcqRecurring);
 
             document.getElementById('kpiMRR').textContent = '$' + ticketRevenue.toFixed(2);
-            document.getElementById('kpiMRRTrend').textContent = `${tickets.length} tickets · ${uniqueBuyers} buyers`;
+            document.getElementById('kpiMRRTrend').textContent =
+                `${paidTickets.length} paid · ${uniqueBuyers} buyers` + (compCount ? ` · ${compCount} comp` : '');
             document.getElementById('kpiARR').textContent = '$' + netRevenue.toFixed(2);
             document.getElementById('kpiARPU').textContent = '$' + arpu.toFixed(2);
             document.getElementById('kpiLTV').textContent = '$' + ltv.toFixed(2);
@@ -3226,8 +3248,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // Shared cost breakdown for one event, so Event P&L and Channel P&L
         // can never disagree about what an event cost.
         function eventCosts(ev, evTix) {
+            // Comps count toward headcount but never toward gross or fees.
+            const paid = evTix.filter(t => !t.isComp);
             const byChannel = {};
-            CHANNEL_KEYS.forEach(k => { byChannel[k] = evTix.filter(t => channelOf(t) === k); });
+            CHANNEL_KEYS.forEach(k => { byChannel[k] = paid.filter(t => channelOf(t) === k); });
             const acq = {};
             AD_COST_FIELDS.forEach(f => { acq[f.key] = num(ev[f.key]); });
             const ebFees = ebFeesFor(byChannel.eventbrite);
@@ -3236,8 +3260,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const acqTotal = AD_COST_FIELDS.reduce((s, f) => s + acq[f.key], 0);
             return {
                 byChannel, acq, acqTotal, ebFees, other, allocated,
+                paidCount: paid.length,
+                compCount: evTix.length - paid.length,
                 total: acqTotal + ebFees + other + allocated,
-                gross: evTix.reduce((s, p) => s + num(p.amount), 0) / 100,
+                gross: paid.reduce((s, p) => s + num(p.amount), 0) / 100,
             };
         }
 
@@ -3293,7 +3319,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 return `<tr class="pnl-row" data-pnl="${safe(ev.id)}" style="cursor:pointer;">
                     <td style="color:var(--white);font-weight:500;">${safe(ev.title)}</td>
                     <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(dateStr)}</td>
-                    <td style="color:rgba(245,243,240,0.7);font-size:12px;" title="${safe(mixTitle)}">${safe(mix)} <span style="opacity:0.45">(${evTix.length})</span></td>
+                    <td style="color:rgba(245,243,240,0.7);font-size:12px;" title="${safe(mixTitle)}">${safe(mix)} <span style="opacity:0.45">(${c.paidCount})</span>${c.compCount ? ` <span style="opacity:0.45;" title="Comped seats — attendance only">+${c.compCount}c</span>` : ''}</td>
                     <td style="color:var(--gold);font-weight:600;">${money(c.gross)}</td>
                     <td style="color:rgba(245,243,240,0.6);">${c.total > 0 ? money(c.total) : '<span style="opacity:0.3">—</span>'}</td>
                     <td style="color:${col};font-weight:600;">${money(net)}</td>
@@ -3340,7 +3366,12 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             });
 
             tbody.innerHTML = CHANNEL_KEYS.map(k => {
-                const tix = tickets.filter(t => channelOf(t) === k);
+                const all = tickets.filter(t => channelOf(t) === k);
+                // Comps are shown as attendance but kept out of gross, fees and
+                // rev/ticket — a given-away seat isn't a sale and Eventbrite
+                // doesn't take a cut of $0.
+                const tix = all.filter(t => !t.isComp);
+                const comps = all.length - tix.length;
                 const gross = tix.reduce((s, t) => s + num(t.amount), 0) / 100;
                 const fees = k === 'eventbrite' ? ebFeesFor(tix) : 0;
                 const acq = acqByChannel[k];
@@ -3351,7 +3382,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 const dim = (v) => v > 0 ? money(v) : '<span style="opacity:0.3">—</span>';
                 return `<tr>
                     <td style="color:var(--white);font-weight:500;">${CHANNEL_LABELS[k]}</td>
-                    <td style="color:rgba(245,243,240,0.7);">${tix.length}</td>
+                    <td style="color:rgba(245,243,240,0.7);">${tix.length}${comps ? ` <span style="opacity:0.45;font-size:11px;" title="Comped seats — attendance only, not counted as revenue">+${comps} comp</span>` : ''}</td>
                     <td style="color:var(--gold);font-weight:600;">${money(gross)}</td>
                     <td style="color:rgba(245,243,240,0.6);">${dim(acq)}</td>
                     <td style="color:rgba(245,243,240,0.6);">${dim(fees)}</td>
@@ -3760,7 +3791,26 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             root.innerHTML = cards + table + recon;
         }
 
-        // ─── Eventbrite Enrollment ────────────────────────
+        // ─── Marketplace / manual enrollment ──────────────
+        // Per-channel guidance, because the non-obvious ones are exactly the ones
+        // that get misused: a comp must not be priced, and a correction re-uses
+        // whatever ticket already exists rather than adding a second one.
+        const ENROLL_HINTS = {
+            eventbrite: 'Counts as Eventbrite revenue; Eventbrite\'s fee is deducted automatically in the P&L.',
+            meetup:     'Counts as Meetup revenue. No per-ticket fee — the subscription is entered under Recurring costs.',
+            direct:     'Counts as Direct revenue with no marketplace fee. Use for cash, Venmo, DM sales — anything sold by us.',
+            comp:       'Set the price to 0. They appear on the roster and in headcount, but are excluded from revenue, ARPU and CAC.',
+            correction: 'Re-run with the SAME email to fix a name, gender or price. Updates the existing ticket rather than adding one, and leaves the original channel\'s revenue where it is. Changing someone\'s EMAIL creates a new person — it can\'t merge accounts.',
+        };
+        window.enrollChannelPicked = (sel) => {
+            const hint = document.getElementById('eb-channel-hint');
+            if (hint) hint.textContent = ENROLL_HINTS[sel.value] || '';
+            // A comp with a price is almost always a mistake, so zero it for them
+            // rather than relying on remembering.
+            const priceEl = document.getElementById('eb-price');
+            if (priceEl && sel.value === 'comp') priceEl.value = '0';
+        };
+
         window.enrollEventbriteBuyers = async () => {
             const eventName = document.getElementById('eb-event-name').value.trim();
             const eventId   = document.getElementById('eb-event-id').value.trim();

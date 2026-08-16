@@ -397,9 +397,23 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 // Eventbrite's prefix stays 'eb' deliberately. The ticket id is the idempotency
 // key for re-running an import, so renaming it would make every previously
 // imported Eventbrite buyer look new and write a duplicate ticket doc.
+// `comp: true` marks a seat that was given away — a +1, a friend, a make-good.
+// It still produces a registration (they're really attending, and the roster and
+// post-event matching must know that), but the admin P&L keeps it out of
+// revenue-per-buyer and out of the first-time-buyer count CAC divides by:
+// nobody paid, and no ad spend bought them.
+//
+// `preserveSource: true` on 'correction' is the important one. A correction is a
+// FIX to an existing record, not a new sale, so it must not rewrite the ticket's
+// `source` — otherwise correcting the spelling of an Eventbrite buyer's name
+// would silently move their revenue out of the Eventbrite column and into
+// Direct, and Eventbrite's fee on that sale would stop being charged.
 const IMPORT_CHANNELS = {
-  eventbrite: { source: 'eventbrite_import', prefix: 'eb' },
-  meetup:     { source: 'meetup_import',     prefix: 'mu' },
+  eventbrite: { source: 'eventbrite_import', prefix: 'eb',   comp: false },
+  meetup:     { source: 'meetup_import',     prefix: 'mu',   comp: false },
+  direct:     { source: 'manual_import',     prefix: 'dir',  comp: false },
+  comp:       { source: 'comp',              prefix: 'comp', comp: true  },
+  correction: { source: 'manual_import',     prefix: 'cor',  comp: false, preserveSource: true },
 };
 
 async function enrollEventbriteOne({ email, name, gender, eventId, eventName, priceCents, channel }) {
@@ -438,19 +452,38 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
   // 2. Atomic Firestore writes (idempotent — keyed by uid+event).
   // wasNewUserDoc / alreadyCompleted drive which welcome email goes out below.
   // Set inside the txn (reset on each retry) so they reflect the final state.
-  const ticketId = `${chan.prefix}_${uid}_${eventId}`;
-  // reg id stays channel-agnostic on purpose: one person attending one event is
-  // ONE registration no matter which marketplace sold the ticket, so the roster
-  // and the post-event matching stay correct even if a buyer somehow appears in
-  // two import batches.
-  const regId    = `reg_${uid}_${eventId}`;
+  //
+  // Ticket idempotency is by (uid, eventId) via a QUERY, not by guessing the doc
+  // id from the current channel's prefix. That matters now that more than one
+  // channel can touch the same person: importing someone via Eventbrite writes
+  // eb_{uid}_{event}, and a later Correction on that person would write
+  // cor_{uid}_{event} — a SECOND ticket doc for one seat, double-counting the
+  // revenue. Finding whatever ticket already exists and updating it makes every
+  // channel safe against every other, including any added later.
+  //
+  // reg id stays a deterministic channel-agnostic doc id: one person attending
+  // one event is ONE registration no matter who sold the ticket.
+  const regId = `reg_${uid}_${eventId}`;
   let wasNewUserDoc = false;
   let alreadyCompleted = false;
+  let ticketId = `${chan.prefix}_${uid}_${eventId}`;
   await db.runTransaction(async (txn) => {
-    const userRef   = db.collection('users').doc(uid);
-    const ticketRef = db.collection('tickets').doc(ticketId);
-    const regRef    = db.collection('event_registrations').doc(regId);
-    const userSnap  = await txn.get(userRef);
+    const userRef  = db.collection('users').doc(uid);
+    const regRef   = db.collection('event_registrations').doc(regId);
+    // All reads must precede all writes inside a Firestore transaction.
+    const existingTix = await txn.get(
+      db.collection('tickets')
+        .where('eventId', '==', eventId || null)
+        .where('firebaseUid', '==', uid)
+        .limit(1)
+    );
+    const userSnap = await txn.get(userRef);
+
+    const ticketRef = existingTix.empty
+      ? db.collection('tickets').doc(ticketId)
+      : existingTix.docs[0].ref;
+    if (!existingTix.empty) ticketId = existingTix.docs[0].id;
+
     wasNewUserDoc = !userSnap.exists;
     alreadyCompleted = userSnap.exists && userSnap.data().profileCompleted === true;
 
@@ -462,17 +495,26 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
         createdAt: FieldValue.serverTimestamp(),
       });
     }
+
+    // A correction leaves `source` alone on a ticket that already exists, so it
+    // can't relocate revenue between channels. On a ticket it's CREATING there's
+    // nothing to preserve, so it falls back to the channel's own source.
+    const keepSource = chan.preserveSource && !existingTix.empty;
     txn.set(ticketRef, {
       firebaseUid: uid, email: norm, name: String(name || '').trim(), phone: '',
       gender: gender || null, eventId: eventId || null, eventName: eventName || '',
       amount, paymentIntentId: null, paidWithCardOnFile: false, status: 'confirmed',
-      source: chan.source, createdAt: FieldValue.serverTimestamp(),
+      ...(keepSource ? {} : { source: chan.source }),
+      isComp: !!chan.comp,
+      createdAt: FieldValue.serverTimestamp(),
     }, { merge: true });
     txn.set(regRef, {
       userId: uid, email: norm, name: String(name || '').trim(), phone: '',
       gender: gender || null, eventId: eventId || null, eventTitle: eventName || '',
       ticketId, paymentIntentId: null, status: 'confirmed', month: monthKey,
-      source: chan.source, registeredAt: FieldValue.serverTimestamp(),
+      ...(keepSource ? {} : { source: chan.source }),
+      isComp: !!chan.comp,
+      registeredAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
     }, { merge: true });
   });
