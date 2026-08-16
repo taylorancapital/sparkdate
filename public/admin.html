@@ -398,6 +398,20 @@
             font-size: 10.5px;
             color: var(--text-faint);
         }
+        /* The rotating card swaps a 120px line chart for the much shorter
+           gender breakdown, and this box had no height of its own — so the
+           card collapsed from 223px to 141px every time the rotation reached
+           "Ticket sales by gender" and snapped back six seconds later. Pin the
+           box to the line chart's natural height and centre anything shorter
+           inside it, so all four frames occupy exactly the same space.
+           min-height rather than height: if the axis labels ever wrap on a
+           narrow card, the box may still grow rather than clip. */
+        .metric-chart {
+            min-height: 142px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
         .metric-axis {
             display: flex;
             justify-content: space-between;
@@ -574,6 +588,13 @@
                about five characters. It gets its own row down here. */
             .search-input { flex-basis: 100%; }
             .filter-select { flex: 1; }
+            /* Narrow enough that the longer metric titles wrap to two lines
+               while "Tickets sold — last 30 days" still fits on one, so the
+               card kept resizing by a line as the rotation cycled. Reserve the
+               two lines here only — desktop titles all fit on one line, and a
+               global floor would make every desktop card 21px taller for no
+               reason. */
+            .metric-head { min-height: 42px; }
         }
 
         /* Two-column layout */
