@@ -419,7 +419,27 @@
         .gender-legend > div { display: flex; align-items: center; gap: 6px; font-size: 11px; }
         .gender-legend .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
-        /* Sparkline + delta inside the existing KPI cards. */
+        /* KPI cards, matched to the mockup: small uppercase muted label, the
+           value in WHITE display type (the old coral/gold value variants made
+           four cards read as four different kinds of thing), then a footer row
+           pairing the delta with a sparkline. */
+        .kpi-grid-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+        .kpi-grid-4 .kpi-card { padding: 12px 14px; }
+        .kpi-grid-4 .kpi-label {
+            font-size: 9.5px;
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        .kpi-grid-4 .kpi-value {
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: 19px;
+            color: var(--white);
+            margin-bottom: 2px;
+        }
         .kpi-foot {
             display: flex;
             align-items: center;
@@ -427,10 +447,19 @@
             gap: 6px;
             margin-top: 4px;
         }
-        .kpi-delta { font-size: 10px; }
+        .kpi-delta { font-size: 10px; color: var(--text-faint); }
         .kpi-delta.up { color: var(--success); }
         .kpi-delta.down { color: var(--danger); }
-        .kpi-delta.flat { color: var(--text-faint); }
+        .kpi-spark { flex-shrink: 0; line-height: 0; }
+
+        /* Report: chart on the left, the two small cards stacked right. */
+        .report-split {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 16px;
+            align-items: start;
+        }
+        @media (max-width: 900px) { .report-split { grid-template-columns: 1fr; } }
 
         /* Sub-items: Leads / Funnel / Retention live under Activity. Indent
            plus a vertical rule so the hierarchy reads without needing a
@@ -1165,6 +1194,10 @@
         </button>
 
         <div class="nav-group-label">Money</div>
+        <button class="tab" data-tab="report" title="Full Report" onclick="switchTab('report', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <span>Full Report</span>
+        </button>
         <button class="tab" data-tab="revenue" title="Revenue" onclick="switchTab('revenue', this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
             <span>Revenue</span>
@@ -1201,62 +1234,13 @@
     </nav>
 
     <div class="container">
-        <h1 class="page-title">Dashboard</h1>
-        <p class="page-subtitle">Real-time view of SparkDate operations · auto-refreshes every 5 min · click ↻ Refresh in the sidebar for the latest</p>
-
-        <!-- Hero band + rotating chart are Overview-only, so they live inside
-             #tab-overview below. The KPI grid stays here, above the panes, so
-             the headline numbers remain visible on every tab — that's existing
-             behaviour and removing it would be a downgrade dressed as a
-             redesign. -->
-
-        <!-- KPI Cards -->
-        <div class="kpi-grid">
-            <div class="kpi-card">
-                <div class="kpi-label">Total Members</div>
-                <div class="kpi-value" id="kpiMembers">—</div>
-                <div class="kpi-trend" id="kpiMembersTrend">All time</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Active Subscriptions</div>
-                <div class="kpi-value coral" id="kpiActive">—</div>
-                <div class="kpi-trend" id="kpiActiveTrend">Paying + trialing</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Ticket Revenue</div>
-                <div class="kpi-value gold" id="kpiMRR">—</div>
-                <div class="kpi-trend" id="kpiMRRTrend">All confirmed tickets</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Net Revenue</div>
-                <div class="kpi-value gold" id="kpiARR">—</div>
-                <div class="kpi-trend">After EB fees + ad spend</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Revenue Per Buyer</div>
-                <div class="kpi-value" id="kpiARPU">—</div>
-                <div class="kpi-trend">Avg ticket rev / unique buyer</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Est. LTV</div>
-                <div class="kpi-value" id="kpiLTV">—</div>
-                <div class="kpi-trend" id="kpiLTVTrend">Rev/buyer × avg events</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Blended CAC</div>
-                <div class="kpi-value" id="kpiCAC">—</div>
-                <div class="kpi-trend" id="kpiCACTrend">All acquisition ÷ new buyers</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">LTV : CAC</div>
-                <div class="kpi-value coral" id="kpiLTVCAC">—</div>
-                <div class="kpi-trend" id="kpiLTVCACTrend">Target: 3:1+</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Ticket Velocity</div>
-                <div class="kpi-value gold" id="kpiVelocity">—</div>
-                <div class="kpi-trend" id="kpiVelocityTrend">Confirmed tickets / day until event</div>
-            </div>
+        <!-- Per-section header, not a fixed "Dashboard" title. The mockup opens
+             Overview straight on the hero band with no page heading at all, and
+             shows a title/subtitle only on the other sections — so this is
+             hidden on Overview and filled in by switchTab() elsewhere. -->
+        <div id="sectionHeader" style="display:none;margin-bottom:22px;">
+            <h1 class="page-title" id="sectionTitle" style="margin-bottom:5px;">—</h1>
+            <p class="page-subtitle" id="sectionSub" style="margin:0;">—</p>
         </div>
 
         <!-- The tab strip that used to sit here is now the sidebar above. -->
@@ -1270,77 +1254,134 @@
                 <div class="hero-eyebrow" id="heroEyebrow">—</div>
                 <div class="hero-figure" id="heroFigure">—</div>
                 <div class="hero-sub" id="heroSub">—</div>
-                <button class="hero-cta" id="heroCta">View revenue detail →</button>
+                <button class="hero-cta" id="heroCta">View full report →</button>
+            </div>
+
+            <!-- Headline KPIs, below the hero: the hero is the headline number,
+                 these are the supporting read. They sit inside Overview rather
+                 than above the tab panes so every other section opens on its own
+                 content — Revenue already carries the five detail KPIs (Active
+                 Subs, Ticket Revenue, Rev/Buyer, LTV, LTV:CAC) that were split
+                 off this grid. Every id below is still populated by renderKPIs(),
+                 so no metric stopped being calculated. -->
+            <div class="kpi-grid kpi-grid-4">
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Members</div>
+                    <div class="kpi-value" id="kpiMembers">—</div>
+                    <div class="kpi-foot">
+                        <span class="kpi-delta" id="kpiMembersTrend">All time</span>
+                        <span class="kpi-spark" id="sparkMembers"></span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Net Revenue</div>
+                    <div class="kpi-value" id="kpiARR">—</div>
+                    <div class="kpi-foot">
+                        <span class="kpi-delta" id="kpiARRTrend">After fees + ad spend</span>
+                        <span class="kpi-spark" id="sparkRevenue"></span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Blended CAC</div>
+                    <div class="kpi-value" id="kpiCAC">—</div>
+                    <div class="kpi-foot">
+                        <span class="kpi-delta" id="kpiCACTrend">All acquisition ÷ new buyers</span>
+                        <span class="kpi-spark" id="sparkCac"></span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Ticket Velocity</div>
+                    <div class="kpi-value" id="kpiVelocity">—</div>
+                    <div class="kpi-foot">
+                        <span class="kpi-delta" id="kpiVelocityTrend">Tickets / day</span>
+                        <span class="kpi-spark" id="sparkTickets"></span>
+                    </div>
+                </div>
             </div>
 
             <!-- Rotating metric chart. Cycles Revenue / Cost / Tickets /
                  Sales by gender every 6s; the dots are clickable to stop
                  fighting the timer when you want to read one. -->
-            <div class="metric-card" id="metricCard" style="display:none;">
-                <div class="metric-body" id="metricBody">
+            <div class="metric-card" style="display:none;">
+                <div class="metric-body">
                     <div class="metric-head">
-                        <div class="metric-title" id="metricTitle">—</div>
-                        <div class="metric-value" id="metricValue">—</div>
+                        <div class="metric-title">—</div>
+                        <div class="metric-value">—</div>
                     </div>
-                    <div id="metricChart"></div>
+                    <div class="metric-chart"></div>
                 </div>
-                <div class="metric-dots" id="metricDots"></div>
+                <div class="metric-dots"></div>
             </div>
 
-            <div class="two-col">
-                <div>
-                    <!-- Recent Signups -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h2 class="card-title">Recent Signups</h2>
-                            <a class="card-action" onclick="switchTab('members')">View all →</a>
-                        </div>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Member</th>
-                                    <th>Tier</th>
-                                    <th>Status</th>
-                                    <th>Signed Up</th>
-                                </tr>
-                            </thead>
-                            <tbody id="recentSignups">
-                                <tr><td colspan="4"><div class="spinner"></div></td></tr>
-                            </tbody>
-                        </table>
-                    </div>
+            <!-- No tables on Overview. It is hero, KPIs, trend chart — nothing
+                 else. The three cards that used to sit here all moved and none
+                 were rebuilt: Recent Signups and Live Activity to Full Report,
+                 Subscription Breakdown to Revenue (next to the Active
+                 Subscriptions KPI it explains). Same markup, same renderers,
+                 same element ids in their new homes. -->
+        </div>
 
-                    <!-- Tier Breakdown -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h2 class="card-title">Subscription Breakdown</h2>
+        <!-- Full Report Tab -->
+        <div class="tab-content" id="tab-report">
+            <div class="kpi-grid kpi-grid-4" id="reportKpis" style="margin-bottom:18px;">
+                <div class="spinner"></div>
+            </div>
+
+            <div class="report-split">
+                <div class="metric-card">
+                    <div class="metric-body">
+                        <div class="metric-head">
+                            <div class="metric-title">—</div>
+                            <div class="metric-value">—</div>
                         </div>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Tier</th>
-                                    <th>Count</th>
-                                    <th>% of total</th>
-                                    <th>Monthly $</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tierBreakdown">
-                                <tr><td colspan="4"><div class="spinner"></div></td></tr>
-                            </tbody>
-                        </table>
+                        <div class="metric-chart"></div>
+                    </div>
+                    <div class="metric-dots"></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:16px;">
+                    <div class="card" style="padding:16px 18px;">
+                        <div class="metric-title" style="margin-bottom:14px;">Tickets by event</div>
+                        <div id="reportEventBars"><div class="spinner"></div></div>
+                    </div>
+                    <div class="card" style="padding:16px 18px;display:flex;flex-direction:column;align-items:center;">
+                        <div class="metric-title" style="align-self:flex-start;margin-bottom:14px;">Ticket velocity</div>
+                        <div id="reportVelocity"></div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Sidebar Activity Feed -->
-                <div>
-                    <div class="card">
-                        <div class="card-header">
-                            <h2 class="card-title">Live Activity</h2>
-                            <span style="font-size: 11px; color: rgba(245,243,240,0.5);">Last 24h</span>
-                        </div>
-                        <div class="activity-feed" id="activityFeedSidebar">
-                            <div class="spinner"></div>
-                        </div>
+            <div class="kpi-grid kpi-grid-4" id="reportRevenueStats" style="margin:16px 0;"></div>
+
+            <!-- The two per-person feeds, both relocated off Overview: who
+                 signed up recently, and what happened in the last 24h. -->
+            <div class="two-col">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Recent Signups</h2>
+                        <a class="card-action" onclick="switchTab('members')">View all →</a>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Member</th>
+                                <th>Tier</th>
+                                <th>Status</th>
+                                <th>Signed Up</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentSignups">
+                            <tr><td colspan="4"><div class="spinner"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Live Activity</h2>
+                        <span style="font-size: 11px; color: rgba(245,243,240,0.5);">Last 24h</span>
+                    </div>
+                    <div class="activity-feed" id="activityFeedSidebar">
+                        <div class="spinner"></div>
                     </div>
                 </div>
             </div>
@@ -1407,6 +1448,59 @@
 
         <!-- Revenue Tab -->
         <div class="tab-content" id="tab-revenue">
+            <!-- The five KPIs trimmed off the Overview live here now. They are
+                 the same ids renderKPIs() has always written to — moved, not
+                 rebuilt — so every one of them still updates. -->
+            <div class="kpi-grid kpi-grid-4" style="margin-bottom:20px;">
+                <div class="kpi-card">
+                    <div class="kpi-label">Ticket Revenue</div>
+                    <div class="kpi-value" id="kpiMRR">—</div>
+                    <div class="kpi-foot"><span class="kpi-delta" id="kpiMRRTrend">All confirmed tickets</span></div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Revenue Per Buyer</div>
+                    <div class="kpi-value" id="kpiARPU">—</div>
+                    <div class="kpi-foot"><span class="kpi-delta">Ticket rev / unique buyer</span></div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Est. LTV</div>
+                    <div class="kpi-value" id="kpiLTV">—</div>
+                    <div class="kpi-foot"><span class="kpi-delta" id="kpiLTVTrend">Rev/buyer × avg events</span></div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">LTV : CAC</div>
+                    <div class="kpi-value" id="kpiLTVCAC">—</div>
+                    <div class="kpi-foot"><span class="kpi-delta" id="kpiLTVCACTrend">Target: 3:1+</span></div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Active Subscriptions</div>
+                    <div class="kpi-value" id="kpiActive">—</div>
+                    <div class="kpi-foot"><span class="kpi-delta" id="kpiActiveTrend">Paying + trialing</span></div>
+                </div>
+            </div>
+
+            <!-- Moved off Overview. It sits here because it is the breakdown of
+                 the Active Subscriptions KPI directly above it — same numbers,
+                 split by tier, with the monthly dollars each tier contributes. -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Subscription Breakdown</h2>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tier</th>
+                            <th>Count</th>
+                            <th>% of total</th>
+                            <th>Monthly $</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tierBreakdown">
+                        <tr><td colspan="4"><div class="spinner"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
             <div class="candidate-stats" id="revenueKPIs" style="margin-bottom:20px;"></div>
             <div class="card">
                 <div class="card-header">
@@ -2095,18 +2189,14 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         document.getElementById('dashboardRefreshBtn')
             ?.addEventListener('click', refreshDashboardNow);
 
-        // The mockup's "View full report →" points at a Report section that
-        // doesn't exist yet (that's the next pass). Rather than ship a dead
-        // button, send it to Revenue — the fullest financial view there is
-        // today — and relabel when Report lands.
         document.getElementById('heroCta')
-            ?.addEventListener('click', () => switchTab('revenue'));
+            ?.addEventListener('click', () => switchTab('report'));
 
         // Stop the chart rotating while the tab is hidden, and repaint on
         // return so it isn't showing a stale frame.
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) stopMetricRotation();
-            else if (document.getElementById('metricCard')) { renderMetric(); startMetricRotation(); }
+            else if (document.querySelector('.metric-card')) { renderMetric(); startMetricRotation(); }
         });
 
         window.adminLogout = async () => {
@@ -2152,6 +2242,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 await Promise.all([loadUsers(), loadActivity(), loadPayments(), loadAdminEvents(), loadRecurring(), loadTrendTickets()]);
                 renderKPIs();
                 renderHero();
+                renderSparklines();
                 renderMetric();
                 startMetricRotation();
                 renderRecentSignups();
@@ -3312,46 +3403,98 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         }
 
         // ─── Overview hero band ────────────────────────────
+        // Headlines the trailing 30 DAYS, not 7. A week is too short a window
+        // at this event cadence — a fortnight with one event and one without
+        // swings the number by hundreds of percent and the figure stops meaning
+        // anything. 30 days always spans several events, and it matches the
+        // chart directly beneath it.
+        const HERO_DAYS = 30;
+
         function renderHero() {
             const band = document.getElementById('heroBand');
             if (!band) return;
             const now = Date.now();
+            const win = HERO_DAYS * 86400000;
             const inWindow = (t, from, to) => {
                 const d = toDate(t.createdAt);
                 return d && d.getTime() >= from && d.getTime() < to;
             };
-            const wk   = trendTickets.filter(t => !t.isComp && inWindow(t, now - 7 * 86400000, now));
-            const prev = trendTickets.filter(t => !t.isComp && inWindow(t, now - 14 * 86400000, now - 7 * 86400000));
+            const cur  = trendTickets.filter(t => !t.isComp && inWindow(t, now - win, now));
+            const prev = trendTickets.filter(t => !t.isComp && inWindow(t, now - win * 2, now - win));
 
-            // Nothing in the last 7 days is a legitimate state for a business
-            // running a handful of events a month — say so rather than showing
+            // No sales in either window is legitimate for a business running a
+            // handful of events a month — hide the band rather than headline
             // "$0.00, down 100%", which reads like an outage.
-            if (!wk.length && !prev.length) { band.style.display = 'none'; return; }
+            if (!cur.length && !prev.length) { band.style.display = 'none'; return; }
             band.style.display = '';
 
             const sum = (arr) => arr.reduce((s, t) => s + num(t.amount), 0) / 100;
-            const rev = sum(wk), prevRev = sum(prev);
-            const buyers = new Set(wk.map(t => (t.email || '').toLowerCase()).filter(Boolean)).size;
-            const events = new Set(wk.map(t => t.eventId).filter(Boolean)).size;
+            const rev = sum(cur), prevRev = sum(prev);
+            const buyers = new Set(cur.map(t => (t.email || '').toLowerCase()).filter(Boolean)).size;
+            const events = new Set(cur.map(t => t.eventId).filter(Boolean)).size;
 
-            const fmtRange = (from, to) => {
-                const o = { month: 'short', day: 'numeric' };
-                return `${from.toLocaleDateString('en-US', o)}–${to.toLocaleDateString('en-US', o)}`;
-            };
+            const o = { month: 'short', day: 'numeric' };
             document.getElementById('heroEyebrow').textContent =
-                'Week of ' + fmtRange(new Date(now - 7 * 86400000), new Date(now));
+                `${new Date(now - win).toLocaleDateString('en-US', o)} – ${new Date(now).toLocaleDateString('en-US', o)}`;
             document.getElementById('heroFigure').innerHTML =
                 `${money(rev)} <span>ticket revenue</span>`;
 
             let cmp;
             if (prevRev > 0) {
                 const pct = Math.round(((rev - prevRev) / prevRev) * 100);
-                cmp = `${pct >= 0 ? 'up' : 'down'} ${Math.abs(pct)}% from ${money(prevRev)} the week before`;
+                cmp = `${pct >= 0 ? 'up' : 'down'} ${Math.abs(pct)}% from ${money(prevRev)} the 30 days before`;
             } else {
-                cmp = 'no sales the week before';
+                cmp = 'no sales in the 30 days before';
             }
             document.getElementById('heroSub').textContent =
-                `${wk.length} ticket${wk.length === 1 ? '' : 's'} across ${events} event${events === 1 ? '' : 's'} and ${buyers} buyer${buyers === 1 ? '' : 's'}, ${cmp}.`;
+                `${cur.length} ticket${cur.length === 1 ? '' : 's'} across ${events} event${events === 1 ? '' : 's'} and ${buyers} buyer${buyers === 1 ? '' : 's'}, ${cmp}.`;
+        }
+
+        // ─── KPI sparklines + deltas ───────────────────────
+        // Small inline SVG trend beside each headline number. Drawn from the
+        // same 30-day series the big chart uses, so the two can't disagree.
+        function sparkSvg(vals, color) {
+            const pts = sparkPoints(vals, 58, 18, 3);
+            if (!pts) return '';
+            return `<svg width="46" height="18" viewBox="0 0 60 20" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2"/></svg>`;
+        }
+
+        // Compare the last 15 days against the 15 before — a same-length split
+        // of the drawn window, so the arrow always describes the line shown.
+        function deltaOf(vals) {
+            const h = Math.floor(vals.length / 2);
+            if (!h) return null;
+            const a = vals.slice(0, h).reduce((s, v) => s + v, 0);
+            const b = vals.slice(h).reduce((s, v) => s + v, 0);
+            if (a === 0) return b > 0 ? { pct: 100, dir: 'up' } : null;
+            const pct = Math.round(((b - a) / a) * 100);
+            return { pct: Math.abs(pct), dir: pct >= 0 ? 'up' : 'down' };
+        }
+
+        function renderSparklines() {
+            const revenue = dailySeries(30, t => t.isComp ? 0 : num(t.amount) / 100);
+            const tickets = dailySeries(30, t => t.isComp ? 0 : 1);
+            const set = (spanId, vals, color, deltaId, invert) => {
+                const el = document.getElementById(spanId);
+                if (el) el.innerHTML = sparkSvg(vals, color);
+                const d = deltaOf(vals);
+                const dEl = deltaId ? document.getElementById(deltaId) : null;
+                if (dEl && d) {
+                    // `invert` for cost-like metrics, where a rise is bad.
+                    const good = invert ? d.dir === 'down' : d.dir === 'up';
+                    dEl.className = 'kpi-delta ' + (good ? 'up' : 'down');
+                    dEl.textContent = `${d.dir === 'up' ? '+' : '−'}${d.pct}% vs prior 15d`;
+                }
+            };
+            set('sparkRevenue', revenue, '#4ade80', 'kpiARRTrend', false);
+            set('sparkTickets', tickets, '#d4af37', null, false);
+            // Members and CAC have no per-day series of their own; show the
+            // ticket trend as the shape and leave their existing captions
+            // alone rather than invent a number.
+            const mEl = document.getElementById('sparkMembers');
+            if (mEl) mEl.innerHTML = sparkSvg(tickets, '#60a5fa');
+            const cEl = document.getElementById('sparkCac');
+            if (cEl) cEl.innerHTML = sparkSvg(revenue, '#ff6b6b');
         }
 
         // ─── Rotating metric chart ─────────────────────────
@@ -3393,21 +3536,29 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             ];
         }
 
+        // Renders into EVERY .metric-card on the page — Overview has one and
+        // Full Report has another. Class-based rather than id-based precisely
+        // so the same card can appear twice without duplicating this logic or
+        // colliding on ids.
         function renderMetric() {
-            const card = document.getElementById('metricCard');
-            if (!card) return;
+            const cards = [...document.querySelectorAll('.metric-card')];
+            if (!cards.length) return;
             const defs = metricDefs();
             const anyData = defs.some(d => d.series ? d.series.some(v => v > 0)
                                                     : Object.values(d.breakdown).some(v => v > 0));
-            if (!anyData) { card.style.display = 'none'; return; }
-            card.style.display = '';
+            if (!anyData) { cards.forEach(c => c.style.display = 'none'); return; }
+            cards.forEach(c => c.style.display = '');
 
             const m = defs[metricIdx % defs.length];
-            document.getElementById('metricTitle').textContent = `${m.title} — last 30 days`;
-            document.getElementById('metricValue').innerHTML =
+            cards.forEach(card => renderMetricInto(card, m, defs));
+        }
+
+        function renderMetricInto(card, m, defs) {
+            card.querySelector('.metric-title').textContent = `${m.title} — last 30 days`;
+            card.querySelector('.metric-value').innerHTML =
                 `<span style="color:${m.color}">${safe(m.value)}</span> <small>${safe(m.sub)}</small>`;
 
-            const chart = document.getElementById('metricChart');
+            const chart = card.querySelector('.metric-chart');
             if (m.breakdown) {
                 const total = Object.values(m.breakdown).reduce((s, v) => s + v, 0) || 1;
                 const rows = [
@@ -3424,7 +3575,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             } else {
                 const pts = sparkPoints(m.series, 760, 150, 6);
                 const area = pts ? `0,150 ${pts} 760,150` : '';
-                const gid = 'metricGrad';
+                // Unique gradient id per card: two SVGs sharing one id makes
+                // the second one's fill resolve against the first's def, which
+                // silently mis-colours whichever renders later.
+                const gid = 'metricGrad_' + (card.closest('.tab-content')?.id || 'x') + '_' + m.key;
                 chart.innerHTML = `
                     <svg width="100%" height="120" viewBox="0 0 760 160" preserveAspectRatio="none">
                         <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
@@ -3440,7 +3594,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     </div>`;
             }
 
-            const dots = document.getElementById('metricDots');
+            const dots = card.querySelector('.metric-dots');
             dots.innerHTML = defs.map((d, i) =>
                 `<span class="${i === metricIdx % defs.length ? 'on' : ''}" data-i="${i}" title="${safe(d.title)}"></span>`).join('');
             dots.querySelectorAll('span').forEach(s => s.addEventListener('click', () => {
@@ -3450,22 +3604,105 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             }));
         }
 
+        // ─── Full Report ───────────────────────────────────
+        // Report shows the SAME nine headline numbers the Overview used to,
+        // rendered from a snapshot renderKPIs() leaves behind rather than from
+        // a second set of element ids. Duplicating ids across two panes is what
+        // would actually break things — one of the two would silently stop
+        // updating, and you'd never know which.
+        let kpiSnapshot = null;
+
+        function renderReport() {
+            const grid = document.getElementById('reportKpis');
+            if (!grid) return;
+            if (!kpiSnapshot) { grid.innerHTML = '<div class="empty">Waiting for data…</div>'; return; }
+            const k = kpiSnapshot;
+            const cards = [
+                ['Total Members', k.members, k.membersTrend],
+                ['Active Subscriptions', k.active, 'Paying + trialing'],
+                ['Ticket Revenue', money(k.ticketRevenue), `${k.paidTickets} paid`],
+                ['Net Revenue', money(k.netRevenue), 'After fees + spend'],
+                ['Revenue / Buyer', money(k.arpu), `${k.uniqueBuyers} buyers`],
+                ['Est. LTV', money(k.ltv), `${k.avgEvents.toFixed(1)} events/buyer`],
+                ['Blended CAC', k.cac > 0 ? money(k.cac) : '—', `${money(k.totalAcquisition)} spend`],
+                ['LTV : CAC', k.ltvCac === '—' ? '—' : `${k.ltvCac}:1`, 'Target 3:1+'],
+                ['Ticket Velocity', k.velocity, k.velocityNote],
+            ];
+            grid.innerHTML = cards.map(([label, value, note]) => `
+                <div class="kpi-card">
+                    <div class="kpi-label">${safe(label)}</div>
+                    <div class="kpi-value">${safe(String(value))}</div>
+                    <div class="kpi-foot"><span class="kpi-delta">${safe(String(note))}</span></div>
+                </div>`).join('');
+
+            // Tickets by event — paid tickets only, biggest first.
+            const bars = document.getElementById('reportEventBars');
+            if (bars) {
+                const counts = {};
+                allPayments.filter(p => p._type === 'ticket' && !p.isComp).forEach(t => {
+                    if (t.eventId) counts[t.eventId] = (counts[t.eventId] || 0) + 1;
+                });
+                const rows = Object.entries(counts)
+                    .map(([id, n]) => ({ n, name: (allEvents.find(e => e.id === id) || {}).title || 'Unknown event' }))
+                    .sort((a, b) => b.n - a.n).slice(0, 6);
+                const max = Math.max(...rows.map(r => r.n), 1);
+                bars.innerHTML = rows.length ? `<div style="display:flex;flex-direction:column;gap:10px;">${rows.map(r => `
+                    <div>
+                        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:4px;">
+                            <span>${safe(r.name)}</span><span style="color:var(--gold)">${r.n}</span>
+                        </div>
+                        <div style="height:6px;border-radius:3px;background:var(--surface-hover);">
+                            <div style="height:100%;border-radius:3px;background:var(--grad-coral);width:${(r.n / max * 100).toFixed(1)}%"></div>
+                        </div>
+                    </div>`).join('')}</div>` : '<div class="empty">No ticket sales yet.</div>';
+            }
+
+            // Velocity donut. Capped at 100% so an event beating target doesn't
+            // wrap the ring back past zero and read as a failure.
+            const vel = document.getElementById('reportVelocity');
+            if (vel && kpiSnapshot) {
+                const rate = kpiSnapshot.velocityRate || 0;
+                const pct = Math.min(100, Math.round((rate / TARGET_TICKETS_PER_DAY) * 100));
+                vel.innerHTML = `
+                    <div style="width:96px;height:96px;border-radius:50%;background:conic-gradient(var(--coral) 0% ${pct}%, var(--surface-hover) ${pct}% 100%);display:flex;align-items:center;justify-content:center;">
+                        <div style="width:70px;height:70px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--white);">${rate.toFixed(1)}/d</div>
+                    </div>
+                    <div style="font-size:10.5px;color:var(--text-faint);margin-top:10px;">${pct}% of ${TARGET_TICKETS_PER_DAY.toFixed(1)}/day target</div>`;
+            }
+
+            // Revenue stat strip.
+            const stats = document.getElementById('reportRevenueStats');
+            if (stats) {
+                stats.innerHTML = [
+                    ['Gross tickets', money(k.ticketRevenue)],
+                    ['Eventbrite fees', money(k.totalEbFees)],
+                    ['Acquisition spend', money(k.totalAcquisition)],
+                    ['Delivery + overhead', money(k.totalOtherCosts + k.nonAcqRecurring)],
+                    ['Net', money(k.netRevenue)],
+                ].map(([label, value]) => `
+                    <div class="kpi-card">
+                        <div class="kpi-label">${safe(label)}</div>
+                        <div class="kpi-value">${safe(value)}</div>
+                    </div>`).join('');
+            }
+        }
+
         function stopMetricRotation() {
             if (metricTimer) { clearInterval(metricTimer); metricTimer = null; }
         }
         function startMetricRotation() {
             stopMetricRotation();
             metricTimer = setInterval(() => {
-                const body = document.getElementById('metricBody');
-                const card = document.getElementById('metricCard');
-                // Don't animate a hidden card, and don't burn cycles while the
-                // tab is in the background.
-                if (!card || card.style.display === 'none' || document.hidden) return;
-                if (body) body.classList.add('fading');
+                const cards = [...document.querySelectorAll('.metric-card')];
+                // Don't animate hidden cards, and don't burn cycles while the
+                // browser tab is in the background.
+                if (!cards.length || cards.every(c => c.style.display === 'none') || document.hidden) return;
+                const bodies = cards.map(c => c.querySelector('.metric-body')).filter(Boolean);
+                bodies.forEach(b => b.classList.add('fading'));
                 setTimeout(() => {
                     metricIdx++;
                     renderMetric();
-                    if (body) body.classList.remove('fading');
+                    bodies.forEach(b => b.classList.remove('fading'));
                 }, 350);
             }, 6000);
         }
@@ -3567,11 +3804,18 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             // Show what's actually IN the CAC figure. The old label only ever said
             // "FB spend", which is exactly the assumption that made the number
             // wrong once TikTok, EB boosting and Meetup started costing money.
+            // Terse in the card, full arithmetic on hover. The compact KPI
+            // cards give the delta one short line — the old sentence-length
+            // caption wrapped to three and buried the number above it.
             const cacTrendEl = document.getElementById('kpiCACTrend');
             if (cacTrendEl) {
-                cacTrendEl.textContent = totalAcquisition > 0
-                    ? `${money(totalAcquisition)} acquisition ÷ ${firstTimers} first-timer${firstTimers === 1 ? '' : 's'}`
-                    : 'Enter ad spend or recurring costs';
+                if (totalAcquisition > 0) {
+                    cacTrendEl.textContent = `÷ ${firstTimers} first-timer${firstTimers === 1 ? '' : 's'}`;
+                    cacTrendEl.title = `${money(totalAcquisition)} total acquisition spend ÷ ${firstTimers} first-time buyer${firstTimers === 1 ? '' : 's'}`;
+                } else {
+                    cacTrendEl.textContent = 'No spend entered';
+                    cacTrendEl.title = 'Enter ad spend on an event, or a monthly recurring cost';
+                }
             }
             document.getElementById('kpiLTVCAC').textContent = ltvCac === '—' ? '—' : `${ltvCac}:1`;
 
@@ -3616,16 +3860,40 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const totalOpenSold = openEvents.reduce((s, e) => s + allRegistrations.filter(r => r.eventId === e.id).length, 0);
 
             document.getElementById('kpiVelocity').textContent = velocities.length ? avgVelocity.toFixed(1) + '/day' : '—';
+            // Short label in the card, the target arithmetic on hover — same
+            // reasoning as the CAC caption above.
+            const velEl = document.getElementById('kpiVelocityTrend');
             if (!openEvents.length) {
-                document.getElementById('kpiVelocityTrend').textContent = 'No open events';
+                velEl.textContent = 'No open events';
+                velEl.className = 'kpi-delta';
+                velEl.title = '';
             } else if (!velocities.length) {
-                document.getElementById('kpiVelocityTrend').textContent = `${totalOpenSold} tickets across ${openEvents.length} open event${openEvents.length !== 1 ? 's' : ''} · no creation date on file`;
+                velEl.textContent = `${totalOpenSold} sold · no start date`;
+                velEl.className = 'kpi-delta';
+                velEl.title = `${totalOpenSold} tickets across ${openEvents.length} open event${openEvents.length !== 1 ? 's' : ''}, but no createdAt to measure a sale window from`;
             } else {
                 const onPace = avgVelocity >= TARGET_TICKETS_PER_DAY;
-                document.getElementById('kpiVelocityTrend').innerHTML =
-                    `Target ${TARGET_TICKETS_PER_DAY.toFixed(1)}/day (30 tix / 20 days) · ` +
-                    (onPace ? `<span class="up">✓ on pace</span>` : `<span class="down">behind pace</span>`);
+                velEl.textContent = onPace ? '✓ on pace' : 'behind pace';
+                velEl.className = 'kpi-delta ' + (onPace ? 'up' : 'down');
+                velEl.title = `Target ${TARGET_TICKETS_PER_DAY.toFixed(1)}/day (30 tickets over a 20-day sale window)`;
             }
+
+            // Snapshot for the Full Report tab. Taken here, at the end of the
+            // one function that computes all of this, so Report can never
+            // disagree with the Overview — there is exactly one calculation.
+            kpiSnapshot = {
+                members: total,
+                membersTrend: document.getElementById('kpiMembersTrend')?.textContent || '',
+                active,
+                ticketRevenue, netRevenue, arpu, ltv, cac, ltvCac, avgEvents,
+                uniqueBuyers, paidTickets: paidTickets.length,
+                totalAcquisition, totalEbFees, totalOtherCosts,
+                nonAcqRecurring: totalRecurring - totalAcqRecurring,
+                velocity: velocities.length ? avgVelocity.toFixed(1) + '/day' : '—',
+                velocityRate: velocities.length ? avgVelocity : 0,
+                velocityNote: velEl ? velEl.textContent : '',
+            };
+            renderReport();
         }
 
         // ─── Renderers ─────────────────────────────────────
@@ -4590,6 +4858,33 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             document.getElementById('tab-' + id).classList.add('active');
             const navBtn = btn || document.querySelector(`.tab[data-tab="${id}"]`);
             if (navBtn) navBtn.classList.add('active');
+
+            // Overview carries the hero band instead of a heading; every other
+            // section gets a title + one line of context.
+            const SECTION_COPY = {
+                report:    ['Full Report', 'Every headline number, the 30-day trend, and where the tickets came from.'],
+                members:   ['Members', 'Everyone who has signed up, with tier and spend.'],
+                activity:  ['Activity', 'What people have been doing across the platform.'],
+                leads:     ['Leads', 'Captured emails and where they came from.'],
+                funnel:    ['Funnel', 'Lead to buyer conversion, stage by stage.'],
+                retention: ['Retention', 'Who comes back, event over event.'],
+                revenue:   ['Revenue', 'Payments, channel P&L, recurring costs and per-event margin.'],
+                events:    ['Events', 'The calendar, rosters, and per-event costs.'],
+                venues:    ['Venues', 'Places we run events.'],
+                enroll:    ['Import Buyers', 'Bring in Eventbrite, Meetup, direct or comped attendees.'],
+            };
+            const hdr = document.getElementById('sectionHeader');
+            if (hdr) {
+                const copy = SECTION_COPY[id];
+                hdr.style.display = copy ? '' : 'none';
+                if (copy) {
+                    document.getElementById('sectionTitle').textContent = copy[0];
+                    document.getElementById('sectionSub').textContent = copy[1];
+                }
+            }
+            // Report reads a snapshot taken during renderKPIs, so repaint it on
+            // entry rather than leaving whatever was there at last full load.
+            if (id === 'report') { renderReport(); renderMetric(); }
             if (id === 'venues') loadVenues();
             if (id === 'leads')  loadLeads();
             if (id === 'events') populateVenuePicker();
