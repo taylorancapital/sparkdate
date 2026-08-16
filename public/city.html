@@ -63,6 +63,15 @@
         .nav-menu { display: flex; gap: 40px; list-style: none; }
         .nav-menu a { color: var(--cream); text-decoration: none; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; transition: color 0.3s; }
         .nav-menu a:hover { color: var(--coral); }
+        /* Hamburger, same markup/CSS/JS as events.html and index.html. Without
+           it this page only shrank the nav's gap and font on mobile, which was
+           not nearly enough: six links still measured 147px past a 375px
+           viewport and scrolled the whole page sideways. */
+        .nav-toggle { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 32px; height: 32px; background: transparent; border: none; cursor: pointer; padding: 0; }
+        .nav-toggle span { display: block; width: 100%; height: 2px; background: var(--white); border-radius: 2px; transition: transform 0.25s ease, opacity 0.25s ease; }
+        .nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+        .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
         .cta-nav { background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%); color: var(--white); padding: 10px 24px; border-radius: 4px; font-size: 12px; font-weight: 600; text-transform: uppercase; transition: all 0.3s; }
         .cta-nav:hover { background: var(--white); color: var(--coral); transform: translateY(-2px); }
 
@@ -139,8 +148,13 @@
 
         @media (max-width: 768px) {
             nav { padding: 16px 20px; }
-            .nav-menu { gap: 16px; }
-            .nav-menu a { font-size: 12px; }
+            .nav-toggle { display: flex; }
+            .nav-menu { display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; gap: 0; background: rgba(10, 14, 39, 0.98); border-bottom: 1px solid rgba(255, 107, 107, 0.15); padding: 8px 20px 20px; }
+            .nav-menu.open { display: flex; }
+            .nav-menu li { width: 100%; }
+            .nav-menu a { display: block; padding: 14px 0; border-bottom: 1px solid rgba(255, 107, 107, 0.08); }
+            .nav-menu li:last-child a { border-bottom: none; }
+            .nav-menu .cta-nav { display: inline-block; margin-top: 10px; text-align: center; }
             .hero { padding: 60px 20px 40px; }
             .section { padding: 40px 20px; }
             .city-content, .faq-section { padding-left: 20px; padding-right: 20px; }
@@ -173,7 +187,10 @@
     <nav>
         <div class="nav-content">
             <a href="/" class="logo">Spark<span>Date</span></a>
-            <ul class="nav-menu">
+            <button type="button" class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navMenu" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
                 <li><a href="/">Home</a></li>
                 <li><a href="/events" class="cta-nav">Join</a></li>
                 <li><a href="/events">Events</a></li>
@@ -183,6 +200,20 @@
             </ul>
         </div>
     </nav>
+    <script>
+      (function () {
+        var toggle = document.getElementById('navToggle');
+        var menu = document.getElementById('navMenu');
+        if (!toggle || !menu) return;
+        function closeMenu() { menu.classList.remove('open'); toggle.setAttribute('aria-expanded', 'false'); }
+        function openMenu() { menu.classList.add('open'); toggle.setAttribute('aria-expanded', 'true'); }
+        toggle.addEventListener('click', function () {
+          if (menu.classList.contains('open')) closeMenu(); else openMenu();
+        });
+        menu.addEventListener('click', function (e) { if (e.target.tagName === 'A') closeMenu(); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
+      })();
+    </script>
 
     <section class="hero">
         <div class="city-badge" id="cityBadge">Philadelphia, PA</div>
