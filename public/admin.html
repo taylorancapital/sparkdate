@@ -492,16 +492,17 @@
             padding: 14px 10px 4px;
         }
 
-        /* Breakpoints.
-           The first version collapsed to a horizontal bar at 860px, which is
-           wide enough that an ordinary side-by-side window — or a narrow
-           preview pane — got the phone layout and the sidebar appeared "at the
-           top". A dashboard should stay a sidebar for as long as it possibly
-           can, so:
+        /* Breakpoints. The sidebar is ALWAYS a sidebar — there is no width at
+           which it becomes a horizontal bar across the top.
              1100px+  full rail with labels
-             620–1100 icon-only rail, still a SIDEBAR (labels hidden, tooltips
-                      via title=) — narrow windows keep the side layout
-             <620px   genuinely a phone: horizontal scroller across the top */
+             620–1100 icon-only rail (labels hidden, tooltips via title=)
+             <620px   same icon rail, just tighter
+           Two earlier versions flipped to a top bar below 860px and then below
+           620px, and both times the nav showed up "at the top": a side-by-side
+           editor pane or a half-screen window is routinely narrower than that.
+           This is a desktop admin tool, so a 50px icon rail beats a top bar at
+           every size — .container is flex:1 with min-width:0, so it just takes
+           whatever is left. */
         @media (max-width: 1100px) {
             :root { --sidebar-w: 58px; }
             .sidebar { padding: 18px 8px; align-items: center; }
@@ -515,41 +516,13 @@
             .sidebar-foot button::first-letter { font-size: 13px; }
         }
         @media (max-width: 620px) {
-            :root { --sidebar-w: auto; }
-            .admin-shell { flex-direction: column; }
-            .sidebar {
-                width: 100%;
-                height: auto;
-                position: static;
-                flex-direction: row;
-                flex-wrap: nowrap;
-                overflow-x: auto;
-                align-items: center;
-                gap: 4px;
-                padding: 10px 14px;
-                border-right: none;
-                border-bottom: 1px solid var(--hairline);
-            }
-            .sidebar-logo { font-size: 17px; padding: 0 10px 0 0; }
-            .sidebar-logo::first-letter { font-size: 17px; }
-            .tab {
-                width: auto;
-                flex-shrink: 0;
-                border-left: none;
-                border-bottom: 2px solid transparent;
-                padding: 8px 10px;
-            }
-            .tab span { display: inline; font-size: 12px; }
-            .tab.active { border-left-color: transparent; border-bottom-color: var(--coral); }
-            .sidebar-divider, .nav-group-label { display: none; }
-            .sidebar-foot {
-                margin-top: 0;
-                margin-left: auto;
-                flex-direction: row;
-                padding: 0;
-                flex-shrink: 0;
-            }
-            .sidebar-foot button { font-size: 12px; padding: 6px 10px; }
+            :root { --sidebar-w: 50px; }
+            .sidebar { padding: 14px 5px; gap: 2px; }
+            .sidebar-logo { padding: 2px 0 14px; }
+            .sidebar-logo::first-letter { font-size: 19px; }
+            .tab { padding: 9px 0; }
+            /* Give the tables back the width the rail didn't take. */
+            .container { padding: 18px 14px 48px; }
         }
 
         /* Two-column layout */
