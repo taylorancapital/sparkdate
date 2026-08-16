@@ -179,6 +179,9 @@
             gap: 16px;
             margin-bottom: 32px;
         }
+        /* Same min-width:auto guard as .two-col — a long unbroken value or
+           label must not be able to widen the track past the viewport. */
+        .kpi-grid > * { min-width: 0; }
         .kpi-card {
             background: rgba(255, 107, 107, 0.04);
             border: 1px solid rgba(255, 107, 107, 0.15);
@@ -462,6 +465,7 @@
             gap: 16px;
             align-items: start;
         }
+        .report-split > * { min-width: 0; }
         @media (max-width: 900px) { .report-split { grid-template-columns: 1fr; } }
 
         /* Sub-items: Leads / Funnel / Retention live under Activity. Indent
@@ -526,6 +530,10 @@
             .tab { padding: 9px 0; }
             /* Give the tables back the width the rail didn't take. */
             .container { padding: 18px 14px 48px; }
+            /* Sharing a row with a filter select left the search box showing
+               about five characters. It gets its own row down here. */
+            .search-input { flex-basis: 100%; }
+            .filter-select { flex: 1; }
         }
 
         /* Two-column layout */
@@ -534,6 +542,12 @@
             grid-template-columns: 1.6fr 1fr;
             gap: 24px;
         }
+        /* Same load-bearing min-width:0 as .container, for the same reason. A
+           grid item defaults to min-width:auto, so the TRACK grows to the
+           item's min-content even when the grid box itself is correctly sized:
+           at 375px the container measured 375 while its single track resolved
+           to 738, and the table inside never got the chance to scroll. */
+        .two-col > * { min-width: 0; }
         @media (max-width: 1024px) {
             .two-col { grid-template-columns: 1fr; }
         }
@@ -567,6 +581,15 @@
 
         /* Tables */
         table { width: 100%; border-collapse: collapse; }
+        /* Every on-page table sits in one of these. Tables are the only thing
+           here wider than a phone, and without a scroll box of their own they
+           push the whole document sideways: at 375px, 8 of the 11 sections
+           scrolled horizontally and Venues laid out 1168px wide. The page body
+           must never scroll sideways — the table does, inside its card.
+           min-width keeps columns legible rather than letting a 10-column
+           table crush itself into 300px; below that it scrolls. */
+        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .table-scroll > table { min-width: 520px; }
         thead th {
             text-align: left;
             font-size: 10px;
@@ -690,9 +713,11 @@
         /* Search Box */
         .search-bar {
             display: flex;
+            flex-wrap: wrap;   /* the two filter selects overflowed the phone width on one line */
             gap: 12px;
             margin-bottom: 20px;
         }
+        .search-input { min-width: 0; }   /* let it shrink instead of forcing the row wide */
         .search-input {
             flex: 1;
             padding: 10px 14px;
@@ -793,7 +818,15 @@
             margin-bottom: 20px;
         }
         .form-grid.full { grid-template-columns: 1fr; }
-        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        /* A <select>'s intrinsic width comes from its longest <option>, and a
+           grid item's default min-width:auto passes that straight through to
+           the track: the event-form select measured 366px inside a 325px grid
+           and pushed the page sideways. Cap the control instead. */
+        .form-grid > * { min-width: 0; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        .form-group select,
+        .form-group input,
+        .form-group textarea { max-width: 100%; }
         .form-label {
             font-size: 10px;
             font-weight: 700;
@@ -1338,19 +1371,21 @@
                         <h2 class="card-title">Recent Signups</h2>
                         <a class="card-action" onclick="switchTab('members')">View all →</a>
                     </div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Member</th>
-                                <th>Tier</th>
-                                <th>Status</th>
-                                <th>Signed Up</th>
-                            </tr>
-                        </thead>
-                        <tbody id="recentSignups">
-                            <tr><td colspan="4"><div class="spinner"></div></td></tr>
-                        </tbody>
-                    </table>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Member</th>
+                                    <th>Tier</th>
+                                    <th>Status</th>
+                                    <th>Signed Up</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentSignups">
+                                <tr><td colspan="4"><div class="spinner"></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <div class="card">
@@ -1392,23 +1427,25 @@
                     </select>
                 </div>
 
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Member</th>
-                            <th>Phone</th>
-                            <th>Age / Gender</th>
-                            <th>Interests</th>
-                            <th>Tier</th>
-                            <th>Status</th>
-                            <th>Joined</th>
-                            <th>LTV</th>
-                        </tr>
-                    </thead>
-                    <tbody id="allMembers">
-                        <tr><td colspan="8"><div class="spinner"></div></td></tr>
-                    </tbody>
-                </table>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Member</th>
+                                <th>Phone</th>
+                                <th>Age / Gender</th>
+                                <th>Interests</th>
+                                <th>Tier</th>
+                                <th>Status</th>
+                                <th>Joined</th>
+                                <th>LTV</th>
+                            </tr>
+                        </thead>
+                        <tbody id="allMembers">
+                            <tr><td colspan="8"><div class="spinner"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -1464,19 +1501,21 @@
                 <div class="card-header">
                     <h2 class="card-title">Subscription Breakdown</h2>
                 </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Tier</th>
-                            <th>Count</th>
-                            <th>% of total</th>
-                            <th>Monthly $</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tierBreakdown">
-                        <tr><td colspan="4"><div class="spinner"></div></td></tr>
-                    </tbody>
-                </table>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tier</th>
+                                <th>Count</th>
+                                <th>% of total</th>
+                                <th>Monthly $</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tierBreakdown">
+                            <tr><td colspan="4"><div class="spinner"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div class="candidate-stats" id="revenueKPIs" style="margin-bottom:20px;"></div>
@@ -1485,20 +1524,22 @@
                     <h2 class="card-title">Payment History</h2>
                     <span style="font-size:12px;color:rgba(245,243,240,0.5);">Tickets + subscriptions · newest first</span>
                 </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Person</th>
-                            <th>Type</th>
-                            <th>Amount</th>
-                            <th>Event / Tier</th>
-                            <th>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody id="paymentHistory">
-                        <tr><td colspan="5"><div class="spinner"></div></td></tr>
-                    </tbody>
-                </table>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Person</th>
+                                <th>Type</th>
+                                <th>Amount</th>
+                                <th>Event / Tier</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="paymentHistory">
+                            <tr><td colspan="5"><div class="spinner"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Channel P&L -->
@@ -1507,23 +1548,25 @@
                     <h2 class="card-title">Channel P&amp;L</h2>
                     <span style="font-size:12px;color:rgba(245,243,240,0.5);">Which channel actually pays for itself</span>
                 </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Channel</th>
-                            <th>Tickets</th>
-                            <th>Gross</th>
-                            <th>Acquisition</th>
-                            <th>Fees</th>
-                            <th>Net</th>
-                            <th>Margin %</th>
-                            <th>Rev / ticket</th>
-                        </tr>
-                    </thead>
-                    <tbody id="channelPnlTable">
-                        <tr><td colspan="8"><div class="spinner"></div></td></tr>
-                    </tbody>
-                </table>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Channel</th>
+                                <th>Tickets</th>
+                                <th>Gross</th>
+                                <th>Acquisition</th>
+                                <th>Fees</th>
+                                <th>Net</th>
+                                <th>Margin %</th>
+                                <th>Rev / ticket</th>
+                            </tr>
+                        </thead>
+                        <tbody id="channelPnlTable">
+                            <tr><td colspan="8"><div class="spinner"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
                 <div style="padding:12px 18px;font-size:11px;color:rgba(245,243,240,0.45);line-height:1.6;">
                     Delivery costs (venue, supplies) and non-acquisition overhead aren't channel-specific,
                     so they sit in Event P&amp;L and the Net revenue KPI rather than being split arbitrarily here.
@@ -1545,22 +1588,24 @@
                     <h2 class="card-title">Event P&amp;L</h2>
                     <span style="font-size:12px;color:rgba(245,243,240,0.5);">Click a row for the cost breakdown</span>
                 </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Event</th>
-                            <th>Date</th>
-                            <th>Tickets</th>
-                            <th>Gross</th>
-                            <th>Costs</th>
-                            <th>Net</th>
-                            <th>Margin %</th>
-                        </tr>
-                    </thead>
-                    <tbody id="eventPnlTable">
-                        <tr><td colspan="7"><div class="spinner"></div></td></tr>
-                    </tbody>
-                </table>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Event</th>
+                                <th>Date</th>
+                                <th>Tickets</th>
+                                <th>Gross</th>
+                                <th>Costs</th>
+                                <th>Net</th>
+                                <th>Margin %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="eventPnlTable">
+                            <tr><td colspan="7"><div class="spinner"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -1578,20 +1623,22 @@
                 <button class="close-x" onclick="closeRoster()">&times;</button>
             </div>
             <div class="candidate-stats" id="rosterStats" style="margin-bottom:16px;"></div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Gender</th>
-                        <th>Source</th>
-                        <th>Check-in</th>
-                    </tr>
-                </thead>
-                <tbody id="rosterTable">
-                    <tr><td colspan="5"><div class="spinner"></div></td></tr>
-                </tbody>
-            </table>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Gender</th>
+                            <th>Source</th>
+                            <th>Check-in</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rosterTable">
+                        <tr><td colspan="5"><div class="spinner"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -1605,23 +1652,25 @@
                             <h2 class="card-title">Scheduled Events</h2>
                             <span style="font-size: 12px; color: rgba(245,243,240,0.5);" id="eventCount">—</span>
                         </div>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Event</th>
-                                    <th>Date</th>
-                                    <th>Venue</th>
-                                    <th>Spots</th>
-                                    <th>Price (M / W)</th>
-                                    <th>Registrations</th>
-                                    <th>Status</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="eventsTable">
-                                <tr><td colspan="8"><div class="spinner"></div></td></tr>
-                            </tbody>
-                        </table>
+                        <div class="table-scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Event</th>
+                                        <th>Date</th>
+                                        <th>Venue</th>
+                                        <th>Spots</th>
+                                        <th>Price (M / W)</th>
+                                        <th>Registrations</th>
+                                        <th>Status</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="eventsTable">
+                                    <tr><td colspan="8"><div class="spinner"></div></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -1807,24 +1856,26 @@
                         With <strong>Overwrite existing</strong> ON, rows whose names already exist will <em>merge</em> new fields (email, phone, stars, etc) into the existing venue — preserving pipeline state (status, contacted_at). Blank cells never overwrite. Turn OFF to skip duplicates entirely.
                     </div>
                 </details>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Venue</th>
-                            <th>City</th>
-                            <th>Type</th>
-                            <th>Description</th>
-                            <th>★</th>
-                            <th>Status</th>
-                            <th>Contacted</th>
-                            <th>Notes</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="venuesTable">
-                        <tr><td colspan="9"><div class="spinner"></div></td></tr>
-                    </tbody>
-                </table>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Venue</th>
+                                <th>City</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                                <th>★</th>
+                                <th>Status</th>
+                                <th>Contacted</th>
+                                <th>Notes</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="venuesTable">
+                            <tr><td colspan="9"><div class="spinner"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -1838,26 +1889,28 @@
                 <p style="font-size: 13px; color: rgba(245,243,240,0.55); margin: -6px 0 16px; line-height: 1.6;">
                     Signups from the site's lead-capture forms (newsletter, blog, exit-intent, etc). Welcome email + the 4-touch nurture sequence (day 2, 5, 14, 25) auto-fire from <code>/api/cron-send-emails</code>. Unsubscribes flip the row to red.
                 </p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Phone</th>
-                            <th>Source</th>
-                            <th>Signed Up</th>
-                            <th>Welcome</th>
-                            <th>D2</th>
-                            <th>D5</th>
-                            <th>D14</th>
-                            <th>D25</th>
-                            <th>Subscribed</th>
-                        </tr>
-                    </thead>
-                    <tbody id="leadsTable">
-                        <tr><td colspan="11"><div class="spinner"></div></td></tr>
-                    </tbody>
-                </table>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Source</th>
+                                <th>Signed Up</th>
+                                <th>Welcome</th>
+                                <th>D2</th>
+                                <th>D5</th>
+                                <th>D14</th>
+                                <th>D25</th>
+                                <th>Subscribed</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leadsTable">
+                            <tr><td colspan="11"><div class="spinner"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -1939,18 +1992,20 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
                 <div id="eb-results" style="margin-top:24px;display:none;">
                     <div id="eb-summary" style="font-size:14px;margin-bottom:12px;padding:12px 16px;background:rgba(255,255,255,0.06);border-radius:6px;"></div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Status</th>
-                                <th>Email Sent</th>
-                                <th>Profile Link</th>
-                            </tr>
-                        </thead>
-                        <tbody id="eb-results-table"></tbody>
-                    </table>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Status</th>
+                                    <th>Email Sent</th>
+                                    <th>Profile Link</th>
+                                </tr>
+                            </thead>
+                            <tbody id="eb-results-table"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3373,11 +3428,33 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         }
 
         // SVG polyline points for a series, normalised into a w×h box.
-        function sparkPoints(vals, w, h, pad = 2) {
+        // padY insets top and bottom. padX insets left and right and defaults to
+        // 0 on purpose: the big chart closes its area polygon on x=0 and x=w, so
+        // a line that stopped short of either edge would leave a notch there.
+        function sparkPoints(vals, w, h, padY = 2, padX = 0) {
             if (!vals.length) return '';
             const max = Math.max(...vals, 1);
-            const step = vals.length > 1 ? w / (vals.length - 1) : 0;
-            return vals.map((v, i) => `${(i * step).toFixed(1)},${(h - pad - (v / max) * (h - pad * 2)).toFixed(1)}`).join(' ');
+            const innerH = h - padY * 2;
+            const y = (v) => (h - padY - (v / max) * innerH).toFixed(1);
+            // A polyline needs two points to draw anything, so a single sample
+            // becomes a flat line across the box rather than an invisible dot.
+            if (vals.length === 1) return `${padX},${y(vals[0])} ${(w - padX).toFixed(1)},${y(vals[0])}`;
+            const step = (w - padX * 2) / (vals.length - 1);
+            return vals.map((v, i) => `${(padX + i * step).toFixed(1)},${y(v)}`).join(' ');
+        }
+
+        // Same day-bucketing as dailySeries, but over any record list — members
+        // aren't tickets, so they need this to get a series of their own.
+        function dailyCount(records, days, getDate) {
+            const out = new Map();
+            for (let i = days - 1; i >= 0; i--) out.set(dayKey(new Date(Date.now() - i * 86400000)), 0);
+            records.forEach(r => {
+                const d = toDate(getDate(r));
+                if (!d) return;
+                const k = dayKey(d);
+                if (out.has(k)) out.set(k, out.get(k) + 1);
+            });
+            return [...out.values()];
         }
 
         // ─── Overview hero band ────────────────────────────
@@ -3431,10 +3508,19 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // ─── KPI sparklines + deltas ───────────────────────
         // Small inline SVG trend beside each headline number. Drawn from the
         // same 30-day series the big chart uses, so the two can't disagree.
+        // One set of numbers for the geometry: the plotted box, the viewBox and
+        // the width/height attributes all agree. They used to disagree three
+        // ways — plotted in 58×18, a 60×20 viewBox, 46×18 attributes — and the
+        // 2.556 vs 3.0 aspect mismatch made the browser letterbox the drawing
+        // down to 46×15.3px, so the trend line used barely half the vertical
+        // space the card gave it.
+        const SPARK_W = 60, SPARK_H = 20, SPARK_PAD = 3;
         function sparkSvg(vals, color) {
-            const pts = sparkPoints(vals, 58, 18, 3);
+            // padX is half the stroke width, so the end caps sit inside the
+            // viewBox instead of being clipped in half at each edge.
+            const pts = sparkPoints(vals, SPARK_W, SPARK_H, SPARK_PAD, 1);
             if (!pts) return '';
-            return `<svg width="46" height="18" viewBox="0 0 60 20" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2"/></svg>`;
+            return `<svg width="${SPARK_W}" height="${SPARK_H}" viewBox="0 0 ${SPARK_W} ${SPARK_H}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         }
 
         // Compare the last 15 days against the 15 before — a same-length split
@@ -3452,7 +3538,8 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         function renderSparklines() {
             const revenue = dailySeries(30, t => t.isComp ? 0 : num(t.amount) / 100);
             const tickets = dailySeries(30, t => t.isComp ? 0 : 1);
-            const set = (spanId, vals, color, deltaId, invert) => {
+            const signups = dailyCount(allUsers, 30, u => u.createdAt);
+            const set = (spanId, vals, color, deltaId, invert, noun = '') => {
                 const el = document.getElementById(spanId);
                 if (el) el.innerHTML = sparkSvg(vals, color);
                 const d = deltaOf(vals);
@@ -3461,18 +3548,25 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     // `invert` for cost-like metrics, where a rise is bad.
                     const good = invert ? d.dir === 'down' : d.dir === 'up';
                     dEl.className = 'kpi-delta ' + (good ? 'up' : 'down');
-                    dEl.textContent = `${d.dir === 'up' ? '+' : '−'}${d.pct}% vs prior 15d`;
+                    dEl.textContent = `${d.dir === 'up' ? '+' : '−'}${d.pct}%${noun} vs prior 15d`;
                 }
             };
-            set('sparkRevenue', revenue, '#4ade80', 'kpiARRTrend', false);
+            // The KPI above this one is NET revenue; the series is gross ticket
+            // revenue, because fees and ad spend hang off event dates rather
+            // than purchase dates. Say which one the percentage describes
+            // instead of letting it read as a change in the number above it.
+            set('sparkRevenue', revenue, '#4ade80', 'kpiARRTrend', false, ' ticket rev');
             set('sparkTickets', tickets, '#d4af37', null, false);
-            // Members and CAC have no per-day series of their own; show the
-            // ticket trend as the shape and leave their existing captions
-            // alone rather than invent a number.
-            const mEl = document.getElementById('sparkMembers');
-            if (mEl) mEl.innerHTML = sparkSvg(tickets, '#60a5fa');
+            set('sparkMembers', signups, '#60a5fa', null, false);
+
+            // Blended CAC gets no sparkline. There is no honest per-day series
+            // for it: spend is attributed to event dates rather than spend
+            // dates, and "new buyer" can't be established from a 60-day ticket
+            // window. It used to draw the REVENUE line in red under a cost
+            // label — so a good week of sales rendered as costs climbing. An
+            // empty slot is better than a confidently wrong shape.
             const cEl = document.getElementById('sparkCac');
-            if (cEl) cEl.innerHTML = sparkSvg(revenue, '#ff6b6b');
+            if (cEl) cEl.innerHTML = '';
         }
 
         // ─── Rotating metric chart ─────────────────────────
@@ -3558,7 +3652,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 // silently mis-colours whichever renders later.
                 const gid = 'metricGrad_' + (card.closest('.tab-content')?.id || 'x') + '_' + m.key;
                 chart.innerHTML = `
-                    <svg width="100%" height="120" viewBox="0 0 760 160" preserveAspectRatio="none">
+                    <svg width="100%" height="120" viewBox="0 0 760 150" preserveAspectRatio="none">
                         <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stop-color="${m.color}" stop-opacity="0.35"></stop>
                             <stop offset="100%" stop-color="${m.color}" stop-opacity="0"></stop>
@@ -4537,16 +4631,18 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
             const table = `
                 <h3 style="margin:0 0 14px; color:var(--white);">Return Rate (event → next event)</h3>
-                <table>
-                    <thead><tr>
-                        <th>From → To</th>
-                        <th style="text-align:center;">Buyers</th>
-                        <th style="text-align:center;">Returned</th>
-                        <th style="text-align:center;">Return %</th>
-                        <th style="text-align:center;">New</th>
-                    </tr></thead>
-                    <tbody>${rateRows}</tbody>
-                </table>`;
+                <div class="table-scroll">
+                    <table>
+                        <thead><tr>
+                            <th>From → To</th>
+                            <th style="text-align:center;">Buyers</th>
+                            <th style="text-align:center;">Returned</th>
+                            <th style="text-align:center;">Return %</th>
+                            <th style="text-align:center;">New</th>
+                        </tr></thead>
+                        <tbody>${rateRows}</tbody>
+                    </table>
+                </div>`;
 
             const timeline = `
                 <h3 style="margin:32px 0 14px; color:var(--white);">Tickets per Event</h3>
@@ -4677,16 +4773,18 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
             const table = `
                 <h3 style="margin:0 0 14px; color:var(--white);">Conversion by Source</h3>
-                <table>
-                    <thead><tr>
-                        <th>Source</th>
-                        <th style="text-align:center;">Leads</th>
-                        <th style="text-align:center;">Converted</th>
-                        <th style="text-align:center;">Conv %</th>
-                        <th style="text-align:right;">Revenue</th>
-                    </tr></thead>
-                    <tbody>${rows}</tbody>
-                </table>`;
+                <div class="table-scroll">
+                    <table>
+                        <thead><tr>
+                            <th>Source</th>
+                            <th style="text-align:center;">Leads</th>
+                            <th style="text-align:center;">Converted</th>
+                            <th style="text-align:center;">Conv %</th>
+                            <th style="text-align:right;">Revenue</th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
 
             const recon = `
                 <div style="margin-top:24px; padding:14px 18px; background:rgba(255,255,255,0.03); border-radius:6px; font-size:13px; color:rgba(245,243,240,0.7); line-height:1.7;">
