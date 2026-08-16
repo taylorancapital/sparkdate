@@ -466,6 +466,46 @@
             align-items: start;
         }
         .report-split > * { min-width: 0; }
+
+        /* Purchase-time heatmap: 7 weekday rows x 4 time blocks, plus a row
+           total. Deliberately NOT 24 hourly columns — at this ticket volume a
+           7x24 grid is ~90% empty cells, which reads as noise rather than a
+           pattern. Four blocks keep every cell meaningful. */
+        .clock-grid {
+            display: grid;
+            grid-template-columns: 42px repeat(4, minmax(0, 1fr)) 40px;
+            gap: 4px;
+            font-size: 11px;
+        }
+        .clock-head {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            color: var(--text-faint);
+            text-align: center;
+            line-height: 1.3;
+            padding-bottom: 2px;
+        }
+        .clock-day { color: var(--text-muted); display: flex; align-items: center; }
+        .clock-cell {
+            height: 30px;
+            border-radius: 4px;
+            border: 1px solid var(--hairline);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: var(--white);
+        }
+        .clock-cell.empty { color: var(--text-faint); font-weight: 400; }
+        .clock-total {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            color: var(--text-secondary);
+            font-weight: 700;
+        }
+        .clock-peak { color: var(--coral); font-weight: 700; }
         @media (max-width: 900px) { .report-split { grid-template-columns: 1fr; } }
 
         /* Sub-items: Leads / Funnel / Retention live under Activity. Indent
@@ -1362,6 +1402,38 @@
             </div>
 
             <div class="kpi-grid kpi-grid-4" id="reportRevenueStats" style="margin:16px 0;"></div>
+
+            <!-- Two different questions that both sound like "day and time".
+                 The heatmap is WHEN PEOPLE BUY (ticket purchase timestamps) —
+                 that drives email send times and ad delivery. The table under
+                 it is WHICH EVENT SLOTS SELL (event start day/time) — that
+                 drives when to schedule the next event. Same paid-ticket basis
+                 as the tickets-by-event bars above. -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">When tickets sell</h2>
+                    <span id="salesClockNote" style="font-size:11px;color:var(--text-faint);"></span>
+                </div>
+                <div id="salesClockGrid"><div class="spinner"></div></div>
+
+                <div class="metric-title" style="margin:24px 0 4px;">Which event slots sell best</div>
+                <div style="font-size:11px;color:var(--text-faint);margin-bottom:12px;" id="salesSlotNote"></div>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Event slot</th>
+                                <th>Events</th>
+                                <th>Tickets</th>
+                                <th>Avg / event</th>
+                            </tr>
+                        </thead>
+                        <tbody id="salesSlotTable">
+                            <tr><td colspan="4"><div class="spinner"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
             <!-- The two per-person feeds, both relocated off Overview: who
                  signed up recently, and what happened in the last 24h. -->
@@ -3754,6 +3826,129 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <div class="kpi-label">${safe(label)}</div>
                         <div class="kpi-value">${safe(value)}</div>
                     </div>`).join('');
+            }
+
+            renderSalesClock();
+        }
+
+        // ─── When tickets sell ─────────────────────────────
+        // Times come from the browser's own timezone via Date#getDay/getHours,
+        // so this reads in whatever zone the admin is sitting in. That's the
+        // right frame for "when should I send the email", which is the whole
+        // point of the chart.
+        const CLOCK_BLOCKS = [
+            { label: 'Morning',   hours: '6a–12p', test: h => h >= 6  && h < 12 },
+            { label: 'Afternoon', hours: '12–5p',  test: h => h >= 12 && h < 17 },
+            { label: 'Evening',   hours: '5–9p',   test: h => h >= 17 && h < 21 },
+            { label: 'Late',      hours: '9p–6a',  test: h => h >= 21 || h < 6  },
+        ];
+        const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+        const slotLabel = (d) => {
+            const h = d.getHours();
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 === 0 ? 12 : h % 12;
+            const mins = d.getMinutes();
+            return `${DAY_LABELS[d.getDay()]} ${h12}${mins ? ':' + String(mins).padStart(2, '0') : ''} ${ampm}`;
+        };
+
+        function renderSalesClock() {
+            const grid = document.getElementById('salesClockGrid');
+            const tbody = document.getElementById('salesSlotTable');
+            if (!grid || !tbody) return;
+
+            const paid = allPayments.filter(p => p._type === 'ticket' && !p.isComp);
+
+            // ── 1. When people BUY (purchase timestamps) ──
+            const cells = DAY_LABELS.map(() => CLOCK_BLOCKS.map(() => 0));
+            let counted = 0;
+            paid.forEach(t => {
+                const d = toDate(t.createdAt);
+                if (!d) return;
+                const bi = CLOCK_BLOCKS.findIndex(b => b.test(d.getHours()));
+                if (bi < 0) return;
+                cells[d.getDay()][bi]++;
+                counted++;
+            });
+
+            const note = document.getElementById('salesClockNote');
+            if (!counted) {
+                grid.innerHTML = '<div class="empty">No ticket sales yet.</div>';
+                if (note) note.textContent = '';
+            } else {
+                const max = Math.max(...cells.flat());
+                let peak = { n: -1, txt: '' };
+                cells.forEach((row, di) => row.forEach((n, bi) => {
+                    if (n > peak.n) peak = { n, txt: `${DAY_LABELS[di]} ${CLOCK_BLOCKS[bi].label.toLowerCase()}` };
+                }));
+
+                const head = ['<div></div>']
+                    .concat(CLOCK_BLOCKS.map(b => `<div class="clock-head">${safe(b.label)}<br>${safe(b.hours)}</div>`))
+                    .concat('<div class="clock-head">All</div>').join('');
+
+                const body = cells.map((row, di) => {
+                    const dayTotal = row.reduce((s, n) => s + n, 0);
+                    const rowCells = row.map(n => {
+                        // Floor the alpha so a 1-ticket cell is still visible
+                        // against the card, rather than fading to invisible.
+                        const a = n === 0 ? 0 : 0.18 + 0.72 * (n / max);
+                        return `<div class="clock-cell${n === 0 ? ' empty' : ''}" style="background:rgba(255,107,107,${a.toFixed(3)});">${n || '·'}</div>`;
+                    }).join('');
+                    return `<div class="clock-day">${DAY_LABELS[di]}</div>${rowCells}<div class="clock-total">${dayTotal || ''}</div>`;
+                }).join('');
+
+                grid.innerHTML = `<div class="clock-grid">${head}${body}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:12px;">
+                        Busiest: <span class="clock-peak">${safe(peak.txt)}</span> (${peak.n} ticket${peak.n === 1 ? '' : 's'}).
+                        Times are in this browser's timezone.
+                    </div>`;
+                if (note) note.textContent = `${counted} paid ticket${counted === 1 ? '' : 's'} by purchase time`;
+            }
+
+            // ── 2. Which event SLOTS sell (event start day/time) ──
+            const perEvent = {};
+            paid.forEach(t => { if (t.eventId) perEvent[t.eventId] = (perEvent[t.eventId] || 0) + 1; });
+
+            const bySlot = {};
+            allEvents.forEach(e => {
+                const d = toDate(e.date);
+                if (!d) return;
+                // Group by weekday + hour so two 7pm Thursdays land together.
+                const key = `${d.getDay()}-${d.getHours()}`;
+                if (!bySlot[key]) bySlot[key] = { label: slotLabel(d), events: 0, tickets: 0 };
+                bySlot[key].events++;
+                bySlot[key].tickets += perEvent[e.id] || 0;
+            });
+
+            const slotRows = Object.values(bySlot)
+                .map(s => ({ ...s, avg: s.tickets / s.events }))
+                .sort((a, b) => b.avg - a.avg);
+
+            const slotNote = document.getElementById('salesSlotNote');
+            if (!slotRows.length) {
+                tbody.innerHTML = '<tr><td colspan="4" class="empty">No scheduled events yet.</td></tr>';
+                if (slotNote) slotNote.textContent = '';
+            } else {
+                tbody.innerHTML = slotRows.map(s => `
+                    <tr>
+                        <td style="color:var(--white);font-weight:600;">${safe(s.label)}</td>
+                        <td>${s.events}</td>
+                        <td>${s.tickets}</td>
+                        <td style="color:var(--white);font-weight:600;">${s.avg.toFixed(1)}</td>
+                    </tr>`).join('');
+                if (slotNote) {
+                    const totalEvents = slotRows.reduce((n, s) => n + s.events, 0);
+                    const mapped = slotRows.reduce((n, s) => n + s.tickets, 0);
+                    const base = `${totalEvents} event${totalEvents === 1 ? '' : 's'} across ${slotRows.length} slot${slotRows.length === 1 ? '' : 's'}`;
+                    // The heatmap counts every paid ticket; this table can only
+                    // count the ones that resolve to a dated event. Say so, so
+                    // the two totals not matching reads as attribution rather
+                    // than as one of them being broken.
+                    const gap = counted - mapped;
+                    slotNote.textContent =
+                        (totalEvents < 15 ? `${base} — too few to be conclusive yet, read it as a hint.` : `${base}.`)
+                        + (gap > 0 ? ` ${mapped} of ${counted} paid tickets map to a scheduled event; ${gap} have no event attached.` : '');
+                }
             }
         }
 
