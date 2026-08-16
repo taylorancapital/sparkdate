@@ -209,6 +209,17 @@ service cloud.firestore {
       allow write: if false; // server-only
     }
 
+    // ── recurring_costs/{YYYY-MM} ────────────────────────────────
+    // Monthly costs that aren't tied to a single event — the Meetup organizer
+    // subscription, tools, general overhead. The admin P&L allocates each
+    // month's total across that month's events. Doc id IS the month key.
+    //
+    // Admin-only in BOTH directions, unlike events/{eventId} which is public
+    // read: this is internal cost data and nothing user-facing ever reads it.
+    match /recurring_costs/{monthKey} {
+      allow read, write: if isAdmin();
+    }
+
     // ── Default deny ─────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

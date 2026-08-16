@@ -391,9 +391,24 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 </div></body></html>`;
 }
 
-async function enrollEventbriteOne({ email, name, gender, eventId, eventName, priceCents }) {
+// Marketplace channels we can bulk-import buyers from. `source` is what the
+// admin P&L classifies by; `prefix` keys the ticket doc id.
+//
+// Eventbrite's prefix stays 'eb' deliberately. The ticket id is the idempotency
+// key for re-running an import, so renaming it would make every previously
+// imported Eventbrite buyer look new and write a duplicate ticket doc.
+const IMPORT_CHANNELS = {
+  eventbrite: { source: 'eventbrite_import', prefix: 'eb' },
+  meetup:     { source: 'meetup_import',     prefix: 'mu' },
+};
+
+async function enrollEventbriteOne({ email, name, gender, eventId, eventName, priceCents, channel }) {
   const norm = String(email || '').toLowerCase().trim();
   if (!norm) return { email, status: 'skipped', reason: 'empty email' };
+
+  // Unknown/absent channel falls back to Eventbrite so an older client that
+  // doesn't send the field keeps behaving exactly as before.
+  const chan = IMPORT_CHANNELS[String(channel || '').toLowerCase()] || IMPORT_CHANNELS.eventbrite;
 
   const nameParts = String(name || '').trim().split(/\s+/).filter(Boolean);
   const firstName = nameParts[0] || '';
@@ -423,7 +438,11 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
   // 2. Atomic Firestore writes (idempotent — keyed by uid+event).
   // wasNewUserDoc / alreadyCompleted drive which welcome email goes out below.
   // Set inside the txn (reset on each retry) so they reflect the final state.
-  const ticketId = `eb_${uid}_${eventId}`;
+  const ticketId = `${chan.prefix}_${uid}_${eventId}`;
+  // reg id stays channel-agnostic on purpose: one person attending one event is
+  // ONE registration no matter which marketplace sold the ticket, so the roster
+  // and the post-event matching stay correct even if a buyer somehow appears in
+  // two import batches.
   const regId    = `reg_${uid}_${eventId}`;
   let wasNewUserDoc = false;
   let alreadyCompleted = false;
@@ -439,7 +458,7 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
       txn.set(userRef, {
         email: norm, firstName, lastName, phone: '', gender: gender || null,
         tier: 'free', stripeCustomerId: null, subscriptionId: null, subscriptionStatus: null,
-        source: 'eventbrite_import', profileCompleted: false,
+        source: chan.source, profileCompleted: false,
         createdAt: FieldValue.serverTimestamp(),
       });
     }
@@ -447,13 +466,13 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
       firebaseUid: uid, email: norm, name: String(name || '').trim(), phone: '',
       gender: gender || null, eventId: eventId || null, eventName: eventName || '',
       amount, paymentIntentId: null, paidWithCardOnFile: false, status: 'confirmed',
-      source: 'eventbrite_import', createdAt: FieldValue.serverTimestamp(),
+      source: chan.source, createdAt: FieldValue.serverTimestamp(),
     }, { merge: true });
     txn.set(regRef, {
       userId: uid, email: norm, name: String(name || '').trim(), phone: '',
       gender: gender || null, eventId: eventId || null, eventTitle: eventName || '',
       ticketId, paymentIntentId: null, status: 'confirmed', month: monthKey,
-      source: 'eventbrite_import', registeredAt: FieldValue.serverTimestamp(),
+      source: chan.source, registeredAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
     }, { merge: true });
   });
@@ -481,7 +500,7 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
         name: String(name || '').trim(),
         email: norm,
         phone: '',
-        source: 'eventbrite_import',
+        source: chan.source,
         referredBy: null,
         createdAt: FieldValue.serverTimestamp(),
         subscribed: true,

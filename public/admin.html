@@ -857,7 +857,7 @@
             <div class="kpi-card">
                 <div class="kpi-label">Blended CAC</div>
                 <div class="kpi-value" id="kpiCAC">—</div>
-                <div class="kpi-trend">FB spend ÷ new buyers</div>
+                <div class="kpi-trend" id="kpiCACTrend">All acquisition ÷ new buyers</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">LTV : CAC</div>
@@ -1029,29 +1029,64 @@
                 </table>
             </div>
 
+            <!-- Channel P&L -->
+            <div class="card" style="margin-top:24px;">
+                <div class="card-header">
+                    <h2 class="card-title">Channel P&amp;L</h2>
+                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">Which channel actually pays for itself</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Channel</th>
+                            <th>Tickets</th>
+                            <th>Gross</th>
+                            <th>Acquisition</th>
+                            <th>Fees</th>
+                            <th>Net</th>
+                            <th>Margin %</th>
+                            <th>Rev / ticket</th>
+                        </tr>
+                    </thead>
+                    <tbody id="channelPnlTable">
+                        <tr><td colspan="8"><div class="spinner"></div></td></tr>
+                    </tbody>
+                </table>
+                <div style="padding:12px 18px;font-size:11px;color:rgba(245,243,240,0.45);line-height:1.6;">
+                    Delivery costs (venue, supplies) and non-acquisition overhead aren't channel-specific,
+                    so they sit in Event P&amp;L and the Net revenue KPI rather than being split arbitrarily here.
+                </div>
+            </div>
+
+            <!-- Recurring monthly costs -->
+            <div class="card" style="margin-top:24px;">
+                <div class="card-header">
+                    <h2 class="card-title">Recurring costs</h2>
+                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">Monthly, allocated across that month's events</span>
+                </div>
+                <div id="recurringCosts" style="padding:4px 0 8px;"><div class="spinner"></div></div>
+            </div>
+
             <!-- Event P&L -->
             <div class="card" style="margin-top:24px;">
                 <div class="card-header">
-                    <h2 class="card-title">Event P&L</h2>
-                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">Revenue vs costs per event</span>
+                    <h2 class="card-title">Event P&amp;L</h2>
+                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">Click a row for the cost breakdown</span>
                 </div>
                 <table>
                     <thead>
                         <tr>
                             <th>Event</th>
                             <th>Date</th>
-                            <th>Direct</th>
-                            <th>Eventbrite</th>
-                            <th>Gross revenue</th>
-                            <th>FB spend</th>
-                            <th>EB fees</th>
-                            <th>Other</th>
-                            <th>Net margin</th>
+                            <th>Tickets</th>
+                            <th>Gross</th>
+                            <th>Costs</th>
+                            <th>Net</th>
                             <th>Margin %</th>
                         </tr>
                     </thead>
                     <tbody id="eventPnlTable">
-                        <tr><td colspan="10"><div class="spinner"></div></td></tr>
+                        <tr><td colspan="7"><div class="spinner"></div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1384,10 +1419,11 @@
         <div class="tab-content" id="tab-enroll">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">Enroll Eventbrite Buyers</h2>
+                    <h2 class="card-title">Import Marketplace Buyers</h2>
                 </div>
                 <p style="font-size:13px;color:rgba(245,243,240,0.55);margin:-6px 0 20px;line-height:1.6;">
-                    Paste your Eventbrite attendee list below. Each buyer gets a Firebase account, a ticket record, and a welcome email with their magic profile link.
+                    Paste an attendee list from Eventbrite or Meetup. Each buyer gets a Firebase account, a ticket record, and a welcome email with their magic profile link.
+                    <strong style="color:rgba(245,243,240,0.75);">Pick the right channel</strong> — it's what the P&amp;L uses to attribute revenue and fees.
                 </p>
 
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:16px;">
@@ -1397,6 +1433,13 @@
                             <option value="">— Select event —</option>
                         </select>
                         <input id="eb-event-name" type="hidden" value="">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;color:rgba(245,243,240,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Sales channel</label>
+                        <select id="eb-channel" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:10px 12px;color:#f5f3f0;font-size:14px;box-sizing:border-box;">
+                            <option value="eventbrite">Eventbrite</option>
+                            <option value="meetup">Meetup</option>
+                        </select>
                     </div>
                     <div>
                         <label style="display:block;font-size:12px;color:rgba(245,243,240,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Ticket Price (USD) <span style="font-weight:400;text-transform:none;">(face value each)</span></label>
@@ -1438,7 +1481,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getFirestore, collection, query, orderBy, limit, getDocs, where, addDoc, Timestamp, doc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, collection, query, orderBy, limit, getDocs, where, addDoc, Timestamp, doc, getDoc, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
@@ -1467,12 +1510,105 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // Eventbrite's standard organizer fee schedule
         const EB_FEE_RATE = 0.037;  // 3.7% of face value
         const EB_FEE_FLAT = 1.79;   // + $1.79 per ticket
+        // Payment processing, if your Eventbrite plan bills it SEPARATELY from the
+        // service fee above. Left at 0 deliberately: turning it on changes every
+        // historical margin on this dashboard, so it's an explicit opt-in rather
+        // than a silent restatement. Check a real payout report before setting it
+        // (commonly ~0.029) — and if the 3.7% already includes processing on your
+        // plan, leave this at 0 or you'll double-count.
+        const EB_PAYMENT_RATE = 0;
         // Ticket velocity benchmark: 30 tickets across a 20-day sale window (1.5/day).
         const TARGET_TICKETS_PER_DAY = 30 / 20;
+
+        // ─── Sales channels ────────────────────────────────
+        // Three channels now: our own site, Eventbrite, and Meetup. Classification
+        // is by the ticket's `source`, and the DEFAULT is direct — so web checkout
+        // (`ticket_purchase`), door/walk-in (`checkin`), and any legacy ticket with
+        // no source at all all keep landing in Direct exactly as before. Only the
+        // two marketplaces are matched explicitly, which is what makes this
+        // backward compatible with every ticket already in Firestore.
+        const CHANNEL_LABELS = { direct: 'Direct', eventbrite: 'Eventbrite', meetup: 'Meetup' };
+        const CHANNEL_KEYS = ['direct', 'eventbrite', 'meetup'];
+        const channelOf = (t) =>
+            t && t.source === 'eventbrite_import' ? 'eventbrite'
+          : t && t.source === 'meetup_import'     ? 'meetup'
+          : 'direct';
+
+        // ─── Cost taxonomy ─────────────────────────────────
+        // Costs are split by WHAT THEY BUY, because the three kinds behave
+        // differently and mixing them is what made CAC wrong:
+        //
+        //   acquisition — paid reach that brings buyers in. Belongs in CAC.
+        //   transaction — charged because a sale happened (EB's cut). Scales with
+        //                 revenue, so it is NOT an acquisition cost and must stay
+        //                 out of CAC or CAC inflates on a GOOD month.
+        //   delivery    — venue/supplies for running the night itself.
+        //
+        // Per-event acquisition fields, all stored in DOLLARS on the event doc to
+        // match the existing costFacebook/costOther convention.
+        const AD_COST_FIELDS = [
+            { key: 'costFacebook',      label: 'Facebook / Instagram', channel: 'direct' },
+            { key: 'costTiktok',        label: 'TikTok',               channel: 'direct' },
+            { key: 'costEventbriteAds', label: 'Eventbrite boosting',  channel: 'eventbrite' },
+        ];
+
+        // Recurring (non-per-event) costs, keyed YYYY-MM in `recurring_costs`.
+        // `acq: true` means it counts toward CAC — the Meetup organizer
+        // subscription is what buys access to that audience at all, so it is
+        // acquisition spend even though it's billed monthly rather than per event.
+        const RECURRING_FIELDS = [
+            { key: 'meetup', label: 'Meetup subscription', acq: true,  channel: 'meetup' },
+            { key: 'tools',  label: 'Tools / software',    acq: false, channel: null },
+            { key: 'other',  label: 'Other overhead',      acq: false, channel: null },
+        ];
 
         let allUsers = [];
         let allActivity = [];
         let allPayments = [];
+        // month key ('YYYY-MM') -> recurring cost doc
+        let allRecurring = {};
+
+        // ─── Cost helpers ──────────────────────────────────
+        const money = (n) => '$' + (Number(n) || 0).toFixed(2);
+        const num = (v) => Number(v) || 0;
+
+        // 'YYYY-MM' for an event, from its date. Used to find which recurring
+        // month an event should absorb a share of.
+        function monthKeyOf(ev) {
+            const d = ev && ev.date && ev.date.toDate ? ev.date.toDate() : (ev && ev.date ? new Date(ev.date) : null);
+            if (!d || isNaN(d)) return null;
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        function eventAdSpend(ev) {
+            return AD_COST_FIELDS.reduce((s, f) => s + num(ev[f.key]), 0);
+        }
+
+        // Eventbrite's cut on a set of EB tickets. Face values are stored in cents.
+        function ebFeesFor(ebTix) {
+            const face = ebTix.reduce((s, p) => s + num(p.amount), 0) / 100;
+            return face * (EB_FEE_RATE + EB_PAYMENT_RATE) + ebTix.length * EB_FEE_FLAT;
+        }
+
+        function recurringTotal(rec, onlyAcq) {
+            if (!rec) return 0;
+            return RECURRING_FIELDS.reduce((s, f) => (onlyAcq && !f.acq) ? s : s + num(rec[f.key]), 0);
+        }
+
+        // Split a month's recurring cost evenly across the events held that month.
+        // Even split rather than weighted by ticket count on purpose: the
+        // subscription is what makes the channel available at all, so a quiet
+        // event doesn't get to dodge its share of the cost that enabled it —
+        // and an even split stays stable as tickets trickle in, instead of
+        // silently re-cutting every past event's margin with each new sale.
+        function allocatedRecurringFor(ev, onlyAcq) {
+            const mk = monthKeyOf(ev);
+            if (!mk) return 0;
+            const total = recurringTotal(allRecurring[mk], onlyAcq);
+            if (!total) return 0;
+            const inMonth = allEvents.filter(e => monthKeyOf(e) === mk).length;
+            return inMonth > 0 ? total / inMonth : 0;
+        }
 
         // ─── Auth Gate ─────────────────────────────────────
         // We sign the user in first, then check whether their ID token
@@ -1560,7 +1696,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
         async function loadDashboard() {
             try {
-                await Promise.all([loadUsers(), loadActivity(), loadPayments(), loadAdminEvents()]);
+                // loadRecurring must resolve before renderKPIs: CAC and every
+                // margin figure now include allocated monthly costs, so rendering
+                // ahead of it would flash a too-rosy number and then correct it.
+                await Promise.all([loadUsers(), loadActivity(), loadPayments(), loadAdminEvents(), loadRecurring()]);
                 renderKPIs();
                 renderRecentSignups();
                 renderTierBreakdown();
@@ -1568,6 +1707,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 renderAllMembers();
                 renderPaymentHistory();
                 renderAdminEvents();
+                renderRecurringCosts();
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
             } catch (err) {
                 console.error('[dashboard] load error:', err);
@@ -1642,14 +1782,16 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     <tr id="costs-row-${safe(ev.id)}" style="display:none;">
                         <td colspan="8" style="padding: 10px 16px; background: rgba(255,255,255,0.02); border-top: none;">
                             <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
-                                <div style="font-size:11px;color:rgba(245,243,240,0.5);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Event costs</div>
+                                <div style="font-size:11px;color:rgba(245,243,240,0.5);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Acquisition</div>
+                                ${AD_COST_FIELDS.map(f => `
                                 <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(245,243,240,0.7);">
-                                    FB/Instagram spend $
-                                    <input type="number" min="0" step="0.01" id="cost-fb-${safe(ev.id)}" value="${Number(ev.costFacebook)||0}" style="width:80px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,107,107,0.2);border-radius:4px;padding:4px 8px;color:var(--white);font-size:12px;">
-                                </label>
+                                    ${safe(f.label)} $
+                                    <input type="number" min="0" step="0.01" id="cost-${safe(f.key)}-${safe(ev.id)}" value="${Number(ev[f.key])||0}" style="width:72px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,107,107,0.2);border-radius:4px;padding:4px 8px;color:var(--white);font-size:12px;">
+                                </label>`).join('')}
+                                <div style="font-size:11px;color:rgba(245,243,240,0.5);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Delivery</div>
                                 <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(245,243,240,0.7);">
-                                    Other costs $
-                                    <input type="number" min="0" step="0.01" id="cost-other-${safe(ev.id)}" value="${Number(ev.costOther)||0}" style="width:80px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,107,107,0.2);border-radius:4px;padding:4px 8px;color:var(--white);font-size:12px;">
+                                    Venue / other $
+                                    <input type="number" min="0" step="0.01" id="cost-other-${safe(ev.id)}" value="${Number(ev.costOther)||0}" style="width:72px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,107,107,0.2);border-radius:4px;padding:4px 8px;color:var(--white);font-size:12px;">
                                 </label>
                                 <span style="font-size:11px;color:rgba(245,243,240,0.4);" id="cost-eb-label-${safe(ev.id)}">EB fees: calculated</span>
                                 <button class="action-btn" data-act="save-costs" data-id="${safe(ev.id)}" style="padding:4px 12px;">Save</button>
@@ -1689,14 +1831,21 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             tbody.querySelectorAll('button[data-act="save-costs"]').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const id = btn.dataset.id;
-                    const fb    = parseFloat(document.getElementById(`cost-fb-${id}`)?.value) || 0;
-                    const other = parseFloat(document.getElementById(`cost-other-${id}`)?.value) || 0;
+                    // Build the patch from AD_COST_FIELDS so adding a future ad
+                    // channel means touching the constant only, not this handler.
+                    const patch = {};
+                    AD_COST_FIELDS.forEach(f => {
+                        patch[f.key] = parseFloat(document.getElementById(`cost-${f.key}-${id}`)?.value) || 0;
+                    });
+                    patch.costOther = parseFloat(document.getElementById(`cost-other-${id}`)?.value) || 0;
                     try {
-                        await updateDoc(doc(db, 'events', id), { costFacebook: fb, costOther: other });
+                        await updateDoc(doc(db, 'events', id), patch);
                         // Update local cache so KPIs recalc without reload
                         const ev = allEvents.find(e => e.id === id);
-                        if (ev) { ev.costFacebook = fb; ev.costOther = other; }
+                        if (ev) Object.assign(ev, patch);
                         renderKPIs();
+                        renderEventPnl();
+                        renderChannelPnl();
                         const saved = document.getElementById(`cost-saved-${id}`);
                         if (saved) { saved.style.display = ''; setTimeout(() => saved.style.display = 'none', 2000); }
                     } catch (e) {
@@ -2638,6 +2787,23 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             }
         }
 
+        // Monthly costs that aren't attributable to one event. Small collection
+        // (one doc per month), so an unfiltered read is fine here — unlike the
+        // events/registrations reads above, this can't grow with traffic.
+        // Fail-soft to {} so a rules/permissions hiccup degrades the P&L to
+        // "no recurring costs" rather than blanking the whole dashboard.
+        async function loadRecurring() {
+            try {
+                const snap = await getDocs(collection(db, 'recurring_costs'));
+                const map = {};
+                snap.docs.forEach(d => { map[d.id] = { id: d.id, ...d.data() }; });
+                allRecurring = map;
+            } catch (e) {
+                console.warn('[recurring_costs] load failed:', e && e.message);
+                allRecurring = {};
+            }
+        }
+
         // ─── KPI Calculations ──────────────────────────────
         function renderKPIs() {
             // ── Member counts ────────────────────────────────
@@ -2675,20 +2841,37 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 : 1.5;
             const ltv = arpu * Math.max(avgEvents, 1.5);
 
-            // CAC: total FB spend across all events ÷ first-time buyers
-            const totalFbSpend = allEvents.reduce((s, e) => s + (Number(e.costFacebook) || 0), 0);
+            // ── CAC ──────────────────────────────────────────
+            // This used to divide FACEBOOK SPEND ALONE by first-time buyers,
+            // which understated cost and therefore overstated LTV:CAC — the 3:1
+            // badge could read green while the real ratio was below target. With
+            // three channels running, every paid route in has to be in here:
+            // TikTok, Eventbrite's ad boosting, and the Meetup subscription
+            // (allocated from the monthly recurring costs).
+            //
+            // Eventbrite's SERVICE fee is deliberately excluded. It's charged
+            // because a sale happened, not to acquire anyone — folding it in
+            // would make CAC rise on a good month, which is backwards.
+            const totalAdSpend = allEvents.reduce((s, e) => s + eventAdSpend(e), 0);
+            const totalAcqRecurring = Object.keys(allRecurring)
+                .reduce((s, mk) => s + recurringTotal(allRecurring[mk], true), 0);
+            const totalAcquisition = totalAdSpend + totalAcqRecurring;
             const firstTimers = buyerCounts.filter(n => n === 1).length;
-            const cac = firstTimers > 0 ? totalFbSpend / firstTimers : 0;
+            const cac = firstTimers > 0 ? totalAcquisition / firstTimers : 0;
             const ltvCac = cac > 0 ? (ltv / cac).toFixed(1) : '—';
 
-            // Net revenue: ticket revenue − all costs
+            // Net revenue: ticket revenue − every cost class.
             const totalEbFees = allEvents.reduce((s, e) => {
-                const ebTickets = tickets.filter(p => p.eventId === e.id && p.source === 'eventbrite_import');
-                const faceValue = ebTickets.reduce((sv, p) => sv + (Number(p.amount) || 0), 0) / 100;
-                return s + (faceValue * EB_FEE_RATE + ebTickets.length * EB_FEE_FLAT);
+                const ebTickets = tickets.filter(p => p.eventId === e.id && channelOf(p) === 'eventbrite');
+                return s + ebFeesFor(ebTickets);
             }, 0);
-            const totalOtherCosts = allEvents.reduce((s, e) => s + (Number(e.costOther) || 0), 0);
-            const netRevenue = ticketRevenue - totalFbSpend - totalEbFees - totalOtherCosts;
+            const totalOtherCosts = allEvents.reduce((s, e) => s + num(e.costOther), 0);
+            // ALL recurring (not just the acquisition slice) hits net revenue —
+            // tools and overhead are real money even though they don't buy reach.
+            const totalRecurring = Object.keys(allRecurring)
+                .reduce((s, mk) => s + recurringTotal(allRecurring[mk], false), 0);
+            const netRevenue = ticketRevenue - totalAcquisition - totalEbFees - totalOtherCosts
+                             - (totalRecurring - totalAcqRecurring);
 
             document.getElementById('kpiMRR').textContent = '$' + ticketRevenue.toFixed(2);
             document.getElementById('kpiMRRTrend').textContent = `${tickets.length} tickets · ${uniqueBuyers} buyers`;
@@ -2697,10 +2880,19 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             document.getElementById('kpiLTV').textContent = '$' + ltv.toFixed(2);
             document.getElementById('kpiLTVTrend').textContent = `${avgEvents.toFixed(1)} avg events/buyer`;
             document.getElementById('kpiCAC').textContent = cac > 0 ? '$' + cac.toFixed(2) : 'No spend yet';
+            // Show what's actually IN the CAC figure. The old label only ever said
+            // "FB spend", which is exactly the assumption that made the number
+            // wrong once TikTok, EB boosting and Meetup started costing money.
+            const cacTrendEl = document.getElementById('kpiCACTrend');
+            if (cacTrendEl) {
+                cacTrendEl.textContent = totalAcquisition > 0
+                    ? `${money(totalAcquisition)} acquisition ÷ ${firstTimers} first-timer${firstTimers === 1 ? '' : 's'}`
+                    : 'Enter ad spend or recurring costs';
+            }
             document.getElementById('kpiLTVCAC').textContent = ltvCac === '—' ? '—' : `${ltvCac}:1`;
 
             const ratio = parseFloat(ltvCac);
-            const target = ratio >= 3 ? '<span class="up">✓ Target met</span>' : (ratio > 0 ? `<span class="down">Below 3:1 target</span>` : 'Enter FB spend to calculate');
+            const target = ratio >= 3 ? '<span class="up">✓ Target met</span>' : (ratio > 0 ? `<span class="down">Below 3:1 target</span>` : 'Enter acquisition spend to calculate');
             document.getElementById('kpiLTVCACTrend').innerHTML = target;
 
             // ── Ticket velocity: confirmed tickets sold ÷ the number of days
@@ -2984,21 +3176,26 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 return;
             }
 
-            // Summary KPIs
+            // Summary KPIs — split across all three channels. This used to be a
+            // binary source !== 'eventbrite_import' test, which silently counted
+            // Meetup sales as Direct.
             const ticketPayments = allPayments.filter(p => p._type === 'ticket');
-            const directTickets  = ticketPayments.filter(p => p.source !== 'eventbrite_import');
-            const ebTickets      = ticketPayments.filter(p => p.source === 'eventbrite_import');
             const ticketTotal    = ticketPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
             const subTotal       = allPayments.filter(p => p._type === 'subscription').reduce((s, p) => s + (Number(p.amount) || 0), 0);
             const grandTotal     = ticketTotal + subTotal;
+            const channelStats = CHANNEL_KEYS.map(k => {
+                const tix = ticketPayments.filter(p => channelOf(p) === k);
+                const cents = tix.reduce((s, p) => s + num(p.amount), 0);
+                return `<div class="candidate-stat" title="${CHANNEL_LABELS[k]} ticket sales"><strong>$${(cents / 100).toFixed(2)}</strong>${CHANNEL_LABELS[k]} (${tix.length})</div>`;
+            }).join('');
             document.getElementById('revenueKPIs').innerHTML = `
                 <div class="candidate-stat"><strong>$${(grandTotal / 100).toFixed(2)}</strong>Total revenue</div>
                 <div class="candidate-stat"><strong>$${(ticketTotal / 100).toFixed(2)}</strong>Ticket sales</div>
-                <div class="candidate-stat" title="Direct sales via SparkDate checkout"><strong>$${(directTickets.reduce((s,p)=>s+(Number(p.amount)||0),0)/100).toFixed(2)}</strong>Direct (${directTickets.length})</div>
-                <div class="candidate-stat" title="Sales via Eventbrite"><strong>$${(ebTickets.reduce((s,p)=>s+(Number(p.amount)||0),0)/100).toFixed(2)}</strong>Eventbrite (${ebTickets.length})</div>
+                ${channelStats}
                 <div class="candidate-stat"><strong>$${(subTotal / 100).toFixed(2)}</strong>Subscriptions</div>
             `;
             renderEventPnl();
+            renderChannelPnl();
 
             tbody.innerHTML = allPayments.map(p => {
                 const isTicket = p._type === 'ticket';
@@ -3026,6 +3223,26 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             }).join('');
         }
 
+        // Shared cost breakdown for one event, so Event P&L and Channel P&L
+        // can never disagree about what an event cost.
+        function eventCosts(ev, evTix) {
+            const byChannel = {};
+            CHANNEL_KEYS.forEach(k => { byChannel[k] = evTix.filter(t => channelOf(t) === k); });
+            const acq = {};
+            AD_COST_FIELDS.forEach(f => { acq[f.key] = num(ev[f.key]); });
+            const ebFees = ebFeesFor(byChannel.eventbrite);
+            const other = num(ev.costOther);
+            const allocated = allocatedRecurringFor(ev, false);
+            const acqTotal = AD_COST_FIELDS.reduce((s, f) => s + acq[f.key], 0);
+            return {
+                byChannel, acq, acqTotal, ebFees, other, allocated,
+                total: acqTotal + ebFees + other + allocated,
+                gross: evTix.reduce((s, p) => s + num(p.amount), 0) / 100,
+            };
+        }
+
+        const marginColor = (pct) => pct >= 50 ? 'var(--success)' : pct >= 20 ? 'var(--gold)' : 'var(--coral)';
+
         function renderEventPnl() {
             const tbody = document.getElementById('eventPnlTable');
             if (!tbody) return;
@@ -3041,38 +3258,175 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             });
 
             if (!eventsWithSales.length) {
-                tbody.innerHTML = '<tr><td colspan="10" class="empty">No ticket sales yet.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="empty">No ticket sales yet.</td></tr>';
                 return;
             }
 
+            // Costs are GROUPED into one column with an expandable detail row
+            // rather than one column each. With three channels and four cost
+            // categories the flat version would need 14 columns, which stops
+            // being readable long before it stops fitting.
             tbody.innerHTML = eventsWithSales.map(ev => {
-                const evTix     = tickets.filter(p => p.eventId === ev.id);
-                const directTix = evTix.filter(p => p.source !== 'eventbrite_import');
-                const ebTix     = evTix.filter(p => p.source === 'eventbrite_import');
-                const gross     = evTix.reduce((s, p) => s + (Number(p.amount) || 0), 0) / 100;
-                const fbSpend   = Number(ev.costFacebook) || 0;
-                const otherCost = Number(ev.costOther) || 0;
-                const ebFaceVal = ebTix.reduce((s, p) => s + (Number(p.amount) || 0), 0) / 100;
-                const ebFees    = ebFaceVal * EB_FEE_RATE + ebTix.length * EB_FEE_FLAT;
-                const totalCost = fbSpend + ebFees + otherCost;
-                const net       = gross - totalCost;
-                const marginPct = gross > 0 ? (net / gross * 100) : 0;
-                const marginCol = marginPct >= 50 ? 'var(--success)' : marginPct >= 20 ? 'var(--gold)' : 'var(--coral)';
+                const evTix = tickets.filter(p => p.eventId === ev.id);
+                const c = eventCosts(ev, evTix);
+                const net = c.gross - c.total;
+                const marginPct = c.gross > 0 ? (net / c.gross * 100) : 0;
+                const col = marginColor(marginPct);
                 const date = ev.date?.toDate ? ev.date.toDate() : new Date(ev.date);
                 const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                return `<tr>
+
+                const mix = CHANNEL_KEYS
+                    .filter(k => c.byChannel[k].length)
+                    .map(k => `${CHANNEL_LABELS[k].charAt(0)}${c.byChannel[k].length}`)
+                    .join(' · ') || '—';
+                const mixTitle = CHANNEL_KEYS
+                    .filter(k => c.byChannel[k].length)
+                    .map(k => `${CHANNEL_LABELS[k]}: ${c.byChannel[k].length}`).join(', ');
+
+                const detailRows = [
+                    ...AD_COST_FIELDS.map(f => [f.label, c.acq[f.key]]),
+                    ['Eventbrite fees', c.ebFees],
+                    ['Venue / other', c.other],
+                    ['Allocated monthly', c.allocated],
+                ].filter(([, v]) => v > 0);
+
+                return `<tr class="pnl-row" data-pnl="${safe(ev.id)}" style="cursor:pointer;">
                     <td style="color:var(--white);font-weight:500;">${safe(ev.title)}</td>
                     <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(dateStr)}</td>
-                    <td style="color:rgba(245,243,240,0.7);">${directTix.length}</td>
-                    <td style="color:rgba(245,243,240,0.7);">${ebTix.length}</td>
-                    <td style="color:var(--gold);font-weight:600;">$${gross.toFixed(2)}</td>
-                    <td style="color:rgba(245,243,240,0.6);">${fbSpend > 0 ? '$' + fbSpend.toFixed(2) : '<span style="opacity:0.3">—</span>'}</td>
-                    <td style="color:rgba(245,243,240,0.6);">${ebTix.length > 0 ? '$' + ebFees.toFixed(2) : '<span style="opacity:0.3">—</span>'}</td>
-                    <td style="color:rgba(245,243,240,0.6);">${otherCost > 0 ? '$' + otherCost.toFixed(2) : '<span style="opacity:0.3">—</span>'}</td>
-                    <td style="color:${marginCol};font-weight:600;">$${net.toFixed(2)}</td>
-                    <td style="color:${marginCol};font-weight:600;">${marginPct.toFixed(0)}%</td>
+                    <td style="color:rgba(245,243,240,0.7);font-size:12px;" title="${safe(mixTitle)}">${safe(mix)} <span style="opacity:0.45">(${evTix.length})</span></td>
+                    <td style="color:var(--gold);font-weight:600;">${money(c.gross)}</td>
+                    <td style="color:rgba(245,243,240,0.6);">${c.total > 0 ? money(c.total) : '<span style="opacity:0.3">—</span>'}</td>
+                    <td style="color:${col};font-weight:600;">${money(net)}</td>
+                    <td style="color:${col};font-weight:600;">${marginPct.toFixed(0)}%</td>
+                </tr>
+                <tr id="pnl-detail-${safe(ev.id)}" style="display:none;">
+                    <td colspan="7" style="background:rgba(255,255,255,0.02);padding:10px 18px;">
+                        ${detailRows.length ? `<div style="display:flex;gap:22px;flex-wrap:wrap;font-size:12px;">
+                            ${detailRows.map(([label, v]) => `<div><span style="color:rgba(245,243,240,0.45);">${safe(label)}</span> <span style="color:var(--white);font-weight:600;">${money(v)}</span></div>`).join('')}
+                        </div>` : '<div style="font-size:12px;color:rgba(245,243,240,0.4);">No costs recorded for this event yet.</div>'}
+                    </td>
                 </tr>`;
             }).join('');
+
+            tbody.querySelectorAll('tr[data-pnl]').forEach(row => {
+                row.addEventListener('click', () => {
+                    const d = document.getElementById(`pnl-detail-${row.dataset.pnl}`);
+                    if (d) d.style.display = d.style.display === 'none' ? '' : 'none';
+                });
+            });
+        }
+
+        // Per-channel profitability. Acquisition is attributed by which channel
+        // the spend actually buys reach on (see AD_COST_FIELDS / RECURRING_FIELDS):
+        // Facebook and TikTok drive to our own checkout, so they load onto Direct;
+        // Eventbrite boosting onto Eventbrite; the Meetup subscription onto Meetup.
+        function renderChannelPnl() {
+            const tbody = document.getElementById('channelPnlTable');
+            if (!tbody) return;
+            const tickets = allPayments.filter(p => p._type === 'ticket');
+            if (!tickets.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="empty">No ticket sales yet.</td></tr>';
+                return;
+            }
+
+            const acqByChannel = { direct: 0, eventbrite: 0, meetup: 0 };
+            allEvents.forEach(ev => {
+                AD_COST_FIELDS.forEach(f => { acqByChannel[f.channel] += num(ev[f.key]); });
+            });
+            Object.keys(allRecurring).forEach(mk => {
+                RECURRING_FIELDS.forEach(f => {
+                    if (f.channel) acqByChannel[f.channel] += num(allRecurring[mk][f.key]);
+                });
+            });
+
+            tbody.innerHTML = CHANNEL_KEYS.map(k => {
+                const tix = tickets.filter(t => channelOf(t) === k);
+                const gross = tix.reduce((s, t) => s + num(t.amount), 0) / 100;
+                const fees = k === 'eventbrite' ? ebFeesFor(tix) : 0;
+                const acq = acqByChannel[k];
+                const net = gross - fees - acq;
+                const marginPct = gross > 0 ? (net / gross * 100) : 0;
+                const col = gross > 0 ? marginColor(marginPct) : 'rgba(245,243,240,0.4)';
+                const perTicket = tix.length ? gross / tix.length : 0;
+                const dim = (v) => v > 0 ? money(v) : '<span style="opacity:0.3">—</span>';
+                return `<tr>
+                    <td style="color:var(--white);font-weight:500;">${CHANNEL_LABELS[k]}</td>
+                    <td style="color:rgba(245,243,240,0.7);">${tix.length}</td>
+                    <td style="color:var(--gold);font-weight:600;">${money(gross)}</td>
+                    <td style="color:rgba(245,243,240,0.6);">${dim(acq)}</td>
+                    <td style="color:rgba(245,243,240,0.6);">${dim(fees)}</td>
+                    <td style="color:${col};font-weight:600;">${money(net)}</td>
+                    <td style="color:${col};font-weight:600;">${gross > 0 ? marginPct.toFixed(0) + '%' : '—'}</td>
+                    <td style="color:rgba(245,243,240,0.6);">${tix.length ? money(perTicket) : '—'}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        // ── Recurring monthly costs ────────────────────────────
+        // Editable per month. Months shown are every month that has an event,
+        // unioned with any month that already has a saved cost doc — so a month
+        // whose events were later deleted doesn't hide money you actually spent.
+        function renderRecurringCosts() {
+            const root = document.getElementById('recurringCosts');
+            if (!root) return;
+
+            const months = new Set(allEvents.map(monthKeyOf).filter(Boolean));
+            Object.keys(allRecurring).forEach(mk => months.add(mk));
+            const sorted = [...months].sort().reverse();
+
+            if (!sorted.length) {
+                root.innerHTML = '<div class="empty" style="padding:16px;">No events yet — add an event and its month will appear here.</div>';
+                return;
+            }
+
+            root.innerHTML = sorted.map(mk => {
+                const rec = allRecurring[mk] || {};
+                const evCount = allEvents.filter(e => monthKeyOf(e) === mk).length;
+                const total = recurringTotal(rec, false);
+                const per = evCount > 0 ? total / evCount : 0;
+                const [y, m] = mk.split('-');
+                const label = new Date(Number(y), Number(m) - 1, 1)
+                    .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                return `<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 18px;border-top:1px solid rgba(255,255,255,0.05);">
+                    <div style="min-width:130px;color:var(--white);font-weight:500;font-size:13px;">${safe(label)}</div>
+                    ${RECURRING_FIELDS.map(f => `
+                    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(245,243,240,0.7);">
+                        ${safe(f.label)} $
+                        <input type="number" min="0" step="0.01" id="rec-${safe(f.key)}-${safe(mk)}" value="${num(rec[f.key])}" style="width:76px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,107,107,0.2);border-radius:4px;padding:4px 8px;color:var(--white);font-size:12px;">
+                    </label>`).join('')}
+                    <button class="action-btn" data-act="save-recurring" data-month="${safe(mk)}" style="padding:4px 12px;">Save</button>
+                    <span style="font-size:11px;color:rgba(245,243,240,0.45);">
+                        ${total > 0
+                            ? `${money(total)} ÷ ${evCount} event${evCount === 1 ? '' : 's'} = <strong style="color:rgba(245,243,240,0.7);">${money(per)}</strong> each`
+                            : 'No recurring costs this month'}
+                    </span>
+                    <span id="rec-saved-${safe(mk)}" style="font-size:11px;color:var(--success);display:none;">✓ Saved</span>
+                </div>`;
+            }).join('');
+
+            root.querySelectorAll('button[data-act="save-recurring"]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const mk = btn.dataset.month;
+                    const patch = { month: mk };
+                    RECURRING_FIELDS.forEach(f => {
+                        patch[f.key] = parseFloat(document.getElementById(`rec-${f.key}-${mk}`)?.value) || 0;
+                    });
+                    try {
+                        // setDoc with merge, not updateDoc: the month's doc usually
+                        // does not exist yet the first time costs are entered.
+                        await setDoc(doc(db, 'recurring_costs', mk), patch, { merge: true });
+                        allRecurring[mk] = { ...(allRecurring[mk] || {}), ...patch };
+                        renderKPIs();
+                        renderEventPnl();
+                        renderChannelPnl();
+                        renderRecurringCosts();
+                        const saved = document.getElementById(`rec-saved-${mk}`);
+                        if (saved) { saved.style.display = ''; setTimeout(() => saved.style.display = 'none', 2000); }
+                    } catch (e) {
+                        alert('Save failed: ' + e.message);
+                    }
+                });
+            });
         }
 
         // ── Roster modal ───────────────────────────────────────
@@ -3413,6 +3767,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const raw       = document.getElementById('eb-buyers').value.trim();
             const statusEl  = document.getElementById('eb-status');
             const btn       = document.getElementById('eb-enroll-btn');
+            // Which marketplace these buyers came from. Drives the ticket's
+            // `source`, which is what every channel figure in the P&L keys off.
+            const channel   = document.getElementById('eb-channel')?.value || 'eventbrite';
             // Ticket face value → cents, so Eventbrite revenue shows in the
             // dashboard (KPIs, Direct/EB split, Event P&L). Server maps
             // priceCents → ticket.amount.
@@ -3443,7 +3800,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 if (parts.length < 2) { errors.push(`Bad line: "${trimmed}"`); continue; }
                 const [name, email, gender] = parts;
                 if (!email || !email.includes('@')) { errors.push(`Bad email on: "${trimmed}"`); continue; }
-                buyers.push({ name, email, gender: gender || null, eventId, eventName, priceCents });
+                buyers.push({ name, email, gender: gender || null, eventId, eventName, priceCents, channel });
             }
 
             if (errors.length) {
