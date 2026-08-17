@@ -804,6 +804,32 @@
             cursor: pointer;
         }
 
+        /* Dropdown lists were white-on-white and unreadable.
+           The open option list is painted by the OS, not by the page: each
+           <option> inherited the control's near-white text (#f5f3f0) but kept a
+           TRANSPARENT background, and with color-scheme:normal the browser drew
+           that list on its default WHITE popup. Measured on all 8 selects:
+           option color rgb(245,243,240) over background rgba(0,0,0,0).
+
+           Both halves are needed. color-scheme:dark asks the browser to draw
+           the whole popup — background, and the scrollbar in a long list —
+           in dark. The explicit option background is the guarantee for engines
+           that ignore color-scheme, replacing transparent with a real colour so
+           nothing can fall through to white.
+
+           Applies to bare `select` so it covers the two Enroll dropdowns that
+           are styled inline rather than by class. date/time inputs are included
+           because their native pickers are the same OS-drawn surface with the
+           same defect. */
+        select,
+        input[type="date"],
+        input[type="time"] { color-scheme: dark; }
+        select option,
+        select optgroup {
+            background-color: var(--navy-elevated);
+            color: var(--cream);
+        }
+
         /* Login overlay */
         .login-overlay {
             position: fixed;
