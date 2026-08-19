@@ -136,6 +136,7 @@
             color: rgba(245, 243, 240, 0.6);
         }
         .live-dot {
+            display: inline-block;   /* so width/height apply in plain text flow too, not just inside a flex parent */
             width: 8px; height: 8px;
             background: var(--success);
             border-radius: 50%;
@@ -520,6 +521,24 @@
             font-weight: 700;
         }
         .clock-peak { color: var(--coral); font-weight: 700; }
+
+        /* "Which event slots sell best" is ranked by performance, not by
+           weekday -- so Mon/Tue/Wed can end up as adjacent rows, differing
+           only in a 3-letter day name buried inside an otherwise-identical
+           bold "Wed 6:30 PM" string. Giving the day its own chip makes it the
+           first thing the eye catches; muting the time -- which repeats far
+           more than it varies, most events here share a start time -- lets
+           the day carry the distinction instead of competing for it. */
+        .slot-day {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 3px;
+            background: rgba(255, 107, 107, 0.12);
+            color: var(--coral);
+            font-weight: 700;
+            font-size: 11px;
+        }
+        .slot-time { color: var(--text-secondary); }
         @media (max-width: 900px) { .report-split { grid-template-columns: 1fr; } }
 
         /* Sub-items: Leads / Funnel / Retention live under Activity. Indent
@@ -2131,7 +2150,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getFirestore, collection, query, orderBy, limit, getDocs, where, addDoc, Timestamp, doc, getDoc, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, collection, query, orderBy, limit, getDocs, where, addDoc, Timestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
@@ -2351,6 +2370,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
         window.adminLogout = async () => {
             stopRefresh();
+            stopLiveTickets();
             try { await auth.signOut(); } catch (_) {}
             // onAuthStateChanged(null) below re-shows the login overlay.
         };
@@ -2359,6 +2379,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             if (!user) {
                 // Signed out (or never signed in): stop polling and show the gate.
                 stopRefresh();
+                stopLiveTickets();
                 document.getElementById('loginOverlay').style.display = '';
                 return;
             }
@@ -2378,6 +2399,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             // so a timer tick can't start a second full load on top of a manual
             // one the user just kicked off.
             refreshTimer = setInterval(refreshDashboardNow, 300000);
+            startLiveTickets();
         });
 
         // ─── Data Loaders ──────────────────────────────────
@@ -3900,20 +3922,51 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         ];
         const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-        const slotLabel = (d) => {
+        const timeLabel = (d) => {
             const h = d.getHours();
             const ampm = h >= 12 ? 'PM' : 'AM';
             const h12 = h % 12 === 0 ? 12 : h % 12;
             const mins = d.getMinutes();
-            return `${DAY_LABELS[d.getDay()]} ${h12}${mins ? ':' + String(mins).padStart(2, '0') : ''} ${ampm}`;
+            return `${h12}${mins ? ':' + String(mins).padStart(2, '0') : ''} ${ampm}`;
         };
+
+        // This section gets its own data feed, separate from allPayments.
+        // Everywhere else on the dashboard reads on the 5-minute timer or the
+        // Refresh button (see the quota note by refreshTimer above) — a
+        // deliberate choice, because loadUsers()/loadAdminEvents() read whole
+        // collections with no cap on every tick. This listener isn't that: it's
+        // scoped to confirmed tickets, capped at 200, and Firestore only bills
+        // it once per document on the FIRST snapshot (identical cost to the
+        // getDocs it front-runs) and once per CHANGED document after that — a
+        // new ticket, not a re-read of all 200. That's cheap enough to leave
+        // open for the life of the session, which is what "a purchase should
+        // show up here without waiting for the next refresh" requires.
+        let liveTickets = [];
+        let liveTicketsUnsub = null;
+
+        function startLiveTickets() {
+            if (liveTicketsUnsub) return; // already listening
+            liveTicketsUnsub = onSnapshot(
+                query(collection(db, 'tickets'), where('status', '==', 'confirmed'), orderBy('createdAt', 'desc'), limit(200)),
+                (snap) => {
+                    liveTickets = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    renderSalesClock();
+                },
+                (err) => console.warn('[live tickets] listener failed:', err && err.message)
+            );
+        }
+
+        function stopLiveTickets() {
+            if (liveTicketsUnsub) { liveTicketsUnsub(); liveTicketsUnsub = null; }
+            liveTickets = [];
+        }
 
         function renderSalesClock() {
             const grid = document.getElementById('salesClockGrid');
             const tbody = document.getElementById('salesSlotTable');
             if (!grid || !tbody) return;
 
-            const paid = allPayments.filter(p => p._type === 'ticket' && !p.isComp);
+            const paid = liveTickets.filter(t => !t.isComp);
 
             // ── 1. When people BUY (purchase timestamps) ──
             const cells = DAY_LABELS.map(() => CLOCK_BLOCKS.map(() => 0));
@@ -3930,7 +3983,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const note = document.getElementById('salesClockNote');
             if (!counted) {
                 grid.innerHTML = '<div class="empty">No ticket sales yet.</div>';
-                if (note) note.textContent = '';
+                if (note) note.innerHTML = '<span class="live-dot"></span> Live';
             } else {
                 const max = Math.max(...cells.flat());
                 let peak = { n: -1, txt: '' };
@@ -3958,7 +4011,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         Busiest: <span class="clock-peak">${safe(peak.txt)}</span> (${peak.n} ticket${peak.n === 1 ? '' : 's'}).
                         Times are in this browser's timezone.
                     </div>`;
-                if (note) note.textContent = `${counted} paid ticket${counted === 1 ? '' : 's'} by purchase time`;
+                if (note) note.innerHTML = `<span class="live-dot"></span> ${counted} paid ticket${counted === 1 ? '' : 's'} by purchase time`;
             }
 
             // ── 2. Which event SLOTS sell (event start day/time) ──
@@ -3971,7 +4024,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 if (!d) return;
                 // Group by weekday + hour so two 7pm Thursdays land together.
                 const key = `${d.getDay()}-${d.getHours()}`;
-                if (!bySlot[key]) bySlot[key] = { label: slotLabel(d), events: 0, tickets: 0 };
+                if (!bySlot[key]) bySlot[key] = { day: d.getDay(), time: timeLabel(d), events: 0, tickets: 0 };
                 bySlot[key].events++;
                 bySlot[key].tickets += perEvent[e.id] || 0;
             });
@@ -3987,7 +4040,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             } else {
                 tbody.innerHTML = slotRows.map(s => `
                     <tr>
-                        <td style="color:var(--white);font-weight:600;">${safe(s.label)}</td>
+                        <td><span class="slot-day">${safe(DAY_LABELS[s.day])}</span> <span class="slot-time">${safe(s.time)}</span></td>
                         <td>${s.events}</td>
                         <td>${s.tickets}</td>
                         <td style="color:var(--white);font-weight:600;">${s.avg.toFixed(1)}</td>
