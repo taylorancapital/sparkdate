@@ -3935,21 +3935,33 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // Refresh button (see the quota note by refreshTimer above) — a
         // deliberate choice, because loadUsers()/loadAdminEvents() read whole
         // collections with no cap on every tick. This listener isn't that: it's
-        // scoped to confirmed tickets, capped at 200, and Firestore only bills
-        // it once per document on the FIRST snapshot (identical cost to the
-        // getDocs it front-runs) and once per CHANGED document after that — a
-        // new ticket, not a re-read of all 200. That's cheap enough to leave
-        // open for the life of the session, which is what "a purchase should
-        // show up here without waiting for the next refresh" requires.
+        // capped at 200, and Firestore only bills it once per document on the
+        // FIRST snapshot (identical cost to the getDocs it front-runs) and once
+        // per CHANGED document after that — a new ticket, not a re-read of all
+        // 200. That's cheap enough to leave open for the life of the session,
+        // which is what "a purchase should show up here without waiting for
+        // the next refresh" requires.
+        //
+        // status is filtered CLIENT-SIDE, not with where('status','==',...) —
+        // that combined with orderBy('createdAt') on a different field needs a
+        // composite index Firestore doesn't have here (only single-field
+        // indexes exist, per firestore.indexes.json), so the query threw
+        // "requires an index" on every snapshot, silently caught by the error
+        // handler below, and the heatmap sat empty from the moment this
+        // shipped. loadPayments() next to this already filters status the
+        // same way for the same reason — matching it, not inventing a new
+        // pattern.
         let liveTickets = [];
         let liveTicketsUnsub = null;
 
         function startLiveTickets() {
             if (liveTicketsUnsub) return; // already listening
             liveTicketsUnsub = onSnapshot(
-                query(collection(db, 'tickets'), where('status', '==', 'confirmed'), orderBy('createdAt', 'desc'), limit(200)),
+                query(collection(db, 'tickets'), orderBy('createdAt', 'desc'), limit(200)),
                 (snap) => {
-                    liveTickets = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    liveTickets = snap.docs
+                        .map(d => ({ id: d.id, ...d.data() }))
+                        .filter(t => t.status === 'confirmed');
                     renderSalesClock();
                 },
                 (err) => console.warn('[live tickets] listener failed:', err && err.message)
