@@ -4197,8 +4197,8 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const target = ratio >= 3 ? '<span class="up">✓ Target met</span>' : (ratio > 0 ? `<span class="down">Below 3:1 target</span>` : 'Enter acquisition spend to calculate');
             document.getElementById('kpiLTVCACTrend').innerHTML = target;
 
-            // ── Ticket velocity: confirmed tickets sold ÷ the number of days
-            // the event has been ON SALE, averaged across every open
+            // ── Ticket velocity: confirmed, NON-COMP tickets sold ÷ the number
+            // of days the event has been ON SALE, averaged across every open
             // (upcoming, non-canceled) event. "Days on sale" is the window
             // from when the event was published (createdAt) to the event
             // itself (date) — sales necessarily close at/before the event
@@ -4214,24 +4214,33 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             // sales rate. Target is a flat 30 tickets / 20-day window
             // (TARGET_TICKETS_PER_DAY, 1.5/day), the same pace for every
             // event regardless of its capacity.
+            //
+            // This also previously counted every event_registrations row,
+            // comps included. event_registrations carries the same isComp
+            // flag tickets does (lead-signup.js's enroll-as-comp channel sets
+            // it on both), and every other sales metric on this dashboard —
+            // the heatmap, revenue, CAC — excludes isComp for the same reason:
+            // a giveaway isn't market demand, and letting it inflate "how fast
+            // is this event selling" is exactly backwards for a pace metric a
+            // marketing decision gets made from.
             const now = Date.now();
             const openEvents = allEvents.filter(e => {
                 const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
                 return d instanceof Date && !isNaN(d) && d.getTime() > now && e.status !== 'canceled';
             });
+            const soldForEvent = (eventId) => allRegistrations.filter(r => r.eventId === eventId && !r.isComp).length;
             const velocities = [];
             openEvents.forEach(e => {
                 const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
                 const opened = e.createdAt?.toDate ? e.createdAt.toDate() : (e.createdAt ? new Date(e.createdAt) : null);
                 if (!opened || isNaN(opened)) return; // no usable createdAt — can't measure a sale window
                 const daysOnSale = Math.max(1, (d.getTime() - opened.getTime()) / 86400000);
-                const sold = allRegistrations.filter(r => r.eventId === e.id).length;
-                velocities.push(sold / daysOnSale);
+                velocities.push(soldForEvent(e.id) / daysOnSale);
             });
             const avgVelocity = velocities.length
                 ? velocities.reduce((s, v) => s + v, 0) / velocities.length
                 : 0;
-            const totalOpenSold = openEvents.reduce((s, e) => s + allRegistrations.filter(r => r.eventId === e.id).length, 0);
+            const totalOpenSold = openEvents.reduce((s, e) => s + soldForEvent(e.id), 0);
 
             document.getElementById('kpiVelocity').textContent = velocities.length ? avgVelocity.toFixed(1) + '/day' : '—';
             // Short label in the card, the target arithmetic on hover — same
