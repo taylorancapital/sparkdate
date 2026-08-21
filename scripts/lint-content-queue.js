@@ -140,6 +140,20 @@ function lint(rows, brand, opts = {}) {
           }
         }
       }
+      // A row carrying a _story asset but no ig_story platform has artwork
+      // that will never post. MC-01 and TL-06 were both in this state: their
+      // 1080x1920 frame was bundled with the feed images, so it would either
+      // have been cropped into a feed carousel or dropped entirely.
+      const hasStoryAsset = assets.some((a) => /_story\./i.test(a));
+      if (hasStoryAsset && !platforms.includes('ig_story')) {
+        add('warning', id, 'story-asset-orphaned',
+          `has a story-shaped asset but platforms is "${row.platforms}" -- that frame will never post`);
+      }
+      if (platforms.includes('ig_story') && assets.length && !hasStoryAsset) {
+        add('warning', id, 'story-asset-missing',
+          'posts a Story but no asset is story-shaped (1080x1920)');
+      }
+
       if (!/^\d{2}:\d{2}$/.test(row.time || '')) {
         add('warning', id, 'time-unparseable',
           `time "${row.time}" is not HH:MM -- a scheduler cannot place this post`);
