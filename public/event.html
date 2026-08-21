@@ -1617,6 +1617,27 @@
         document.getElementById('checkoutForm').addEventListener('focusin', () => {
             if (checkoutStartTracked) return;
             checkoutStartTracked = true;
+            // THIS is where checkout begins — the buyer is on the event page
+            // with a price, typing into the form. Meta has always been told so
+            // (InitiateCheckout below); GA4 was not. GA4 only ever received a
+            // custom `checkout_form_started`, which its ecommerce funnel does
+            // not recognise, while the standard `begin_checkout` was being
+            // fired from CTA clicks on the homepage and landing page instead.
+            // So GA4's funnel had a step from one page wired between two steps
+            // from another. Send the standard event from the correct moment,
+            // with the item payload the surrounding steps use.
+            gtag('event', 'begin_checkout', {
+                currency: 'USD',
+                value: ticketPrice(),
+                items: [{
+                    item_id: eventData?.id || eventId,
+                    item_name: (eventData && eventData.title) || 'SparkDate Mixer',
+                    price: ticketPrice(),
+                }],
+            });
+            // Kept alongside it: this carries the in_app_browser dimension the
+            // standard event has no place for, and it is what the existing
+            // reports are built on. Different event name, so no double-count.
             gtag('event', 'checkout_form_started', { in_app_browser: isInAppBrowser() });
             if (typeof fbq !== 'undefined') {
                 fbq('track', 'InitiateCheckout', {
@@ -1733,10 +1754,29 @@
                     });
                     if (stripeError) throw new Error(stripeError.message);
 
-                    // Meta Pixel: valid payment info was just accepted by
-                    // Stripe, one step before the actual charge. Only fires
-                    // here — the member/card-on-file branch above never
-                    // collects new payment info.
+                    // Valid payment info was just accepted by Stripe, one step
+                    // before the actual charge. Only fires here — the
+                    // member/card-on-file branch above never collects new
+                    // payment info.
+                    //
+                    // GA4 was never told about this step at all: add_payment_info
+                    // appeared nowhere in the codebase, so the funnel jumped
+                    // straight from checkout to purchase and the single biggest
+                    // drop-off — card entered but charge not completed — was
+                    // invisible. Meta has had it all along, which is part of why
+                    // the two platforms disagreed about where buyers were lost.
+                    if (typeof gtag === 'function') {
+                        gtag('event', 'add_payment_info', {
+                            currency: 'USD',
+                            value: ticket + SERVICE_FEE,
+                            payment_type: 'card',
+                            items: [{
+                                item_id: evId,
+                                item_name: evName || 'SparkDate Mixer',
+                                price: ticket,
+                            }],
+                        });
+                    }
                     if (typeof fbq !== 'undefined') {
                         fbq('track', 'AddPaymentInfo', {
                             content_ids: [evId],
