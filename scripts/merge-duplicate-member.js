@@ -69,6 +69,19 @@ const has = (name) => argv.includes(name);
 
 const fromEmail = (flag('--from') || '').toLowerCase().trim();
 const toEmail   = (flag('--to')   || '').toLowerCase().trim();
+// UID mode: the same person on two uids under ONE email. The email-keyed
+// flags cannot express that (both addresses are identical, which the guard
+// below rightly rejects), so these address the accounts directly.
+//
+// This happens for real: the door check-in flow resolves-or-creates an Auth
+// user, and if it doesn't land on the existing account the attendee ends up
+// with a second uid carrying the same address — typically with no `users`
+// doc at all, just a registration and whatever picks other attendees made
+// against it. Those picks are the reason this matters: left split, a mutual
+// match between two real people is never detected.
+const fromUid = (flag('--from-uid') || '').trim();
+const toUid   = (flag('--to-uid')   || '').trim();
+const UID_MODE = Boolean(fromUid || toUid);
 const EXECUTE   = has('--execute');
 const KEEP_LOSER = has('--keep-loser-account');
 const FORCE_STRIPE = has('--force-stripe');
@@ -76,6 +89,7 @@ const FORCE_STRIPE = has('--force-stripe');
 function usage(msg) {
   if (msg) console.error(`✗ ${msg}\n`);
   console.error('Usage: node scripts/merge-duplicate-member.js --from old@x.com --to new@x.com [--execute]');
+  console.error('   or: node scripts/merge-duplicate-member.js --from-uid UID --to-uid UID [--execute]');
   console.error('');
   console.error('  --execute               apply the changes (default is a dry run that writes nothing)');
   console.error('  --keep-loser-account    leave the old Auth user in place (data still moves off it)');
@@ -83,14 +97,25 @@ function usage(msg) {
   console.error('');
   console.error('If --to has no account, this RENAMES the --from account to that address.');
   console.error('If --to does have one, it MERGES --from into it and retires --from.');
+  console.error('');
+  console.error('Use --from-uid/--to-uid when both accounts share ONE email address —');
+  console.error('the email flags cannot distinguish them. Implies --keep-loser-account,');
+  console.error('since deleting an Auth user that shares the keeper\'s address is unsafe.');
   process.exit(2);
 }
 
-if (!fromEmail || !toEmail) usage('Both --from and --to are required.');
-if (fromEmail === toEmail) usage('--from and --to are the same address; nothing to do.');
 const looksLikeEmail = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
-if (!looksLikeEmail(fromEmail)) usage(`--from "${fromEmail}" doesn't look like an email address.`);
-if (!looksLikeEmail(toEmail))   usage(`--to "${toEmail}" doesn't look like an email address.`);
+
+if (UID_MODE) {
+  if (!fromUid || !toUid) usage('Both --from-uid and --to-uid are required in uid mode.');
+  if (fromUid === toUid) usage('--from-uid and --to-uid are the same account; nothing to do.');
+  if (fromEmail || toEmail) usage('Use either the --from/--to email pair or the --from-uid/--to-uid pair, not both.');
+} else {
+  if (!fromEmail || !toEmail) usage('Both --from and --to are required.');
+  if (fromEmail === toEmail) usage('--from and --to are the same address — if this is one person on two uids under that address, use --from-uid/--to-uid instead.');
+  if (!looksLikeEmail(fromEmail)) usage(`--from "${fromEmail}" doesn't look like an email address.`);
+  if (!looksLikeEmail(toEmail))   usage(`--to "${toEmail}" doesn't look like an email address.`);
+}
 
 const need = (k) => {
   if (!process.env[k]) {
@@ -199,19 +224,36 @@ async function renameOnly(user) {
 
 // ── MERGE: two accounts, one human ───────────────────────────────
 async function mergeAccounts(loser, keeper) {
-  console.log('Mode: MERGE (both addresses have an account)');
-  console.log(`  loser  ${fromEmail}  uid=${loser.uid}`);
-  console.log(`  keeper ${toEmail}  uid=${keeper.uid}`);
-  console.log('────────────────────────────────────────────────────');
-
   const loserUid = loser.uid;
   const keeperUid = keeper.uid;
-  const ops = [];
-  let blocked = false;
 
   // ── Stripe guard (report only, never act) ──────────────────────
   const loserDocSnap = await db.collection('users').doc(loserUid).get();
   const loserData = loserDocSnap.exists ? loserDocSnap.data() : {};
+
+  // The address to stamp onto moved rows. In email mode that's --to. In uid
+  // mode both accounts already share one address, so read it off the keeper's
+  // users doc — writing the empty string would erase the email from every
+  // registration and ticket this touches, which is how a data cleanup turns
+  // into data loss.
+  const keeperDocForEmail = await db.collection('users').doc(keeperUid).get();
+  const keeperEmail = UID_MODE
+    ? String((keeperDocForEmail.exists && keeperDocForEmail.data().email) || '').toLowerCase().trim()
+    : toEmail;
+  const loserLabel = UID_MODE ? (loserData.email || '(no users doc)') : fromEmail;
+
+  console.log(UID_MODE ? 'Mode: MERGE (two uids, one address)' : 'Mode: MERGE (both addresses have an account)');
+  console.log(`  loser  ${loserLabel}  uid=${loserUid}`);
+  console.log(`  keeper ${keeperEmail || '(unknown)'}  uid=${keeperUid}`);
+  console.log('────────────────────────────────────────────────────');
+
+  if (UID_MODE && !keeperEmail) {
+    warn('keeper users doc has no email — moved rows would lose theirs. Refusing.');
+    return false;
+  }
+
+  const ops = [];
+  let blocked = false;
   if (loserData.subscriptionId || loserData.stripeCustomerId) {
     warn(`the OLD account has Stripe data attached:`);
     if (loserData.subscriptionId)   warn(`    subscriptionId  ${loserData.subscriptionId}`);
@@ -257,7 +299,7 @@ async function mergeAccounts(loser, keeper) {
 
     if (!targetSnap.exists) {
       log(`event_registrations: ${d.id} -> ${targetId} (move)`);
-      const moved = { ...r, userId: keeperUid, email: toEmail };
+      const moved = { ...r, userId: keeperUid, email: keeperEmail };
       ops.push((b) => b.set(targetRef, moved, { merge: true }));
       ops.push((b) => b.delete(d.ref));
     } else {
@@ -291,7 +333,7 @@ async function mergeAccounts(loser, keeper) {
       warn('    double purchase (leave both) or a duplicate record (refund/void one).');
     }
     log(`tickets: ${d.id} firebaseUid -> ${keeperUid}`);
-    ops.push((b) => b.update(d.ref, { firebaseUid: keeperUid, email: toEmail }));
+    ops.push((b) => b.update(d.ref, { firebaseUid: keeperUid, email: keeperEmail }));
   }
 
   // ── simple owner re-points ─────────────────────────────────────
@@ -303,6 +345,31 @@ async function mergeAccounts(loser, keeper) {
   ]) {
     const snap = await db.collection(coll).where(field, '==', loserUid).get();
     if (snap.empty) { info(`${coll}.${field}: no rows`); continue; }
+
+    if (coll === 'connection_intents') {
+      // A blind re-point can produce fromUserId === toUserId: the person
+      // picked their OWN other account, which happens easily when both show
+      // up in the same attendee list. The matches block below already refuses
+      // to collapse that pair into a self-match; an intent needs the same
+      // guard, or the merge writes a row saying someone picked themselves and
+      // handleGet renders it as a real, unmatchable attendee row.
+      let repointed = 0, selfPicks = 0;
+      for (const d of snap.docs) {
+        const x = d.data();
+        const other = field === 'fromUserId' ? x.toUserId : x.fromUserId;
+        if (other === keeperUid) {
+          warn(`connection_intents: ${d.id} is a pick between the two duplicate accounts — deleting rather than collapsing to a self-pick`);
+          ops.push((b) => b.delete(d.ref));
+          selfPicks++;
+          continue;
+        }
+        ops.push((b) => b.update(d.ref, { [field]: keeperUid }));
+        repointed++;
+      }
+      log(`connection_intents.${field}: ${repointed} re-pointed -> ${keeperUid}` + (selfPicks ? `, ${selfPicks} self-pick(s) dropped` : ''));
+      continue;
+    }
+
     log(`${coll}.${field}: ${snap.size} row(s) -> ${keeperUid}`);
     snap.docs.forEach(d => ops.push((b) => b.update(d.ref, { [field]: keeperUid })));
   }
@@ -335,16 +402,24 @@ async function mergeAccounts(loser, keeper) {
   }
 
   // ── leads ──────────────────────────────────────────────────────
-  const loserLeads = await db.collection('leads').where('email', '==', fromEmail).get();
-  const keeperLeads = await db.collection('leads').where('email', '==', toEmail).get();
-  if (loserLeads.empty) {
-    info('leads: no rows on the old address');
-  } else if (!keeperLeads.empty) {
-    log(`leads: ${loserLeads.size} old row(s) deleted (keeper already has a lead at ${toEmail})`);
-    loserLeads.docs.forEach(d => ops.push((b) => b.delete(d.ref)));
+  // Leads are keyed by address, so in uid mode both accounts point at the SAME
+  // lead rows — there is no "old address" to move off. Touching them would
+  // mean deleting the person's only lead doc (and with it their unsubscribe
+  // token and nurture state) for no gain.
+  if (UID_MODE) {
+    info('leads: skipped — both accounts share one address, so the lead rows are already correct');
   } else {
-    log(`leads: ${loserLeads.size} row(s) .email -> ${toEmail}`);
-    loserLeads.docs.forEach(d => ops.push((b) => b.update(d.ref, { email: toEmail })));
+    const loserLeads = await db.collection('leads').where('email', '==', fromEmail).get();
+    const keeperLeads = await db.collection('leads').where('email', '==', toEmail).get();
+    if (loserLeads.empty) {
+      info('leads: no rows on the old address');
+    } else if (!keeperLeads.empty) {
+      log(`leads: ${loserLeads.size} old row(s) deleted (keeper already has a lead at ${toEmail})`);
+      loserLeads.docs.forEach(d => ops.push((b) => b.delete(d.ref)));
+    } else {
+      log(`leads: ${loserLeads.size} row(s) .email -> ${toEmail}`);
+      loserLeads.docs.forEach(d => ops.push((b) => b.update(d.ref, { email: toEmail })));
+    }
   }
 
   if (blocked) {
@@ -357,7 +432,19 @@ async function mergeAccounts(loser, keeper) {
   await commitAll(ops);
 
   // ── retire the loser, last ─────────────────────────────────────
-  if (KEEP_LOSER) {
+  if (UID_MODE) {
+    // Never delete an Auth user in uid mode. Its address is the keeper's
+    // address, and if the two uids turn out to be the SAME Auth user seen
+    // twice, deleting it would lock the person out of their real account.
+    // The data has already moved; an empty uid left behind is harmless.
+    info(`uid mode: leaving Auth user ${loserUid} in place (its address is the keeper's — deleting it is never safe here)`);
+    if (loserDocSnap.exists) {
+      log(`users/${loserUid} document deleted (data already moved to the keeper)`);
+      if (EXECUTE) await db.collection('users').doc(loserUid).delete();
+    } else {
+      info(`users/${loserUid}: no doc to remove (registration-only account)`);
+    }
+  } else if (KEEP_LOSER) {
     info(`keeping the old Auth account (${fromEmail}) as requested`);
   } else {
     log(`users/${loserUid} document deleted`);
@@ -378,14 +465,31 @@ async function mergeAccounts(loser, keeper) {
   console.log(`To:   ${toEmail}`);
   console.log('────────────────────────────────────────────────────');
 
-  const loser = await getAuthUser(fromEmail);
-  if (!loser) {
-    console.error(`✗ No Firebase Auth user for --from ${fromEmail}. Nothing to move.`);
-    process.exit(3);
+  let loser, keeper;
+  if (UID_MODE) {
+    // Address the accounts directly. The loser here often has no Auth user and
+    // no `users` doc at all — it exists only as a uid stamped on registrations
+    // and on other people's picks — so absence is normal, not an error.
+    loser  = { uid: fromUid };
+    keeper = { uid: toUid };
+    const keeperDoc = await db.collection('users').doc(toUid).get();
+    if (!keeperDoc.exists) {
+      console.error(`✗ --to-uid ${toUid} has no users doc. Refusing: the keeper must be the real account.`);
+      process.exit(3);
+    }
+    const loserDoc = await db.collection('users').doc(fromUid).get();
+    console.log(`uid mode: loser ${fromUid}${loserDoc.exists ? '' : ' (no users doc — registration-only account)'}`);
+    console.log(`uid mode: keeper ${toUid} <${keeperDoc.data().email || '(no email)'}>`);
+  } else {
+    loser = await getAuthUser(fromEmail);
+    if (!loser) {
+      console.error(`✗ No Firebase Auth user for --from ${fromEmail}. Nothing to move.`);
+      process.exit(3);
+    }
+    keeper = await getAuthUser(toEmail);
   }
-  const keeper = await getAuthUser(toEmail);
 
-  const ok = keeper ? await mergeAccounts(loser, keeper) : await renameOnly(loser);
+  const ok = (UID_MODE || keeper) ? await mergeAccounts(loser, keeper) : await renameOnly(loser);
 
   console.log('────────────────────────────────────────────────────');
   if (!ok) process.exit(4);
