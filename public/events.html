@@ -1808,6 +1808,23 @@
             // more accurate than event.html's focusin-based trigger, since
             // the dialog's own step model already gates this moment.
             const ev = findLoadedEvent(dialogEventId);
+            // Standard begin_checkout from the moment checkout actually starts
+            // — see the longer note on the matching handler in event.html. GA4
+            // previously got only the custom checkout_form_started here, while
+            // begin_checkout was fired from homepage/landing CTA clicks, so its
+            // ecommerce funnel mixed steps from unrelated pages.
+            if (typeof gtag === 'function') {
+                const startPrice = eventPricing(ev, modalGender()).price;
+                gtag('event', 'begin_checkout', {
+                    currency: 'USD',
+                    value: startPrice,
+                    items: [{
+                        item_id: dialogEventId,
+                        item_name: (ev && ev.title) || 'SparkDate Mixer',
+                        price: startPrice,
+                    }],
+                });
+            }
             if (typeof gtag === 'function') gtag('event', 'checkout_form_started', {});
             // Gender may already be pre-filled for a signed-in member, so price
             // with whatever is selected (modalGender() returns '' if nothing is,
@@ -2001,6 +2018,17 @@
                     });
                     if (stripeError) throw new Error(stripeError.message);
 
+                    // GA4 had no add_payment_info anywhere in the codebase, so
+                    // the funnel jumped checkout -> purchase and the card-entered-
+                    // but-not-charged drop-off was invisible. See event.html.
+                    if (typeof gtag === 'function') {
+                        gtag('event', 'add_payment_info', {
+                            currency: 'USD',
+                            value: ticket + SERVICE_FEE,
+                            payment_type: 'card',
+                            items: [{ item_id: evId, item_name: evName || 'SparkDate Mixer', price: ticket }],
+                        });
+                    }
                     if (typeof fbq !== 'undefined') {
                         fbq('track', 'AddPaymentInfo', { content_ids: [evId], value: ticket + SERVICE_FEE, currency: 'USD' });
                     }

@@ -76,6 +76,27 @@ GA4 CSV quirks to handle so you don't misread the data:
   comparison spanning that date will show a large apparent jump in
   transactions and ecommerce purchases that is an instrumentation change,
   not growth. Say so explicitly rather than reporting it as improvement.
+- THE GA4 FUNNEL BEFORE 2026-08-21 IS NOT TRUSTWORTHY — do not build any
+  conversion argument on funnel exploration data from before that date, and
+  do not compare funnel steps across it. Two faults, both now fixed:
+  (a) `begin_checkout` was fired by CTA clicks on index.html and lp.html —
+  pages with no cart and no checkout — while the real checkout moment sent
+  only a custom `checkout_form_started` that GA4's ecommerce funnel does not
+  recognise. The funnel therefore wired a step from one page between two
+  steps from another, which is why three explorations reported 9, 11 and 2
+  purchases against a real 28. (b) `add_payment_info` was never sent at all,
+  so the biggest drop-off in the whole flow — card entered, charge not
+  completed — was invisible, and GA4 jumped straight from checkout to
+  purchase while Meta reported that step correctly. That mismatch is a large
+  part of why the two platforms disagreed about where buyers were lost.
+  From 2026-08-21 the GA4 funnel is the standard five steps, all fired from
+  the surface they actually describe and carrying matching item payloads:
+  view_item -> add_to_cart -> begin_checkout -> add_payment_info -> purchase.
+  Homepage and landing-page CTA clicks now report `select_promotion`, which
+  is what they always were. Expect begin_checkout volume to DROP sharply at
+  the cutover (it stops counting homepage clicks and starts counting real
+  checkouts) and add_payment_info to appear from zero — neither is a
+  behaviour change.
 - Meta's campaign-level purchase counts are AD-ATTRIBUTED conversions, a
   deliberately stricter measure than "all purchases." A number far below
   the site's total purchase count is expected and is not on its own
