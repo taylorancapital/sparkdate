@@ -923,7 +923,38 @@ async function logPastEventAttendance(nowMs) {
 // subscribed lead (source:'attendee') for any attendee who isn't on the list —
 // which also folds them into the newsletter audience. dayN_sent are pre-set so
 // the first-timer sequence never fires at someone who's already attended.
-async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAttendeeUids, registeredForNextUids, attendeeNameByUid) {
+// Copy that knows which mixer this would be for them. attendanceCountByUid
+// (lib/attendance-index.js) counts DISTINCT past events, so someone holding
+// two registrations for one night still reads as a first-timer.
+//
+// Deliberately conservative past 3: "you're a regular" holds true at 4, 7 or
+// 12 without the email ever having to name a number it could get wrong. A
+// missing/zero count falls through to the original round-agnostic wording
+// rather than guessing.
+function returningInviteCopy(count) {
+  if (count === 1) return {
+    subjectLead: 'Round two?',
+    heading: 'Round two?',
+    lede: `it was great having you at your first SparkDate night. The second one's usually easier — you know how it works, and the room's always better with familiar faces.`,
+  };
+  if (count === 2) return {
+    subjectLead: 'Third time?',
+    heading: "Third time's the charm",
+    lede: `two mixers in and you're still showing up — that's the good kind of habit. Here's the next one.`,
+  };
+  if (count >= 3) return {
+    subjectLead: 'Back again?',
+    heading: "You're a regular now",
+    lede: `you've been to a few of these, which makes you one of the faces people recognise when they walk in. Come make the next room feel like that too.`,
+  };
+  return {
+    subjectLead: 'Back for more?',
+    heading: 'Back for more?',
+    lede: `it was great having you at a SparkDate night. We're lining up the next one — and the room's always better with familiar faces.`,
+  };
+}
+
+async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAttendeeUids, registeredForNextUids, attendeeNameByUid, attendanceCountByUid) {
   let sent = 0, skipped = 0;
   if (!event) return { sent, skipped, gated: true };
   try {
@@ -970,16 +1001,20 @@ async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAt
       const firstName = esc(firstNameRaw || lead.name || '');
       const unsubUrl = makeUnsubscribeUrl(leadRef.id, email);
       const ctaUrl = buildUtmUrl('/event?id=' + event.id, 'email', 'returning', 'next_mixer');
-      // pastAttendeeUids is a membership Set (attended >=1 past event), not a
-      // count -- there's no per-user attendance tally to say whether this is
-      // someone's 2nd, 3rd, or 10th mixer. Copy is deliberately round-agnostic
-      // rather than hardcoding "Round two?", which read as wrong for anyone
-      // beyond their actual second event.
+      // How many mixers they've actually been to, so the copy can say "round
+      // two" to a second-timer and "you're a regular" to someone on their
+      // fifth, instead of one message that reads slightly wrong for everyone.
+      const attendedCount = (attendanceCountByUid && attendanceCountByUid.get(uid)) || 0;
+      const copy = returningInviteCopy(attendedCount);
       const html = shell(
-        h1('Back for more?') +
-        p(lede(firstName, `it was great having you at a SparkDate night. We're lining up the next one — and the room's always better with familiar faces.`)) +
+        h1(copy.heading) +
+        p(lede(firstName, copy.lede)) +
         eventCardHtml(event) +
         ctaButtonHtml(ctaUrl, 'Save my spot') +
+        // The 2-for-1 already works end to end (api/purchase-ticket.js) and
+        // costs nothing to mention. For someone deciding whether to come back
+        // it turns a solo night into one they can bring a friend to.
+        p(`Bringing someone? Your <strong>+1 comes free</strong> — add them at checkout.`) +
         p('Hope to see you again,<br>The SparkDate Team')
       ).replace(/__UNSUB__/g, unsubUrl);
 
@@ -987,7 +1022,7 @@ async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAt
         const result = await resend.emails.send({
           from: 'SparkDate <hello@mail.sparkdate.date>',
           to: u.email,
-          subject: `Back for more? ${event.title} is coming up`,
+          subject: `${copy.subjectLead} ${event.title} is coming up`,
           html,
           headers: {
             'List-Unsubscribe': `<${unsubUrl}>, <mailto:hello@sparkdate.date?subject=Unsubscribe>`,
@@ -1283,6 +1318,7 @@ module.exports = async function handler(req, res) {
     let registeredForNextUids = new Set();
     let attendeeNameByUid = new Map();
     let nameByEmail = new Map();
+    let attendanceCountByUid = new Map();
     try {
       const [regSnap, evAllSnap] = await Promise.all([
         db.collection('event_registrations').where('status', '==', 'confirmed').get(),
@@ -1290,7 +1326,7 @@ module.exports = async function handler(req, res) {
       ]);
       const registrations = regSnap.docs.map((d) => d.data());
       const events = evAllSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      ({ attendedEmails, registeredUpcomingEmails, pastAttendeeUids, registeredForNextUids, attendeeNameByUid, nameByEmail } =
+      ({ attendedEmails, registeredUpcomingEmails, pastAttendeeUids, registeredForNextUids, attendeeNameByUid, nameByEmail, attendanceCountByUid } =
         buildAttendanceIndex(registrations, events, nowMs, event));
     } catch (e) {
       console.error('[attendance-index] build failed:', e.message);
@@ -1369,7 +1405,7 @@ module.exports = async function handler(req, res) {
     //    address before the marketing passes). Self-limiting via the per-event
     //    stamp, so it can run every day without re-emailing the same person.
     const returningInvites = await sendReturningAttendeeInvites(
-      nowMs, event, emailedThisRun, pastAttendeeUids, registeredForNextUids, attendeeNameByUid);
+      nowMs, event, emailedThisRun, pastAttendeeUids, registeredForNextUids, attendeeNameByUid, attendanceCountByUid);
 
     // 2) Nurture sequence (day 2/5/14/25) — one bucket-email per lead per run.
     //    Suppressed for anyone who has already attended (wrong audience).
