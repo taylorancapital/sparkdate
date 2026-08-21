@@ -32,6 +32,27 @@ GA4 CSV quirks to handle so you don't misread the data:
   don't hardcode.
 - If the export is empty, malformed, or you can't confidently identify
   the columns, STOP and say so in the PR rather than guessing at numbers.
+- GA4 REVENUE IS NOT TOTAL REVENUE — it is own-site revenue only. Never
+  present a GA4 revenue figure as the business's sales, and never treat a
+  gap between it and the admin dashboard as a tracking bug without
+  checking this first. Tickets sold ON Eventbrite or Meetup are imported
+  server-side by enrollEventbriteOne() in api/lead-signup.js, which fires
+  no gtag, no fbq, and no Meta CAPI Purchase (its only CAPI calls are
+  Lead events). Those buyers never load a page of ours, so there is
+  nothing client-side to fire and they are structurally invisible to both
+  GA4 and Meta. Measured 2026-08-21: Firestore held $1,629.90 across 97
+  tickets, of which $870.18 (61 tickets) was eventbrite_import and $24.99
+  was meetup_import — 55% of revenue that GA4 cannot see. GA4 reported
+  $743.73, which reconciles to within ~1% of the $734.73 of genuinely
+  own-site sales. GA4 was accurate for its scope; the scope is the point.
+  The admin dashboard (Firestore) is the revenue source of truth. Also
+  note the "eventbrite / listing" source row in GA4 is NOT those imported
+  sales — it is people who clicked an Eventbrite listing and then bought
+  on our own site.
+- Meta's campaign-level purchase counts are AD-ATTRIBUTED conversions, a
+  deliberately stricter measure than "all purchases." A number far below
+  the site's total purchase count is expected and is not on its own
+  evidence that the pixel or CAPI is broken.
 
 Then analyze with SparkDate's actual goal in mind — organic traffic that
 converts to TICKET SALES, not just newsletter signups — and produce

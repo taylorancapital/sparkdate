@@ -1735,8 +1735,21 @@
                         ? result.amount / 100
                         : ticket + SERVICE_FEE;
 
+                    // transaction_id must be unique PER PURCHASE. It used to be
+                    // evId — the event id — so every ticket ever sold to one
+                    // event shared a single transaction_id, which is the key
+                    // GA4 treats as the unique purchase. Standard reports were
+                    // still counting the events, but anything that dedupes on
+                    // it (BigQuery export, some explorations) would collapse a
+                    // whole event's sales into one. The PaymentIntent id is the
+                    // right granularity: one per charge, so a "+1" checkout —
+                    // two tickets, one payment, one gtag call — stays one
+                    // transaction. Falls back to the primary ticket's doc id,
+                    // which the API always returns, so the event never goes out
+                    // without an id. item_id stays evId: that one IS the
+                    // product being bought.
                     gtag('event', 'purchase', {
-                        transaction_id: evId,
+                        transaction_id: purchasePaymentIntentId || result.ticketId || evId,
                         value: parseFloat(purchaseValue.toFixed(2)),
                         currency: 'USD',
                         items: [{ item_id: evId, item_name: evName, price: parseFloat(ticket.toFixed(2)) }]
