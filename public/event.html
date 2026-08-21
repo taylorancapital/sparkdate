@@ -26,6 +26,24 @@
         'page_path': window.location.pathname + window.location.search
       });
     </script>
+    <script>
+      // Analytics must never be able to fail a sale.
+      //
+      // Most gtag() calls on this page are unguarded, including several
+      // inside the checkout try/catch (begin_checkout, add_payment_info,
+      // the 3DS pair, purchase). The snippet above normally defines gtag
+      // regardless of whether googletagmanager.com loads, so those are safe
+      // today — but if a privacy extension or a locked-down webview strips
+      // that block, every one of them throws ReferenceError. Inside the
+      // checkout handler that lands in the catch, which shows the buyer
+      // "We could not complete your purchase" and skips the form reset —
+      // AFTER the card has already been charged.
+      //
+      // A separate block, so removing the analytics snippet above does not
+      // also remove this. No-op only when gtag is genuinely absent; when it
+      // exists this changes nothing.
+      if (typeof window.gtag !== 'function') { window.gtag = function () {}; }
+    </script>
     <!-- Referral capture — same convention as index.html/lp.html. A
          referral link landing directly on a specific event (the most
          common share target) previously lost attribution entirely, since
@@ -313,6 +331,9 @@
         }
         .checkout-btn:hover { transform: translateY(-2px); }
         .checkout-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        /* Honeypot for the sold-out waitlist form — same trick lp.html uses:
+           off-screen and hidden from assistive tech, so only a bot fills it. */
+        .wl-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 
         /* Pre-billing trial disclosure — visible BEFORE the buy button for
            FTC ROSCA compliance (clear & conspicuous material terms,
@@ -623,6 +644,33 @@
 
                     <div class="success-message" id="successMessage"></div>
                     <div class="error-message" id="errorMessage"></div>
+
+                    <!-- Sold-out capture. Swapped in for the checkout form by
+                         renderSpots() when remaining <= 0. Before this, a
+                         sold-out event just said "Sold out" and the visitor
+                         left with nothing recorded — the highest-intent lead
+                         on the site (they picked a specific night; only
+                         capacity stopped them) was discarded. -->
+                    <div id="waitlistBlock" style="display:none;">
+                        <p class="capacity" style="margin-bottom:16px;">
+                            This one's full. Get first refusal on a released seat, and first
+                            word on the next date.
+                        </p>
+                        <form id="waitlistForm">
+                            <input type="text" name="website" class="wl-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+                            <div class="form-group">
+                                <label for="waitlistName">Name</label>
+                                <input type="text" id="waitlistName" placeholder="Jane Doe" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="waitlistEmail">Email</label>
+                                <input type="email" id="waitlistEmail" placeholder="you@email.com" required>
+                            </div>
+                            <button type="submit" class="checkout-btn" id="waitlistBtn">Join the waitlist</button>
+                        </form>
+                        <div class="success-message" id="waitlistSuccess" style="display:none;"></div>
+                        <div class="error-message" id="waitlistError" style="display:none;"></div>
+                    </div>
 
                     <form id="checkoutForm">
                         <div class="form-group">
@@ -1177,6 +1225,17 @@
                 spotsLeftEl.classList.toggle('filled', soldOut || scarce);
             }
 
+            // Sold out: there is nothing to sell, so swap the checkout form for
+            // the waitlist rather than leaving a dead form on screen. Both
+            // toggled explicitly (not just the hide) so a re-render after a
+            // seat is released puts checkout back.
+            const wlBlock = document.getElementById('waitlistBlock');
+            const coForm = document.getElementById('checkoutForm');
+            if (wlBlock && coForm) {
+                wlBlock.style.display = soldOut ? '' : 'none';
+                coForm.style.display = soldOut ? 'none' : '';
+            }
+
             const tag = document.getElementById('eventTag');
             if (!tag) return;
 
@@ -1525,9 +1584,78 @@
         // with any checkout field, so GA4 can measure true form-abandonment
         // rate (started-but-never-submitted), not just final purchase/error.
         let checkoutStartTracked = false;
+        // ── Sold-out waitlist ──────────────────────────────────────
+        // Posts to the same /api/lead-signup the lp.html capture uses, so
+        // these people land in `leads` and inherit the existing nurture and
+        // unsubscribe handling rather than needing a parallel pipeline. The
+        // extra eventId/eventName make the list queryable per event, which is
+        // the point: "who wanted into Tellus" is a mailing list for the next
+        // Tellus date, not just another newsletter signup.
+        document.getElementById('waitlistForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('waitlistBtn');
+            const okEl = document.getElementById('waitlistSuccess');
+            const errEl = document.getElementById('waitlistError');
+            const hp = e.target.querySelector('input[name="website"]');
+            errEl.style.display = 'none';
+            btn.disabled = true;
+            btn.textContent = 'Joining…';
+            try {
+                const res = await fetch('/api/lead-signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('waitlistName').value,
+                        email: document.getElementById('waitlistEmail').value,
+                        source: 'waitlist',
+                        eventId: eventId,
+                        eventName: (eventData && eventData.title) || '',
+                        website: hp ? hp.value : '',
+                    }),
+                });
+                if (!res.ok) throw new Error('Request failed');
+                const data = await res.json().catch(() => ({}));
+                if (typeof gtag === 'function') {
+                    gtag('event', 'generate_lead', { lead_type: 'waitlist', in_app_browser: isInAppBrowser() });
+                }
+                if (typeof fbq !== 'undefined') {
+                    fbq('track', 'Lead', {}, data.lead_id ? { eventID: data.lead_id } : undefined);
+                }
+                document.getElementById('waitlistForm').style.display = 'none';
+                okEl.textContent = "You're on the list. We'll email you the moment a seat opens or the next date is set.";
+                okEl.style.display = 'block';
+            } catch (_) {
+                errEl.textContent = 'Something went wrong. Please try again.';
+                errEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Join the waitlist';
+            }
+        });
+
         document.getElementById('checkoutForm').addEventListener('focusin', () => {
             if (checkoutStartTracked) return;
             checkoutStartTracked = true;
+            // THIS is where checkout begins — the buyer is on the event page
+            // with a price, typing into the form. Meta has always been told so
+            // (InitiateCheckout below); GA4 was not. GA4 only ever received a
+            // custom `checkout_form_started`, which its ecommerce funnel does
+            // not recognise, while the standard `begin_checkout` was being
+            // fired from CTA clicks on the homepage and landing page instead.
+            // So GA4's funnel had a step from one page wired between two steps
+            // from another. Send the standard event from the correct moment,
+            // with the item payload the surrounding steps use.
+            gtag('event', 'begin_checkout', {
+                currency: 'USD',
+                value: ticketPrice(),
+                items: [{
+                    item_id: eventData?.id || eventId,
+                    item_name: (eventData && eventData.title) || 'SparkDate Mixer',
+                    price: ticketPrice(),
+                }],
+            });
+            // Kept alongside it: this carries the in_app_browser dimension the
+            // standard event has no place for, and it is what the existing
+            // reports are built on. Different event name, so no double-count.
             gtag('event', 'checkout_form_started', { in_app_browser: isInAppBrowser() });
             if (typeof fbq !== 'undefined') {
                 fbq('track', 'InitiateCheckout', {
@@ -1644,10 +1772,29 @@
                     });
                     if (stripeError) throw new Error(stripeError.message);
 
-                    // Meta Pixel: valid payment info was just accepted by
-                    // Stripe, one step before the actual charge. Only fires
-                    // here — the member/card-on-file branch above never
-                    // collects new payment info.
+                    // Valid payment info was just accepted by Stripe, one step
+                    // before the actual charge. Only fires here — the
+                    // member/card-on-file branch above never collects new
+                    // payment info.
+                    //
+                    // GA4 was never told about this step at all: add_payment_info
+                    // appeared nowhere in the codebase, so the funnel jumped
+                    // straight from checkout to purchase and the single biggest
+                    // drop-off — card entered but charge not completed — was
+                    // invisible. Meta has had it all along, which is part of why
+                    // the two platforms disagreed about where buyers were lost.
+                    if (typeof gtag === 'function') {
+                        gtag('event', 'add_payment_info', {
+                            currency: 'USD',
+                            value: ticket + SERVICE_FEE,
+                            payment_type: 'card',
+                            items: [{
+                                item_id: evId,
+                                item_name: evName || 'SparkDate Mixer',
+                                price: ticket,
+                            }],
+                        });
+                    }
                     if (typeof fbq !== 'undefined') {
                         fbq('track', 'AddPaymentInfo', {
                             content_ids: [evId],
@@ -1692,6 +1839,12 @@
                 // the PaymentIntent client-side; the Stripe webhook will
                 // promote the server-written ticket from `pending_3ds`
                 // to `confirmed` once Stripe sees success.
+                // Did the card actually clear authentication during THIS
+                // submit? That is a different question from `!result.duplicate`
+                // and the purchase tracking below needs both — see the note
+                // there.
+                let authedThisSubmit = false;
+
                 if (result.requiresAction) {
                     // Instrumentation only (see isInAppBrowser above) — closes
                     // the loop on whether in-app-browser sessions are the ones
@@ -1706,19 +1859,45 @@
                         throw new Error('Payment did not complete. Please try again.');
                     }
                     if (paymentIntent) purchasePaymentIntentId = paymentIntent.id;
+                    authedThisSubmit = true;
                     gtag('event', 'checkout_3ds_completed', { in_app_browser: isInAppBrowser() });
                 }
 
                 // Ticket + event_registrations rows are written server-side
                 // inside /api/purchase-ticket. We no longer write either
                 // collection from the browser (audit #13).
-                successMsg.textContent = "You're confirmed. Check your email for event details.";
+                // An already-`confirmed` duplicate means this submit charged
+                // nothing — the buyer already holds a seat. Saying "You're
+                // confirmed" there reads as a second purchase that did not
+                // happen: no ticket, no charge, and nothing on screen to say
+                // so. Point at the +1 flow, which is the supported way to
+                // bring someone.
+                successMsg.textContent = (result.alreadyConfirmed && !authedThisSubmit)
+                    ? "You already have a ticket for this event — we haven't charged you again. Bringing someone? Use the +1 option instead."
+                    : "You're confirmed. Check your email for event details.";
                 successMsg.style.display = 'block';
 
-                // Track ticket purchase — but only once per real charge. A
-                // resubmit (double-click, or back-button then "buy" again)
-                // returns the SAME PaymentIntent with `duplicate: true`; firing
-                // analytics again would double-count one sale as two purchases.
+                // Track ticket purchase — once per real charge, but never zero
+                // times for one. `duplicate` was doing both jobs and got the
+                // second one wrong: it means "the server already had a ticket
+                // for this PaymentIntent", NOT "analytics already fired".
+                //
+                // The case it broke: 3DS is required, the buyer abandons the
+                // bank prompt (confirmCardPayment throws, so nothing is
+                // tracked), then retries inside Stripe's 24h idempotency
+                // window. Same PaymentIntent comes back, the dup guard in
+                // api/purchase-ticket.js returns `duplicate: true`, the buyer
+                // completes 3DS, and the card IS charged — but this block was
+                // skipped, so GA4 never saw the sale. Meta survived it via the
+                // server-side CAPI Purchase in api/stripe-webhook.js; GA4 has
+                // no server-side path, so that revenue was simply lost.
+                //
+                // So: fire when this submit produced a fresh charge, OR when
+                // it completed the authentication that made an existing
+                // PaymentIntent succeed. Double-firing is now self-limiting
+                // anyway — transaction_id is the PaymentIntent id, so GA4
+                // dedupes a repeat on its own. Undercounting had no such
+                // safety net.
                 //
                 // Value: the server is the source of truth for what was
                 // actually charged (early-bird-aware — see effectivePrice() in
@@ -1730,24 +1909,75 @@
                 // that name shadows the ticketPrice() function across this whole
                 // try block and makes the earlier `const ticket = ticketPrice()`
                 // throw a TDZ ReferenceError, breaking every checkout.
-                if (!result.duplicate) {
+                if (!result.duplicate || authedThisSubmit) {
                     const purchaseValue = typeof result.amount === 'number'
                         ? result.amount / 100
                         : ticket + SERVICE_FEE;
 
+                    // transaction_id must be unique PER PURCHASE. It used to be
+                    // evId — the event id — so every ticket ever sold to one
+                    // event shared a single transaction_id, which is the key
+                    // GA4 dedupes its transaction metric on: a whole event's
+                    // sales collapsed into one. The PaymentIntent id is the
+                    // right granularity — one per charge, so a "+1" checkout
+                    // (two tickets, one payment, one gtag call) stays one
+                    // transaction — falling back to the primary ticket's doc
+                    // id, which the API returns on every path.
+                    //
+                    // The LAST fallback is deliberately a fresh unique string
+                    // and NOT evId. Falling back to the event id would silently
+                    // restore the exact collision this replaced, in the one
+                    // situation nobody is watching (a trimmed response body, a
+                    // changed API shape) and with nothing in the data to show
+                    // the fallback fired. A per-call id is wrong-but-unique,
+                    // which is recoverable; evId is wrong-and-merged, which is
+                    // not. item_id stays evId: that one IS the product.
+                    // Seats delivered by this charge. A 2-for-1 writes TWO
+                    // ticket docs and reserves TWO seats server-side
+                    // (api/purchase-ticket.js) for ONE payment, so reporting
+                    // the default quantity of 1 undercounted units on every
+                    // 2-for-1 — the promo's whole point is the second seat.
+                    //
+                    // price is the per-seat EFFECTIVE price, not the list
+                    // price, because GA4 derives item revenue as
+                    // price x quantity. Sending quantity 2 at the full ticket
+                    // price would have DOUBLED item revenue for a purchase
+                    // that only ever collected one ticket's worth — trading a
+                    // wrong unit count for a wrong revenue figure.
+                    //
+                    // Halving an odd amount cannot round exactly (24.99 -> two
+                    // seats at 12.49 recomposes to 24.98), so item revenue on a
+                    // 2-for-1 can sit a cent either side. That is inside the
+                    // noise of a metric that already excludes the service fee
+                    // and so never matched purchase revenue anyway; `value`
+                    // above remains exact and is the number to trust.
+                    const seats = plusOne ? 2 : 1;
+                    const perSeat = parseFloat((ticket / seats).toFixed(2));
                     gtag('event', 'purchase', {
-                        transaction_id: evId,
+                        transaction_id: purchasePaymentIntentId || result.ticketId
+                            || ('tx_' + evId + '_' + Date.now()),
                         value: parseFloat(purchaseValue.toFixed(2)),
                         currency: 'USD',
-                        items: [{ item_id: evId, item_name: evName, price: parseFloat(ticket.toFixed(2)) }]
+                        items: [{ item_id: evId, item_name: evName, price: perSeat, quantity: seats }]
                     });
 
                     // Mirror the same purchase to the Facebook Pixel. GA4 is
                     // already handled by the gtag('purchase') above — firing a
                     // second gtag here would double-count it (the duplicate
                     // lacks transaction_id so GA4 won't dedupe).
+                    //
+                    // content_ids/content_type match what ViewContent,
+                    // AddToCart and AddPaymentInfo already send. Without them
+                    // Meta received a Purchase carrying only a value, so it
+                    // could not tie the conversion back to the event the rest
+                    // of the funnel was tagged with — product-level ROAS and
+                    // catalog attribution both broke at the last step.
                     if (typeof fbq !== 'undefined') {
                         fbq('track', 'Purchase', {
+                            content_ids: [evId],
+                            content_name: evName,
+                            content_type: 'product',
+                            num_items: seats,
                             value: parseFloat(purchaseValue.toFixed(2)),
                             currency: 'USD'
                         }, purchasePaymentIntentId ? { eventID: purchasePaymentIntentId } : undefined);

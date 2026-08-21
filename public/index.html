@@ -1084,9 +1084,21 @@
           })
           .catch(function () { /* keep generic copy + /events fallback */ });
 
-        // GA4: measure clicks from the block into checkout (ad ROAS).
+        // GA4: measure clicks from the block through to a ticket (ad ROAS).
+        //
+        // select_promotion, NOT begin_checkout. There is no checkout on this
+        // page — the button navigates to an event page, where checkout may or
+        // may not later start. Reporting it as begin_checkout put a step into
+        // GA4's ecommerce funnel that fires on a different page from the one
+        // before and after it, which is why the funnel explorations disagreed
+        // with reality (they read 9, 11 and 2 purchases against a real 28).
         btn.addEventListener('click', function () {
-          if (typeof gtag === 'function') gtag('event', 'begin_checkout', { source: 'get_tickets_block' });
+          if (typeof gtag === 'function') {
+            gtag('event', 'select_promotion', {
+              promotion_name: 'get_tickets_block',
+              creative_slot: 'homepage_block',
+            });
+          }
         });
       })();
     </script>
@@ -1409,8 +1421,16 @@
       sync();
     }).observe(bottomCta);
 
+    // select_promotion, not begin_checkout — same reasoning as the
+    // get-tickets block above: this navigates to an event page, it does not
+    // start a checkout.
     document.getElementById('stickyBarBtn').addEventListener('click', function () {
-      if (typeof gtag === 'function') gtag('event', 'begin_checkout', { source: 'sticky_ticket_bar' });
+      if (typeof gtag === 'function') {
+        gtag('event', 'select_promotion', {
+          promotion_name: 'sticky_ticket_bar',
+          creative_slot: 'homepage_sticky',
+        });
+      }
     });
   })();
 </script>

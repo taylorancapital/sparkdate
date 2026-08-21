@@ -17,6 +17,7 @@ const { logEventAttended } = require('../lib/activity-log');
 const { isValidGetawayPackageId } = require('../lib/getaway-packages');
 const { emailLookupVariants, sameEmailIdentity } = require('../lib/email-identity');
 const { sendMetaEvent } = require('../lib/meta-capi');
+const { seatFields } = require('../lib/seat-model');
 
 const db = admin.firestore();
 
@@ -214,7 +215,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Allowlist of lead sources the client may declare. Anything else is
 // coerced to 'founding_form' so an attacker can't inject arbitrary source
 // strings into our analytics. Keep in sync with the public forms.
-const ALLOWED_SOURCES = new Set(['founding_form', 'newsletter', 'referral', 'ad_landing', 'blog', 'exit_intent']);
+// 'waitlist' = someone hit a SOLD-OUT event page and asked to be told when a
+// seat frees up or the next date lands. Highest-intent lead there is: they
+// already chose a specific night and only capacity stopped them.
+const ALLOWED_SOURCES = new Set(['founding_form', 'newsletter', 'referral', 'ad_landing', 'blog', 'exit_intent', 'waitlist']);
 
 // city.html sends `city_${cityParam}` (e.g. 'city_philadelphia'), one per
 // live/future city — a regex instead of enumerating each one here, so a
@@ -478,6 +482,12 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
         .limit(1)
     );
     const userSnap = await txn.get(userRef);
+    // Read the event too, so the seat counter can be bumped in the same
+    // transaction as the ticket write (see the increment below). Read even
+    // when we may not write it — a Firestore txn forbids reading after a
+    // write, so it cannot be deferred until we know whether it's needed.
+    const eventRef = eventId ? db.collection('events').doc(eventId) : null;
+    const eventSnap = eventRef ? await txn.get(eventRef) : null;
 
     const ticketRef = existingTix.empty
       ? db.collection('tickets').doc(ticketId)
@@ -517,6 +527,30 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
       registeredAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
     }, { merge: true });
+
+    // Take the seat. Until now only api/purchase-ticket.js touched this
+    // counter, so every admin-enrolled ticket was invisible to it — and
+    // `spotsRemaining()` (lib/seat-model.js), which is what /api/next-event
+    // and the landing pages advertise, is capacity MINUS this counter. With
+    // Eventbrite at roughly half of all volume the counter drifted far below
+    // reality and the site advertised seats that did not exist: Tellus
+    // AfterDark sat at counter 10 against 24 real ticket-holders in a
+    // 30-seat room, i.e. 20 more on sale for 6 actual places.
+    //
+    // Two guards:
+    //   existingTix.empty — enrollment is idempotent by (uid, eventId) and
+    //     re-running an import must not bump the counter a second time.
+    //   !chan.comp — a comp is a free seat that earns nothing, and the only
+    //     comps today are the host's own. Counting them would let a host
+    //     seat displace a paying customer. purchase-ticket.js likewise only
+    //     ever counts real purchases, so "sold" keeps one meaning across
+    //     both writers. NOTE: this does mean a comp given to a real GUEST
+    //     occupies a chair without consuming inventory — if comping guests
+    //     becomes routine, either count them here or raise `spots`.
+    if (existingTix.empty && !chan.comp && eventRef && eventSnap && eventSnap.exists) {
+      const { counterField } = seatFields(eventSnap.data(), gender);
+      txn.update(eventRef, { [counterField]: FieldValue.increment(1) });
+    }
   });
 
   // 3. Best-effort: create a `leads` doc so this person enters the
@@ -869,11 +903,11 @@ async function sendWelcomeEmail(email, firstName, leadRef) {
     p(`Hey ${safeFirstName},`) +
     p('You know that feeling when you match on an app and then... three weeks of texting and still no actual date?') +
     p('Yeah. We built SparkDate to skip that part.') +
-    p('We host real, in-person mixers in Lancaster and Philadelphia. You show up, meet a dozen-plus people in short, low-pressure rounds, and swap numbers with anyone you click with. No swiping. No pen-pal phase. Just actual meetings.') +
+    p('We host real, in-person mixers in Lancaster and Philadelphia. You show up, meet a room full of people over an evening of low-pressure conversation, and swap numbers with anyone you click with. No swiping. No pen-pal phase. Just actual meetings.') +
     eventCardHtml(nextEvent) +
     ctaButtonHtml(ctaUrl, 'Get Tickets') +
     `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">
-      <strong>How it works:</strong> arrive &amp; check in → 4 rounds, ~7 min each → meet 12+ people → swap info if you vibe. That's it.
+      <strong>How it works:</strong> arrive &amp; check in → 15&ndash;20 min open mixing, grab a drink → break into tables for an icebreaker → move between conversations at a relaxed pace → swap info if you vibe. That's it.
     </div>` +
     p('Questions? Just reply to this email.') +
     p('See you there,<br>The SparkDate Team')
@@ -1031,12 +1065,22 @@ module.exports = async function handler(req, res) {
     // cron treats a missing flag as "not sent", so it would still work
     // without them — but initializing them keeps the data model honest
     // and makes the admin Leads tab's progress pills accurate from day 1.
+    // Which sold-out event sent them here. Only meaningful for source
+    // 'waitlist', and stored so the list is queryable per event ("who wanted
+    // into Tellus") rather than being one undifferentiated pile — that is the
+    // whole point of capturing it at the sell-out moment instead of just
+    // adding another newsletter subscriber.
+    const waitlistEventId = source === 'waitlist' ? (clean(req.body?.eventId, 128) || null) : null;
+    const waitlistEventName = source === 'waitlist' ? (clean(req.body?.eventName, 200) || null) : null;
+
     const docRef = await db.collection('leads').add({
       name,
       email,
       phone,
       source,
       referredBy: ref,
+      ...(waitlistEventId ? { waitlistEventId } : {}),
+      ...(waitlistEventName ? { waitlistEventName } : {}),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       welcome_sent: false,
       subscribed: true,

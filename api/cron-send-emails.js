@@ -86,9 +86,10 @@ const EMAILS = {
         h1("Here's exactly what to expect.") +
         p(lede(firstName, `nervous? Don't be. Here's how a SparkDate night actually runs:`)) +
         `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">
-          <strong>Doors at ${doors}.</strong> Check in, grab a name tag (first name only).<br>
-          <strong>4 rounds, ~7 minutes each.</strong> A real conversation with a dozen-plus people.<br>
-          <strong>A bell marks each switch.</strong> No scripts, no pressure.<br>
+          <strong>Doors at ${doors}.</strong> Check in and say hi to your host.<br>
+          <strong>First 15&ndash;20 minutes: open mixing.</strong> Grab a drink, settle in, talk to whoever's nearby.<br>
+          <strong>Then we break into tables.</strong> An icebreaker to get conversation going &mdash; cards and prompts, nothing you have to prepare for.<br>
+          <strong>You'll move between conversations</strong> so you meet plenty of people &mdash; but it's relaxed. No bell, no stopwatch, no scorecard.<br>
           <strong>Then: open mingling.</strong> Swap numbers with anyone you clicked with.
         </div>` +
         p('Bring yourself and an open mind. Leave the expectations (and the nerves — everyone\'s a little nervous) at the door.') +
@@ -571,9 +572,10 @@ function preEventEmailFor(stage, firstName, ev, tonight) {
         heading: `${ev.title} is ${ev.daysAwayLabel || 'coming up'}.`,
         bodyHtml:
           p(lede(firstName, `your spot is locked in. Here's exactly how the night runs:`)) +
-          infoBox(`<strong>Doors at ${doors}.</strong> Check in, grab a name tag (first name only).<br>
-<strong>4 rounds, ~7 minutes each.</strong> A real conversation with a dozen-plus people.<br>
-<strong>A bell marks each switch.</strong> No scripts, no pressure.<br>
+          infoBox(`<strong>Doors at ${doors}.</strong> Check in and say hi to your host.<br>
+<strong>First 15&ndash;20 minutes: open mixing.</strong> Grab a drink, settle in, talk to whoever's nearby.<br>
+<strong>Then we break into tables.</strong> An icebreaker to get conversation going &mdash; cards and prompts, nothing to prepare.<br>
+<strong>You'll move between conversations</strong> so you meet plenty of people &mdash; but it's relaxed. No bell, no stopwatch.<br>
 <strong>Then: open mingling.</strong> Stay as long as you like.`) +
           eventCardHtml(ev) +
           p(`And the best part: at <strong>9pm that night</strong>, we'll email you a private link to tell us who you clicked with. If they pick you too, we swap contact info — no missed signals, no awkward Instagram hunt.`) +
@@ -590,7 +592,7 @@ function preEventEmailFor(stage, firstName, ev, tonight) {
       bodyHtml:
         p(lede(firstName, `quick rundown so ${when} is effortless:`)) +
         infoBox(`<strong>Doors at ${doors}</strong> · ${esc(ev.venueLabel)}.<br>
-Arrive a few minutes early to check in and grab a name tag.<br>
+Arrive a few minutes early to check in — the first 15&ndash;20 minutes are open mixing, so there's no hard start to miss.<br>
 Just bring your phone — everything else is handled.`) +
         eventCardHtml(ev) +
         p(`At <strong>9pm ${when}</strong>, check your email: you'll get a private link to pick who you clicked with. Mutual picks swap contact info directly.`) +
@@ -921,7 +923,38 @@ async function logPastEventAttendance(nowMs) {
 // subscribed lead (source:'attendee') for any attendee who isn't on the list —
 // which also folds them into the newsletter audience. dayN_sent are pre-set so
 // the first-timer sequence never fires at someone who's already attended.
-async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAttendeeUids, registeredForNextUids, attendeeNameByUid) {
+// Copy that knows which mixer this would be for them. attendanceCountByUid
+// (lib/attendance-index.js) counts DISTINCT past events, so someone holding
+// two registrations for one night still reads as a first-timer.
+//
+// Deliberately conservative past 3: "you're a regular" holds true at 4, 7 or
+// 12 without the email ever having to name a number it could get wrong. A
+// missing/zero count falls through to the original round-agnostic wording
+// rather than guessing.
+function returningInviteCopy(count) {
+  if (count === 1) return {
+    subjectLead: 'Round two?',
+    heading: 'Round two?',
+    lede: `it was great having you at your first SparkDate night. The second one's usually easier — you know how it works, and the room's always better with familiar faces.`,
+  };
+  if (count === 2) return {
+    subjectLead: 'Third time?',
+    heading: "Third time's the charm",
+    lede: `two mixers in and you're still showing up — that's the good kind of habit. Here's the next one.`,
+  };
+  if (count >= 3) return {
+    subjectLead: 'Back again?',
+    heading: "You're a regular now",
+    lede: `you've been to a few of these, which makes you one of the faces people recognise when they walk in. Come make the next room feel like that too.`,
+  };
+  return {
+    subjectLead: 'Back for more?',
+    heading: 'Back for more?',
+    lede: `it was great having you at a SparkDate night. We're lining up the next one — and the room's always better with familiar faces.`,
+  };
+}
+
+async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAttendeeUids, registeredForNextUids, attendeeNameByUid, attendanceCountByUid) {
   let sent = 0, skipped = 0;
   if (!event) return { sent, skipped, gated: true };
   try {
@@ -968,16 +1001,20 @@ async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAt
       const firstName = esc(firstNameRaw || lead.name || '');
       const unsubUrl = makeUnsubscribeUrl(leadRef.id, email);
       const ctaUrl = buildUtmUrl('/event?id=' + event.id, 'email', 'returning', 'next_mixer');
-      // pastAttendeeUids is a membership Set (attended >=1 past event), not a
-      // count -- there's no per-user attendance tally to say whether this is
-      // someone's 2nd, 3rd, or 10th mixer. Copy is deliberately round-agnostic
-      // rather than hardcoding "Round two?", which read as wrong for anyone
-      // beyond their actual second event.
+      // How many mixers they've actually been to, so the copy can say "round
+      // two" to a second-timer and "you're a regular" to someone on their
+      // fifth, instead of one message that reads slightly wrong for everyone.
+      const attendedCount = (attendanceCountByUid && attendanceCountByUid.get(uid)) || 0;
+      const copy = returningInviteCopy(attendedCount);
       const html = shell(
-        h1('Back for more?') +
-        p(lede(firstName, `it was great having you at a SparkDate night. We're lining up the next one — and the room's always better with familiar faces.`)) +
+        h1(copy.heading) +
+        p(lede(firstName, copy.lede)) +
         eventCardHtml(event) +
         ctaButtonHtml(ctaUrl, 'Save my spot') +
+        // The 2-for-1 already works end to end (api/purchase-ticket.js) and
+        // costs nothing to mention. For someone deciding whether to come back
+        // it turns a solo night into one they can bring a friend to.
+        p(`Bringing someone? Your <strong>+1 comes free</strong> — add them at checkout.`) +
         p('Hope to see you again,<br>The SparkDate Team')
       ).replace(/__UNSUB__/g, unsubUrl);
 
@@ -985,7 +1022,7 @@ async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAt
         const result = await resend.emails.send({
           from: 'SparkDate <hello@mail.sparkdate.date>',
           to: u.email,
-          subject: `Back for more? ${event.title} is coming up`,
+          subject: `${copy.subjectLead} ${event.title} is coming up`,
           html,
           headers: {
             'List-Unsubscribe': `<${unsubUrl}>, <mailto:hello@sparkdate.date?subject=Unsubscribe>`,
@@ -1281,6 +1318,7 @@ module.exports = async function handler(req, res) {
     let registeredForNextUids = new Set();
     let attendeeNameByUid = new Map();
     let nameByEmail = new Map();
+    let attendanceCountByUid = new Map();
     try {
       const [regSnap, evAllSnap] = await Promise.all([
         db.collection('event_registrations').where('status', '==', 'confirmed').get(),
@@ -1288,7 +1326,7 @@ module.exports = async function handler(req, res) {
       ]);
       const registrations = regSnap.docs.map((d) => d.data());
       const events = evAllSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      ({ attendedEmails, registeredUpcomingEmails, pastAttendeeUids, registeredForNextUids, attendeeNameByUid, nameByEmail } =
+      ({ attendedEmails, registeredUpcomingEmails, pastAttendeeUids, registeredForNextUids, attendeeNameByUid, nameByEmail, attendanceCountByUid } =
         buildAttendanceIndex(registrations, events, nowMs, event));
     } catch (e) {
       console.error('[attendance-index] build failed:', e.message);
@@ -1367,7 +1405,7 @@ module.exports = async function handler(req, res) {
     //    address before the marketing passes). Self-limiting via the per-event
     //    stamp, so it can run every day without re-emailing the same person.
     const returningInvites = await sendReturningAttendeeInvites(
-      nowMs, event, emailedThisRun, pastAttendeeUids, registeredForNextUids, attendeeNameByUid);
+      nowMs, event, emailedThisRun, pastAttendeeUids, registeredForNextUids, attendeeNameByUid, attendanceCountByUid);
 
     // 2) Nurture sequence (day 2/5/14/25) — one bucket-email per lead per run.
     //    Suppressed for anyone who has already attended (wrong audience).

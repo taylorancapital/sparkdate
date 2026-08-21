@@ -582,15 +582,24 @@
         // into a certain one.
         //
         // in_app_browser is tagged on the event so the follow-up is
-        // measurable: compare begin_checkout -> purchase for in-app vs normal
-        // browsers over the next couple of weeks. If in-app conversion really
-        // is near zero, that's the argument for Stripe hosted Checkout (a
-        // full-page redirect works in these webviews because what breaks is
+        // measurable: compare select_promotion -> purchase for in-app vs
+        // normal browsers over the next couple of weeks. If in-app conversion
+        // really is near zero, that's the argument for Stripe hosted Checkout
+        // (a full-page redirect works in these webviews because what breaks is
         // the embedded iframe, not top-level navigation).
+        //
+        // This is select_promotion rather than begin_checkout: the tap leaves
+        // this page for an event page and no checkout has started yet. It was
+        // reported as begin_checkout, which put a funnel step on a page that
+        // has no cart and no checkout, so GA4's ecommerce funnel was stitching
+        // together events from unrelated journeys. The in-app-browser
+        // comparison above is unaffected — it only needs a consistent first
+        // step, and this is a more honest one.
         if (btn) btn.addEventListener('click', function () {
           if (typeof gtag === 'function') {
-            gtag('event', 'begin_checkout', {
-              source: 'lp',
+            gtag('event', 'select_promotion', {
+              promotion_name: 'lp_get_tickets',
+              creative_slot: 'lp',
               in_app_browser: isInAppBrowser(),
               target_event_id: requestedEventId || undefined
             });

@@ -1,0 +1,97 @@
+name: social publish
+
+# Fires the Instagram / TikTok half of the queue, which cannot be scheduled
+# in advance:
+#
+#   * Instagram has no scheduling parameter at all, and its media containers
+#     expire after 24 hours -- so a container can only be created at the
+#     moment the post should go live. Something has to be awake then.
+#   * Facebook DOES schedule (10 min to 30 days out), so its posts are handed
+#     over in a batch and Meta holds them. This job picks them up too, but
+#     only to hand them over, not to time them.
+#
+# Why here and not Vercel: api/ holds exactly 12 functions, which is the Hobby
+# plan's cap, so a cron endpoint cannot be added without deleting one or
+# paying for Pro -- and Hobby cron is daily-only, which cannot hit a 7:00 PM
+# slot. (vercel.json already shows that workaround: the same job at 13:00 and
+# 14:00 to survive imprecise triggering.) Actions is free, has secrets, and
+# runs whether or not the laptop is on.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      execute:
+        description: 'Actually publish (unchecked = dry run)'
+        type: boolean
+        default: false
+
+# Two overlapping runs would both see the same row as unpublished and post it
+# twice. Never cancel-in-progress here: cancelling mid-publish could kill the
+# job between the API call succeeding and queue.csv recording it, which is the
+# one state that causes a duplicate on the next run.
+concurrency:
+  group: social-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # to commit published_ids back
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      # Refuse to publish a queue that fails its own rules. A wrong price or
+      # a Philly hashtag on a Lancaster event is much cheaper to catch here
+      # than after it is live.
+      - name: Lint before publishing
+        run: node scripts/lint-content-queue.js
+
+      - name: Publish what is due
+        env:
+          META_SOCIAL_ACCESS_TOKEN: ${{ secrets.META_SOCIAL_ACCESS_TOKEN }}
+          META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
+          META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
+          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
+          SOCIAL_ASSET_BASE_URL: https://sparkdate.date/social
+        run: |
+          if [ -z "$META_SOCIAL_ACCESS_TOKEN" ]; then
+            echo "META_SOCIAL_ACCESS_TOKEN is not set -- running as a dry run."
+            echo "Add it under Settings -> Secrets -> Actions once"
+            echo "scripts/social-preflight.js passes locally."
+            node scripts/social.js run
+            exit 0
+          fi
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.execute }}" = "true" ]; then
+            node scripts/social.js run --execute
+          else
+            node scripts/social.js run
+          fi
+
+      # published_ids is what stops a row publishing twice, so it has to
+      # survive the run. Committing is the persistence layer.
+      - name: Record what published
+        if: success()
+        run: |
+          if git diff --quiet -- content/queue.csv; then
+            echo "queue.csv unchanged -- nothing published."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add content/queue.csv
+          git commit -m "social: record published ids [skip ci]"
+          # Another run may have pushed between checkout and here; rebase
+          # rather than force, so a concurrent record is never discarded.
+          git pull --rebase --autostash origin ${{ github.ref_name }}
+          git push
