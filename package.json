@@ -8,7 +8,9 @@
   "scripts": {
     "test": "vitest",
     "test:run": "vitest run",
-    "test:ci": "vitest run --reporter=verbose"
+    "test:ci": "vitest run --reporter=verbose",
+    "social:lint": "node scripts/lint-content-queue.js",
+    "social:import": "python scripts/import-worksheet.py"
   },
   "dependencies": {
     "firebase": "^10.7.0",

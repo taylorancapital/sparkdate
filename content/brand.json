@@ -1,0 +1,142 @@
+{
+  "_comment": "Machine-readable port of SparkDate_Brand_Source_of_Truth_1_Multi_Event.md. This is the source of truth for facts that do NOT change row to row; content/queue.csv is the day-by-day queue. scripts/lint-content-queue.js enforces every rule in here. When a fact changes, change it HERE and let the linter find the rows that contradict it -- do not fix captions one at a time.",
+  "_ported": "2026-08-21",
+
+  "universal": {
+    "banned_facts": [
+      {
+        "id": "unsourced-28",
+        "pattern": "\\b28\\b(?=[^\\n]{0,40}\\b(?:people|attendees?|attended|came|confirmed|showed up|in the room)\\b)",
+        "description": "The '28 attendees' figure is unsourced and banned everywhere. 22 (Event 1) is the only sanctioned number. A revision to 31 (American Bar & Grill door count: 26 registered + unregistered +1s) is PROPOSED but NOT APPROVED -- do not swap it in without confirming."
+      }
+    ],
+    "approved_stat": {
+      "value": 22,
+      "context": "Event 1 attendance",
+      "proposed_revision": 31,
+      "proposed_revision_approved": false
+    },
+    "pulled_images": ["IMG_9203", "IMG_9204", "IMG_9207"],
+    "consented_images": ["IMG_8859", "IMG_8861", "IMG_8862", "IMG_8865", "IMG_9001", "IMG_9004", "IMG_9005"],
+    "approved_testimonials": [
+      {
+        "id": "quang-event1",
+        "quote": "Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there.",
+        "attribution": "Quang, Event 1",
+        "reusable_across_events": true
+      }
+    ],
+    "utm": {
+      "medium": "social",
+      "paid_medium": "paid_social",
+      "source_by_platform": { "fb": "Facebook", "ig": "Instagram", "tiktok": "TikTok", "x": "Twitter" },
+      "campaign_format": "{event_key}_{YYYYMM}",
+      "content_equals_row_id": true,
+      "_note": "utm_content was 'proof_rsa1' on all 45 rows, so GA4 could not attribute any individual post. It is now the row id. utm_campaign was 'Augweek3_lancaster'/'Augweek3_philly', which goes stale in September (blocker #23); it is now derived per event per month."
+    },
+    "link_rules": {
+      "ig_caption_renders_links": false,
+      "ig_story_link_sticker": true,
+      "fb_post_link": true,
+      "tiktok_caption_renders_links": false,
+      "_note": "Instagram captions never render a clickable link. IG captions must pair 'link in bio' phrasing with the utm_source=Instagram URL, never the Facebook one -- both point at the same landing page, so the wrong one silently misattributes."
+    },
+    "landing_page_warning": "Organic and paid links both point at /lp. A funnel analysis found 422 paid users -> ~10 begin_checkout -> ZERO purchases there, concentrated in the Facebook/Instagram in-app browser. Organic bio-link traffic mostly opens in a real browser so it is lower-risk, but this is unresolved and worth watching."
+  },
+
+  "markets": {
+    "lancaster": {
+      "hashtags": ["#LancasterDating", "#LancasterPA", "#LancasterEvents", "#SingleInLancaster", "#DowntownLancaster", "#LancasterNightlife", "#LancasterSingles"]
+    },
+    "philadelphia": {
+      "hashtags": ["#PhillyDating", "#PhillyEvents", "#SingleInPhilly", "#RittenhouseSquare", "#PhillyNightlife", "#PhillySingles"]
+    },
+    "_neutral": {
+      "hashtags": ["#SparkDate", "#IRLDating", "#DatingAppFatigue", "#MeetInPerson", "#SpeedDating", "#DatingApps", "#EarlyBird"],
+      "_note": "Market-agnostic tags, allowed on any event."
+    }
+  },
+
+  "events": {
+    "MC": {
+      "name": "Marion Court",
+      "market": "lancaster",
+      "venue": "Marion Court Room",
+      "city": "Lancaster, PA",
+      "date": "2026-09-08",
+      "doors": "6:30 PM",
+      "event_id": "WUaooYvOq0eC0D1QVCvQ",
+      "pricing": { "early_bird": 18.99, "early_bird_through": "2026-08-24", "regular": 24.99 },
+      "hashtag_pool": ["#LancasterDating", "#LancasterEvents", "#SingleInLancaster", "#SparkDate", "#EarlyBird", "#SpeedDating", "#IRLDating", "#DatingAppFatigue"],
+      "notes": "MC-15 (Sep 9) recaps Marion Court but links forward to Loxleys, the event still on sale. That is intentional, not a mismatch."
+    },
+    "TL": {
+      "name": "Tellus AfterDark: Singles Edition",
+      "market": "lancaster",
+      "venue": "Tellus360, 24 E King St",
+      "city": "Lancaster, PA",
+      "date": "2026-08-26",
+      "doors": "6:30 PM",
+      "event_id": "8E9WZTat32JyoUjWuIE7",
+      "pricing": { "regular": 24.99, "disputed": true },
+      "hashtag_pool": ["#LancasterDating", "#LancasterPA", "#LancasterEvents", "#SingleInLancaster", "#DowntownLancaster", "#LancasterNightlife", "#LancasterSingles", "#IRLDating", "#DatingAppFatigue", "#MeetInPerson", "#SpeedDating", "#SparkDate"],
+      "open_issues": [
+        "PRICE CONTRADICTION (blocker #14): the FACTS block says regular = $18.99 from Aug 16 onward, but the Aug 21 Reel caption says $24.99. The Eventbrite listing is the tiebreaker. Unresolved -- 24.99 recorded here because that is what shipped in the live TL-2 caption.",
+        "The live listing says 'no bell, no rotation, no timer' -- WRONG. Actual run of show: check-in and drinks, icebreaker/mingling, then 7-minute matched rounds LAST. Needs fixing on the listing itself, not just in captions.",
+        "Naming: use 'Tellus AfterDark: Singles Edition', never 'Event 3' or 'Round three' (that numbering collided with Good Good Things)."
+      ]
+    },
+    "GG": {
+      "name": "Good Good Things",
+      "market": "philadelphia",
+      "venue": "Good Good Things, 11 S 21st, Rittenhouse",
+      "city": "Philadelphia, PA",
+      "date": "2026-08-31",
+      "doors": "6:30 PM",
+      "event_id": "HwXXG8HPLMLwaoBoNdXk",
+      "pricing": { "regular": 29.99 },
+      "hashtag_pool": ["#PhillyDating", "#PhillyEvents", "#SingleInPhilly", "#RittenhouseSquare", "#PhillyNightlife", "#IRLDating", "#DatingAppFatigue", "#MeetInPerson", "#PhillySingles", "#SpeedDating"],
+      "notes": "The brand doc flags GG's venue as 'not confirmed in any caption on file'. It IS confirmed -- the live GG-1 caption reads 'Good Good Things, 11 S 21st, Rittenhouse'. Recorded here; the brand doc's open item can be closed.",
+      "open_issues": [
+        "The $24.99 that appears in GG-7 refers to LOXLEYS early bird, not GG's own $29.99 ticket (corrected 8/19, was mistakenly $18.99)."
+      ]
+    },
+    "LX": {
+      "name": "Loxleys",
+      "market": "lancaster",
+      "venue": "Loxleys, patio bar",
+      "city": "Lancaster, PA",
+      "date": "2026-09-22",
+      "doors": "6:30 PM",
+      "event_id": "KL4onXm7hJbqiwI9quAZ",
+      "pricing": { "early_bird": 24.99, "early_bird_through": "2026-09-07", "regular": 29.99 },
+      "hashtag_pool": ["#LancasterDating", "#LancasterEvents", "#SingleInLancaster", "#LancasterNightlife", "#EarlyBird", "#IRLDating", "#SpeedDating", "#SparkDate", "#DatingApps"],
+      "open_issues": [
+        "PRICE TRAP: $24.99 is Marion Court's REGULAR price but Loxleys EARLY-BIRD price. Same number, different meaning per event. Two live captions (LX-11, GG-7) had it as $18.99 by mistake; both fixed 8/19.",
+        "BLOCKER #3: the Eventbrite early-bird window must move from Sep 1 to Sep 7 11:59:59 PM. The entire Sep 7 deadline sequence depends on this one edit.",
+        "BLOCKER #4: the 2-for-1 ticket type must be live in Eventbrite before Sep 19, or the Sep 19 post promises something that does not exist."
+      ]
+    }
+  },
+
+  "asset_rules": {
+    "naming": "{row_id}[_{subtype}][_{N}of{Total}].{ext}, row_id zero-padded to two digits (MC-02.jpg, TL-01_1of3.jpg, MC-12_story.jpg)",
+    "_naming_note": "Zero-padding matters: without it MC-10 sorts before MC-2 and the folder falls out of posting order.",
+    "dimensions": {
+      "feed": { "width": 1080, "height": 1080 },
+      "story": { "width": 1080, "height": 1920 },
+      "reel": { "width": 1080, "height": 1920 }
+    },
+    "publish_format": "jpeg",
+    "_publish_format_note": "Instagram's Content Publishing API accepts JPEG ONLY. Source exports are PNG in RGBA mode and cannot be handed to the API as-is; RGBA must be composited onto a background before JPEG encoding. TikTok also rejects PNG.",
+    "public_base_url": "https://sparkdate.date/social"
+  },
+
+  "platform_capabilities": {
+    "fb": { "api_publish": true, "api_schedule": true, "schedule_window": "10 minutes to 30 days ahead" },
+    "ig": { "api_publish": true, "api_schedule": false, "_note": "No scheduling parameter exists and media containers expire after 24h, so the container must be created at publish time by the runner." },
+    "ig_story": { "api_publish": true, "api_stickers": false, "_note": "A Story can be posted via API but link and countdown stickers CANNOT be attached -- that is where the link and the urgency live, so sticker Stories stay manual." },
+    "tiktok": { "api_publish": "draft_only", "_note": "UPLOAD_TO_DRAFT works without TikTok's audit; DIRECT_POST requires a 2-4 week review. Photo posts (up to 35 images) are supported, so existing 1080x1080 carousels can post with no new video." },
+    "x": { "api_publish": false, "_note": "Manual by decision (2026-08-21). The queue still writes caption_x so posting is a paste. X also killed its free tier for new developers in Feb 2026; pay-per-use is $0.20 per post containing a link, and every post here has one." }
+  }
+}

@@ -32,3 +32,13 @@ jobs:
           # avoids any "secret not set" throws from module-load paths.
           UNSUBSCRIBE_SECRET: ci-placeholder-secret
           STRIPE_SECRET_KEY: sk_test_ci_placeholder
+
+      - name: Lint the social content queue
+        # Brand rules as a build gate. Errors here mean a queued post would
+        # say something false (wrong price, banned attendance figure) or
+        # misattribute itself (wrong utm_source, duplicate utm_content), or
+        # would use a pulled image. Warnings -- art not drawn yet, two posts
+        # competing for a day -- do not fail; those need a human's judgment,
+        # not a script's.
+        run: node scripts/lint-content-queue.js
+
