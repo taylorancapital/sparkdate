@@ -184,6 +184,15 @@
               + '<span class="promo-text">📅 ' + esc(heading) + ': ' + esc(ne.title) + (ne.dateLabel ? ', ' + esc(ne.dateLabel) : '') + '</span>'
               + '<a class="promo-link" href="' + esc(ticketUrl) + '" data-promo="next_mixer">Reserve →</a>'
               + '</div>';
+          } else {
+            // Nothing on the calendar. Without this row the page has NO path
+            // to a ticket at all — and it deliberately carries no nav and no
+            // footer, so a past attendee arriving from the match email would
+            // be stranded with only the Getaways vote below.
+            html += '<div class="promo-row">'
+              + '<span class="promo-text">📅 No date on the calendar yet — we’ll email you as soon as there is one.</span>'
+              + '<a class="promo-link" href="/events?utm_source=matches&utm_medium=web&utm_campaign=matches_page_no_event" data-promo="no_event">See events →</a>'
+              + '</div>';
           }
           html += '<div class="promo-row">'
             + '<span class="promo-text">🌴 Getaways: vote + a shot at a free trip</span>'
@@ -209,7 +218,10 @@
               + '<div class="event-group-title">' + esc(ev.title) + '</div>'
               + '<div class="event-group-date">' + esc(dateStr) + '</div></div>';
             if (!ev.attendees || ev.attendees.length === 0) {
-              html += '<div class="empty">No other attendees registered.</div>';
+              // Don't end on a flat sentence — this is still a past attendee
+              // with intent, so give them somewhere to go.
+              html += '<div class="empty">No other attendees registered for this one. '
+                + '<a href="/events?utm_source=matches&utm_medium=web&utm_campaign=matches_empty_roster">See what’s coming up →</a></div>';
             } else {
               ev.attendees.forEach(function (a) {
                 html += renderAttendee(a, ev.eventId);
@@ -311,8 +323,17 @@
             var msg = ctrl.signal.aborted
               ? 'Connection timed out — check your signal and try again.'
               : (e.message || 'Could not load. Please try the latest link from your email.');
+            // Wired with addEventListener, NOT an inline onclick. `load` is
+            // declared inside this file's IIFE and never reaches `window`, so
+            // `onclick="load()"` threw ReferenceError on click — the one
+            // button on an error page, dead, for a past attendee who arrived
+            // from the match email. Same pattern wireUpPromoTracking() uses.
             content.innerHTML = '<h1>Something went wrong.</h1><p class="bad">' + esc(msg) + '</p>'
-              + '<button class="connect-btn" onclick="load()" style="display:block;margin:16px auto 0;">Retry</button>';
+              + '<button class="connect-btn" id="retryBtn" style="display:block;margin:16px auto 0;">Retry</button>'
+              + '<p class="sub" style="text-align:center;margin-top:18px;">'
+              + '<a href="/events?utm_source=matches&utm_medium=web&utm_campaign=matches_error">Browse upcoming events →</a></p>';
+            var retryBtn = document.getElementById('retryBtn');
+            if (retryBtn) retryBtn.addEventListener('click', function () { load(); });
           }
         }
 
