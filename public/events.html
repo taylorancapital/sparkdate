@@ -2021,16 +2021,26 @@
                 // response fills it in from confirmCardPayment's own result.
                 let purchasePaymentIntentId = result.paymentIntentId || null;
 
+                // Whether the card cleared authentication during THIS submit —
+                // distinct from `!result.duplicate`. See the long note on the
+                // matching block in event.html.
+                let authedThisSubmit = false;
+
                 if (result.requiresAction) {
                     if (typeof gtag === 'function') gtag('event', 'checkout_3ds_required', { in_app_browser: isInAppBrowserModal() });
                     const { error: confirmError, paymentIntent } = await stripeModal.confirmCardPayment(result.clientSecret);
                     if (confirmError) throw new Error(confirmError.message || 'Payment authentication failed.');
                     if (paymentIntent && paymentIntent.status !== 'succeeded') throw new Error('Payment did not complete. Please try again.');
                     if (paymentIntent) purchasePaymentIntentId = paymentIntent.id;
+                    authedThisSubmit = true;
                     if (typeof gtag === 'function') gtag('event', 'checkout_3ds_completed', { in_app_browser: isInAppBrowserModal() });
                 }
 
-                if (!result.duplicate) {
+                // An abandoned-then-resumed 3DS purchase comes back as
+                // `duplicate: true` while genuinely charging the card, so
+                // gating purchase tracking on `duplicate` alone silently lost
+                // the sale from GA4 (Meta was covered by server-side CAPI).
+                if (!result.duplicate || authedThisSubmit) {
                     const purchaseValue = typeof result.amount === 'number' ? result.amount / 100 : ticket + SERVICE_FEE;
                     if (typeof gtag === 'function') {
                         // Unique per PURCHASE, not per event — see the longer
@@ -2050,7 +2060,12 @@
                     }
                 }
 
-                document.getElementById('doneLine').textContent = `We emailed your ${plusOne ? 'tickets' : 'ticket'} to ${email}. Bring nothing but yourself.`;
+                // Already-confirmed duplicate: this submit charged nothing, so
+                // don't describe it as a fresh purchase (see event.html).
+                document.getElementById('doneLine').textContent =
+                    (result.alreadyConfirmed && !authedThisSubmit)
+                        ? `You already have a ticket for this event — we haven't charged you again. Bringing someone? Use the +1 option instead.`
+                        : `We emailed your ${plusOne ? 'tickets' : 'ticket'} to ${email}. Bring nothing but yourself.`;
                 document.getElementById('doneTitle').textContent = evName;
                 const evDate = ev && ev.date && ev.date.toDate ? ev.date.toDate() : (ev && ev.date ? new Date(ev.date) : null);
                 const doneDateValid = evDate instanceof Date && !isNaN(evDate);

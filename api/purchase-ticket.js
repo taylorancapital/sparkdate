@@ -727,9 +727,16 @@ module.exports = async function handler(req, res) {
           amount: dupData.amount,
         });
       }
+      // `duplicate` alone can't tell the browser what actually happened here,
+      // and the two cases need opposite messages. If the existing ticket is
+      // already `confirmed`, this submit bought nothing — the caller already
+      // owns a seat, and telling them "You're confirmed" reads as a second
+      // purchase that never happened. If it is still `pending_3ds`, the
+      // payment simply hasn't cleared authentication yet. Say which.
       return res.status(200).json({
         success: true,
         duplicate: true,
+        alreadyConfirmed: dupData.status === 'confirmed',
         ticketId: dup.id,
         paymentIntentId: paymentIntent.id,
         amount: dupData.amount,
