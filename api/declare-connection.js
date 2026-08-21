@@ -33,6 +33,7 @@ const { admin, requireAuth } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
 const { esc, getNextEventForCity } = require('../lib/next-event');
 const { verifyMatchToken } = require('../lib/profile-link');
+const { EMAIL_FROM, EMAIL_REPLY_TO } = require('../lib/email-sender');
 
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
@@ -175,12 +176,12 @@ async function notifyMatch(aUid, bUid, eventId) {
     const eventName = (evSnap.exists && evSnap.data().title) || 'your SparkDate event';
     const sends = [];
     if (a.email) sends.push(resend.emails.send({
-      from: 'SparkDate <hello@mail.sparkdate.date>', to: a.email,
+      from: EMAIL_FROM, reply_to: EMAIL_REPLY_TO, to: a.email,
       subject: `It's a match — say hi to ${bFirst || 'your match'}`,
       html: matchEmailHTML({ youFirstName: aFirst || 'there', theirName: shortName(b, bRegName), reachLine: reachLineFor(b), eventName, refUid: aUid }),
     }));
     if (b.email) sends.push(resend.emails.send({
-      from: 'SparkDate <hello@mail.sparkdate.date>', to: b.email,
+      from: EMAIL_FROM, reply_to: EMAIL_REPLY_TO, to: b.email,
       subject: `It's a match — say hi to ${aFirst || 'your match'}`,
       html: matchEmailHTML({ youFirstName: bFirst || 'there', theirName: shortName(a, aRegName), reachLine: reachLineFor(a), eventName, refUid: bUid }),
     }));

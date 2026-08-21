@@ -26,6 +26,7 @@ const { SERVICE_FEE_CENTS } = require('../lib/pricing');
 const { seatFields, effectivePrice } = require('../lib/seat-model');
 const { makeProfileUrl } = require('../lib/profile-link');
 const { sameEmailIdentity } = require('../lib/email-identity');
+const { EMAIL_FROM, EMAIL_REPLY_TO } = require('../lib/email-sender');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const db = admin.firestore();
@@ -300,7 +301,8 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
     try {
       if (process.env.RESEND_API_KEY) {
         await resend.emails.send({
-          from: 'SparkDate <hello@mail.sparkdate.date>',
+          from: EMAIL_FROM,
+          reply_to: EMAIL_REPLY_TO,
           to: norm,
           subject: profileUrl
             ? 'Your ticket is in — one quick step to get matched'
@@ -387,7 +389,8 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
 
     if (process.env.RESEND_API_KEY) {
       await resend.emails.send({
-        from: 'SparkDate <hello@mail.sparkdate.date>',
+        from: EMAIL_FROM,
+        reply_to: EMAIL_REPLY_TO,
         to: norm,
         subject: 'Your ticket is in — one quick step to get matched',
         html: welcomeHTML({ eventName, resetLink, profileUrl }),

@@ -23,6 +23,7 @@ const db = admin.firestore();
 
 // Hash email for logging — lets us correlate a lead in logs without storing PII.
 const crypto = require('crypto');
+const { EMAIL_FROM, EMAIL_REPLY_TO, listUnsubscribeHeader } = require('../lib/email-sender');
 const hashEmail = (e) => crypto.createHash('sha256').update(String(e || '').toLowerCase()).digest('hex').slice(0, 12);
 
 // ── Per-IP rate limiting ─────────────────────────────────────────────
@@ -620,7 +621,7 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
         subject = `Your ticket for ${eventName} is confirmed`;
         html = ebExistingHTML({ firstName: firstName || name, eventName, profileUrl: alreadyCompleted ? null : profileUrl });
       }
-      await resend.emails.send({ from: 'SparkDate <hello@mail.sparkdate.date>', to: norm, subject, html });
+      await resend.emails.send({ from: EMAIL_FROM, reply_to: EMAIL_REPLY_TO, to: norm, subject, html });
       emailSent = true;
     }
   } catch (e) {
@@ -858,7 +859,8 @@ async function handleCheckin(req, res) {
       if (process.env.RESEND_API_KEY) {
         const resend = new Resend(process.env.RESEND_API_KEY);
         await resend.emails.send({
-          from: 'SparkDate <hello@mail.sparkdate.date>',
+          from: EMAIL_FROM,
+          reply_to: EMAIL_REPLY_TO,
           to: email,
           subject: `Complete your profile — get matched after ${eventTitle}`,
           html: checkinProfileHTML({ firstName, eventName: eventTitle, profileUrl }),
@@ -913,13 +915,14 @@ async function sendWelcomeEmail(email, firstName, leadRef) {
     p('See you there,<br>The SparkDate Team')
   ).replace(/__UNSUB__/g, unsubUrl);
   const emailResult = await resend.emails.send({
-    from: 'SparkDate <hello@mail.sparkdate.date>',
+    from: EMAIL_FROM,
+    reply_to: EMAIL_REPLY_TO,
     to: email,
     subject: 'Your app matched you. We host the date. 🎯',
     headers: {
       // RFC 8058 one-click unsubscribe. Required by Gmail and a strong
       // deliverability signal for everyone else.
-      'List-Unsubscribe':      `<${unsubUrl}>, <mailto:hello@sparkdate.date?subject=Unsubscribe>`,
+      'List-Unsubscribe':      listUnsubscribeHeader(unsubUrl),
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     },
     html: welcomeHtml,

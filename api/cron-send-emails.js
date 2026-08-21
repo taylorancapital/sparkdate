@@ -21,6 +21,7 @@ const { makeProfileUrl, makeMatchUrl } = require('../lib/profile-link');
 const { EMAIL_CAMPAIGNS: UTM, buildUtmUrl } = require('../lib/utm');
 const { getNextEvent, normalizeEvent, eventCardHtml, ctaButtonHtml, ctaLinkHtml, urgencyBox, shell, h1, p, esc } = require('../lib/next-event');
 const { buildAttendanceIndex } = require('../lib/attendance-index');
+const { EMAIL_FROM, EMAIL_REPLY_TO, listUnsubscribeHeader } = require('../lib/email-sender');
 
 const db = admin.firestore();
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -393,7 +394,8 @@ async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event,
 
     try {
       const result = await resend.emails.send({
-        from:    'SparkDate <hello@mail.sparkdate.date>',
+        from:    EMAIL_FROM,
+        reply_to: EMAIL_REPLY_TO,
         to:      lead.email,
         subject: tmpl.subject,
         // Per-lead unsubscribe URL is interpolated AFTER template render —
@@ -402,7 +404,7 @@ async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event,
         html:    tmpl.html(firstName, event, ctaUrl).replace(/__UNSUB__/g, unsubUrl),
         // RFC 8058: native one-click unsubscribe for Gmail / iOS / Outlook.
         headers: {
-          'List-Unsubscribe':      `<${unsubUrl}>, <mailto:hello@sparkdate.date?subject=Unsubscribe>`,
+          'List-Unsubscribe':      listUnsubscribeHeader(unsubUrl),
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       });
@@ -497,7 +499,8 @@ async function sendProfileReminders(nowMs, emailedThisRun) {
         try {
           const profileUrl = makeProfileUrl(r.userId);
           const result = await resend.emails.send({
-            from: 'SparkDate <hello@mail.sparkdate.date>',
+            from: EMAIL_FROM,
+            reply_to: EMAIL_REPLY_TO,
             to: u.email,
             subject: `Before ${eventName} — a 60-second profile so we can match you`,
             html: profileReminderHTML({ eventName, profileUrl }),
@@ -636,7 +639,8 @@ async function sendPreEventEmails(nowMs, emailedThisRun) {
         const msg = preEventEmailFor(stage, firstName, ev, tonight);
         try {
           const result = await resend.emails.send({
-            from: 'SparkDate <hello@mail.sparkdate.date>',
+            from: EMAIL_FROM,
+            reply_to: EMAIL_REPLY_TO,
             to: r.email,
             subject: msg.subject,
             html: msg.html,
@@ -835,7 +839,8 @@ async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resen
         if (!email) { skipped++; continue; }
         try {
           const result = await resend.emails.send({
-            from: 'SparkDate <hello@mail.sparkdate.date>',
+            from: EMAIL_FROM,
+            reply_to: EMAIL_REPLY_TO,
             to: email,
             subject: `Who did you click with at ${eventName}?`,
             html: postEventPromptHTML({
@@ -1020,12 +1025,13 @@ async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAt
 
       try {
         const result = await resend.emails.send({
-          from: 'SparkDate <hello@mail.sparkdate.date>',
+          from: EMAIL_FROM,
+          reply_to: EMAIL_REPLY_TO,
           to: u.email,
           subject: `${copy.subjectLead} ${event.title} is coming up`,
           html,
           headers: {
-            'List-Unsubscribe': `<${unsubUrl}>, <mailto:hello@sparkdate.date?subject=Unsubscribe>`,
+            'List-Unsubscribe': listUnsubscribeHeader(unsubUrl),
             'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
           },
         });
@@ -1101,7 +1107,8 @@ async function sendWeeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByE
         .replace(/__UNSUB__/g, unsubUrl);
 
       const result = await resend.emails.send({
-        from: 'SparkDate <hello@mail.sparkdate.date>',
+        from: EMAIL_FROM,
+        reply_to: EMAIL_REPLY_TO,
         to: lead.email,
         subject: tpl.subject,
         html,
@@ -1198,7 +1205,8 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun,
       ).replace(/__UNSUB__/g, unsubUrl);
 
       const result = await resend.emails.send({
-        from: 'SparkDate <hello@mail.sparkdate.date>',
+        from: EMAIL_FROM,
+        reply_to: EMAIL_REPLY_TO,
         to: lead.email,
         subject: `${event.title} is coming up`,
         html,
