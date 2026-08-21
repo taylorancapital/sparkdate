@@ -2055,7 +2055,7 @@
                     <button onclick="loadRetention()" style="padding:7px 14px; background:var(--coral); color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:13px;">↻ Refresh</button>
                 </div>
                 <p style="font-size: 13px; color: rgba(245,243,240,0.55); margin: -6px 0 16px; line-height: 1.6;">
-                    Repeat-buyer rates from <strong>confirmed</strong> ticket purchases (join key: email — covers both guests and members). Use this to decide when to switch subscriptions back on in <code>/signup</code>.
+                    Repeat <strong>attendance</strong> from confirmed <strong>event registrations</strong> — every channel, including door check-ins and Eventbrite imports (join key: userId, falling back to email). Read the histogram counts, not the percentage: at this sample size a single person moves it several points.
                 </p>
                 <div id="retentionBody"><div class="spinner"></div></div>
             </div>
@@ -4857,22 +4857,56 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const root = document.getElementById('retentionBody');
             root.innerHTML = '<div class="spinner"></div>';
             try {
-                const [evSnap, tkSnap] = await Promise.all([
-                    getDocs(query(collection(db, 'events'), orderBy('date', 'asc'))),
-                    getDocs(collection(db, 'tickets')),
-                ]);
+                // event_registrations, NOT tickets. This tab used to read the
+                // `tickets` collection, which only api/purchase-ticket.js ever
+                // writes — so every door check-in (api/lead-signup.js writes a
+                // registration with ticketId:null and NO ticket doc) was
+                // invisible to it. Measured on 2026-08-21: the tab saw 43 of
+                // the 46 real attendees, missing 6 registrations, all
+                // source:'checkin'. Eventbrite imports were NOT missing —
+                // enrollEventbriteOne writes a ticket doc too — so this was a
+                // check-in blind spot, not a channel-wide one.
+                //
+                // allRegistrations is already loaded on init (loadAdminEvents)
+                // and already filtered to status==='confirmed', so this costs
+                // no additional reads.
+                const evSnap = await getDocs(query(collection(db, 'events'), orderBy('date', 'asc')));
 
                 const evById = {};
-                evSnap.docs.forEach(d => { evById[d.id] = { id: d.id, ...d.data() }; });
+                const pastEventIds = new Set();
+                evSnap.docs.forEach(d => {
+                    const e = { id: d.id, ...d.data() };
+                    evById[d.id] = e;
+                    const dt = toEventDate(e);
+                    if (dt && !isNaN(dt) && dt.getTime() < Date.now()) pastEventIds.add(d.id);
+                });
 
-                // eventId -> Set(lowercased email) from confirmed tickets only.
+                // eventId -> Set(attendee key).
+                //
+                // Key on EMAIL first, uid only as a fallback. Keying on uid
+                // looks more precise and is wrong here: one person in this
+                // data holds two Firebase uids under a single email (three
+                // registrations spanning both past events), so a uid key
+                // splits one human into two — and can turn a real repeat
+                // attendee into two apparent first-timers. Email is how a
+                // person is actually identified across the door flow,
+                // Eventbrite imports and native checkout, and it is the join
+                // this tab has always used.
                 const emailsByEvent = {};
-                tkSnap.docs.forEach(d => {
-                    const t = d.data();
-                    if (t.status !== 'confirmed' || !t.eventId || !t.email) return;
-                    const key = String(t.eventId);
-                    (emailsByEvent[key] = emailsByEvent[key] || new Set())
-                        .add(String(t.email).toLowerCase());
+                let regsConsidered = 0, regsCheckedIn = 0;
+                allRegistrations.forEach(r => {
+                    if (!r.eventId) return;
+                    const key = (r.email ? String(r.email).toLowerCase().trim() : '') || r.userId || '';
+                    if (!key) return;
+                    // Check-in coverage is only meaningful for events that have
+                    // HAPPENED — counting upcoming registrations in the
+                    // denominator dragged it from 61% to 33% and made a healthy
+                    // number look alarming.
+                    if (pastEventIds.has(r.eventId)) {
+                        regsConsidered++;
+                        if (r.checkedInAt) regsCheckedIn++;
+                    }
+                    (emailsByEvent[r.eventId] = emailsByEvent[r.eventId] || new Set()).add(key);
                 });
 
                 // Events that actually sold ≥1 confirmed ticket, oldest first.
@@ -4906,12 +4940,44 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 sold.forEach(s => s.emails.forEach(em => unique.add(em)));
                 const avg = sold.length ? Math.round(sold.reduce((n, s) => n + s.count, 0) / sold.length) : 0;
 
+                // ── Repeat attendance ──────────────────────────────────
+                // The headline number, and the one that was missing. Counts
+                // DISTINCT PAST events per attendee: a person is a repeat
+                // attendee only if they showed up to two different nights.
+                // Upcoming events are excluded — holding a ticket for next
+                // week is not attendance, the same distinction
+                // lib/attendance-index.js draws for the email audiences.
+                //
+                // Deliberately shown as a histogram rather than only a
+                // percentage. At n=46 the COUNT of people crossing 1 -> 2 is
+                // readable; the percentage is not (7/46 carries a 95% CI of
+                // roughly 6-29%).
+                const now = Date.now();
+                const eventsPerAttendee = new Map();
+                sold.forEach(s => {
+                    if (!s.dt || isNaN(s.dt) || s.dt.getTime() >= now) return; // past only
+                    s.emails.forEach(k => {
+                        if (!eventsPerAttendee.has(k)) eventsPerAttendee.set(k, new Set());
+                        eventsPerAttendee.get(k).add(s.id);
+                    });
+                });
+                const attendedCounts = [...eventsPerAttendee.values()].map(set => set.size);
+                const repeat = {
+                    attendees: attendedCounts.length,
+                    once: attendedCounts.filter(n => n === 1).length,
+                    twice: attendedCounts.filter(n => n === 2).length,
+                    thricePlus: attendedCounts.filter(n => n >= 3).length,
+                    repeaters: attendedCounts.filter(n => n >= 2).length,
+                };
+                repeat.rate = repeat.attendees ? (repeat.repeaters / repeat.attendees * 100) : 0;
+
                 renderRetention({
-                    sold, retention,
+                    sold, retention, repeat,
                     totalEvents: sold.length,
                     unique: unique.size,
                     avg,
                     last: sold.length ? sold[sold.length - 1].dateLabel : 'TBD',
+                    checkinCoverage: { seen: regsCheckedIn, total: regsConsidered },
                 });
             } catch (err) {
                 console.error('[retention] load error:', err);
@@ -4923,7 +4989,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         function renderRetention(d) {
             const root = document.getElementById('retentionBody');
             if (!d.totalEvents) {
-                root.innerHTML = '<p class="empty">No confirmed ticket sales yet. This populates once your first event sells tickets.</p>';
+                root.innerHTML = '<p class="empty">No confirmed registrations yet. This populates once your first event has attendees.</p>';
                 return;
             }
             const stat = (label, val) => `
@@ -4934,11 +5000,63 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
             const cards = `
                 <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-bottom:28px;">
-                    ${stat('Events w/ Sales', d.totalEvents)}
-                    ${stat('Unique Buyers', d.unique)}
-                    ${stat('Avg Tickets/Event', d.avg)}
+                    ${stat('Events w/ Attendance', d.totalEvents)}
+                    ${stat('Unique Attendees', d.unique)}
+                    ${stat('Avg Attendees/Event', d.avg)}
                     ${stat('Latest Event', safe(d.last))}
                 </div>`;
+
+            // Repeat attendance — the headline. Distinct PAST events per
+            // person, so "repeat" means genuinely came back, not "bought two
+            // tickets to one night".
+            const r = d.repeat || { attendees: 0, once: 0, twice: 0, thricePlus: 0, repeaters: 0, rate: 0 };
+            const bar = (label, n, color) => {
+                const pct = r.attendees ? (n / r.attendees * 100) : 0;
+                return `
+                    <div style="margin-bottom:10px;">
+                        <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary); margin-bottom:4px;">
+                            <span>${label}</span><span><strong style="color:var(--white);">${n}</strong> · ${pct.toFixed(0)}%</span>
+                        </div>
+                        <div style="height:10px; background:var(--surface-hover); border-radius:5px; overflow:hidden;">
+                            <div style="height:100%; width:${pct.toFixed(1)}%; background:${color}; border-radius:5px;"></div>
+                        </div>
+                    </div>`;
+            };
+            const repeatBlock = r.attendees ? `
+                <div class="card" style="margin-bottom:28px;">
+                    <div class="card-header" style="margin-bottom:6px;">
+                        <h2 class="card-title">Repeat attendance</h2>
+                        <span style="font-size:11px;color:var(--text-faint);">distinct past events per person</span>
+                    </div>
+                    <div style="display:flex; align-items:baseline; gap:12px; margin:4px 0 18px;">
+                        <div style="font-family:var(--font-display); font-size:38px; font-weight:800; color:var(--coral); line-height:1;">
+                            ${r.repeaters}<span style="font-size:20px; color:var(--text-muted);"> / ${r.attendees}</span>
+                        </div>
+                        <div style="font-size:20px; font-weight:700; color:var(--white);">${r.rate.toFixed(1)}%</div>
+                        <div style="font-size:11px; color:var(--text-faint);">came to 2+ events</div>
+                    </div>
+                    ${bar('Attended once', r.once, 'var(--text-faint)')}
+                    ${bar('Attended twice', r.twice, 'var(--coral)')}
+                    ${bar('Attended 3+ times', r.thricePlus, 'var(--success)')}
+                    <p style="font-size:11px; color:var(--text-faint); margin:14px 0 0; line-height:1.6;">
+                        Watch the <strong>count</strong> of people moving from "once" to "twice" after each event —
+                        at this sample size the percentage swings too much to read. This is event attendance,
+                        not website visits: a GA4 "retention" figure measures people returning to the site and is a
+                        different number entirely.
+                    </p>
+                </div>` : '';
+
+            const cov = d.checkinCoverage || { seen: 0, total: 0 };
+            const covPct = cov.total ? (cov.seen / cov.total * 100) : 0;
+            const coverageBlock = cov.total ? `
+                <div style="font-size:12px; color:var(--text-muted); background:var(--surface); border:1px solid var(--hairline);
+                            border-radius:6px; padding:12px 16px; margin-bottom:28px; line-height:1.6;">
+                    <strong style="color:var(--white);">Digital check-in coverage: ${cov.seen} / ${cov.total} (${covPct.toFixed(0)}%)</strong>
+                    — how many confirmed registrations were scanned at the door. This is
+                    <em>coverage of the check-in flow</em>, not a no-show rate: Eventbrite imports and anyone who
+                    never scanned are legitimately confirmed with no timestamp, so a missing check-in does not mean
+                    somebody failed to turn up.
+                </div>` : '';
 
             const rateRows = d.retention.length
                 ? d.retention.map(r => `
@@ -4950,7 +5068,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <td style="text-align:center;"><span style="background:${retentionColor(r.rate)}; padding:4px 10px; border-radius:4px; font-weight:700;">${r.rate.toFixed(1)}%</span></td>
                         <td style="text-align:center;">${r.newcomers}</td>
                     </tr>`).join('')
-                : '<tr><td colspan="5" class="empty">Need at least 2 events with sales to compute return rates.</td></tr>';
+                : '<tr><td colspan="5" class="empty">Need at least 2 events with attendance to compute return rates.</td></tr>';
 
             const table = `
                 <h3 style="margin:0 0 14px; color:var(--white);">Return Rate (event → next event)</h3>
@@ -4958,7 +5076,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     <table>
                         <thead><tr>
                             <th>From → To</th>
-                            <th style="text-align:center;">Buyers</th>
+                            <th style="text-align:center;">Attendees</th>
                             <th style="text-align:center;">Returned</th>
                             <th style="text-align:center;">Return %</th>
                             <th style="text-align:center;">New</th>
@@ -4968,7 +5086,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 </div>`;
 
             const timeline = `
-                <h3 style="margin:32px 0 14px; color:var(--white);">Tickets per Event</h3>
+                <h3 style="margin:32px 0 14px; color:var(--white);">Attendees per Event</h3>
                 <div style="display:flex; flex-direction:column; gap:10px;">
                     ${d.sold.map(s => `
                         <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px; background:rgba(255,255,255,0.03); border-left:4px solid var(--coral); border-radius:4px;">
@@ -4976,11 +5094,11 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                                 <div style="font-size:12px; color:rgba(245,243,240,0.5);">${safe(s.venue)}</div></div>
                             <div style="text-align:right;">
                                 <div style="font-size:20px; font-weight:800; color:var(--coral);">${s.count}</div>
-                                <div style="font-size:11px; color:rgba(245,243,240,0.5);">buyers</div></div>
+                                <div style="font-size:11px; color:rgba(245,243,240,0.5);">attendees</div></div>
                         </div>`).join('')}
                 </div>`;
 
-            root.innerHTML = cards + table + timeline;
+            root.innerHTML = cards + repeatBlock + coverageBlock + table + timeline;
         }
 
         // ─── FUNNEL (Lead → Buyer conversion + source attribution) ──
