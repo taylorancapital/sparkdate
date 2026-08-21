@@ -86,9 +86,10 @@ const EMAILS = {
         h1("Here's exactly what to expect.") +
         p(lede(firstName, `nervous? Don't be. Here's how a SparkDate night actually runs:`)) +
         `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">
-          <strong>Doors at ${doors}.</strong> Check in, grab a name tag (first name only).<br>
-          <strong>4 rounds, ~7 minutes each.</strong> A real conversation with a dozen-plus people.<br>
-          <strong>A bell marks each switch.</strong> No scripts, no pressure.<br>
+          <strong>Doors at ${doors}.</strong> Check in and say hi to your host.<br>
+          <strong>First 15&ndash;20 minutes: open mixing.</strong> Grab a drink, settle in, talk to whoever's nearby.<br>
+          <strong>Then we break into tables.</strong> An icebreaker to get conversation going &mdash; cards and prompts, nothing you have to prepare for.<br>
+          <strong>You'll move between conversations</strong> so you meet plenty of people &mdash; but it's relaxed. No bell, no stopwatch, no scorecard.<br>
           <strong>Then: open mingling.</strong> Swap numbers with anyone you clicked with.
         </div>` +
         p('Bring yourself and an open mind. Leave the expectations (and the nerves — everyone\'s a little nervous) at the door.') +
@@ -571,9 +572,10 @@ function preEventEmailFor(stage, firstName, ev, tonight) {
         heading: `${ev.title} is ${ev.daysAwayLabel || 'coming up'}.`,
         bodyHtml:
           p(lede(firstName, `your spot is locked in. Here's exactly how the night runs:`)) +
-          infoBox(`<strong>Doors at ${doors}.</strong> Check in, grab a name tag (first name only).<br>
-<strong>4 rounds, ~7 minutes each.</strong> A real conversation with a dozen-plus people.<br>
-<strong>A bell marks each switch.</strong> No scripts, no pressure.<br>
+          infoBox(`<strong>Doors at ${doors}.</strong> Check in and say hi to your host.<br>
+<strong>First 15&ndash;20 minutes: open mixing.</strong> Grab a drink, settle in, talk to whoever's nearby.<br>
+<strong>Then we break into tables.</strong> An icebreaker to get conversation going &mdash; cards and prompts, nothing to prepare.<br>
+<strong>You'll move between conversations</strong> so you meet plenty of people &mdash; but it's relaxed. No bell, no stopwatch.<br>
 <strong>Then: open mingling.</strong> Stay as long as you like.`) +
           eventCardHtml(ev) +
           p(`And the best part: at <strong>9pm that night</strong>, we'll email you a private link to tell us who you clicked with. If they pick you too, we swap contact info — no missed signals, no awkward Instagram hunt.`) +
@@ -590,7 +592,7 @@ function preEventEmailFor(stage, firstName, ev, tonight) {
       bodyHtml:
         p(lede(firstName, `quick rundown so ${when} is effortless:`)) +
         infoBox(`<strong>Doors at ${doors}</strong> · ${esc(ev.venueLabel)}.<br>
-Arrive a few minutes early to check in and grab a name tag.<br>
+Arrive a few minutes early to check in — the first 15&ndash;20 minutes are open mixing, so there's no hard start to miss.<br>
 Just bring your phone — everything else is handled.`) +
         eventCardHtml(ev) +
         p(`At <strong>9pm ${when}</strong>, check your email: you'll get a private link to pick who you clicked with. Mutual picks swap contact info directly.`) +
