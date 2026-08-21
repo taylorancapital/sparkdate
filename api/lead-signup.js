@@ -903,11 +903,11 @@ async function sendWelcomeEmail(email, firstName, leadRef) {
     p(`Hey ${safeFirstName},`) +
     p('You know that feeling when you match on an app and then... three weeks of texting and still no actual date?') +
     p('Yeah. We built SparkDate to skip that part.') +
-    p('We host real, in-person mixers in Lancaster and Philadelphia. You show up, meet a dozen-plus people in short, low-pressure rounds, and swap numbers with anyone you click with. No swiping. No pen-pal phase. Just actual meetings.') +
+    p('We host real, in-person mixers in Lancaster and Philadelphia. You show up, meet a room full of people over an evening of low-pressure conversation, and swap numbers with anyone you click with. No swiping. No pen-pal phase. Just actual meetings.') +
     eventCardHtml(nextEvent) +
     ctaButtonHtml(ctaUrl, 'Get Tickets') +
     `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">
-      <strong>How it works:</strong> arrive &amp; check in → 4 rounds, ~7 min each → meet 12+ people → swap info if you vibe. That's it.
+      <strong>How it works:</strong> arrive &amp; check in → 15&ndash;20 min open mixing, grab a drink → break into tables for an icebreaker → move between conversations at a relaxed pace → swap info if you vibe. That's it.
     </div>` +
     p('Questions? Just reply to this email.') +
     p('See you there,<br>The SparkDate Team')
