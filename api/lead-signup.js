@@ -215,7 +215,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Allowlist of lead sources the client may declare. Anything else is
 // coerced to 'founding_form' so an attacker can't inject arbitrary source
 // strings into our analytics. Keep in sync with the public forms.
-const ALLOWED_SOURCES = new Set(['founding_form', 'newsletter', 'referral', 'ad_landing', 'blog', 'exit_intent']);
+// 'waitlist' = someone hit a SOLD-OUT event page and asked to be told when a
+// seat frees up or the next date lands. Highest-intent lead there is: they
+// already chose a specific night and only capacity stopped them.
+const ALLOWED_SOURCES = new Set(['founding_form', 'newsletter', 'referral', 'ad_landing', 'blog', 'exit_intent', 'waitlist']);
 
 // city.html sends `city_${cityParam}` (e.g. 'city_philadelphia'), one per
 // live/future city — a regex instead of enumerating each one here, so a
@@ -1062,12 +1065,22 @@ module.exports = async function handler(req, res) {
     // cron treats a missing flag as "not sent", so it would still work
     // without them — but initializing them keeps the data model honest
     // and makes the admin Leads tab's progress pills accurate from day 1.
+    // Which sold-out event sent them here. Only meaningful for source
+    // 'waitlist', and stored so the list is queryable per event ("who wanted
+    // into Tellus") rather than being one undifferentiated pile — that is the
+    // whole point of capturing it at the sell-out moment instead of just
+    // adding another newsletter subscriber.
+    const waitlistEventId = source === 'waitlist' ? (clean(req.body?.eventId, 128) || null) : null;
+    const waitlistEventName = source === 'waitlist' ? (clean(req.body?.eventName, 200) || null) : null;
+
     const docRef = await db.collection('leads').add({
       name,
       email,
       phone,
       source,
       referredBy: ref,
+      ...(waitlistEventId ? { waitlistEventId } : {}),
+      ...(waitlistEventName ? { waitlistEventName } : {}),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       welcome_sent: false,
       subscribed: true,
