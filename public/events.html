@@ -2033,8 +2033,14 @@
                 if (!result.duplicate) {
                     const purchaseValue = typeof result.amount === 'number' ? result.amount / 100 : ticket + SERVICE_FEE;
                     if (typeof gtag === 'function') {
+                        // Unique per PURCHASE, not per event — see the longer
+                        // note on the matching call in event.html, including
+                        // why the last fallback is a fresh unique string rather
+                        // than evId.
                         gtag('event', 'purchase', {
-                            transaction_id: evId, value: parseFloat(purchaseValue.toFixed(2)), currency: 'USD',
+                            transaction_id: purchasePaymentIntentId || result.ticketId
+                                || ('tx_' + evId + '_' + Date.now()),
+                            value: parseFloat(purchaseValue.toFixed(2)), currency: 'USD',
                             items: [{ item_id: evId, item_name: evName, price: parseFloat(ticket.toFixed(2)) }]
                         });
                     }

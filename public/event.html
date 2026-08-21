@@ -1735,8 +1735,27 @@
                         ? result.amount / 100
                         : ticket + SERVICE_FEE;
 
+                    // transaction_id must be unique PER PURCHASE. It used to be
+                    // evId — the event id — so every ticket ever sold to one
+                    // event shared a single transaction_id, which is the key
+                    // GA4 dedupes its transaction metric on: a whole event's
+                    // sales collapsed into one. The PaymentIntent id is the
+                    // right granularity — one per charge, so a "+1" checkout
+                    // (two tickets, one payment, one gtag call) stays one
+                    // transaction — falling back to the primary ticket's doc
+                    // id, which the API returns on every path.
+                    //
+                    // The LAST fallback is deliberately a fresh unique string
+                    // and NOT evId. Falling back to the event id would silently
+                    // restore the exact collision this replaced, in the one
+                    // situation nobody is watching (a trimmed response body, a
+                    // changed API shape) and with nothing in the data to show
+                    // the fallback fired. A per-call id is wrong-but-unique,
+                    // which is recoverable; evId is wrong-and-merged, which is
+                    // not. item_id stays evId: that one IS the product.
                     gtag('event', 'purchase', {
-                        transaction_id: evId,
+                        transaction_id: purchasePaymentIntentId || result.ticketId
+                            || ('tx_' + evId + '_' + Date.now()),
                         value: parseFloat(purchaseValue.toFixed(2)),
                         currency: 'USD',
                         items: [{ item_id: evId, item_name: evName, price: parseFloat(ticket.toFixed(2)) }]

@@ -32,6 +32,54 @@ GA4 CSV quirks to handle so you don't misread the data:
   don't hardcode.
 - If the export is empty, malformed, or you can't confidently identify
   the columns, STOP and say so in the PR rather than guessing at numbers.
+- GA4 REVENUE IS NOT TOTAL REVENUE, IN EITHER DIRECTION. Never present a
+  GA4 revenue figure as the business's sales, and never treat a gap
+  between it and the admin dashboard as a tracking bug without checking
+  both of the following first. The admin dashboard (Firestore) is the
+  revenue source of truth.
+
+  UNDER-COUNTS — every admin-enrolled ticket is invisible. ALL FIVE import
+  channels in api/lead-signup.js's IMPORT_CHANNELS (eventbrite, meetup,
+  direct, comp, correction — the last two writing source `manual_import`)
+  go through the same server-side enrollEventbriteOne() path, which fires
+  no gtag, no fbq, and no Meta CAPI Purchase (its only CAPI calls are Lead
+  events). Those buyers never load a page of ours, so there is nothing
+  client-side to fire. `direct` and `correction` write a real priceCents
+  into the ticket `amount` exactly like Eventbrite does — do NOT assume
+  only Eventbrite/Meetup are affected just because they dominated the one
+  snapshot below.
+
+  OVER-COUNTS — GA4 revenue is not purely tickets. public/account.html
+  fires a gtag `purchase` on any successful subscription tier change,
+  valued at the TIERS list price, gated only on the tier existing. That
+  includes downgrades, and the `free`/Spark tier carries price 9.99 in
+  that map, so a change to a nominally free tier can emit $9.99 of GA4
+  revenue against no charge at all. Subscriptions are currently paused (0
+  active), so this contributed nothing to the snapshot below — but the
+  identity "GA4 revenue == own-site ticket revenue" is not structurally
+  true and must not be relied on if subscriptions resume.
+
+  Measured 2026-08-21 (02:38 UTC): Firestore held $1,629.90 across 97
+  tickets, of which $870.18 (61 tickets) was eventbrite_import and $24.99
+  was meetup_import, with manual_import at $0.00 — 55% of revenue GA4
+  could not see. GA4 reported $743.73 against $734.73 of genuinely
+  own-site sales, a residual of $9.00 (1.22%) that is NOT explained; do
+  not cite it as agreement without re-deriving it.
+
+  Also note the "eventbrite / listing" source row in GA4 is NOT those
+  imported sales — it is people who clicked an Eventbrite listing and then
+  bought on our own site.
+- GA4 TRANSACTION COUNTS CHANGE MEANING ON 2026-08-20. Before that date
+  `transaction_id` was the EVENT id, so every ticket sold to one event
+  shared a single id and GA4's transaction metric deduplicated them.
+  After, it is the PaymentIntent id — one per charge. Any week-over-week
+  comparison spanning that date will show a large apparent jump in
+  transactions and ecommerce purchases that is an instrumentation change,
+  not growth. Say so explicitly rather than reporting it as improvement.
+- Meta's campaign-level purchase counts are AD-ATTRIBUTED conversions, a
+  deliberately stricter measure than "all purchases." A number far below
+  the site's total purchase count is expected and is not on its own
+  evidence that the pixel or CAPI is broken.
 
 Then analyze with SparkDate's actual goal in mind — organic traffic that
 converts to TICKET SALES, not just newsletter signups — and produce
