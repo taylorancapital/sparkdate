@@ -143,9 +143,11 @@ all-time daily high), Aug 18 = 50, Aug 19 = **25**.
 
 **Treat Aug 19 as provisional, not as a crash.** The CSV file timestamps show this export was pulled
 on the evening of Aug 19 itself (21:34–21:46), so the day was still in progress and GA4's own
-processing lag had not cleared. This repo's own run log documents **four** prior instances of the
-last day in an export reading catastrophically low and correcting upward once a later export
-included a day past it. The honest read is: *unknown until the next export*. What is **not**
+processing lag had not cleared. This repo's own run log documents **three confirmed** prior instances
+of the last day in an export reading catastrophically low and correcting upward once a later export
+included a day past it (Aug 13: 1.3%→64.9%; Aug 14: 8.3%→64.9%; Aug 17: 2.3%→69.4%), plus a fourth
+predicted for Aug 18 that this export cannot confirm either way — see the caveat at the end. The
+honest read is: *unknown until the next export*. What is **not**
 provisional is that revenue through Aug 18 is unchanged from the last report while a full week of
 $299.76 spend ran.
 
@@ -251,8 +253,11 @@ these webviews where an embedded 3DS iframe does not) is a product/money decisio
 | Cohort week | Size | Returned in week 1 | Rate |
 |---|---|---|---|
 | May 24–30 | 7 | 1 | 14.29% |
+| May 31–Jun 6 | 60 | 0 | 0.00% |
+| Jun 7–13 | 97 | 2 | 2.06% |
 | Jun 14–20 | 43 | 4 | 9.30% |
 | Jun 21–27 | 60 | 7 | 11.67% |
+| Jun 28–Jul 4 | 149 | 0 | 0.00% |
 | Jul 5–11 | 154 | 1 | 0.65% |
 | Jul 12–18 | 133 | 1 | 0.75% |
 | Jul 19–25 | 216 | 3 | 1.39% |
@@ -261,14 +266,40 @@ these webviews where an embedded 3DS iframe does not) is a product/money decisio
 | **Aug 9–15** | **484** | **11** | **2.27%** |
 | Aug 16–19 (partial) | 247 | 0 | 0.00% |
 
-The three small early cohorts (7/43/60 users, pre-paid-scale) returned at **9–14%**. Every cohort
-since paid traffic scaled returns at **0.65–2.27%**, and the largest cohort ever recorded (484 users,
-Aug 9–15) sits at **2.27%**. Across all cohorts, **39 of 2,097 users ever came back**.
+*(All thirteen cohorts, summing to 2,097 users and 39 week-1 returns. The three zero-rate rows —
+May 31–Jun 6, Jun 28–Jul 4, Aug 16–19 — have no week-1 line in `download (6).csv` at all: GA4
+suppresses zero rows, which is visible in that the May 31 cohort jumps straight from week 0 to
+week 2. An earlier draft of this table dropped those rows plus Jun 7–13, which is what made the
+pre-scale range look like a clean 9–14%.)*
 
-This is the retention signature of one-and-done paid clicks rather than an audience. It is
-consistent with, and probably the same underlying story as, the 65.8% of traffic / 8.1% of revenue
-paid-social split. Worth reading alongside the fact that `first_visit` = 2,118 against
-`session_start` = 3,217 — 65.8% of sessions are somebody's first and only one.
+With all thirteen cohorts in view the picture is noisier than a clean before/after. The pre-scale
+cohorts did not return at a steady 9–14%; they ranged from **0.00% to 14.29%** (May 31–Jun 6 and
+Jun 28–Jul 4 both returned nobody), on cohorts of 7 to 149 users where a single visitor moves the
+rate by whole percentage points. Treat that whole early stretch as too small to read a rate from.
+
+What the larger, later cohorts show is a low rate that is **rising, not collapsing**: 0.65% →
+0.75% → 1.39% → 1.85% → 2.26% → **2.27%** across Jul 5 through Aug 15, with the largest cohort ever
+recorded (484 users) at the top of that run. The level is low in absolute terms. The direction over
+the last six weeks is upward.
+
+Across all cohorts, **39 users came back in week 1 — 2.1% of the 1,850 whose week-1 window has
+actually closed.** The 247-user Aug 16–19 cohort is excluded from that denominator: the export ends
+Aug 19, so those users have had three days, not a week, and counting them as non-returners would
+score a window that hasn't opened yet as a failure.
+
+Week 1 is not the whole story, though. Summing every later week as well gives **74 return events
+across all cohorts** — so the number who came back *at any point* is higher than 39. It cannot be
+pinned down exactly from this export: a cohort table counts a person once per week they return, and
+the Jun 7–13 cohort alone shows returns in all ten of its weeks, which is far more likely to be a
+few repeat visitors than ten separate people. The honest range for "ever returned" is somewhere
+between 39 and 74 of 1,850 — call it **2–4%**.
+
+A ~2% week-1 rate is still the retention signature of largely one-and-done paid clicks rather than
+an audience, and it is consistent with the 65.8% of traffic / 8.1% of revenue paid-social split and
+with `first_visit` = 2,118 against `session_start` = 3,217 — 65.8% of sessions are somebody's first
+and only one. What the complete table does *not* support is the stronger claim that retention
+collapsed when paid traffic scaled: the low rates arrived alongside the first large cohorts and have
+improved slowly since.
 
 ---
 
@@ -416,10 +447,14 @@ revenue in the window is `google / organic` ($27.49) and `google / cpc` ($27.49)
    already names **Stripe hosted Checkout** (full-page redirect, survives webviews) as the fix. That
    is a payments-architecture decision. *Re-check in ~1 week:* `in_app_browser_escape_attempt` as a
    share of `in_app_browser_detected` (currently 8.4%), and whether purchase count moves.
-6. **Week-1 retention has fallen from 9–14% (pre-scale cohorts) to 0.65–2.27% (post-scale).** The
-   484-user Aug 9–15 cohort returned 11 people. If the goal is repeat attendance rather than a
-   one-time ticket, this is the number that says the current traffic isn't building an audience.
-   *Re-check in ~1 week:* week-1 rate for the Aug 16–22 cohort.
+6. **Week-1 retention sits at ~2% and is slowly rising, not collapsing.** The last six measurable
+   cohorts run 0.65% → 0.75% → 1.39% → 1.85% → 2.26% → 2.27%, the top of that run being the largest
+   cohort ever recorded (484 users, 11 returners). The earlier 9–14% figures came from cohorts of
+   7–60 users and sit alongside two pre-scale cohorts that returned 0.00%, so they are noise rather
+   than a lost baseline. The real question is not "why did retention collapse" but "is ~2% good
+   enough" — if the goal is repeat attendance rather than one-time tickets, it isn't, and the lever
+   is the post-event follow-up rather than the traffic mix. *Re-check in ~1 week:* week-1 rate for
+   the Aug 16–22 cohort, which should be the first fully-closed window above 484 users.
 7. **Philadelphia vs. Lancaster is 17.8× revenue-per-user in Lancaster's favour**, stable across
    three reports, on a small transaction base. Geo-allocation is a business call.
 8. **`ads_conversion_About_Us_1` should probably stop being a key event** — 48.0% of key events,
@@ -460,7 +495,9 @@ revenue in the window is `google / organic` ($27.49) and `google / cpc` ($27.49)
 - **Aug 19 is a partial, still-processing day.** The GA4 CSVs carry filesystem timestamps of Aug 19
   21:34–21:46, i.e. they were exported during the last day of their own window. Every Aug-19-specific
   figure in this report (revenue $0, 6 item views, 25 paid users, 5 new leads) should be read as
-  provisional. This repo's log documents four prior last-day artifacts that corrected upward.
+  provisional. This repo's log documents three confirmed prior last-day artifacts that corrected
+  upward (Aug 13, 14, 17); a fourth, predicted for Aug 18, is neither confirmed nor refuted by this
+  export — see the next note.
 - **I could not verify the 08-19 report's engagement-rate prediction.** That report predicted Aug 18
   would correct from 3.2% into the 45–70% band. Tonight's 18-file export contains **no
   engagement-rate-by-day report** (the 08-19 export had 23 files including one; this set does not),
