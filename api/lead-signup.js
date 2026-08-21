@@ -17,6 +17,7 @@ const { logEventAttended } = require('../lib/activity-log');
 const { isValidGetawayPackageId } = require('../lib/getaway-packages');
 const { emailLookupVariants, sameEmailIdentity } = require('../lib/email-identity');
 const { sendMetaEvent } = require('../lib/meta-capi');
+const { seatFields } = require('../lib/seat-model');
 
 const db = admin.firestore();
 
@@ -478,6 +479,12 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
         .limit(1)
     );
     const userSnap = await txn.get(userRef);
+    // Read the event too, so the seat counter can be bumped in the same
+    // transaction as the ticket write (see the increment below). Read even
+    // when we may not write it — a Firestore txn forbids reading after a
+    // write, so it cannot be deferred until we know whether it's needed.
+    const eventRef = eventId ? db.collection('events').doc(eventId) : null;
+    const eventSnap = eventRef ? await txn.get(eventRef) : null;
 
     const ticketRef = existingTix.empty
       ? db.collection('tickets').doc(ticketId)
@@ -517,6 +524,30 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
       registeredAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
     }, { merge: true });
+
+    // Take the seat. Until now only api/purchase-ticket.js touched this
+    // counter, so every admin-enrolled ticket was invisible to it — and
+    // `spotsRemaining()` (lib/seat-model.js), which is what /api/next-event
+    // and the landing pages advertise, is capacity MINUS this counter. With
+    // Eventbrite at roughly half of all volume the counter drifted far below
+    // reality and the site advertised seats that did not exist: Tellus
+    // AfterDark sat at counter 10 against 24 real ticket-holders in a
+    // 30-seat room, i.e. 20 more on sale for 6 actual places.
+    //
+    // Two guards:
+    //   existingTix.empty — enrollment is idempotent by (uid, eventId) and
+    //     re-running an import must not bump the counter a second time.
+    //   !chan.comp — a comp is a free seat that earns nothing, and the only
+    //     comps today are the host's own. Counting them would let a host
+    //     seat displace a paying customer. purchase-ticket.js likewise only
+    //     ever counts real purchases, so "sold" keeps one meaning across
+    //     both writers. NOTE: this does mean a comp given to a real GUEST
+    //     occupies a chair without consuming inventory — if comping guests
+    //     becomes routine, either count them here or raise `spots`.
+    if (existingTix.empty && !chan.comp && eventRef && eventSnap && eventSnap.exists) {
+      const { counterField } = seatFields(eventSnap.data(), gender);
+      txn.update(eventRef, { [counterField]: FieldValue.increment(1) });
+    }
   });
 
   // 3. Best-effort: create a `leads` doc so this person enters the
