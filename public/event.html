@@ -313,6 +313,9 @@
         }
         .checkout-btn:hover { transform: translateY(-2px); }
         .checkout-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        /* Honeypot for the sold-out waitlist form — same trick lp.html uses:
+           off-screen and hidden from assistive tech, so only a bot fills it. */
+        .wl-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 
         /* Pre-billing trial disclosure — visible BEFORE the buy button for
            FTC ROSCA compliance (clear & conspicuous material terms,
@@ -623,6 +626,33 @@
 
                     <div class="success-message" id="successMessage"></div>
                     <div class="error-message" id="errorMessage"></div>
+
+                    <!-- Sold-out capture. Swapped in for the checkout form by
+                         renderSpots() when remaining <= 0. Before this, a
+                         sold-out event just said "Sold out" and the visitor
+                         left with nothing recorded — the highest-intent lead
+                         on the site (they picked a specific night; only
+                         capacity stopped them) was discarded. -->
+                    <div id="waitlistBlock" style="display:none;">
+                        <p class="capacity" style="margin-bottom:16px;">
+                            This one's full. Get first refusal on a released seat, and first
+                            word on the next date.
+                        </p>
+                        <form id="waitlistForm">
+                            <input type="text" name="website" class="wl-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+                            <div class="form-group">
+                                <label for="waitlistName">Name</label>
+                                <input type="text" id="waitlistName" placeholder="Jane Doe" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="waitlistEmail">Email</label>
+                                <input type="email" id="waitlistEmail" placeholder="you@email.com" required>
+                            </div>
+                            <button type="submit" class="checkout-btn" id="waitlistBtn">Join the waitlist</button>
+                        </form>
+                        <div class="success-message" id="waitlistSuccess" style="display:none;"></div>
+                        <div class="error-message" id="waitlistError" style="display:none;"></div>
+                    </div>
 
                     <form id="checkoutForm">
                         <div class="form-group">
@@ -1177,6 +1207,17 @@
                 spotsLeftEl.classList.toggle('filled', soldOut || scarce);
             }
 
+            // Sold out: there is nothing to sell, so swap the checkout form for
+            // the waitlist rather than leaving a dead form on screen. Both
+            // toggled explicitly (not just the hide) so a re-render after a
+            // seat is released puts checkout back.
+            const wlBlock = document.getElementById('waitlistBlock');
+            const coForm = document.getElementById('checkoutForm');
+            if (wlBlock && coForm) {
+                wlBlock.style.display = soldOut ? '' : 'none';
+                coForm.style.display = soldOut ? 'none' : '';
+            }
+
             const tag = document.getElementById('eventTag');
             if (!tag) return;
 
@@ -1525,6 +1566,54 @@
         // with any checkout field, so GA4 can measure true form-abandonment
         // rate (started-but-never-submitted), not just final purchase/error.
         let checkoutStartTracked = false;
+        // ── Sold-out waitlist ──────────────────────────────────────
+        // Posts to the same /api/lead-signup the lp.html capture uses, so
+        // these people land in `leads` and inherit the existing nurture and
+        // unsubscribe handling rather than needing a parallel pipeline. The
+        // extra eventId/eventName make the list queryable per event, which is
+        // the point: "who wanted into Tellus" is a mailing list for the next
+        // Tellus date, not just another newsletter signup.
+        document.getElementById('waitlistForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('waitlistBtn');
+            const okEl = document.getElementById('waitlistSuccess');
+            const errEl = document.getElementById('waitlistError');
+            const hp = e.target.querySelector('input[name="website"]');
+            errEl.style.display = 'none';
+            btn.disabled = true;
+            btn.textContent = 'Joining…';
+            try {
+                const res = await fetch('/api/lead-signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('waitlistName').value,
+                        email: document.getElementById('waitlistEmail').value,
+                        source: 'waitlist',
+                        eventId: eventId,
+                        eventName: (eventData && eventData.title) || '',
+                        website: hp ? hp.value : '',
+                    }),
+                });
+                if (!res.ok) throw new Error('Request failed');
+                const data = await res.json().catch(() => ({}));
+                if (typeof gtag === 'function') {
+                    gtag('event', 'generate_lead', { lead_type: 'waitlist', in_app_browser: isInAppBrowser() });
+                }
+                if (typeof fbq !== 'undefined') {
+                    fbq('track', 'Lead', {}, data.lead_id ? { eventID: data.lead_id } : undefined);
+                }
+                document.getElementById('waitlistForm').style.display = 'none';
+                okEl.textContent = "You're on the list. We'll email you the moment a seat opens or the next date is set.";
+                okEl.style.display = 'block';
+            } catch (_) {
+                errEl.textContent = 'Something went wrong. Please try again.';
+                errEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Join the waitlist';
+            }
+        });
+
         document.getElementById('checkoutForm').addEventListener('focusin', () => {
             if (checkoutStartTracked) return;
             checkoutStartTracked = true;
