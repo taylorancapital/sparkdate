@@ -97,6 +97,25 @@ GA4 CSV quirks to handle so you don't misread the data:
   the cutover (it stops counting homepage clicks and starts counting real
   checkouts) and add_payment_info to appear from zero — neither is a
   behaviour change.
+- TWO MORE 2026-08-21 INSTRUMENTATION CHANGES, both of which will look like
+  behaviour if read carelessly:
+  (a) ITEMS-SOLD RISES without more sales. A 2-for-1 purchase delivers two
+  seats on one payment, and the purchase event previously sent no
+  `quantity`, so GA4 counted it as one unit. It now sends the real seat
+  count. Roughly one in five own-site purchases has been a 2-for-1, so
+  items-purchased steps up by about that much at the cutover with no change
+  in demand. Revenue is unaffected — `value` was always the amount charged,
+  and item price is now the per-seat effective price so price x quantity
+  still lands within a cent of ticket revenue.
+  (b) SOLD-OUT EVENTS MAY APPEAR WHERE THEY DID NOT BEFORE. events.html and
+  city.html used to decide sold-out purely from the hand-typed
+  `status === 'full'` label; they now compute it from real capacity, the
+  way event.html always did. Nobody sets that label in practice, so events
+  that fill up will start showing as sold out on the browse and city pages
+  instead of continuing to advertise tickets. A drop in "Reserve" clicks or
+  in event-page traffic after an event fills is that fix working, not
+  demand falling — cross-check against the event's `confirmed` vs `spots`
+  before reading it as a decline.
 - Meta's campaign-level purchase counts are AD-ATTRIBUTED conversions, a
   deliberately stricter measure than "all purchases." A number far below
   the site's total purchase count is expected and is not on its own
