@@ -65,3 +65,13 @@ Thumbs.db
 .claude-gh-token
 .claude-gh-token.txt
 Business Plan/files/Night Tasks/logs/
+
+# ── Untracked credential notes (NEVER commit) ─────────────────────
+# These sit in Business Plan/files/ and hold real values, including
+# META_CAPI_ACCESS_TOKENS. They were never tracked -- these rules exist so a
+# stray `git add -A` cannot make them public, which is exactly how
+# stripe_backup_code.txt ended up readable for 103 days.
+Business Plan/files/Environment Variables.txt
+*Environment Variables*
+*Set env vars*
+*env_vars*
