@@ -137,6 +137,7 @@ const venueFollowUpHTML = (venueName, contactName, city) => {
 
 // Hash email for non-PII logging.
 const crypto = require('crypto');
+const { EMAIL_FROM, EMAIL_REPLY_TO } = require('../lib/email-sender');
 const hashEmail = (e) => crypto.createHash('sha256').update(String(e || '').toLowerCase()).digest('hex').slice(0, 12);
 
 // Which template a venue gets next: the cold-open if they've never been
@@ -194,8 +195,9 @@ module.exports = async function handler(req, res) {
         preview: true,
         venue_id,
         venue_name: venue.name,
-        to:      venue.contact_email || null,
-        from:    OUTREACH_FROM,
+        to:       venue.contact_email || null,
+        from:     OUTREACH_FROM,
+        reply_to: EMAIL_REPLY_TO,
         subject: tpl.subject,
         html:    tpl.html,
         is_follow_up: tpl.isFollowUp,
@@ -240,6 +242,7 @@ module.exports = async function handler(req, res) {
     try {
       emailResult = await resend.emails.send({
         from: OUTREACH_FROM,
+        reply_to: EMAIL_REPLY_TO,
         to: venue.contact_email,
         subject: tpl.subject,
         html: tpl.html,
