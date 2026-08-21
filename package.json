@@ -10,7 +10,12 @@
     "test:run": "vitest run",
     "test:ci": "vitest run --reporter=verbose",
     "social:lint": "node scripts/lint-content-queue.js",
-    "social:import": "python scripts/import-worksheet.py"
+    "social:import": "python scripts/import-worksheet.py",
+    "social:preflight": "node scripts/social-preflight.js",
+    "social:plan": "node scripts/social.js plan",
+    "social:approve": "node scripts/social.js approve",
+    "social:run": "node scripts/social.js run",
+    "social:prep": "python scripts/prep-social-assets.py"
   },
   "dependencies": {
     "firebase": "^10.7.0",
