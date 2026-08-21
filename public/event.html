@@ -1692,6 +1692,12 @@
                 // the PaymentIntent client-side; the Stripe webhook will
                 // promote the server-written ticket from `pending_3ds`
                 // to `confirmed` once Stripe sees success.
+                // Did the card actually clear authentication during THIS
+                // submit? That is a different question from `!result.duplicate`
+                // and the purchase tracking below needs both — see the note
+                // there.
+                let authedThisSubmit = false;
+
                 if (result.requiresAction) {
                     // Instrumentation only (see isInAppBrowser above) — closes
                     // the loop on whether in-app-browser sessions are the ones
@@ -1706,19 +1712,45 @@
                         throw new Error('Payment did not complete. Please try again.');
                     }
                     if (paymentIntent) purchasePaymentIntentId = paymentIntent.id;
+                    authedThisSubmit = true;
                     gtag('event', 'checkout_3ds_completed', { in_app_browser: isInAppBrowser() });
                 }
 
                 // Ticket + event_registrations rows are written server-side
                 // inside /api/purchase-ticket. We no longer write either
                 // collection from the browser (audit #13).
-                successMsg.textContent = "You're confirmed. Check your email for event details.";
+                // An already-`confirmed` duplicate means this submit charged
+                // nothing — the buyer already holds a seat. Saying "You're
+                // confirmed" there reads as a second purchase that did not
+                // happen: no ticket, no charge, and nothing on screen to say
+                // so. Point at the +1 flow, which is the supported way to
+                // bring someone.
+                successMsg.textContent = (result.alreadyConfirmed && !authedThisSubmit)
+                    ? "You already have a ticket for this event — we haven't charged you again. Bringing someone? Use the +1 option instead."
+                    : "You're confirmed. Check your email for event details.";
                 successMsg.style.display = 'block';
 
-                // Track ticket purchase — but only once per real charge. A
-                // resubmit (double-click, or back-button then "buy" again)
-                // returns the SAME PaymentIntent with `duplicate: true`; firing
-                // analytics again would double-count one sale as two purchases.
+                // Track ticket purchase — once per real charge, but never zero
+                // times for one. `duplicate` was doing both jobs and got the
+                // second one wrong: it means "the server already had a ticket
+                // for this PaymentIntent", NOT "analytics already fired".
+                //
+                // The case it broke: 3DS is required, the buyer abandons the
+                // bank prompt (confirmCardPayment throws, so nothing is
+                // tracked), then retries inside Stripe's 24h idempotency
+                // window. Same PaymentIntent comes back, the dup guard in
+                // api/purchase-ticket.js returns `duplicate: true`, the buyer
+                // completes 3DS, and the card IS charged — but this block was
+                // skipped, so GA4 never saw the sale. Meta survived it via the
+                // server-side CAPI Purchase in api/stripe-webhook.js; GA4 has
+                // no server-side path, so that revenue was simply lost.
+                //
+                // So: fire when this submit produced a fresh charge, OR when
+                // it completed the authentication that made an existing
+                // PaymentIntent succeed. Double-firing is now self-limiting
+                // anyway — transaction_id is the PaymentIntent id, so GA4
+                // dedupes a repeat on its own. Undercounting had no such
+                // safety net.
                 //
                 // Value: the server is the source of truth for what was
                 // actually charged (early-bird-aware — see effectivePrice() in
@@ -1730,7 +1762,7 @@
                 // that name shadows the ticketPrice() function across this whole
                 // try block and makes the earlier `const ticket = ticketPrice()`
                 // throw a TDZ ReferenceError, breaking every checkout.
-                if (!result.duplicate) {
+                if (!result.duplicate || authedThisSubmit) {
                     const purchaseValue = typeof result.amount === 'number'
                         ? result.amount / 100
                         : ticket + SERVICE_FEE;
