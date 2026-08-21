@@ -745,6 +745,10 @@
         }
         .checkout-btn:hover { transform: translateY(-2px); }
         .checkout-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        /* Honeypot for the sold-out waitlist — same trick as lp.html and
+           event.html: off-screen and hidden from assistive tech, so only a
+           bot fills it. */
+        .wl-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
         /* One box combining the ROSCA disclosure and the logistics
            reassurance line (secure checkout / free transfer / host on-site)
            — was two separate boxes, merged per Taylor's request. The inner
@@ -1013,6 +1017,31 @@
                     </div>
                     <button type="button" class="checkout-btn" id="toCheckoutBtn">Continue to Checkout</button>
                     <div class="modal-error-message" id="detailsError"></div>
+
+                    <!-- Sold-out capture, shown by openEventDialog() when
+                         isSoldOut(ev). Mirrors event.html's booking-card
+                         waitlist and posts to the same endpoint, so both
+                         surfaces build one per-event list. -->
+                    <div id="modalWaitlist" style="display:none;margin-top:18px;">
+                        <p class="event-modal-blurb" style="margin-bottom:14px;">
+                            This one's full. Get first refusal on a released seat, and first
+                            word on the next date.
+                        </p>
+                        <form id="modalWaitlistForm">
+                            <input type="text" name="website" class="wl-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+                            <div class="form-group">
+                                <label for="modalWaitlistName">Name</label>
+                                <input type="text" id="modalWaitlistName" placeholder="Jane Doe" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="modalWaitlistEmail">Email</label>
+                                <input type="email" id="modalWaitlistEmail" placeholder="you@email.com" required>
+                            </div>
+                            <button type="submit" class="checkout-btn" id="modalWaitlistBtn">Join the waitlist</button>
+                        </form>
+                        <div class="modal-error-message" id="modalWaitlistError" style="display:none;"></div>
+                        <p class="event-modal-blurb" id="modalWaitlistDone" style="display:none;"></p>
+                    </div>
                 </div>
             </div>
 
@@ -1485,11 +1514,12 @@
                 const capacity = totalSpots ? `${totalSpots} spots` : '';
                 const priceVal = ticketPriceFor(ev);
                 const priceLabel = priceVal > 0 ? `$${priceVal}` : 'TBA';
-                const statusLabel = ev.status === 'full' ? 'Full' : ev.status === 'almost' ? 'Almost Full' : 'Open';
+                const evSoldOut = isSoldOut(ev);
+                const statusLabel = evSoldOut ? 'Full' : ev.status === 'almost' ? 'Almost Full' : 'Open';
                 const scene = SCENE_ALTS[i % SCENE_ALTS.length];
 
                 let reserveBtn;
-                if (ev.status === 'full') {
+                if (evSoldOut) {
                     reserveBtn = `<span class="btn disabled">Sold Out</span>`;
                 } else {
                     reserveBtn = `<button type="button" class="btn" data-event-id="${safe(ev.id)}">Reserve</button>`;
@@ -1518,7 +1548,7 @@
                                 <span class="month">${safe(month)}</span>
                                 <span class="day">${day}</span>
                             </div>
-                            <div class="event-status ${ev.status === 'full' ? 'full' : ev.status === 'almost' ? 'almost' : ''}">${safe(statusLabel)}</div>
+                            <div class="event-status ${evSoldOut ? 'full' : ev.status === 'almost' ? 'almost' : ''}">${safe(statusLabel)}</div>
                             ${ev.emoji ? `<span class="event-emoji">${safe(ev.emoji)}</span>` : ''}
                             ${ratingBadge}
                         </div>
@@ -1691,6 +1721,30 @@
             return eventPricing(ev, '').price;
         }
 
+        // Sold out = no seats left, OR the host manually flagged it full.
+        //
+        // This page used to test ONLY `status === 'full'`, a label typed into
+        // the admin event form, while event.html computed it from real
+        // inventory. So an event that genuinely filled up still showed
+        // "Reserve" here and let the buyer all the way into checkout, where
+        // the server refused with a 409 — the two pages disagreed about
+        // whether the same event was purchasable. Mirrors event.html's
+        // calculation exactly, including single-pool vs legacy gender-split
+        // capacity and the `remaining <= 0` test that also catches an event
+        // with no capacity configured at all (nothing to sell either way).
+        function isSoldOut(ev) {
+            if (!ev) return false;
+            if (ev.status === 'full') return true;
+            const singlePool = Number.isFinite(Number(ev.spots));
+            const total = singlePool
+                ? Number(ev.spots)
+                : ((Number(ev.spotsMen) || 0) + (Number(ev.spotsWomen) || 0));
+            const sold = singlePool
+                ? (Number(ev.confirmed) || 0)
+                : ((Number(ev.confirmedMen) || 0) + (Number(ev.confirmedWomen) || 0));
+            return Math.max(0, total - sold) <= 0;
+        }
+
         // The gender selected in the checkout step, or '' before it's picked.
         function modalGender() {
             const el = document.getElementById('modalGender');
@@ -1724,13 +1778,24 @@
             else { blurbEl.style.display = 'none'; }
 
             const price = ticketPriceFor(ev);
-            document.getElementById('detailsPriceLabel').textContent = ev.status === 'full' ? 'Status' : 'Ticket price';
-            document.getElementById('detailsPrice').textContent = ev.status === 'full' ? 'Sold out' : (price > 0 ? money(price) : 'TBA');
+            const dialogSoldOut = isSoldOut(ev);
+            document.getElementById('detailsPriceLabel').textContent = dialogSoldOut ? 'Status' : 'Ticket price';
+            document.getElementById('detailsPrice').textContent = dialogSoldOut ? 'Sold out' : (price > 0 ? money(price) : 'TBA');
             document.getElementById('checkoutForLine').textContent = `${ev.title || 'SparkDate Mixer'} · ${dateLabel}`;
             const toCheckout = document.getElementById('toCheckoutBtn');
-            toCheckout.disabled = ev.status === 'full';
-            toCheckout.textContent = ev.status === 'full' ? 'Sold Out' : 'Continue to Checkout';
+            toCheckout.disabled = dialogSoldOut;
+            toCheckout.textContent = dialogSoldOut ? 'Sold Out' : 'Continue to Checkout';
             document.getElementById('detailsError').style.display = 'none';
+
+            // Sold out: offer the waitlist instead of a dead "Sold Out"
+            // button. Same capture and the same /api/lead-signup call as
+            // event.html's, so both surfaces feed one list.
+            const wlWrap = document.getElementById('modalWaitlist');
+            if (wlWrap) {
+                wlWrap.style.display = dialogSoldOut ? '' : 'none';
+                document.getElementById('modalWaitlistForm').style.display = '';
+                document.getElementById('modalWaitlistDone').style.display = 'none';
+            }
 
             resetCheckoutForm();
             showModalStep('stepDetails');
@@ -1831,6 +1896,49 @@
             // which resolves the same 'any' way the listing surfaces do).
             if (typeof fbq !== 'undefined') fbq('track', 'InitiateCheckout', { content_ids: [dialogEventId], value: eventPricing(ev, modalGender()).price, currency: 'USD' });
         });
+        // Sold-out waitlist. Same endpoint and payload as event.html's, so a
+        // sell-out captured from the browse modal and one captured from the
+        // event page land in the same per-event list.
+        document.getElementById('modalWaitlistForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('modalWaitlistBtn');
+            const errEl = document.getElementById('modalWaitlistError');
+            const doneEl = document.getElementById('modalWaitlistDone');
+            const hp = e.target.querySelector('input[name="website"]');
+            const ev = findLoadedEvent(dialogEventId);
+            errEl.style.display = 'none';
+            btn.disabled = true;
+            btn.textContent = 'Joining…';
+            try {
+                const res = await fetch('/api/lead-signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('modalWaitlistName').value,
+                        email: document.getElementById('modalWaitlistEmail').value,
+                        source: 'waitlist',
+                        eventId: dialogEventId,
+                        eventName: (ev && ev.title) || '',
+                        website: hp ? hp.value : '',
+                    }),
+                });
+                if (!res.ok) throw new Error('Request failed');
+                const data = await res.json().catch(() => ({}));
+                if (typeof gtag === 'function') gtag('event', 'generate_lead', { lead_type: 'waitlist' });
+                if (typeof fbq !== 'undefined') {
+                    fbq('track', 'Lead', {}, data.lead_id ? { eventID: data.lead_id } : undefined);
+                }
+                document.getElementById('modalWaitlistForm').style.display = 'none';
+                doneEl.textContent = "You're on the list. We'll email you the moment a seat opens or the next date is set.";
+                doneEl.style.display = '';
+            } catch (_) {
+                errEl.textContent = 'Something went wrong. Please try again.';
+                errEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Join the waitlist';
+            }
+        });
+
         document.getElementById('backToDetailsBtn').addEventListener('click', () => showModalStep('stepDetails'));
         document.getElementById('doneCloseBtn').addEventListener('click', () => closeEventDialog());
 

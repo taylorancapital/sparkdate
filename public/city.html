@@ -876,7 +876,19 @@
             // events-dialog rebuild) instead of the standalone /event page —
             // same low-friction checkout, one fewer page load.
             const eventUrl = `/events?event=${encodeURIComponent(ev.id)}`;
-            const isSoldOut = ev.status === 'full';
+            // Real inventory, not just the manually-typed `status` label —
+            // same calculation as event.html and events.html. Testing status
+            // alone meant a genuinely full event still advertised "Get
+            // Tickets" here and sent the visitor to a checkout the server
+            // would refuse.
+            const singlePool = Number.isFinite(Number(ev.spots));
+            const capTotal = singlePool
+                ? Number(ev.spots)
+                : ((Number(ev.spotsMen) || 0) + (Number(ev.spotsWomen) || 0));
+            const capSold = singlePool
+                ? (Number(ev.confirmed) || 0)
+                : ((Number(ev.confirmedMen) || 0) + (Number(ev.confirmedWomen) || 0));
+            const isSoldOut = ev.status === 'full' || Math.max(0, capTotal - capSold) <= 0;
             return `
                 <div class="event-card">
                     <div class="event-date-badge">${safe(dateStr)}${ev.time ? ' · ' + safe(ev.time) : ''}</div>
@@ -885,7 +897,10 @@
                     ${ev.blurb ? `<div class="event-blurb">${safe(ev.blurb)}</div>` : ''}
                     <div class="event-footer">
                         <div class="event-price">${safe(priceStr)}</div>
-                        <a href="${safe(eventUrl)}" class="btn${isSoldOut ? ' btn-ghost' : ''}" style="padding:10px 22px;font-size:13px;">${isSoldOut ? 'Sold Out' : 'Get Tickets'}</a>
+                        <!-- Sold out still links through: the events dialog it
+                             opens now offers a waitlist, so this is a live
+                             destination rather than a dead end. -->
+                        <a href="${safe(eventUrl)}" class="btn${isSoldOut ? ' btn-ghost' : ''}" style="padding:10px 22px;font-size:13px;">${isSoldOut ? 'Join Waitlist' : 'Get Tickets'}</a>
                     </div>
                 </div>
             `;
