@@ -105,3 +105,71 @@ describe('buildAttendanceIndex', () => {
     expect(idx.registeredForNextUids.size).toBe(0);
   });
 });
+
+// attendanceCountByUid — how many DISTINCT past events someone has attended.
+// Exists so the returning-attendee invite can say "round two" vs "you're a
+// regular" instead of staying round-agnostic. The double-registration case is
+// the one that matters: production data contains a person holding two
+// registrations for a single event, and counting rows rather than distinct
+// events would call them a returning attendee on their first night.
+describe('buildAttendanceIndex — attendance count', () => {
+  it('counts one past event as one, not once per registration row', () => {
+    const events = [{ id: 'evt_a', date: past(10) }];
+    const registrations = [
+      { email: 'dup@example.com', userId: 'u1', eventId: 'evt_a' },
+      { email: 'dup@example.com', userId: 'u1', eventId: 'evt_a' }, // duplicate row, same event
+    ];
+    const idx = buildAttendanceIndex(registrations, events, NOW, null);
+    expect(idx.attendanceCountByUid.get('u1')).toBe(1);
+  });
+
+  it('counts two distinct past events as two', () => {
+    const events = [{ id: 'evt_a', date: past(30) }, { id: 'evt_b', date: past(10) }];
+    const registrations = [
+      { email: 'rep@example.com', userId: 'u2', eventId: 'evt_a' },
+      { email: 'rep@example.com', userId: 'u2', eventId: 'evt_b' },
+    ];
+    const idx = buildAttendanceIndex(registrations, events, NOW, null);
+    expect(idx.attendanceCountByUid.get('u2')).toBe(2);
+    expect(idx.attendedEventIdsByUid.get('u2').size).toBe(2);
+  });
+
+  it('does NOT let an upcoming registration inflate the count', () => {
+    const events = [{ id: 'evt_past', date: past(10) }, { id: 'evt_soon', date: future(5) }];
+    const registrations = [
+      { email: 'mix@example.com', userId: 'u3', eventId: 'evt_past' },
+      { email: 'mix@example.com', userId: 'u3', eventId: 'evt_soon' },
+    ];
+    const idx = buildAttendanceIndex(registrations, events, NOW, null);
+    expect(idx.attendanceCountByUid.get('u3')).toBe(1);
+  });
+
+  it('leaves a first-time upcoming buyer out of the count entirely', () => {
+    const events = [{ id: 'evt_soon', date: future(5) }];
+    const registrations = [{ email: 'new@example.com', userId: 'u4', eventId: 'evt_soon' }];
+    const idx = buildAttendanceIndex(registrations, events, NOW, null);
+    expect(idx.attendanceCountByUid.has('u4')).toBe(false);
+    expect(idx.attendanceCountByUid.get('u4')).toBeUndefined();
+  });
+
+  it('ignores registrations with no userId (nothing to key a count on)', () => {
+    const events = [{ id: 'evt_a', date: past(10) }];
+    const registrations = [{ email: 'guest@example.com', userId: null, eventId: 'evt_a' }];
+    const idx = buildAttendanceIndex(registrations, events, NOW, null);
+    expect(idx.attendanceCountByUid.size).toBe(0);
+    // ...but the email still counts as attended, for nurture suppression.
+    expect(idx.attendedEmails.has('guest@example.com')).toBe(true);
+  });
+
+  it('keeps counts independent per uid', () => {
+    const events = [{ id: 'evt_a', date: past(30) }, { id: 'evt_b', date: past(10) }];
+    const registrations = [
+      { email: 'a@example.com', userId: 'uA', eventId: 'evt_a' },
+      { email: 'a@example.com', userId: 'uA', eventId: 'evt_b' },
+      { email: 'b@example.com', userId: 'uB', eventId: 'evt_b' },
+    ];
+    const idx = buildAttendanceIndex(registrations, events, NOW, null);
+    expect(idx.attendanceCountByUid.get('uA')).toBe(2);
+    expect(idx.attendanceCountByUid.get('uB')).toBe(1);
+  });
+});
