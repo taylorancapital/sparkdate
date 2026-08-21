@@ -2070,6 +2070,12 @@
                 // the sale from GA4 (Meta was covered by server-side CAPI).
                 if (!result.duplicate || authedThisSubmit) {
                     const purchaseValue = typeof result.amount === 'number' ? result.amount / 100 : ticket + SERVICE_FEE;
+                    // Seats delivered by this one charge; a 2-for-1 is two.
+                    // per-seat effective price so GA4's price x quantity still
+                    // equals the ticket revenue actually collected — see the
+                    // longer note on the matching block in event.html.
+                    const seats = plusOne ? 2 : 1;
+                    const perSeat = parseFloat((ticket / seats).toFixed(2));
                     if (typeof gtag === 'function') {
                         // Unique per PURCHASE, not per event — see the longer
                         // note on the matching call in event.html, including
@@ -2079,12 +2085,18 @@
                             transaction_id: purchasePaymentIntentId || result.ticketId
                                 || ('tx_' + evId + '_' + Date.now()),
                             value: parseFloat(purchaseValue.toFixed(2)), currency: 'USD',
-                            items: [{ item_id: evId, item_name: evName, price: parseFloat(ticket.toFixed(2)) }]
+                            items: [{ item_id: evId, item_name: evName, price: perSeat, quantity: seats }]
                         });
                     }
+                    // content_ids + num_items so Meta can attribute the
+                    // conversion to the same event its earlier funnel steps
+                    // were tagged with — see the longer note in event.html.
                     if (typeof fbq !== 'undefined') {
-                        fbq('track', 'Purchase', { value: parseFloat(purchaseValue.toFixed(2)), currency: 'USD' },
-                            purchasePaymentIntentId ? { eventID: purchasePaymentIntentId } : undefined);
+                        fbq('track', 'Purchase', {
+                            content_ids: [evId], content_name: evName, content_type: 'product',
+                            num_items: seats,
+                            value: parseFloat(purchaseValue.toFixed(2)), currency: 'USD'
+                        }, purchasePaymentIntentId ? { eventID: purchasePaymentIntentId } : undefined);
                     }
                 }
 

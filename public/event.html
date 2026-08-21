@@ -26,6 +26,24 @@
         'page_path': window.location.pathname + window.location.search
       });
     </script>
+    <script>
+      // Analytics must never be able to fail a sale.
+      //
+      // Most gtag() calls on this page are unguarded, including several
+      // inside the checkout try/catch (begin_checkout, add_payment_info,
+      // the 3DS pair, purchase). The snippet above normally defines gtag
+      // regardless of whether googletagmanager.com loads, so those are safe
+      // today — but if a privacy extension or a locked-down webview strips
+      // that block, every one of them throws ReferenceError. Inside the
+      // checkout handler that lands in the catch, which shows the buyer
+      // "We could not complete your purchase" and skips the form reset —
+      // AFTER the card has already been charged.
+      //
+      // A separate block, so removing the analytics snippet above does not
+      // also remove this. No-op only when gtag is genuinely absent; when it
+      // exists this changes nothing.
+      if (typeof window.gtag !== 'function') { window.gtag = function () {}; }
+    </script>
     <!-- Referral capture — same convention as index.html/lp.html. A
          referral link landing directly on a specific event (the most
          common share target) previously lost attribution entirely, since
@@ -1914,20 +1932,52 @@
                     // the fallback fired. A per-call id is wrong-but-unique,
                     // which is recoverable; evId is wrong-and-merged, which is
                     // not. item_id stays evId: that one IS the product.
+                    // Seats delivered by this charge. A 2-for-1 writes TWO
+                    // ticket docs and reserves TWO seats server-side
+                    // (api/purchase-ticket.js) for ONE payment, so reporting
+                    // the default quantity of 1 undercounted units on every
+                    // 2-for-1 — the promo's whole point is the second seat.
+                    //
+                    // price is the per-seat EFFECTIVE price, not the list
+                    // price, because GA4 derives item revenue as
+                    // price x quantity. Sending quantity 2 at the full ticket
+                    // price would have DOUBLED item revenue for a purchase
+                    // that only ever collected one ticket's worth — trading a
+                    // wrong unit count for a wrong revenue figure.
+                    //
+                    // Halving an odd amount cannot round exactly (24.99 -> two
+                    // seats at 12.49 recomposes to 24.98), so item revenue on a
+                    // 2-for-1 can sit a cent either side. That is inside the
+                    // noise of a metric that already excludes the service fee
+                    // and so never matched purchase revenue anyway; `value`
+                    // above remains exact and is the number to trust.
+                    const seats = plusOne ? 2 : 1;
+                    const perSeat = parseFloat((ticket / seats).toFixed(2));
                     gtag('event', 'purchase', {
                         transaction_id: purchasePaymentIntentId || result.ticketId
                             || ('tx_' + evId + '_' + Date.now()),
                         value: parseFloat(purchaseValue.toFixed(2)),
                         currency: 'USD',
-                        items: [{ item_id: evId, item_name: evName, price: parseFloat(ticket.toFixed(2)) }]
+                        items: [{ item_id: evId, item_name: evName, price: perSeat, quantity: seats }]
                     });
 
                     // Mirror the same purchase to the Facebook Pixel. GA4 is
                     // already handled by the gtag('purchase') above — firing a
                     // second gtag here would double-count it (the duplicate
                     // lacks transaction_id so GA4 won't dedupe).
+                    //
+                    // content_ids/content_type match what ViewContent,
+                    // AddToCart and AddPaymentInfo already send. Without them
+                    // Meta received a Purchase carrying only a value, so it
+                    // could not tie the conversion back to the event the rest
+                    // of the funnel was tagged with — product-level ROAS and
+                    // catalog attribution both broke at the last step.
                     if (typeof fbq !== 'undefined') {
                         fbq('track', 'Purchase', {
+                            content_ids: [evId],
+                            content_name: evName,
+                            content_type: 'product',
+                            num_items: seats,
                             value: parseFloat(purchaseValue.toFixed(2)),
                             currency: 'USD'
                         }, purchasePaymentIntentId ? { eventID: purchasePaymentIntentId } : undefined);
