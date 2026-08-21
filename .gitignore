@@ -65,3 +65,13 @@ Thumbs.db
 .claude-gh-token
 .claude-gh-token.txt
 Business Plan/files/Night Tasks/logs/
+
+# ── Stripe 2FA recovery material ──────────────────────────────────
+# This file sat in a PUBLIC repo from 2026-05-09 to 2026-08-21 (103 days).
+# It is a two-step-authentication BACKUP CODE, not an API key -- rotating
+# API keys does nothing about it; the codes must be regenerated in
+# Dashboard -> Settings -> Your account -> Two-step authentication.
+# Untracked rather than deleted so the local copy survives until then.
+# NOTE: untracking does NOT remove it from git history.
+Business Plan/files/stripe_backup_code.txt
+*backup_code*
