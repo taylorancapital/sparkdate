@@ -556,7 +556,12 @@
           // Deep-links straight into the events-page dialog (added in the
           // events-dialog rebuild) instead of the standalone /event page —
           // same low-friction checkout, one fewer page load.
-          btn.href = '/events?event=' + encodeURIComponent(ev.id) + carry;
+          // &checkout=1 opens the dialog ON the card field rather than on the
+          // description behind a second button. This visitor pressed "Get
+          // Tickets"; asking them to press "Continue to Checkout" too is a
+          // second decision, and Stripe's zero incomplete PaymentIntents say
+          // that is where paid traffic was being lost.
+          btn.href = '/events?event=' + encodeURIComponent(ev.id) + '&checkout=1' + carry;
 
           // Prewarm the checkout hop: prefetch the destination page and
           // preload Stripe.js (both events.html and event.html load it
