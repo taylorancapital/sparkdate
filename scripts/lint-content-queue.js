@@ -155,6 +155,22 @@ function lint(rows, brand, opts = {}) {
         add('warning', id, 'story-asset-missing',
           'posts a Story but no asset is story-shaped (1080x1920)');
       }
+      // The inverse, and the one that actually shipped: EVERY asset is
+      // story-shaped but the row also posts to a feed. MC-12 is "Single image
+      // + Story" and was delivered as two 1080x1920 frames, so its Facebook
+      // post would have carried vertical images. The publisher's fallback --
+      // use every asset when none match the surface -- is right in general
+      // (better than posting nothing) and is exactly what lets this through.
+      //
+      // Reels are exempt: a Reel IS vertical, so 1080x1920 is correct for it
+      // on both Facebook and Instagram. The first version of this check
+      // flagged LX-16 and LX-21 for being right.
+      const feedSurface = platforms.includes('fb') || platforms.includes('ig');
+      const isReel = /reel/i.test(row.format || '');
+      if (feedSurface && !isReel && assets.length && assets.every((a) => /_story\./i.test(a))) {
+        add('error', id, 'no-feed-asset',
+          `every asset is 1080x1920 but this posts to ${platforms.filter((p) => p !== 'ig_story').join('/')} -- a feed post needs a 1080x1080 image`);
+      }
 
       if (!/^\d{2}:\d{2}$/.test(row.time || '')) {
         add('warning', id, 'time-unparseable',
