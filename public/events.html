@@ -41,6 +41,29 @@
           if (ref) localStorage.setItem('sparkdate_ref', ref.slice(0, 80));
         } catch (e) {}
       })();
+      (function () {
+        // First-touch attribution capture. Same pattern as sparkdate_ref -- and
+        // the reason it exists: 14 tickets sold in 30 days and none could be
+        // traced to a channel, because UTMs travelled in the URL and were
+        // dropped at checkout. Meta reporting zero ad conversions was never a
+        // measurement; its pixel misses every iOS user who declined tracking,
+        // and nothing here recorded the answer independently.
+        //
+        // FIRST touch wins -- once set, later visits never overwrite it. Someone
+        // who clicks an ad today and buys direct next week should still credit
+        // the ad. That is the whole point.
+        try {
+          var _aq = new URLSearchParams(location.search), _a = {};
+          ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(function (k) {
+            var v = _aq.get(k); if (v) _a[k] = v.slice(0, 100);
+          });
+          if (Object.keys(_a).length && !localStorage.getItem('sparkdate_attr')) {
+            _a.landing_path = location.pathname;
+            _a.first_seen = new Date().toISOString().slice(0, 10);
+            localStorage.setItem('sparkdate_attr', JSON.stringify(_a));
+          }
+        } catch (e) {}
+      })();
     </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -2141,7 +2164,11 @@
                         fbq('track', 'AddPaymentInfo', { content_ids: [evId], value: ticket + SERVICE_FEE, currency: 'USD' });
                     }
 
-                    payload = { paymentMethodId: paymentMethod.id, email, name, phone, gender, eventId: evId, plusOne };
+                    payload = { paymentMethodId: paymentMethod.id, email, name, phone, gender, eventId: evId, plusOne,
+                        // Where this buyer originally came from. Read at purchase
+                        // rather than at capture so a first-touch ad click still
+                        // credits the ad weeks later.
+                        attribution: (function () { try { return JSON.parse(localStorage.getItem('sparkdate_attr') || 'null'); } catch (_) { return null; } })() };
                 }
 
                 const headers = { 'Content-Type': 'application/json' };
