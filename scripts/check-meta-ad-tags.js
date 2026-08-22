@@ -82,18 +82,57 @@ async function resolveAccount() {
   throw new Error(`${list.length} accounts visible -- set META_AD_ACCOUNT_ID.`);
 }
 
+/**
+ * Every field a creative can hide its destination URL in.
+ *
+ * This function is the whole reason the first version of this script was
+ * wrong. It read only object_story_spec.link_data.link, which is where IMAGE
+ * ads keep their destination -- and reported six VIDEO ads as untagged
+ * because a video creative keeps its link under
+ * object_story_spec.video_data.call_to_action.value.link instead.
+ *
+ * On that bad advice all six were given url_tags they did not need, and
+ * every one of them then sent TWO utm_source values in one URL. Miss a field
+ * here and the script does not merely fail to report -- it actively
+ * recommends breaking a working ad.
+ */
+function destinationUrls(creative) {
+  const s = creative.object_story_spec || {};
+  const out = [];
+  const add = (v) => { if (v) out.push(String(v)); };
+
+  add((s.link_data || {}).link);
+  add((((s.link_data || {}).call_to_action || {}).value || {}).link);
+  add((((s.video_data || {}).call_to_action || {}).value || {}).link);
+  add((s.video_data || {}).link_description && null);   // description, never a URL
+  add((s.photo_data || {}).url);
+  add((s.template_data || {}).link);
+  for (const ch of (s.link_data || {}).child_attachments || []) add(ch.link);
+
+  const afs = creative.asset_feed_spec || {};
+  for (const l of afs.link_urls || []) { add(l.website_url); add(l.display_url); }
+
+  return out;
+}
+
 function classify(ad) {
   const c = ad.creative || {};
-  const link = ((c.object_story_spec || {}).link_data || {}).link || '';
-  if (/utm_source=/i.test(link)) return 'link';   // tagged inside the destination URL
-  if (c.url_tags) return 'tags';                  // tagged the right way
+  // ANY destination carrying a utm_source means url_tags would duplicate it.
+  if (destinationUrls(c).some((u) => /utm_source=/i.test(u))) return 'link';
+  if (c.url_tags) return 'tags';
   return 'none';
+}
+
+/** Tagged twice: url_tags AND a utm_source already in the destination. */
+function isConflicted(ad) {
+  const c = ad.creative || {};
+  return Boolean(c.url_tags) && destinationUrls(c).some((u) => /utm_source=/i.test(u));
 }
 
 async function main() {
   const account = await resolveAccount();
   const res = await get(`${account}/ads`, {
-    fields: 'id,name,effective_status,campaign{name},creative{id,url_tags,object_story_spec}',
+    fields: 'id,name,effective_status,campaign{name},creative{id,url_tags,object_story_spec,asset_feed_spec}',
     filtering: JSON.stringify([
       { field: 'ad.effective_status', operator: 'IN', value: LIVE_STATUSES },
     ]),
@@ -116,6 +155,16 @@ async function main() {
       console.log(`  ${String(ad.effective_status).padEnd(8)} ${String(ad.name).slice(0, 52)}`);
       console.log(`  ${''.padEnd(8)} campaign: ${String((ad.campaign || {}).name || '?').slice(0, 60)}`);
     }
+    console.log();
+  }
+
+  const conflicted = ads.filter(isConflicted);
+  if (conflicted.length) {
+    console.log(`!! CONFLICTED -- ${conflicted.length} ad(s) carry url_tags AND a utm_source in`);
+    console.log('   their destination URL, so each sends TWO utm_source values. Our code');
+    console.log('   reads the FIRST, so these silently keep their old values and the');
+    console.log('   url_tags do nothing. CLEAR the URL parameters field on these:\n');
+    for (const ad of conflicted) console.log(`     ${String(ad.name).slice(0, 60)}`);
     console.log();
   }
 
