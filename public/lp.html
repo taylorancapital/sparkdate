@@ -468,11 +468,16 @@
         // untargeted visit, and it is the most expensive failure here because it
         // is completely silent: the URL looks targeted, the visitor is quietly
         // sold whichever event is soonest instead, and nothing in GA4 separates
-        // it from ordinary /lp traffic. It is also easy to produce by accident —
-        // "Business Plan/files/SparkDate_UTM_Campaign_Links.xlsx" builds exactly this shape
-        // ('/lp?eventId=&utm_source=...') on every row where the Event ID column
-        // was left blank, so one copied-out row silently reallocates a campaign's
-        // revenue to a different event, potentially in a different city.
+        // it from ordinary /lp traffic. It is also easy to produce by accident:
+        // any link built by hand or from a template drops to
+        // '/lp?eventId=&utm_source=...' the moment the event id is left blank,
+        // and that one link silently reallocates a campaign's revenue to a
+        // different event, potentially in a different city.
+        //
+        // A campaign-links spreadsheet used to generate exactly this shape on
+        // every unfilled row and has since been deleted. That removed one known
+        // producer, NOT the failure mode — the check stays because the next one
+        // will be a link someone types.
         //
         // Deliberately does NOT change the fallback: still sell the soonest event
         // rather than nothing. This only makes it visible within a day.
