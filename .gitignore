@@ -104,3 +104,23 @@ content/*
 # Published JPEGs are committed at public/social/ -- those are the ones that
 # actually publish, and they are ~2.5 MB rather than 31.5 MB.
 *_SUPERSEDED_*/
+
+# ── Generated analytics exports ───────────────────────────────────
+# GA4 and Meta exports are dropped into Night Tasks by hand and by
+# scripts/fetch-meta-insights.js, then read by the nightly review. They are
+# inputs to a report, not source -- and they accumulate fast (19 sitting
+# untracked when this was written).
+Business Plan/files/Night Tasks/download*.csv
+Business Plan/files/Night Tasks/data*.pdf
+Business Plan/files/Night Tasks/*.csv
+
+# ── Dormant duplicate ─────────────────────────────────────────────
+# The LIVE Night Tasks folder is "Business Plan/files/Night Tasks/". The bare
+# one at the repo root is a leftover an older version of
+# run-nightly-claude-code.ps1 pointed at by mistake; that script now carries a
+# comment saying so. Ignored rather than deleted -- it still holds two old
+# reports nobody has re-read.
+/Night Tasks/
+
+# Excel lock files -- created while a workbook is open, never source.
+~$*

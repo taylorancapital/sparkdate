@@ -81,6 +81,15 @@ describe('planRow — the approval gate', () => {
     expect(planRow(row({ state: 'posted' }), 'fb', now).action).toBe('skip');
   });
 
+  it('refuses a row whose artwork does not exist yet', () => {
+    // Approval means "authorised", not "ready". A row can be approved weeks
+    // before its art lands -- live-coverage rows never have it in advance --
+    // and scheduling one would hand Facebook a post that can never be filled.
+    const p = planRow(row({ asset_files: '' }), 'fb', now);
+    expect(p.action).toBe('skip');
+    expect(p.reason).toBe('no artwork yet');
+  });
+
   it('skips a row marked manual', () => {
     const p = planRow(row({ manual_reason: 'sticker Story' }), 'ig_story', now);
     expect(p.action).toBe('skip');

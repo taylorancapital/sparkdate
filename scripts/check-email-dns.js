@@ -18,7 +18,7 @@
  *   node scripts/check-email-dns.js --json
  *
  * Exits non-zero while anything REQUIRED is missing, so it works as a gate.
- * See EMAIL_RUNBOOK.md for how to fix each finding.
+ * See docs/EMAIL_RUNBOOK.md for how to fix each finding.
  */
 
 'use strict';
@@ -100,7 +100,7 @@ async function main() {
     const failed = findings.filter((f) => !f.ok && f.severity === 'required');
     console.log('');
     console.log(failed.length
-      ? `${failed.length} required check(s) failing — see EMAIL_RUNBOOK.md`
+      ? `${failed.length} required check(s) failing — see docs/EMAIL_RUNBOOK.md`
       : 'All required checks pass. Send a real test message to confirm delivery.');
     console.log('');
   }

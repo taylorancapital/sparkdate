@@ -19,7 +19,7 @@ address the site advertises hard bounces:
 | `privacy@` | privacy.html |
 | `safety@` | terms.html |
 | `security@` | `.well-known/security.txt` |
-| `taylor@` | SECURITY_RUNBOOK.md, venue outreach |
+| `taylor@` | docs/SECURITY_RUNBOOK.md, venue outreach |
 | `admin@` | admin.html |
 
 Anyone who emailed any of them got a bounce that reads as though the business

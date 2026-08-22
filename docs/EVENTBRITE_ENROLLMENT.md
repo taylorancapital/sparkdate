@@ -89,7 +89,7 @@ the chemistry-profile completion (`action: 'complete_profile'`) uses.
 ## When volume grows
 
 At ~10+ Eventbrite sales/week the manual paste gets tedious. At that point,
-automate it with a webhook — see **`EVENTBRITE_WEBHOOK_PLAN.md`**. The
+automate it with a webhook — see **`docs/EVENTBRITE_WEBHOOK_PLAN.md`**. The
 enrollment logic is already reusable (`enrollEventbriteOne()` in
 `api/lead-signup.js`), so the webhook just verifies the signature, fetches the
 order, and calls the same function.
