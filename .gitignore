@@ -97,6 +97,7 @@ Business Plan/files/stripe_backup_code.txt
 content/*
 !content/queue.csv
 !content/brand.json
+!content/README.md
 
 # Source art and superseded exports live in OneDrive, not the repo:
 #   OneDrive\SparkDate\SourceArt              <- the PNG masters
