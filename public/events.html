@@ -2169,7 +2169,12 @@
 
                 if (useCardOnFile) {
                     idToken = await currentUser.getIdToken();
-                    payload = { firebaseUid: currentUser.uid, email, name, phone, gender, eventId: evId, plusOne };
+                    payload = { firebaseUid: currentUser.uid, email, name, phone, gender, eventId: evId, plusOne,
+                        // Saved-card buyers need this as much as new ones. Without
+                        // it every repeat purchase reports no channel, which reads
+                        // as "returning customers come from nowhere" -- and those
+                        // are exactly the sales a nurture email earns.
+                        attribution: (function () { try { return JSON.parse(localStorage.getItem('sparkdate_attr') || 'null'); } catch (_) { return null; } })() };
                 } else {
                     const { paymentMethod, error: stripeError } = await stripeModal.createPaymentMethod({
                         type: 'card', card: cardElementModal, billing_details: { name, email, phone: phone || undefined }
