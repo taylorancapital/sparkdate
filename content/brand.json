@@ -16,6 +16,7 @@
       "proposed_revision": 31,
       "proposed_revision_approved": false
     },
+    "_pulled_images_note": "These are pulled from every use, organic and paid. NO REASON IS RECORDED. The source (SparkDate_Brand_Source_of_Truth_1_Multi_Event.md) says only that they are pulled and that substitutes must come from the confirmed-consent list. Do not state or infer a cause -- an earlier generated brief asserted \"consent withdrawn\", which was never established and is a claim about a real person's decision. The rule is absolute; the reason is unknown.",
     "pulled_images": ["IMG_9203", "IMG_9204", "IMG_9207"],
     "consented_images": ["IMG_8859", "IMG_8861", "IMG_8862", "IMG_8865", "IMG_9001", "IMG_9004", "IMG_9005"],
     "approved_testimonials": [
