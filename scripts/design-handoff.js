@@ -26,6 +26,12 @@
 const fs = require('fs');
 const path = require('path');
 const Q = require('../lib/content-queue');
+// ONE slide planner, shared with the HTML campaign sheets. Previously this
+// file had its own slidesFor(), so the markdown brief and the rendered sheet
+// described different slides for the same post -- the markdown was still
+// cutting Luke's quote in half and had no testimonial wall. Two generators
+// for one thing is how they drift.
+const { framesForRow } = require('./build-campaign-export.js');
 
 const REPO = path.join(__dirname, '..');
 const QUEUE = path.join(REPO, 'content', 'queue.csv');
@@ -80,60 +86,46 @@ function priceStr(ev) {
 }
 
 /**
- * Write the actual slide text. This is the part that makes the handoff work:
- * Design receives finished words per slide, so 26 posts come back consistent
- * instead of 26 interpretations.
+ * Describe the frames for one row, in words, for a design brief.
+ *
+ * The frames themselves come from framesForRow() -- the same function that
+ * builds the HTML sheets -- so the brief and the render can never disagree.
+ * This only translates a frame spec into a human instruction.
  */
-function slidesFor(row, ev) {
-  const n = slideCount(row.format);
-  const u = units(row.caption);
-  const out = [];
+function slidesFor(row, ev, brand) {
+  // Live coverage is shot on the night. Listing frames for it asks Design to
+  // build something a camera produces -- and inflated the slide count from 84
+  // to 112 the moment this file started using the shared planner.
+  if (isPhotoRow(row)) return [];
+  return framesForRow(row, ev, brand).map((f) => {
+    const s = f.s;
+    const style = {
+      page: 'Statement',
+      elevated: 'Statement (raised navy)',
+      coral: 'Coral panel',
+      quote: 'Pull quote',
+      stat: 'Big number (gold)',
+      crossed: 'Struck-through list',
+      price: 'Price change (old struck out)',
+      endcard: 'Closing (coral gradient)',
+      photo: 'Photo background',
+    }[s.mode] || s.mode;
 
-  // A headline is a headline. If a chunk runs long, the first sentence is the
-  // headline and the rest drops to the subline -- otherwise Design is handed a
-  // paragraph set in Playfair 900 at 70px, which does not fit and does not
-  // read.
-  const split = (text) => {
-    const t = String(text || '').trim();
-    if (t.length <= 48) return { head: t, sub: '' };
-    const m = t.match(/^(.+?[.!?])\s+(.*)$/);
-    if (m && m[1].length <= 64) return { head: m[1].trim(), sub: m[2].trim() };
-    const words = t.split(' ');
-    let a = '';
-    for (const w of words) { if ((a + ' ' + w).trim().length > 48) break; a = (a + ' ' + w).trim(); }
-    return { head: a || t, sub: t.slice(a.length).trim() };
-  };
-
-  if (n === 1) {
-    const s0 = split(u[0] || ev.name);
-    out.push({ style: 'Statement', head: s0.head, sub: s0.sub || u[1] || '' });
-    return out;
-  }
-
-  { const s0 = split(u[0] || ev.name); out.push({ style: 'Statement', head: s0.head, sub: s0.sub }); }
-
-  for (let i = 1; i <= n - 2; i++) {
-    const isFactSlot = i === n - 2;
-    if (isFactSlot) {
-      out.push({
-        style: 'Fact card',
-        head: prettyDate(ev.date),
-        sub: [ev.venue, ev.doors ? `Doors ${ev.doors}` : '', priceStr(ev)].filter(Boolean).join(' · '),
-        note: 'Price in gold #d4af37. Never shrink the cents.',
-      });
-    } else {
-      const si = split(u[i] || '');
-      out.push({ style: 'Statement', head: si.head, sub: si.sub });
+    if (s.crossed) {
+      return { style, head: s.crossed.join('  /  '), sub: '',
+               note: 'Each line struck through in coral, uppercase.' };
     }
-  }
-
-  const tail = u[u.length - 1] || '';
-  const cta = /link in bio/i.test(tail)
-    ? (tail.replace(/\s*link in bio\.?/i, '').trim() || 'See you there.')
-    : 'See you there.';
-  out.push({ style: 'Closing (coral gradient)', head: cta, sub: 'Link in bio.' });
-
-  return out;
+    if (s.mode === 'quote') {
+      return { style, head: s.line1, sub: s.sub ? `— ${s.sub}` : '',
+               note: 'Quote set smaller than a headline; attribution beneath.' };
+    }
+    const head = [s.line1, s.line2].filter(Boolean).join(' ');
+    const notes = [];
+    if (s.cta) notes.push(`CTA button: "${s.cta}"`);
+    if (s.mode === 'stat') notes.push('Number in gold #d4af37, very large.');
+    if (s.mode === 'endcard') notes.push('Coral gradient background, white type.');
+    return { style, head, sub: s.sub || '', note: notes.join(' ') };
+  });
 }
 
 function main() {
@@ -157,7 +149,7 @@ function main() {
   const P = (s = '') => O.push(s);
 
   let totalSlides = 0;
-  for (const r of build) totalSlides += slidesFor(r, brand.events[Q.rowEvents(r)[0]] || {}).length;
+  for (const r of build) totalSlides += slidesFor(r, brand.events[Q.rowEvents(r)[0]] || {}, brand).length;
 
   // ---- the ask, first, before any reference ----
   P(`# ${evs.map((e) => e.name).join(' + ')} — 30-day content calendar`);
@@ -191,18 +183,24 @@ function main() {
   for (const row of build) {
     i++;
     const ev = brand.events[Q.rowEvents(row)[0]] || {};
-    const slides = slidesFor(row, ev);
+    const slides = slidesFor(row, ev, brand);
     const tall = /story|reel/i.test(row.format);
     const dim = tall ? `${D.story.width}×${D.story.height}` : `${D.feed.width}×${D.feed.height}`;
     const suffix = tall ? '_story' : '';
 
     P(`## ${i}. \`${row.row_id}\` — ${ev.name} — ${prettyDate(row.date)}`);
     P('');
-    P(`${slides.length} slide${slides.length > 1 ? 's' : ''} · ${dim}${/reel/i.test(row.format) ? ' · Reel cover frame (video shot separately)' : ''}`);
-    if (isPhotoRow(row)) { P(''); P('> 📷 **Shot at the event — do not design these.** Listed so the calendar is complete.'); }
-    P('');
-    P('### Slides to build');
-    P('');
+    if (isPhotoRow(row)) {
+      P(`${row.format} · ${dim}`);
+      P('');
+      P('> 📷 **Shot at the event — nothing to design.** Listed so the calendar is complete.');
+      P('');
+    } else {
+      P(`${slides.length} slide${slides.length > 1 ? 's' : ''} · ${dim}${/reel/i.test(row.format) ? ' · Reel cover frame (video shot separately)' : ''}`);
+      P('');
+      P('### Slides to build');
+      P('');
+    }
     slides.forEach((s, k) => {
       const name = slides.length === 1
         ? `${row.row_id}${suffix}.png`
@@ -222,7 +220,8 @@ function main() {
     P(`- **Event:** ${ev.name} · ${ev.venue} · ${ev.city}`);
     P(`- **Event ID:** \`${ev.event_id || '—'}\``);
     P(`- **When:** ${prettyDate(row.date)} at ${row.time} · ${row.platforms.replace(/ig_story/g, 'IG Story').replace(/ig/g, 'Instagram').replace(/fb/g, 'Facebook').replace(/,/g, ' + ')}`);
-    P(`- **CTA:** ${slides[slides.length - 1].style.startsWith('Closing') ? slides[slides.length - 1].head + ' — Link in bio' : 'Link in bio'}`);
+    const closer = slides.length ? slides[slides.length - 1] : null;
+    P(`- **CTA:** ${closer && closer.style.startsWith('Closing') ? closer.head + ' — Link in bio' : 'Link in bio'}`);
     P('');
     P('**Caption**');
     P('');
@@ -259,4 +258,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { units, slidesFor, slideCount };
+module.exports = { slidesFor };
