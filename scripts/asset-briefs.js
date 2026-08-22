@@ -77,12 +77,24 @@ function main() {
   const onlyEvent = arg('event');
   const onlyRow = arg('row');
 
+  // --event takes a LIST, because design work is organised by project, not by
+  // date. Good Good Things and Tellus live in one Claude Design project;
+  // Loxley's and Marion Court in another. A chronological pack spanning all
+  // four is mostly noise to whoever opens it, so:
+  //   --event=GG,TL     and     --event=LX,MC
+  const eventFilter = onlyEvent
+    ? onlyEvent.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean)
+    : null;
+
   const wanted = rows.filter((r) => {
     if (onlyRow) return r.row_id === onlyRow;
     if (!Q.isSchedulable(r)) return false;
     if (r.asset_files) return false;                       // already has art
     if (through && r.date > through) return false;
-    if (onlyEvent && !Q.rowEvents(r).includes(onlyEvent)) return false;
+    // ANY overlap, not all: a merged recap-plus-launch row (GG-07 promotes
+    // Good Good Things AND Loxley's) genuinely belongs to both projects and
+    // is flagged below rather than dropped from one of them.
+    if (eventFilter && !Q.rowEvents(r).some((k) => eventFilter.includes(k))) return false;
     return true;
   }).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
 
@@ -132,10 +144,35 @@ function main() {
     P(`| Dimensions | ${shape.width}×${shape.height} (${shape.name}) |`);
     P(`| Event date | ${ev.date || '?'}, doors ${ev.doors || '?'} |`);
     if (prices.length) P(`| Pricing | ${prices.join(' → ')} |`);
-    if (beat && beat.theme) P(`| Beat | ${beat.theme} |`);
+    if (beat && beat.theme) P(`| Beat _(guessed from format)_ | ${beat.theme} |`);
     P('');
-    if (beat && beat.brief) { P(`**What this post is doing:** ${beat.brief}`); P(''); }
+    if (beat && beat.brief) {
+      // Beats are matched on format alone, which is crude -- two different
+      // beats can share "Carousel, 4 slides". When the guess disagrees with
+      // the caption, the CAPTION is right. Say so rather than letting a
+      // confident-looking label mislead.
+      P(`**What this beat is usually for:** ${beat.brief}`);
+      P('');
+      P('_Beat matched by format only, so it can be wrong. The caption below is authoritative._');
+      P('');
+    }
     if (row.manual_reason) { P(`> ⚠️ Posted by hand: ${row.manual_reason}`); P(''); }
+
+    // A row naming more than one event needs facts from each, and appears in
+    // both project packs. Say so, or whoever opens one pack will be missing
+    // half the information and not know it.
+    if (keys.length > 1) {
+      P(`> **Spans ${keys.length} events — appears in more than one project pack.**`);
+      for (const k of keys) {
+        const e = brand.events[k] || {};
+        const p = e.pricing || {};
+        const bits = [e.name, e.venue, e.date].filter(Boolean).join(' · ');
+        const price = p.early_bird ? `$${p.early_bird.toFixed(2)} early bird → $${(p.regular || 0).toFixed(2)}` : (p.regular ? `$${p.regular.toFixed(2)}` : '');
+        P(`> - **${k}** — ${bits}${price ? ' — ' + price : ''}`);
+      }
+      P('> Check the caption against **every** event it names, not just the first.');
+      P('');
+    }
 
     P('**Caption it must support** (do not put this text in the image unless the beat calls for it):');
     P('');
