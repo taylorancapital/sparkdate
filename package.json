@@ -12,7 +12,7 @@
     "social:lint": "node scripts/lint-content-queue.js",
     "social:import": "python scripts/import-worksheet.py",
     "social:preflight": "node scripts/social-preflight.js",
-    "ads:tag": "node scripts/tag-meta-ads.js",
+    "ads:check": "node scripts/check-meta-ad-tags.js",
     "social:plan": "node scripts/social.js plan",
     "social:approve": "node scripts/social.js approve",
     "social:run": "node scripts/social.js run",
