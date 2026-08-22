@@ -91,7 +91,7 @@ You don't need to abandon Eventbrite — its discovery (people browsing
 - **Your site = primary conversion + lower fees + owns the customer.** Drive ad
   and organic traffic to `sparkdate.date`, where the buyer gets the full
   account + chemistry profile automatically (Eventbrite buyers need the manual
-  /admin Enroll step — see `EVENTBRITE_ENROLLMENT.md`).
+  /admin Enroll step — see `docs/EVENTBRITE_ENROLLMENT.md`).
 - **Meetup** doubles as a ticket/RSVP hub *and* a recurring discovery channel —
   worth the ~$24/mo organizer fee once you're running monthly events.
 

@@ -17,7 +17,7 @@
     "social:run": "node scripts/social.js run",
     "social:prep": "python scripts/prep-social-assets.py",
     "email:check": "node scripts/check-email-dns.js",
-    "social:design-setup": "node scripts/design-project-setup.js"
+    "social:handoff": "node scripts/design-handoff.js"
   },
   "dependencies": {
     "firebase": "^10.7.0",
