@@ -157,10 +157,13 @@ function frameHTML(f) {
   else if ((s.line1 + ' ' + (s.line2 || '')).length > 26) h1 = 82;
 
   // top / right / bottom / left. TikTok's right value is the action rail.
-  const pad = tt ? '190px 250px 380px 72px'
+  const pad = tt ? '190px 250px 380px 170px'
     : story ? '250px 72px 320px'
     : '132px 76px 126px';
-  const align = s.fullBleed ? 'align-items:center;text-align:center;' : '';
+  // TikTok frames centre their copy. Left-aligned text inside a box whose
+  // right 250px is reserved for the action rail reads as shoved into the
+  // corner, not as a deliberate margin.
+  const align = (s.fullBleed || tt) ? 'align-items:center;text-align:center;' : '';
 
   let inner = '';
   if (s.img) {
@@ -181,7 +184,7 @@ function frameHTML(f) {
   if (s.line1) inner += '<div style="font-family:\'Playfair Display\',Georgia,serif;font-weight:' + (isQuote ? 700 : 900) + ';letter-spacing:' + (big || isPrice ? '-6px' : '-3px') + ';line-height:' + (isQuote ? 1.35 : 1.05) + ';font-size:' + h1 + 'px;color:' + p.h1 + ';' + (isPrice ? 'text-decoration:line-through;text-decoration-color:#ff6b6b;text-decoration-thickness:9px;' : '') + '">' + esc(s.line1) + '</div>';
   if (s.line2) inner += '<div style="font-family:\'Playfair Display\',Georgia,serif;font-weight:900;letter-spacing:-3px;line-height:1.05;font-size:' + (isPrice ? 106 : h1) + 'px;color:' + p.h2 + ';' + (isPrice ? 'margin-top:30px;' : '') + '">' + esc(s.line2) + '</div>';
   if (s.sub) inner += '<div style="font-family:\'Playfair Display\',Georgia,serif;font-style:italic;font-size:50px;line-height:1.4;color:' + p.sub + ';margin-top:36px;">' + esc(s.sub) + '</div>';
-  if (s.cta) inner += '<div style="margin-top:52px;align-self:' + (s.fullBleed ? 'center' : 'flex-start') + ';background:' + (s.mode === 'coral' ? '#0a0e27' : 'linear-gradient(135deg,#ff6b6b,#ff5252)') + ';color:' + (s.mode === 'coral' ? '#fff' : '#0a0e27') + ';font-size:30px;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:28px 48px;border-radius:12px;">GET TICKETS</div>';
+  if (s.cta) inner += '<div style="margin-top:52px;align-self:' + (s.fullBleed || tt ? 'center' : 'flex-start') + ';background:' + (s.mode === 'coral' ? '#0a0e27' : 'linear-gradient(135deg,#ff6b6b,#ff5252)') + ';color:' + (s.mode === 'coral' ? '#fff' : '#0a0e27') + ';font-size:30px;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:28px 48px;border-radius:12px;">GET TICKETS</div>';
   inner += '</div>';
 
   if (s.lowerThird) {
