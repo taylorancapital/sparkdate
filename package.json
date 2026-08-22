@@ -16,7 +16,8 @@
     "social:approve": "node scripts/social.js approve",
     "social:run": "node scripts/social.js run",
     "social:prep": "python scripts/prep-social-assets.py",
-    "email:check": "node scripts/check-email-dns.js"
+    "email:check": "node scripts/check-email-dns.js",
+    "social:briefs": "node scripts/asset-briefs.js"
   },
   "dependencies": {
     "firebase": "^10.7.0",
