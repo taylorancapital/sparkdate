@@ -182,8 +182,9 @@ async function cmdRun() {
     igUserId: process.env.META_IG_USER_ID,
     baseUrl: BASE_URL,
   };
-  const metaToken = process.env.META_SOCIAL_ACCESS_TOKEN;
+  const systemToken = process.env.META_SOCIAL_ACCESS_TOKEN;
   const tiktokToken = process.env.TIKTOK_ACCESS_TOKEN;
+  let metaToken = systemToken;
 
   const plans = P.planAll(rows, now).filter((p) => p.action !== 'skip');
   if (!plans.length) { console.log('Nothing due.'); return; }
@@ -200,6 +201,39 @@ async function cmdRun() {
     if (missing.length) {
       console.log(`  note: ${missing.join(', ')} unset -- URLs below show "undefined" in their place.`);
       console.log('        Run `node scripts/social-preflight.js` to resolve and verify them.\n');
+    }
+  }
+
+  // Facebook refuses an unpublished (i.e. scheduled) post made with a system
+  // user token:
+  //
+  //   (#200) Unpublished posts must be posted to a page as the page itself.
+  //
+  // Scheduling is the entire point of the Facebook path, so this is not
+  // optional. The system user token's job is to MINT a Page access token; the
+  // Page token is what actually posts. Instagram publishing runs through the
+  // Page's linked IG account and accepts the same token, so both Meta
+  // surfaces use it.
+  //
+  // Minted once per run rather than per item -- it is the same call every
+  // time -- and never cached across runs, since a page token's lifetime is
+  // not ours to assume.
+  if (!dry && systemToken && ctx.pageId && plans.some((p) => p.surface !== 'tiktok')) {
+    try {
+      const res = await fetch(
+        `${R.GRAPH}/${ctx.pageId}?fields=access_token&access_token=${encodeURIComponent(systemToken)}`
+      );
+      const j = await res.json().catch(() => ({}));
+      if (j.access_token) {
+        metaToken = j.access_token;
+        console.log('  using a Page access token (minted from the system user token)\n');
+      } else {
+        const msg = (j.error && j.error.message) || JSON.stringify(j).slice(0, 160);
+        console.log(`  !! could not mint a Page access token: ${msg}`);
+        console.log('     Scheduled Facebook posts will fail. Run scripts/social-preflight.js.\n');
+      }
+    } catch (e) {
+      console.log(`  !! Page token request failed: ${e.message}\n`);
     }
   }
 
@@ -253,7 +287,12 @@ async function cmdRun() {
 
   console.log(`\n${done} ok, ${failed} failed, ${skipped} skipped${dry ? '  (dry run -- queue.csv untouched)' : ''}`);
   if (dry) console.log('Re-run with --execute to publish.');
-  if (failed) process.exit(1);
+  // process.exit() while a fetch is still settling aborts libuv mid-teardown
+  // -- on Windows that surfaces as
+  //   Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), src\win\async.c
+  // which looks like a crash in the publisher rather than the failed post it
+  // actually is. Setting exitCode lets the loop drain and exits cleanly.
+  if (failed) process.exitCode = 1;
 }
 
 // ------------------------------------------------------------------ main
@@ -268,4 +307,4 @@ const cmd = process.argv[2];
     console.log('usage: social.js <plan|approve|unapprove|run> [--through=YYYY-MM-DD] [--row=ID] [--execute]');
     process.exit(2);
   }
-})().catch((e) => { console.error(e.message); process.exit(1); });
+})().catch((e) => { console.error(e.message); process.exitCode = 1; });

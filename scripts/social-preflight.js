@@ -120,8 +120,16 @@ async function main() {
     const ig = probe.json && probe.json.instagram_business_account;
     if (ig) { igId = ig.id; ok(`linked IG Business account @${ig.username || '?'} (${igId})`); }
     else if (probe.json && probe.json.error) fail(`could not read the Page's IG link: ${(probe.json.error.message || '').slice(0, 110)}`, 'usually resolves once the Page assignment and instagram_basic scope are in place');
-    else fail('no Instagram Business account linked to this Page',
-      'Instagram must be a Business (not Creator or personal) account and linked to the Page in Meta Business Suite');
+    // Careful: an empty result here does NOT prove the link is missing.
+    // Reading instagram_business_account requires the instagram_basic scope,
+    // so a token without it gets back nothing at all rather than an error --
+    // which reads identically to "no account linked". Do not conclude the
+    // Instagram side is broken from this line alone; check Business Settings
+    // (Business -> Instagram accounts) before touching anything there.
+    else fail('could not see an Instagram account on this Page',
+      scopes.has('instagram_basic')
+        ? 'the token HAS instagram_basic, so this likely is a real gap -- the account must be a Business (not Creator or personal) account, linked to the Page in Meta Business Suite'
+        : 'the token lacks instagram_basic, so this is EXPECTED and proves nothing either way. Set META_IG_USER_ID to skip the lookup, or re-check once that scope is granted');
   } else if (igId) ok(`META_IG_USER_ID=${igId}`);
 
   if (igId) {
