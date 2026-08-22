@@ -119,6 +119,34 @@
     }
   },
 
+  "calendar_template": {
+    "_comment": "The reusable shape of a promo cycle, ported from the brand source-of-truth doc so it survives that file being archived. Offsets are days relative to the event date (T-0). Instantiate by picking an event date, converting each offset to a real date, and pulling name/venue/city/pricing/hashtags/link from that event's block above. The T-16..T+1 stretch is PROVEN -- it is what actually shipped for Marion Court and Loxley's, generalized. T-30..T-18 is a proposed longer runway that has never run live; treat it as a starting point, not gospel.",
+    "_collision_warning": "Two events running this template will land on overlapping dates -- Marion Court and Tellus collided twice. The linter's day-collision check catches same-day feed posts; it cannot decide which one should move.",
+    "beats": [
+      { "offset": -30, "platforms": "ig,fb", "format": "Single image", "theme": "Save the date", "brief": "First mention. Date and venue only, no hard sell.", "proven": false },
+      { "offset": -26, "platforms": "ig,fb", "format": "Single image", "theme": "Why this exists", "brief": "Brand mission: the problem with dating apps, why meeting in person works. Little or no event specifics.", "proven": false },
+      { "offset": -22, "platforms": "ig,fb", "format": "Carousel, 3 slides", "theme": "Pain-point: app fatigue", "brief": "Weeks of texting, no plan ever made. Tie back to the event as the alternative.", "proven": false },
+      { "offset": -18, "platforms": "ig,fb", "format": "Single image", "theme": "Early bird opens", "brief": "Announce the early-bird price and its cutoff, then the regular price after.", "proven": false },
+      { "offset": -16, "platforms": "ig,fb", "format": "Single image", "theme": "Early-bird reminder", "brief": "Early bird ending soon.", "proven": true },
+      { "offset": -15, "platforms": "ig,fb", "format": "Single image", "theme": "Early-bird last day", "brief": "Last day at the early-bird price; regular starts tomorrow. Restate venue, city, time.", "proven": true },
+      { "offset": -15, "platforms": "ig_story", "format": "Story + link sticker + countdown", "theme": "Early-bird countdown", "brief": "Evening slot. A few hours left. Countdown sticker to midnight.", "proven": true, "manual": "stickers cannot be set via API" },
+      { "offset": -14, "platforms": "ig,fb", "format": "Single image", "theme": "Price change confirmed", "brief": "Early bird is done, regular price from here.", "proven": true },
+      { "offset": -12, "platforms": "ig,fb", "format": "Single image", "theme": "Venue / atmosphere", "brief": "Show the room. SKIPPABLE if another event owns this day.", "proven": true },
+      { "offset": -10, "platforms": "ig,fb", "format": "Carousel, 3 slides", "theme": "Empathy / pain-point", "brief": "Warm, non-salesy: it is bad format, not bad at dating.", "proven": true },
+      { "offset": -8, "platforms": "ig,fb", "format": "Carousel, 4 slides", "theme": "Differentiation", "brief": "What this is NOT -- no profiles, no swiping, no algorithm.", "proven": true },
+      { "offset": -7, "platforms": "ig,fb", "format": "Carousel, 3 slides", "theme": "One week out + scarcity", "brief": "Capacity, and that it is the cap. Practical plus urgency.", "proven": true },
+      { "offset": -6, "platforms": "ig,fb", "format": "Carousel, 3 slides", "theme": "Social proof", "brief": "Use approved_stat ONLY. Never an unsourced number -- see banned_facts.", "proven": true },
+      { "offset": -5, "platforms": "ig,fb", "format": "Carousel, 5 slides", "theme": "What actually happens", "brief": "Walk the real run of show: check-in and drinks, icebreaker, mingling, then matched rounds LAST.", "proven": true },
+      { "offset": -4, "platforms": "ig,fb", "format": "Carousel, 3 slides", "theme": "Testimonial", "brief": "Use approved_testimonials. Text-only quote card unless a fresher one exists.", "proven": true },
+      { "offset": -3, "platforms": "ig,fb", "format": "Carousel, 4 slides", "theme": "Limited offer", "brief": "If a promo (e.g. 2-for-1) is live, lead with it -- confirm the ticket type is actually live in Eventbrite FIRST.", "proven": true },
+      { "offset": -2, "platforms": "ig,fb", "format": "Carousel, 3 slides", "theme": "Practical info", "brief": "Parking, doors time, what to wear, how hosts run the room.", "proven": true },
+      { "offset": -1, "platforms": "ig,fb", "format": "Single image + Story", "theme": "Last call", "brief": "Tomorrow. Time, venue, city. Link in bio.", "proven": true },
+      { "offset": 0, "platforms": "ig,fb", "format": "Single image", "theme": "Day-of", "brief": "Morning slot. Tonight, doors at TIME, venue, city.", "proven": true },
+      { "offset": 0, "platforms": "ig_story", "format": "Story frames x6-8", "theme": "Live coverage", "brief": "Evening. Door, room filling, wide shot, the bar, one detail. Priority: check-in plus 3-5 on-camera testimonials.", "proven": true, "manual": "shot live on the night" },
+      { "offset": 1, "platforms": "ig,fb", "format": "Carousel, 3 slides", "theme": "Recap", "brief": "Last night at EVENT. Counted attendance only -- never estimate. Point the link FORWARD to whichever event is next on sale.", "proven": true }
+    ]
+  },
+
   "asset_rules": {
     "naming": "{row_id}[_{subtype}][_{N}of{Total}].{ext}, row_id zero-padded to two digits (MC-02.jpg, TL-01_1of3.jpg, MC-12_story.jpg)",
     "_naming_note": "Zero-padding matters: without it MC-10 sorts before MC-2 and the folder falls out of posting order.",
