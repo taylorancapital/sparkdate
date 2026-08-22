@@ -162,6 +162,27 @@ describe('assetUrls for TikTok', () => {
     const r = row({ asset_files: 'MC-06_story.jpg,MC-06_1of2_tt.jpg' });
     expect(assetUrls(r, BASE, 'ig_story')).toEqual([`${BASE}/MC-06_story.jpg`]);
   });
+
+  it('never lets _tt art reach a feed through the empty-match fallback', () => {
+    // The live bug: LX-24 carries only _story and _tt files, so the feed
+    // filter emptied and the "use everything" fallback put VERTICAL art in a
+    // Facebook post. Filtering the primary path was not enough -- on these
+    // rows the FALLBACK is what fires.
+    const r = row({ asset_files: 'LX-24_1of2_story.jpg,LX-24_2of2_story.jpg,LX-24_1of2_tt.jpg' });
+    for (const surface of ['fb', 'ig']) {
+      expect(assetUrls(r, BASE, surface)).toEqual([
+        `${BASE}/LX-24_1of2_story.jpg`, `${BASE}/LX-24_2of2_story.jpg`,
+      ]);
+    }
+  });
+
+  it('never lets _tt art reach a Story through the empty-match fallback', () => {
+    // Same shape of bug on the Story surface: no _story file, so it fell
+    // back to everything -- including TikTok art, which is not Story art
+    // however similar the pixel dimensions look.
+    const r = row({ asset_files: 'GG-09_1of2.jpg,GG-09_1of2_tt.jpg' });
+    expect(assetUrls(r, BASE, 'ig_story')).toEqual([`${BASE}/GG-09_1of2.jpg`]);
+  });
 });
 
 describe('buildTikTok', () => {
