@@ -84,3 +84,23 @@ Business Plan/files/Environment Variables.txt
 # NOTE: untracking does NOT remove it from git history.
 Business Plan/files/stripe_backup_code.txt
 *backup_code*
+
+# ── content/ is a two-file directory, on purpose ──────────────────
+# queue.csv and brand.json are the source of truth for the social calendar.
+# Nothing else belongs here. Design source masters (31.5 MB of PNG) and the
+# superseded worksheets were once pasted in, which would have put binaries
+# git can never forget into a public repo -- and undone the point of moving
+# the queue out of a folder full of near-identical copies.
+#
+# Deny-by-default so an accidental paste cannot be committed. To add a
+# genuinely new file here, add a matching `!` line below.
+content/*
+!content/queue.csv
+!content/brand.json
+
+# Source art and superseded exports live in OneDrive, not the repo:
+#   OneDrive\SparkDate\SourceArt              <- the PNG masters
+#   OneDrive\SparkDate\Superseded_2026-08-22  <- the dead worksheets
+# Published JPEGs are committed at public/social/ -- those are the ones that
+# actually publish, and they are ~2.5 MB rather than 31.5 MB.
+*_SUPERSEDED_*/
