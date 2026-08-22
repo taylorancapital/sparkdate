@@ -27,6 +27,35 @@
       });
     </script>
     <script>
+      // First-touch attribution capture. Identical to the block in lp.html and
+      // events.html -- no shared bundle on this project, so it is duplicated
+      // verbatim rather than imported.
+      //
+      // /event was the one purchase page this was never added to, and it is
+      // the page the ENTIRE email nurture sequence links to: welcome, day2,
+      // day5, day14, day25, post-event, returning and newsletter all point at
+      // /event?id=...&utm_source=email. So every email-driven sale recorded no
+      // channel at all, in the one channel with the site's best engagement
+      // rate.
+      //
+      // FIRST touch wins -- once set, later visits never overwrite it. Someone
+      // who clicks an ad today and buys direct next week should still credit
+      // the ad. That is the whole point.
+      (function () {
+        try {
+          var _aq = new URLSearchParams(location.search), _a = {};
+          ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(function (k) {
+            var v = _aq.get(k); if (v) _a[k] = v.slice(0, 100);
+          });
+          if (Object.keys(_a).length && !localStorage.getItem('sparkdate_attr')) {
+            _a.landing_path = location.pathname;
+            _a.first_seen = new Date().toISOString().slice(0, 10);
+            localStorage.setItem('sparkdate_attr', JSON.stringify(_a));
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script>
       // Analytics must never be able to fail a sale.
       //
       // Most gtag() calls on this page are unguarded, including several
@@ -1762,6 +1791,10 @@
                         gender,
                         eventId: evId,
                         plusOne,
+                        // Where this buyer originally came from. Read at purchase
+                        // rather than at capture so a first-touch ad click still
+                        // credits the ad weeks later.
+                        attribution: (function () { try { return JSON.parse(localStorage.getItem('sparkdate_attr') || 'null'); } catch (_) { return null; } })(),
                     };
                 } else {
                     // Guest checkout — collect new card via Stripe Elements
@@ -1811,6 +1844,10 @@
                         gender,
                         eventId: evId,
                         plusOne,
+                        // Where this buyer originally came from. Read at purchase
+                        // rather than at capture so a first-touch ad click still
+                        // credits the ad weeks later.
+                        attribution: (function () { try { return JSON.parse(localStorage.getItem('sparkdate_attr') || 'null'); } catch (_) { return null; } })(),
                     };
                 }
 
