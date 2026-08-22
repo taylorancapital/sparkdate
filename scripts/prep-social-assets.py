@@ -174,6 +174,31 @@ def main():
             else:
                 continue
 
+        # A row can gain a WHOLE NEW SHAPE long after its first set was
+        # prepared -- which is exactly what the vertical TikTok export is.
+        #
+        # Discovery originally ran only when asset_files was empty, so a row
+        # that already had its square carousel never looked at the folder
+        # again and its `-tt` files were invisible. 17 rows were in that state
+        # and the run reported "119 already prepared" while 90 new files sat
+        # in SourceArt untouched.
+        #
+        # Compare by SHAPE rather than by filename: the question is not "is
+        # this exact file known" but "does this row already have art for this
+        # surface". A row with squares and no vertical set gains the vertical
+        # set; a row that has both is left alone.
+        have = set()
+        for f in files:
+            m = re.search(r"_(story|tt)\.jpg$", f, re.I)
+            have.add("_" + m.group(1).lower() if m else "")
+
+        for cand in discover(args.src, row["row_id"]):
+            sp = resolve(args.src, cand)
+            if not sp:
+                continue
+            if suffix_for(sp, cand, dims) not in have:
+                files.append(cand)
+
         # Already prepared (a .jpg that exists in public/social) -- leave it.
         if all(f.lower().endswith(".jpg") and os.path.exists(os.path.join(OUT_DIR, f)) for f in files):
             skipped += len(files)
@@ -200,6 +225,15 @@ def main():
         index = {}
 
         for fname in files:
+            # Output from an earlier run, now sitting alongside newly
+            # discovered source art. It is not in the source folder and must
+            # keep both its name and its numbering -- queue.csv and the live
+            # posts already reference it.
+            if fname.lower().endswith(".jpg") and os.path.exists(os.path.join(OUT_DIR, fname)):
+                new_names.append(fname)
+                skipped += 1
+                continue
+
             src = resolved[fname]
             if not src:
                 warnings.append(f"{rid}: source not found: {fname}")

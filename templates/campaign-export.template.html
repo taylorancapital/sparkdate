@@ -191,7 +191,16 @@ function frameHTML(f) {
 
 function fileName(f) {
   const base = (f.id + '-' + f.n + 'of' + f.of).replace(/[^a-z0-9]+/gi,'-').toLowerCase();
-  return FILE_PREFIX + '-' + base + '.png';
+  // A TikTok frame and an Instagram Story frame are BOTH 1080x1920, so shape
+  // cannot tell them apart downstream -- prep-social-assets reads this suffix
+  // to decide, and assetUrls routes on it.
+  //
+  // Without it the TikTok sheet emits exactly the filenames the square sheet
+  // does, and exporting both into one folder silently replaces the square
+  // carousel with vertical art. That is not hypothetical: it ate 91 of 92
+  // files the first time these sheets were exported.
+  const tt = f.s && f.s.tiktok ? '-tt' : '';
+  return FILE_PREFIX + '-' + base + tt + '.png';
 }
 
 // --- Font embedding: self-hosted woff2 files, base64'd once, so exported PNGs always keep Playfair/Inter — no live fetch needed.
