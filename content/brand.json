@@ -19,11 +19,42 @@
     "_pulled_images_note": "These are pulled from every use, organic and paid. NO REASON IS RECORDED. The source (SparkDate_Brand_Source_of_Truth_1_Multi_Event.md) says only that they are pulled and that substitutes must come from the confirmed-consent list. Do not state or infer a cause -- an earlier generated brief asserted \"consent withdrawn\", which was never established and is a claim about a real person's decision. The rule is absolute; the reason is unknown.",
     "pulled_images": ["IMG_9203", "IMG_9204", "IMG_9207"],
     "consented_images": ["IMG_8859", "IMG_8861", "IMG_8862", "IMG_8865", "IMG_9001", "IMG_9004", "IMG_9005"],
+    "_testimonials_note": "Supplied 2026-08-22. Until then only the Quang quote existed, so both testimonial posts (MC-08, LX-20) ran it and the carousels split one quote across three frames. With six, a 3-slide testimonial post can show three different people -- which is what that beat is for. Short ones (Alex, James, Jeff) work best on a quote frame; they read at a glance. Note the CAPTIONS on MC-08 and LX-20 still quote only Quang; the slides now show more.",
     "approved_testimonials": [
       {
-        "id": "quang-event1",
-        "quote": "Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there.",
-        "attribution": "Quang, Event 1",
+        "id": "alex",
+        "quote": "A night to remember!",
+        "attribution": "Alex",
+        "reusable_across_events": true
+      },
+      {
+        "id": "molly",
+        "quote": "Everyone was so lively and some of us connected so well we chatted well into the evening.",
+        "attribution": "Molly",
+        "reusable_across_events": true
+      },
+      {
+        "id": "quang",
+        "quote": "Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!",
+        "attribution": "Quang",
+        "reusable_across_events": true
+      },
+      {
+        "id": "jeff",
+        "quote": "Good networking opportunities!",
+        "attribution": "Jeff",
+        "reusable_across_events": true
+      },
+      {
+        "id": "luke",
+        "quote": "Fantastic people & fantastic vibes. Great fun.",
+        "attribution": "Luke",
+        "reusable_across_events": true
+      },
+      {
+        "id": "james",
+        "quote": "Cool Atmosphere!",
+        "attribution": "James",
         "reusable_across_events": true
       }
     ],

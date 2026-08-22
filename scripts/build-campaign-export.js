@@ -64,6 +64,10 @@ function units(caption) {
     .split(/\r?\n\s*\r?\n/).map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
   const out = [];
   for (const p of paras) {
+    // Never sentence-split a quotation. MC-08's testimonial runs past 110
+    // characters, so the generic split cut it mid-sentence and left the
+    // opening quotation mark orphaned on its own frame.
+    if (/^["“]/.test(p.trim())) { out.push(p); continue; }
     if (p.length <= 110) { out.push(p); continue; }
     let buf = '';
     for (const sentence of (p.match(/[^.!?]+[.!?]*/g) || [p])) {
@@ -77,29 +81,59 @@ function units(caption) {
 }
 
 /**
- * Split one unit across the template's two display lines. The layout sets
- * line1 and line2 in Playfair 900 and expects a deliberate break, so break on
- * the last sentence boundary, else near the middle on a word.
+ * Turn one chunk of caption into a headline plus (optionally) a subline.
+ *
+ * The template sets BOTH line1 and line2 in Playfair 900 at 82-104px. Feeding
+ * a long sentence into them produced two enormous lines of body prose -- 15 of
+ * 90 frames ran over 60 characters, and a 152-character one filled the canvas
+ * edge to edge. A headline has to be short enough to read at a glance while
+ * someone is scrolling; the rest belongs in `sub`, which renders as small
+ * italic serif.
+ *
+ * So: cut at the first strong boundary inside the first ~46 characters, and
+ * demote everything after it. Boundaries in order of preference -- sentence
+ * end, em dash, colon, then comma -- because that is roughly the order in
+ * which a break reads as deliberate rather than accidental.
  */
-function twoLines(text) {
-  // Trim trailing separators too -- a split on "Mon, Aug 31 · Philadelphia"
-  // otherwise leaves the middot dangling at the end of line 1.
+function headlineAndSub(text) {
   const clean = (x) => String(x || '').trim().replace(/[\s·,;:-]+$/, '').trim();
   const t = clean(text);
-  if (!t) return { line1: '', line2: '' };
-  if (t.length <= 26) return { line1: t, line2: '' };
+  if (!t) return { line1: '', line2: '', sub: '' };
 
-  const sentenceBreak = t.search(/[.!?]\s+\S/);
-  if (sentenceBreak > 0 && sentenceBreak < t.length - 8) {
-    return { line1: clean(t.slice(0, sentenceBreak + 1)), line2: clean(t.slice(sentenceBreak + 1)) };
+  // Short enough to stand alone: split across the two display lines only if it
+  // needs a second, which keeps "Three days." and "Last call" as-is.
+  if (t.length <= 46) return { line1: t, line2: '', sub: '' };
+
+  const boundaries = [/([.!?])\s+/g, /\s+[—-]\s+/g, /:\s+/g, /,\s+/g];
+  for (const re of boundaries) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(t)) !== null) {
+      const cut = m.index + (m[1] ? 1 : 0);
+      const head = clean(t.slice(0, cut));
+      // A hook wants roughly four to eight words. Below ~14 chars it is a
+      // fragment, above ~52 it stops being a headline.
+      if (head.length >= 14 && head.length <= 52) {
+        return { line1: head, line2: '', sub: clean(t.slice(m.index + m[0].length)) };
+      }
+    }
   }
+
+  // No usable boundary -- break on a word near 46 and demote the tail.
   const words = t.split(' ');
   let a = '';
   for (const w of words) {
-    if ((a + ' ' + w).trim().length > t.length / 2) break;
+    if ((a + ' ' + w).trim().length > 46) break;
     a = (a + ' ' + w).trim();
   }
-  return { line1: clean(a), line2: clean(t.slice(a.length)) };
+  if (!a) a = t.slice(0, 46);
+  return { line1: clean(a), line2: '', sub: clean(t.slice(a.length)) };
+}
+
+/** Back-compat shim: some call sites still want a pure two-line split. */
+function twoLines(text) {
+  const r = headlineAndSub(text);
+  return { line1: r.line1, line2: r.line2 };
 }
 
 const priceOf = (ev) => {
@@ -115,31 +149,195 @@ const prettyDate = (iso) => {
     .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 };
 
+
+/**
+ * Pick a frame mode from what the copy actually IS, not just its position.
+ *
+ * `stat`, `quote` and `crossed` all exist in the template and none were ever
+ * emitted -- so the approved attendance figure (gold, 300px) and the Quang
+ * testimonial (gold eyebrow, italic serif) were being set as ordinary
+ * statement frames. Both facts already live in brand.json; this only routes
+ * them to the mode built for them.
+ */
+function pickMode(text, fallback) {
+  const t = String(text || '').trim();
+
+  // A testimonial STARTS with a quotation mark. Scare-quotes mid-sentence are
+  // not testimonials -- LX-18 ("sorry, crazy week") and LX-23 ("next time")
+  // both contain quotes and neither is one, and a looser test caught both.
+  if (/^["\u201c]/.test(t)) return 'quote';
+
+  // The differentiation beat: three or more "No ..." clauses in a row. The
+  // template strikes these through in coral, which is the brand's sharpest
+  // visual device and was never being generated.
+  if ((t.match(/\bNo /g) || []).length >= 3) return 'crossed';
+
+  // The one sanctioned proof number, used AS a proof point. The window is
+  // tight and demands a headcount word immediately after, because every
+  // Loxley's caption also contains "September 22".
+  if (/\b22 (people|attendees)\b/i.test(t)) return 'stat';
+
+  return fallback;
+}
+
+/**
+ * Build the content fields for a frame. Two modes do not take line1/line2 the
+ * way the others do:
+ *
+ *   quote   — must not break mid-sentence. The generic 46-character split cut
+ *             the Quang testimonial in half and orphaned its opening quotation
+ *             mark. Break at the closing quote instead; the attribution drops
+ *             to `sub`.
+ *   crossed — takes an ARRAY, which the template renders as struck-through
+ *             uppercase lines. Passing line1/line2 renders nothing at all.
+ */
+function contentSpec(text, mode) {
+  const t = String(text || '').trim();
+
+  if (mode === 'quote') {
+    const m = t.match(/^([“"][^”"]*[”"])\s*[—–-]?\s*(.*)$/);
+    if (m) return { line1: m[1].trim(), line2: '', sub: m[2].trim(), pullQuote: true };
+    return { ...headlineAndSub(t), pullQuote: true };
+  }
+
+  if (mode === 'crossed') {
+    // "No profiles. No swiping. No 'sorry, crazy week' texts." -> three lines.
+    const items = t.split(/(?<=\.)\s+/).map((x) => x.trim().replace(/\.$/, '')).filter(Boolean);
+    if (items.length >= 2) return { crossed: items.slice(0, 4), line1: '', line2: '' };
+    return headlineAndSub(t);
+  }
+
+  return headlineAndSub(t);
+}
+
+/**
+ * Pick `count` testimonials for a row, deterministically.
+ *
+ * A testimonial post is a 3-slide carousel, and until six quotes existed it
+ * ran ONE quote split across three frames -- the same words twice, which is
+ * the opposite of social proof. Different people on each slide is what that
+ * beat is for.
+ *
+ * Seeded off the row id so the same post always renders the same set (no
+ * churn between builds), but MC-08 and LX-20 do not show an identical wall.
+ * Shortest-first, because a quote frame reads at a glance and "Cool
+ * Atmosphere!" lands harder at 62px than a 118-character sentence.
+ */
+function pickTestimonials(brand, rowId, count) {
+  const all = (brand.universal.approved_testimonials || []).slice();
+  if (!all.length) return [];
+  let seed = 0;
+  for (const ch of String(rowId)) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+
+  // Alternate substantial and punchy rather than taking consecutive entries.
+  // A straight rotation handed MC-08 the two shortest quotes -- "Cool
+  // Atmosphere!" and "A night to remember!" -- which is a thin wall, while
+  // LX-20 got the two longest and both rendered small. One of each reads
+  // better and gives the frame a reason to be two frames.
+  const byLength = all.slice().sort((a, b) => b.quote.length - a.quote.length);
+  const long = byLength.slice(0, Math.ceil(byLength.length / 2));
+  const short = byLength.slice(Math.ceil(byLength.length / 2));
+
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const pool = i % 2 === 0 ? long : short;
+    if (!pool.length) break;
+    out.push(pool[(seed + i) % pool.length]);
+  }
+  // Never repeat a person inside one post.
+  const seen = new Set();
+  return out.filter((t) => (seen.has(t.id) ? false : seen.add(t.id)));
+}
+
 /** Turn one queue row into the frame objects the renderer expects. */
 function framesForRow(row, ev, brand) {
   const n = slideCount(row.format);
   const u = units(row.caption);
   const story = /story|reel/i.test(row.format);
-  const eyebrow = ev.name || row.row_id;
+
+  // The eyebrow names the event the COPY is about, which is not always the
+  // sheet it appears in. GG-07 recaps Good Good Things and forward-promotes
+  // Loxley's, so it lands in both sheets -- and in the Loxley's sheet it was
+  // captioned "Last night at Good Good Things" under a LOXLEYS eyebrow. Same
+  // for MC-15. Use the row's own primary event.
+  //
+  // The FACT frame deliberately keeps the sheet's event: a recap points at
+  // whatever is still on sale, which is the point of running it.
+  const primary = brand.events[Q.rowEvents(row)[0]] || ev;
+  const eyebrow = primary.name || ev.name || row.row_id;
   const label = `${prettyDate(row.date)} — ${row.row_id}`;
   const out = [];
 
+  // If a frame ever carries an image it MUST be photo mode -- every other
+  // palette sets line2 coral, and the scrim is only 45% navy where the
+  // headline sits. Silent until you look at the exported PNG.
   const push = (mode, s) => out.push({
     group: 'organic',
     id: row.row_id.toLowerCase(),
     label,
     n: out.length + 1,
     of: n,
-    s: { mode, eyebrow, story: story || undefined, ...s },
+    s: { mode: s.img ? 'photo' : mode, eyebrow, story: story || undefined, ...s },
   });
 
   if (n === 1) {
-    push('page', { ...twoLines(u[0]), sub: u[1] || '' });
+    const m0 = pickMode(u[0], 'page');
+    const h = contentSpec(u[0], m0);
+    push(m0, { ...h, sub: h.sub || u[1] || '' });
+    return out;
+  }
+
+  // A testimonial post becomes a wall of DIFFERENT people, not one quote cut
+  // into pieces. Detected off the first chunk, which is where the quote sits.
+  if (pickMode(u[0], 'page') === 'quote') {
+    // Prefer the quotes the CAPTION actually uses. The caption is what gets
+    // posted; if the slides picked independently from brand.json the two
+    // could name different people, which is worse than either choice. Fall
+    // back to the picker only when the caption carries fewer quotes than the
+    // carousel has slides.
+    const inCaption = [];
+    for (const chunk of u) {
+      const m = String(chunk).match(/^["“]([^"”]+)["”]\s*[-—–]\s*(.+)$/);
+      if (m) inCaption.push({ id: 'caption-' + inCaption.length, quote: m[1].trim(), attribution: m[2].trim() });
+    }
+    // How many quote frames? Whatever the caption carries, up to the slide
+    // count. A caption with three quotes fills all three slides and drops the
+    // closing card -- the CTA is in the caption anyway, and a third voice is
+    // worth more than a repeat of the date. Two quotes leaves room for the
+    // closing card as before.
+    const wantQuotes = inCaption.length >= n
+      ? n
+      : (inCaption.length >= n - 1 ? n - 1 : n - 1);
+    const picks = inCaption.length >= wantQuotes
+      ? inCaption.slice(0, wantQuotes)
+      : pickTestimonials(brand, row.row_id, wantQuotes);
+    for (const t of picks) {
+      push('quote', {
+        line1: `“${t.quote}”`,
+        line2: '',
+        sub: t.attribution,
+        pullQuote: true,
+      });
+    }
+    // Pad if there are fewer testimonials than quote slots.
+    while (out.length < wantQuotes) push('elevated', headlineAndSub(u[1] || ev.name || ''));
+
+    // Closing card only if the quotes did not already fill the carousel.
+    // Three quotes on a three-slide post need no fourth frame -- the CTA is
+    // in the caption, and a third voice beats repeating the date.
+    if (out.length < n) {
+      push('endcard', { ...headlineAndSub(`${prettyDate(ev.date)} · ${ev.venue || ''}`), cta: 'Get tickets' });
+    }
+
+    // push() stamped `of: n` from the format string. Restate it as the real
+    // frame count, or a three-quote post renders "1/3, 2/3, 3/3" correctly
+    // but a padded one would not.
+    out.forEach((f, i) => { f.n = i + 1; f.of = out.length; });
     return out;
   }
 
   // 1: the hook.
-  push('page', twoLines(u[0]));
+  { const m0 = pickMode(u[0], 'page'); push(m0, contentSpec(u[0], m0)); }
 
   // Middle: remaining copy, alternating navy/elevated so a long carousel does
   // not read as one flat block; the penultimate frame carries the hard facts.
@@ -158,7 +356,8 @@ function framesForRow(row, ev, brand) {
         sub: [ev.doors ? `Doors ${ev.doors}` : '', price].filter(Boolean).join('  ·  '),
       });
     } else {
-      push(i % 2 ? 'elevated' : 'page', twoLines(u[i] || ''));
+      const mi = pickMode(u[i] || '', i % 2 ? 'elevated' : 'page');
+      push(mi, contentSpec(u[i] || '', mi));
     }
   }
 
@@ -173,7 +372,7 @@ function framesForRow(row, ev, brand) {
   const tail = unused.length ? unused[unused.length - 1] : '';
   const stripped = String(tail).replace(/\s*link in bio\.?/i, '').trim();
   const closing = stripped || `${prettyDate(ev.date)} · ${ev.city || ''}`.trim();
-  push('endcard', { ...twoLines(closing), cta: 'Get tickets' });
+  push('endcard', { ...headlineAndSub(closing), cta: 'Get tickets' });
 
   return out;
 }
