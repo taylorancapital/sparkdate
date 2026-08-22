@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /c/Users/penns/source/repos/sparkdate && ls api/ lib/ public/ scripts/)",
+      "Bash(node -e \"['api/unsubscribe.js','api/stripe-webhook.js','api/cron-send-emails.js','api/webhook-formspree.js','api/send-venue-outreach.js','api/seed-venues.js','api/purchase-ticket.js','api/create-subscription.js','api/cancel-subscription.js','api/upgrade-subscription.js','api/declare-connection.js','lib/auth.js','lib/cors.js','lib/tiers.js','lib/unsubscribe.js'].forEach\\(f => { try { require\\('./'+f\\); console.log\\('OK', f\\); } catch\\(e\\){ console.log\\('FAIL', f, '→', e.message\\); } }\\);\")",
+      "Bash(FIREBASE_PROJECT_ID=test FIREBASE_CLIENT_EMAIL=test@test.com FIREBASE_PRIVATE_KEY='-----BEGIN PRIVATE KEY-----\\\\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDKjk9oG0E1NHnt\\\\n-----END PRIVATE KEY-----\\\\n' STRIPE_SECRET_KEY=sk_test_xxx RESEND_API_KEY=re_xxx node -e \"['api/unsubscribe.js','api/stripe-webhook.js','api/cron-send-emails.js','api/webhook-formspree.js','api/send-venue-outreach.js','api/seed-venues.js','api/purchase-ticket.js','api/create-subscription.js','api/cancel-subscription.js','api/upgrade-subscription.js','api/declare-connection.js','lib/auth.js','lib/cors.js','lib/tiers.js','lib/unsubscribe.js'].forEach\\(f => { try { require\\('./'+f\\); console.log\\('OK', f\\); } catch\\(e\\){ console.log\\('FAIL', f, '→', e.message\\); } }\\);\")",
+      "Bash(firebase --version)",
+      "Bash(firebase deploy *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"https://sparkdate.date/api/unsubscribe?token=invalid\")",
+      "Bash(curl -s -L \"https://sparkdate.date/api/unsubscribe?token=invalid\")",
+      "Bash(curl -s -o /dev/null -w \"/ %{http_code}\\\\n\" https://sparkdate.date/)",
+      "Bash(curl -s -o /dev/null -w \"/admin %{http_code}\\\\n\" https://sparkdate.date/admin)",
+      "Bash(curl -s -o /dev/null -w \"/events %{http_code}\\\\n\" https://sparkdate.date/events)",
+      "Bash(curl -s -o /dev/null -w \"/signup %{http_code}\\\\n\" https://sparkdate.date/signup)",
+      "Bash(curl -s -L -o /tmp/resp.txt -w \"status=%{http_code}\\\\nlen=%{size_download}\\\\n\" -X POST -H 'Content-Type: application/json' -d '{}' https://sparkdate.date/api/send-venue-outreach)",
+      "Read(//tmp/**)",
+      "Bash(curl -sI https://sparkdate.date/)",
+      "Bash(curl -sI https://www.sparkdate.date/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://sparkdate.date/sitemap.xml)",
+      "Bash(curl -sI https://sparkdate.date/sitemap.xml)",
+      "Bash(curl -sI https://sparkdate.date/robots.txt)",
+      "Bash(curl -sI https://sparkdate.date/participant)",
+      "Bash(curl -s https://sparkdate.date/robots.txt)",
+      "Bash(node scripts/seed-getaway-interest-rest.js)",
+      "Bash(node scripts/seed-getaway-interest-rest.js --dry-run)"
+    ]
+  }
+}

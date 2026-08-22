@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "sparkdate-static",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "public", "-l", "5050"],
+      "port": 5050
+    },
+    {
+      "name": "sparkdate-main",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "C:/Users/penns/source/repos/sparkdate/public", "-l", "5052"],
+      "port": 5052
+    }
+  ]
+}
