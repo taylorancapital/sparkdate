@@ -111,6 +111,64 @@ their slot. Nothing to do, provided the secrets are set:
 
 Watch it at **Actions → social publish**.
 
+### 9. TikTok
+
+TikTok reuses the queue — the same events, the same copy, nothing separately
+authored. 17 carousel rows carry `tiktok` in `platforms`.
+
+**Carousels, not video, and that is a bandwidth decision rather than a claim
+about what performs.** TikTok is video-first and photo posts generally reach
+fewer people. But there are 111 finished carousel images and no video capacity,
+so a carousel posted beats a Reel not made. If the carousels get traction, that
+is the evidence for investing in video.
+
+Reels rows are deliberately excluded: the publisher posts `media_type: PHOTO`,
+so a Reel row would push its cover frame as a one-image post — not the content.
+
+**Vertical art.** The feed is vertical; the existing carousels are 1080×1080.
+TikTok accepts squares — they letterbox — so a TikTok row without vertical art
+still posts, and the linter warns (`tiktok-not-vertical`). To render the proper
+set:
+
+```
+node scripts/build-campaign-export.js --all --vertical
+```
+
+That writes `Campaign-Export-<KEY>-<event>-TIKTOK.html` alongside the square
+sheets. Export as usual; the filenames carry `-tt`, which is what routes them
+to TikTok and keeps them out of the Instagram carousel.
+
+The TikTok canvas is **not** the Story canvas. Both are 1080×1920, but TikTok
+puts an action rail down the right edge and the caption across the bottom, so
+these frames reserve the right 250px and the bottom 500px. A frame laid out for
+an Instagram Story puts its headline under the like button.
+
+**Tokens expire in ~24 hours**, unlike Meta's. Set `TIKTOK_CLIENT_KEY`,
+`TIKTOK_CLIENT_SECRET` and `TIKTOK_REFRESH_TOKEN`; the access token is minted
+per run. `TIKTOK_ACCESS_TOKEN` still works for debugging and will die overnight.
+
+> **The one thing that will silently kill TikTok publishing:** a refresh rotates
+> the refresh token, and the old one stops working. When that happens the run
+> prints the new value and tells you to update the secret. **Do it that day.**
+> Ignore it and the next run fails with credentials nobody can recover without
+> re-authorising by hand.
+
+**Draft vs direct.** Default is `UPLOAD_TO_DRAFT` — posts land in the app's
+drafts, you tap publish, and this needs **no audit**.
+`TIKTOK_POST_MODE=DIRECT_POST` publishes outright but requires TikTok's app
+review (2–4 weeks, and it can be rejected). Until that clears, an unaudited app
+is capped at `SELF_ONLY`, so DIRECT_POST "succeeds" and posts privately to
+nobody. `social-preflight` reports the account's real allowed privacy levels —
+check it before flipping the mode.
+
+**Before the first real post**, two things are worth confirming, because both
+fail at publish time with errors that do not name the cause:
+
+1. **`sparkdate.date` must be verified in the TikTok developer portal.** Media
+   is pulled by URL (`PULL_FROM_URL`), and TikTok refuses unverified domains.
+2. **The audit application** (Developer Portal → your app → Content Posting
+   API) is what unlocks `DIRECT_POST` and `PUBLIC_TO_EVERYONE`.
+
 ---
 
 ## What stays manual, permanently
@@ -120,6 +178,7 @@ Watch it at **Actions → social publish**.
 | **Story link/countdown stickers** | The API can post a Story but cannot attach stickers — which is where the link and the urgency live. Rows carry `manual_reason`; the runner skips them. |
 | **Live event coverage (T-0 evening)** | Shot on the night. |
 | **X / Twitter** | No publisher, by decision. `caption_x` is written and linted; posting is a paste. |
+| **Tapping publish on TikTok drafts** | Until the audit clears. `UPLOAD_TO_DRAFT` needs no review; `DIRECT_POST` does. |
 | **Counted attendance in recaps** | Never estimate. Wait for the real check-in number. |
 
 ---

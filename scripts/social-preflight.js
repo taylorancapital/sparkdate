@@ -20,9 +20,13 @@
  *   META_PAGE_ID              optional -- discovered via the business if unset.
  *   META_BUSINESS_ID          optional -- defaults to the known SparkDate id.
  *   META_IG_USER_ID           optional -- discovered from the Page if unset.
+ *   TIKTOK_CLIENT_KEY / _CLIENT_SECRET / _REFRESH_TOKEN
+ *                             optional -- TikTok checks are skipped if unset.
  */
 
 'use strict';
+
+const TikTokAuth = require('../lib/tiktok-auth');
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const BUSINESS_ID = process.env.META_BUSINESS_ID || '2490071258114152';
@@ -137,6 +141,69 @@ async function main() {
     if (me.json && me.json.id) ok(`IG account readable: @${me.json.username} (${me.json.media_count} posts)`);
     else fail(`IG account not readable: ${JSON.stringify(me.json).slice(0, 140)}`,
       'instagram_basic + instagram_content_publish must be on the token, and the IG account assigned to the system user');
+  }
+
+  // --- TikTok ----------------------------------------------------------
+  //
+  // Optional: a run with no TikTok rows does not need any of this, so an
+  // unset TikTok is reported and not counted as a failure.
+  //
+  // What this check is FOR is the audit. Until TikTok approves the app,
+  // DIRECT_POST is capped at SELF_ONLY -- a post that "succeeds" and is
+  // visible to nobody. creator_info is the only place that state is legible
+  // before publishing; the publish call itself just works and posts privately.
+  console.log('\nTikTok');
+  if (!process.env.TIKTOK_REFRESH_TOKEN && !process.env.TIKTOK_ACCESS_TOKEN) {
+    console.log('  \x1b[90mSKIP\x1b[0m  not configured -- TikTok rows will be skipped, other surfaces unaffected');
+  } else {
+    try {
+      const t = await TikTokAuth.getAccessToken(process.env, { log: (m) => m && console.log('        ' + m) });
+      if (!t || !t.accessToken) throw new Error('no access token');
+      ok('access token obtained');
+
+      const res = await fetch('https://open.tiktokapis.com/v2/post/publish/creator_info/query/', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${t.accessToken}`,
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+      });
+      const j = await res.json().catch(() => ({}));
+      const d = j.data || {};
+      const err = (j.error && j.error.code) || '';
+
+      if (err && err !== 'ok') {
+        bad(`creator_info: ${err} -- ${(j.error && j.error.message) || ''}`,
+          'the token needs the video.publish scope, and the TikTok account must be linked to this app');
+        failures++;
+      } else {
+        ok(`posting as @${d.creator_username || '?'}`);
+        const levels = d.privacy_level_options || [];
+        console.log(`        privacy levels allowed: ${levels.join(', ') || '(none reported)'}`);
+
+        const want = process.env.TIKTOK_PRIVACY_LEVEL || 'SELF_ONLY';
+        const mode = process.env.TIKTOK_POST_MODE || 'UPLOAD_TO_DRAFT';
+        if (mode === 'DIRECT_POST' && levels.length && !levels.includes(want)) {
+          bad(`TIKTOK_PRIVACY_LEVEL=${want} is not allowed for this account`,
+            `pick one of: ${levels.join(', ')}`);
+          failures++;
+        }
+        if (mode === 'DIRECT_POST' && !levels.includes('PUBLIC_TO_EVERYONE')) {
+          // The audit state, stated plainly. This is the difference between
+          // "TikTok is running" and "TikTok is posting to an empty room".
+          warn('PUBLIC_TO_EVERYONE is NOT available -- the app is still unaudited,');
+          console.log('        so DIRECT_POST will publish privately and nobody will see it.');
+          console.log('        Keep TIKTOK_POST_MODE=UPLOAD_TO_DRAFT until the audit clears.');
+        }
+        if (d.max_video_post_duration_sec) {
+          console.log(`        (video limit ${d.max_video_post_duration_sec}s -- unused; we post photos)`);
+        }
+      }
+    } catch (e) {
+      bad(`TikTok auth failed: ${e.message}`,
+        'set TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET and TIKTOK_REFRESH_TOKEN');
+      failures++;
+    }
   }
 
   // --- summary ---------------------------------------------------------

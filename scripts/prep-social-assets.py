@@ -55,6 +55,50 @@ def classify(size, dims):
 
 
 
+def resolve(src_dir, fname):
+    """The real path for a named export, or None.
+
+    The export folder holds names with a stray space -- "tellus-aug19-3of3
+    -TL1.png" -- so an exact join misses files that are plainly sitting there.
+    """
+    direct = os.path.join(src_dir, fname)
+    if os.path.exists(direct):
+        return direct
+    if not os.path.isdir(src_dir):
+        return None
+    loose = re.sub(r"\s+", "", fname)
+    for f in os.listdir(src_dir):
+        if re.sub(r"\s+", "", f) == loose:
+            return os.path.join(src_dir, f)
+    return None
+
+
+def suffix_for(src_path, fname, dims):
+    """Which surface this file is for, as a filename suffix.
+
+    Shape alone cannot answer this any more. A TikTok image and an Instagram
+    Story image are BOTH 1080x1920 -- identical pixels, different destination
+    -- so the only thing that distinguishes them is what the exporter named
+    it. `-tt` in the source name means TikTok; the campaign-export sheet emits
+    that suffix when built with --vertical.
+
+    Getting this wrong is quiet in the worst way: a TikTok frame filed as
+    `_story` posts to Instagram Stories instead, and the TikTok row falls back
+    to the square art it was meant to replace.
+    """
+    stem = re.sub(r"\s+", "", os.path.splitext(os.path.basename(fname))[0]).lower()
+    if re.search(r"(^|[^a-z0-9])(tt|tiktok)([^a-z0-9]|$)", stem):
+        return "_tt"
+
+    if not src_path:
+        return ""
+
+    from PIL import Image
+    with Image.open(src_path) as im:
+        shape = classify(im.size, dims)
+    return "_story" if shape in ("story", "reel") else ""
+
+
 def discover(src_dir, row_id):
     """Find source files for a row that has no asset_files yet.
 
@@ -136,24 +180,31 @@ def main():
             continue
 
         rid = row["row_id"]
-        total = len(files)
         new_names = []
 
-        for i, fname in enumerate(files, start=1):
-            src = os.path.join(args.src, fname)
-            if not os.path.exists(src):
-                # Tolerate the stray-space filenames in the export folder
-                # (e.g. "tellus-aug19-3of3 -TL1.png") rather than assuming
-                # the exports are tidily named.
-                loose = re.sub(r"\s+", "", fname)
-                cand = [f for f in os.listdir(args.src) if re.sub(r"\s+", "", f) == loose] \
-                    if os.path.isdir(args.src) else []
-                if cand:
-                    src = os.path.join(args.src, cand[0])
-                else:
-                    warnings.append(f"{rid}: source not found: {fname}")
-                    new_names.append(fname)
-                    continue
+        # Number WITHIN a shape group, not across the row.
+        #
+        # A row can now carry three sets at once: 4 square feed images, a
+        # story frame, and 4 vertical TikTok images. Numbering them 1of9
+        # through 9of9 -- which is what a single running counter does -- makes
+        # every filename lie about how many slides the carousel has, and
+        # buries which file belongs to which surface.
+        #
+        # So group first, then count. A group of one keeps the bare
+        # `MC-12_story.jpg` form it already had.
+        resolved = {f: resolve(args.src, f) for f in files}
+        groups = {}
+        for fname in files:
+            if resolved[fname]:
+                groups.setdefault(suffix_for(resolved[fname], fname, dims), []).append(fname)
+        index = {}
+
+        for fname in files:
+            src = resolved[fname]
+            if not src:
+                warnings.append(f"{rid}: source not found: {fname}")
+                new_names.append(fname)
+                continue
 
             im = Image.open(src)
             shape = classify(im.size, dims)
@@ -163,7 +214,9 @@ def main():
                     f"({', '.join('%s %dx%d' % (k, v['width'], v['height']) for k, v in dims.items())})"
                 )
 
-            suffix = "_story" if shape in ("story", "reel") else ""
+            suffix = suffix_for(src, fname, dims)
+            total = len(groups[suffix])
+            i = index[suffix] = index.get(suffix, 0) + 1
             out_name = (f"{rid}{suffix}.jpg" if total == 1
                         else f"{rid}_{i}of{total}{suffix}.jpg")
             new_names.append(out_name)

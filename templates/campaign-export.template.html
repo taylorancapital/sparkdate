@@ -83,7 +83,7 @@
   <p class="lede">Every organic slide and ad frame at true output size &mdash; 1080&times;1080 square, 1080&times;1920 vertical. Filter to a set, hit Export all, and each frame downloads as a named PNG (<span style="color:rgba(245,243,240,0.75)">__FILE_EXAMPLE__</span>).</p>
 
   <div class="hint">
-    <b>Export all</b> renders every frame in the current filter to a full-size PNG and downloads them one after another. Edge will ask once to allow multiple downloads &mdash; choose Allow. Zoom below only affects on-screen preview; exports are always full resolution. Story frames (1080&times;1920) deliberately reserve the top 250px and bottom 320px &mdash; Instagram UI covers them, and the lower band is where the link or countdown sticker gets placed by hand at posting.
+    <b>Export all</b> renders every frame in the current filter to a full-size PNG and downloads them one after another. Edge will ask once to allow multiple downloads &mdash; choose Allow. Zoom below only affects on-screen preview; exports are always full resolution. __SAFE_AREA_NOTE__
   </div>
 
   <div class="exportbar">
@@ -129,8 +129,21 @@ function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replac
 function frameHTML(f) {
   const s = f.s;
   const p = PAL[s.mode] || PAL.page;
-  const story = !!s.story;
-  const W = story ? 1080 : 1080;
+  // TikTok is vertical like a Story but its chrome sits in DIFFERENT places,
+  // so it cannot simply reuse the Story geometry:
+  //
+  //   Instagram Story   header on top, reply bar at the bottom, sides clear
+  //   TikTok            tab bar on top, a tall ACTION RAIL down the right
+  //                     (avatar, like, comment, share, sound), and username
+  //                     plus caption across the bottom
+  //
+  // The right rail is the one that matters, because nothing in the Story
+  // layout reserves horizontal space at all -- reuse it unchanged and every
+  // headline runs full width straight under the like and share buttons. That
+  // is invisible in this sheet and obvious in the app.
+  const tt = !!s.tiktok;
+  const story = !!s.story || tt;
+  const W = 1080;
   const H = story ? 1920 : 1080;
   const big = s.mode === 'stat' && String(s.line1).length <= 3;
   const isPrice = s.mode === 'price';
@@ -143,7 +156,10 @@ function frameHTML(f) {
   else if (isQuote) h1 = 62;
   else if ((s.line1 + ' ' + (s.line2 || '')).length > 26) h1 = 82;
 
-  const pad = story ? '250px 72px 320px' : '132px 76px 126px';
+  // top / right / bottom / left. TikTok's right value is the action rail.
+  const pad = tt ? '190px 250px 500px 72px'
+    : story ? '250px 72px 320px'
+    : '132px 76px 126px';
   const align = s.fullBleed ? 'align-items:center;text-align:center;' : '';
 
   let inner = '';
@@ -151,7 +167,7 @@ function frameHTML(f) {
     inner += '<img src="' + photoSrc(s.img) + '" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;">';
     inner += '<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,14,39,0.72) 0%,rgba(10,14,39,0.45) 38%,rgba(10,14,39,0.92) 100%);"></div>';
   }
-  inner += '<div style="position:absolute;top:' + (story ? 274 : 44) + 'px;left:52px;right:52px;display:flex;justify-content:space-between;gap:24px;">'
+  inner += '<div style="position:absolute;top:' + (tt ? 150 : story ? 274 : 44) + 'px;left:52px;right:' + (tt ? 250 : 52) + 'px;display:flex;justify-content:space-between;gap:24px;">'
     + '<span style="font-size:27px;letter-spacing:4.5px;text-transform:uppercase;font-weight:700;color:' + p.eyebrow + ';">' + esc(s.eyebrow) + '</span>'
     + (f.of > 1 ? '<span style="font-size:27px;letter-spacing:4.5px;text-transform:uppercase;font-weight:600;color:' + p.meta + ';">' + f.n + '/' + f.of + '</span>' : '')
     + '</div>';
@@ -169,10 +185,10 @@ function frameHTML(f) {
   inner += '</div>';
 
   if (s.lowerThird) {
-    inner += '<div style="position:absolute;left:0;right:0;bottom:' + (story ? 426 : 106) + 'px;background:linear-gradient(135deg,#ff6b6b,#ff5252);color:#fff;font-size:27px;letter-spacing:3.6px;text-transform:uppercase;font-weight:700;padding:24px 52px;line-height:1.4;">' + esc(s.lowerThird) + '</div>';
+    inner += '<div style="position:absolute;left:0;right:0;bottom:' + (tt ? 560 : story ? 426 : 106) + 'px;background:linear-gradient(135deg,#ff6b6b,#ff5252);color:#fff;font-size:27px;letter-spacing:3.6px;text-transform:uppercase;font-weight:700;padding:24px 52px;line-height:1.4;">' + esc(s.lowerThird) + '</div>';
   }
 
-  inner += '<div style="position:absolute;bottom:' + (story ? 320 : 0) + 'px;left:0;right:0;border-top:3px solid ' + p.divider + ';padding:28px 52px;display:flex;justify-content:space-between;align-items:center;">'
+  inner += '<div style="position:absolute;bottom:' + (tt ? 470 : story ? 320 : 0) + 'px;left:0;right:' + (tt ? 200 : 0) + 'px;border-top:3px solid ' + p.divider + ';padding:28px 52px;display:flex;justify-content:space-between;align-items:center;">'
     + '<span style="font-family:\'Playfair Display\',Georgia,serif;font-weight:900;font-size:38px;"><span style="color:' + p.spark + ';">Spark</span><span style="color:' + p.date + ';">Date</span></span>'
     + '<span style="font-size:24px;letter-spacing:3px;text-transform:uppercase;color:' + p.site + ';">SPARKDATE.DATE</span>'
     + '</div>';
