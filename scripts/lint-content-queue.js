@@ -77,7 +77,9 @@ function lint(rows, brand, opts = {}) {
       if (b.re.test(prose)) add('error', id, 'banned-fact', `${b.id}: ${b.description.split('.')[0]}`);
     }
 
-    // --- consent: pulled images must never appear -----------------------
+    // --- pulled images must never appear --------------------------------
+    // Why they are pulled is NOT recorded. Do not restate a reason here or
+    // in any generated brief; the rule stands on its own.
     const assets = Q.rowAssets(row);
     for (const a of assets) {
       const hit = pulled.find((p) => a.toUpperCase().includes(p.toUpperCase()));
