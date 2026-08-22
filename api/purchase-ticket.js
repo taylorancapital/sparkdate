@@ -26,6 +26,7 @@ const { SERVICE_FEE_CENTS } = require('../lib/pricing');
 const { seatFields, effectivePrice } = require('../lib/seat-model');
 const { makeProfileUrl } = require('../lib/profile-link');
 const { sameEmailIdentity } = require('../lib/email-identity');
+const { normalizeAttribution, toStripeMetadata, channelOf } = require('../lib/attribution');
 const { EMAIL_FROM, EMAIL_REPLY_TO } = require('../lib/email-sender');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -486,7 +487,9 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { paymentMethodId, email, name, phone, gender, eventId, ref } = req.body || {};
+    const { paymentMethodId, email, name, phone, gender, eventId, ref, attribution } = req.body || {};
+    // Untrusted -- length-capped and key-restricted before it touches Firestore.
+    const attr = normalizeAttribution(attribution);
     let firebaseUid = null;
 
     // ── Basic input validation ─────────────────────────────────────
@@ -653,7 +656,7 @@ module.exports = async function handler(req, res) {
       currency: 'usd',
       receipt_email: email,
       description: `SparkDate ticket — ${eventName}`,
-      metadata: { eventId, gender, type: 'ticket' },
+      metadata: { eventId, gender, type: 'ticket', ...toStripeMetadata(attr) },
       confirm: true,
     };
 
@@ -785,6 +788,12 @@ module.exports = async function handler(req, res) {
       paymentIntentId: paymentIntent.id,
       paidWithCardOnFile: !!firebaseUid,
       status: ticketStatus,
+      // Which channel produced this sale. `channel` is the short reporting
+      // label ("facebook / paid_social"); `attribution` keeps the raw UTMs so
+      // a per-campaign or per-post breakdown is possible later. Null when the
+      // buyer arrived with no UTMs, which is itself the answer: direct.
+      channel: channelOf(attr),
+      attribution: attr,
       createdAt: FieldValue.serverTimestamp(),
     });
     batch.set(regRef, {
