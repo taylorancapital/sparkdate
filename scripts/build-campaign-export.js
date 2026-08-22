@@ -210,6 +210,45 @@ function contentSpec(text, mode) {
   return headlineAndSub(t);
 }
 
+/**
+ * Pick `count` testimonials for a row, deterministically.
+ *
+ * A testimonial post is a 3-slide carousel, and until six quotes existed it
+ * ran ONE quote split across three frames -- the same words twice, which is
+ * the opposite of social proof. Different people on each slide is what that
+ * beat is for.
+ *
+ * Seeded off the row id so the same post always renders the same set (no
+ * churn between builds), but MC-08 and LX-20 do not show an identical wall.
+ * Shortest-first, because a quote frame reads at a glance and "Cool
+ * Atmosphere!" lands harder at 62px than a 118-character sentence.
+ */
+function pickTestimonials(brand, rowId, count) {
+  const all = (brand.universal.approved_testimonials || []).slice();
+  if (!all.length) return [];
+  let seed = 0;
+  for (const ch of String(rowId)) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+
+  // Alternate substantial and punchy rather than taking consecutive entries.
+  // A straight rotation handed MC-08 the two shortest quotes -- "Cool
+  // Atmosphere!" and "A night to remember!" -- which is a thin wall, while
+  // LX-20 got the two longest and both rendered small. One of each reads
+  // better and gives the frame a reason to be two frames.
+  const byLength = all.slice().sort((a, b) => b.quote.length - a.quote.length);
+  const long = byLength.slice(0, Math.ceil(byLength.length / 2));
+  const short = byLength.slice(Math.ceil(byLength.length / 2));
+
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const pool = i % 2 === 0 ? long : short;
+    if (!pool.length) break;
+    out.push(pool[(seed + i) % pool.length]);
+  }
+  // Never repeat a person inside one post.
+  const seen = new Set();
+  return out.filter((t) => (seen.has(t.id) ? false : seen.add(t.id)));
+}
+
 /** Turn one queue row into the frame objects the renderer expects. */
 function framesForRow(row, ev, brand) {
   const n = slideCount(row.format);
@@ -245,6 +284,25 @@ function framesForRow(row, ev, brand) {
     const m0 = pickMode(u[0], 'page');
     const h = contentSpec(u[0], m0);
     push(m0, { ...h, sub: h.sub || u[1] || '' });
+    return out;
+  }
+
+  // A testimonial post becomes a wall of DIFFERENT people, not one quote cut
+  // into pieces. Detected off the first chunk, which is where the quote sits.
+  if (pickMode(u[0], 'page') === 'quote') {
+    const picks = pickTestimonials(brand, row.row_id, n - 1);
+    for (const t of picks) {
+      push('quote', {
+        line1: `“${t.quote}”`,
+        line2: '',
+        sub: t.attribution,
+        pullQuote: true,
+      });
+    }
+    // Pad if there are fewer testimonials than slides, so the count still
+    // matches the format the queue promises.
+    while (out.length < n - 1) push('elevated', headlineAndSub(u[1] || ev.name || ''));
+    push('endcard', { ...headlineAndSub(`${prettyDate(ev.date)} · ${ev.venue || ''}`), cta: 'Get tickets' });
     return out;
   }
 
