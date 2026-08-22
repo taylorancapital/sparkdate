@@ -1821,7 +1821,31 @@
             }
 
             resetCheckoutForm();
-            showModalStep('stepDetails');
+
+            // Someone who tapped "Get Tickets" on an ad landing page has
+            // already decided. Showing them the description again, behind a
+            // second "Continue to Checkout" button, asks them to decide twice
+            // -- and Stripe shows ZERO incomplete PaymentIntents in the
+            // account's entire history, meaning paid visitors were never
+            // reaching the card field at all. This intermediate step is where
+            // they were being lost.
+            //
+            // Browsing the events grid still opens on the details step: that
+            // visitor has NOT chosen an event yet and needs the description.
+            // Sold-out events also stay on details, where the waitlist lives.
+            const straightToCheckout = opts.checkout && !dialogSoldOut;
+            showModalStep(straightToCheckout ? 'stepCheckout' : 'stepDetails');
+            if (straightToCheckout && typeof gtag === 'function') {
+                // begin_checkout still has to fire -- the button that normally
+                // fires it was skipped.
+                const startPrice = eventPricing(ev, modalGender()).price;
+                gtag('event', 'begin_checkout', {
+                    currency: 'USD',
+                    value: startPrice,
+                    items: [{ item_id: id, item_name: ev.title || 'SparkDate Mixer', price: startPrice }],
+                });
+                gtag('event', 'checkout_form_started', { skipped_details: true });
+            }
             document.getElementById('eventModalBackdrop').classList.add('show');
             // Move focus into the dialog (the close button — always present
             // and keyboard-reachable regardless of which step is active) so
@@ -1864,8 +1888,11 @@
         }
 
         function maybeOpenDialogFromUrl() {
-            const id = new URLSearchParams(location.search).get('event');
-            if (id) openEventDialog(id, { fromPopstate: true }); // don't push again — the URL is already current
+            const q = new URLSearchParams(location.search);
+            const id = q.get('event');
+            // ?checkout=1 means the visitor already pressed a buy button
+            // elsewhere (the /lp CTA), so skip the description step.
+            if (id) openEventDialog(id, { fromPopstate: true, checkout: q.get('checkout') === '1' });
         }
 
         // Reads state only, never pushes — a pushing popstate handler
