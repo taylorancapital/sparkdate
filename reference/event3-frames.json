@@ -1,0 +1,1044 @@
+{
+  "_comment": "The 68 hand-built frames from the Tellus Event 3 campaign export, kept as the reference for what a full campaign looks like: 53 organic + 15 PAID, and all ten frame modes. scripts/build-campaign-export.js currently emits three modes and zero paid frames -- see reports/CAMPAIGN_FRAME_GAP_ANALYSIS_2026-08-22.md. The source HTML is not committed: 1047 KB of its 1079 KB was base64 photos, and the renderer itself already lives in templates/campaign-export.template.html. The original is in OneDrive/SparkDate/.",
+  "_source": "Event3-Campaign-Export.html, Tellus AfterDark, hand-built 2026-08",
+  "frames": [
+    {
+      "group": "organic",
+      "id": "aug4",
+      "label": "Mon Aug 4 \u2014 Launch",
+      "n": 1,
+      "of": 5,
+      "s": {
+        "mode": "page",
+        "eyebrow": "Event 3",
+        "line1": "Round three is",
+        "line2": "Lancaster.",
+        "sub": ""
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug4",
+      "label": "Mon Aug 4 \u2014 Launch",
+      "n": 2,
+      "of": 5,
+      "s": {
+        "mode": "stat",
+        "eyebrow": "The date",
+        "line1": "August 26",
+        "line2": "",
+        "sub": "6:30\u20138:30PM"
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug4",
+      "label": "Mon Aug 4 \u2014 Launch",
+      "n": 3,
+      "of": 5,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "The venue",
+        "line1": "Tellus360.",
+        "line2": "August 26.",
+        "sub": "Tellus360 \u00b7 24 E King St, Lancaster",
+        "img": "photos/tellus-roof.png",
+        "photo": "Tellus360 rooftop \u2014 turf, string lights, open sky",
+        "fullBleed": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug4",
+      "label": "Mon Aug 4 \u2014 Launch",
+      "n": 4,
+      "of": 5,
+      "s": {
+        "mode": "elevated",
+        "eyebrow": "How the night runs",
+        "line1": "Mingle first.",
+        "line2": "Rounds last.",
+        "sub": "Drinks, icebreaker, mingling, then 7-minute matched rounds."
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug4",
+      "label": "Mon Aug 4 \u2014 Launch",
+      "n": 5,
+      "of": 5,
+      "s": {
+        "mode": "coral",
+        "eyebrow": "Early bird",
+        "line1": "$18.99",
+        "line2": "until Aug 15",
+        "sub": "Tellus360 \u00b7 Link in bio",
+        "cta": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug6",
+      "label": "Wed Aug 6 \u2014 What the night is",
+      "n": 1,
+      "of": 6,
+      "s": {
+        "mode": "page",
+        "eyebrow": "First timers",
+        "line1": "What actually happens",
+        "line2": "at a SparkDate night.",
+        "sub": ""
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug6",
+      "label": "Wed Aug 6 \u2014 What the night is",
+      "n": 2,
+      "of": 6,
+      "s": {
+        "mode": "elevated",
+        "eyebrow": "Question one",
+        "line1": "Is it speed dating?",
+        "line2": "Not quite.",
+        "sub": "Mingling first. 7-minute matched rounds last."
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug6",
+      "label": "Wed Aug 6 \u2014 What the night is",
+      "n": 3,
+      "of": 6,
+      "s": {
+        "mode": "elevated",
+        "eyebrow": "Question two",
+        "line1": "Will I be standing alone?",
+        "line2": "No.",
+        "sub": "That is literally the hosts' job."
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug6",
+      "label": "Wed Aug 6 \u2014 What the night is",
+      "n": 4,
+      "of": 6,
+      "s": {
+        "mode": "elevated",
+        "eyebrow": "Question three",
+        "line1": "Is it loud?",
+        "line2": "No.",
+        "sub": "You can hear the person across from you."
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug6",
+      "label": "Wed Aug 6 \u2014 What the night is",
+      "n": 5,
+      "of": 6,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "The room",
+        "line1": "Tellus360.",
+        "line2": "August 26.",
+        "sub": "Tellus360 \u00b7 24 E King St, Lancaster",
+        "img": "photos/tellus-interior.png",
+        "photo": "Tellus360 interior \u2014 long bar, timber, warm light",
+        "fullBleed": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug6",
+      "label": "Wed Aug 6 \u2014 What the night is",
+      "n": 6,
+      "of": 6,
+      "s": {
+        "mode": "coral",
+        "eyebrow": "August 26",
+        "line1": "$18.99",
+        "line2": "through the 15th",
+        "sub": "Tellus360, 24 E King St, Lancaster",
+        "cta": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug8",
+      "label": "Fri Aug 8 \u2014 Proof",
+      "n": 1,
+      "of": 4,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "Event one",
+        "line1": "This is what the",
+        "line2": "last one looked like.",
+        "sub": "",
+        "img": "photos/cleared-8861.png",
+        "photo": "IMG_8861 \u2014 mid-conversation at the bar, name cards on the table",
+        "fullBleed": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug8",
+      "label": "Fri Aug 8 \u2014 Proof",
+      "n": 2,
+      "of": 4,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "Event one",
+        "line1": "",
+        "line2": "",
+        "sub": "",
+        "img": "photos/cleared-8862.png",
+        "photo": "IMG_8862 \u2014 rooftop bar, full crowd at night",
+        "fullBleed": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug8",
+      "label": "Fri Aug 8 \u2014 Proof",
+      "n": 3,
+      "of": 4,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "Event one",
+        "line1": "",
+        "line2": "",
+        "sub": "",
+        "img": "photos/img_9001.png",
+        "photo": "IMG_9001 \u2014 the bar room, SparkDate table card on the near table",
+        "fullBleed": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug8",
+      "label": "Fri Aug 8 \u2014 Proof",
+      "n": 4,
+      "of": 4,
+      "s": {
+        "mode": "stat",
+        "eyebrow": "Event one",
+        "line1": "22",
+        "line2": "",
+        "sub": "people. one night.",
+        "cta": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug10",
+      "label": "Sun Aug 10 \u2014 Testimonial",
+      "n": 1,
+      "of": 3,
+      "s": {
+        "mode": "quote",
+        "eyebrow": "",
+        "line1": "Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there.",
+        "line2": "",
+        "sub": "",
+        "pullQuote": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug10",
+      "label": "Sun Aug 10 \u2014 Testimonial",
+      "n": 2,
+      "of": 3,
+      "s": {
+        "mode": "quote",
+        "eyebrow": "Event one attendee",
+        "line1": "\u2014 Quang",
+        "line2": "",
+        "sub": "Event 1"
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug10",
+      "label": "Sun Aug 10 \u2014 Testimonial",
+      "n": 3,
+      "of": 3,
+      "s": {
+        "mode": "coral",
+        "eyebrow": "August 26",
+        "line1": "Tellus360",
+        "line2": "",
+        "sub": "Tellus360 \u00b7 24 E King St \u00b7 6:30PM \u00b7 $18.99",
+        "cta": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug12",
+      "label": "Tue Aug 12 \u2014 Anti-app",
+      "n": 1,
+      "of": 6,
+      "s": {
+        "mode": "page",
+        "eyebrow": "The model",
+        "line1": "47 matches.",
+        "line2": "0 dates.",
+        "sub": ""
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug12",
+      "label": "Tue Aug 12 \u2014 Anti-app",
+      "n": 2,
+      "of": 6,
+      "s": {
+        "mode": "elevated",
+        "eyebrow": "",
+        "line1": "The apps solved",
+        "line2": "matching.",
+        "sub": ""
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug12",
+      "label": "Tue Aug 12 \u2014 Anti-app",
+      "n": 3,
+      "of": 6,
+      "s": {
+        "mode": "elevated",
+        "eyebrow": "",
+        "line1": "Nobody solved",
+        "line2": "meeting.",
+        "sub": ""
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug12",
+      "label": "Tue Aug 12 \u2014 Anti-app",
+      "n": 4,
+      "of": 6,
+      "s": {
+        "mode": "coral",
+        "eyebrow": "",
+        "line1": "So we did.",
+        "line2": "",
+        "sub": ""
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug12",
+      "label": "Tue Aug 12 \u2014 Anti-app",
+      "n": 5,
+      "of": 6,
+      "s": {
+        "mode": "stat",
+        "eyebrow": "The details",
+        "line1": "August 26",
+        "line2": "",
+        "sub": "6:30\u20138:30PM \u00b7 Tellus360, Lancaster \u00b7 30 people"
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug12",
+      "label": "Tue Aug 12 \u2014 Anti-app",
+      "n": 6,
+      "of": 6,
+      "s": {
+        "mode": "coral",
+        "eyebrow": "Early bird ends the 15th",
+        "line1": "$18.99",
+        "line2": "",
+        "sub": "Tellus360 \u00b7 Link in bio",
+        "cta": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug14",
+      "label": "Thu Aug 14 \u2014 Deadline eve",
+      "n": 1,
+      "of": 3,
+      "s": {
+        "mode": "page",
+        "eyebrow": "Deadline",
+        "line1": "Early bird ends",
+        "line2": "tomorrow.",
+        "sub": ""
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug14",
+      "label": "Thu Aug 14 \u2014 Deadline eve",
+      "n": 2,
+      "of": 3,
+      "s": {
+        "mode": "price",
+        "eyebrow": "Ends Aug 15",
+        "line1": "$18.99",
+        "line2": "$24.99",
+        "sub": "Same night either way."
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug14",
+      "label": "Thu Aug 14 \u2014 Deadline eve",
+      "n": 3,
+      "of": 3,
+      "s": {
+        "mode": "coral",
+        "eyebrow": "August 26",
+        "line1": "Tellus360",
+        "line2": "",
+        "sub": "Tellus360 \u00b7 24 E King St, Lancaster \u00b7 Link in bio",
+        "cta": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug15a",
+      "label": "Fri Aug 15 \u2014 Deadline day \u2014 morning",
+      "n": 1,
+      "of": 1,
+      "s": {
+        "mode": "price",
+        "eyebrow": "Last day",
+        "line1": "$18.99",
+        "line2": "$24.99",
+        "sub": "Tomorrow it changes.",
+        "cta": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug15b",
+      "label": "Fri Aug 15, ~7pm \u2014 Deadline day \u2014 evening",
+      "n": 1,
+      "of": 1,
+      "s": {
+        "mode": "coral",
+        "eyebrow": "Tonight",
+        "line1": "A few hours left",
+        "line2": "at $18.99.",
+        "sub": "Aug 26 \u00b7 Tellus360, Lancaster \u00b7 Link in bio",
+        "cta": true,
+        "story": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug16",
+      "label": "Sat Aug 16 \u2014 Price change",
+      "n": 1,
+      "of": 1,
+      "s": {
+        "mode": "page",
+        "eyebrow": "Regular price",
+        "line1": "Early bird's done.",
+        "line2": "$24.99 from here.",
+        "sub": "The night hasn't changed. Aug 26 \u00b7 Tellus360 \u00b7 30 people.",
+        "cta": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug18",
+      "label": "Mon Aug 18 \u2014 Safety / logistics",
+      "n": 1,
+      "of": 5,
+      "s": {
+        "mode": "page",
+        "eyebrow": "Since people ask",
+        "line1": "The practical",
+        "line2": "stuff.",
+        "sub": ""
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug18",
+      "label": "Mon Aug 18 \u2014 Safety / logistics",
+      "n": 2,
+      "of": 5,
+      "s": {
+        "mode": "elevated",
+        "eyebrow": "Getting there",
+        "line1": "King Street.",
+        "line2": "",
+        "sub": "Downtown, garages a block away."
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug18",
+      "label": "Mon Aug 18 \u2014 Safety / logistics",
+      "n": 3,
+      "of": 5,
+      "s": {
+        "mode": "elevated",
+        "eyebrow": "What to wear",
+        "line1": "Come as you are.",
+        "line2": "",
+        "sub": "Nobody's in a suit."
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug18",
+      "label": "Mon Aug 18 \u2014 Safety / logistics",
+      "n": 4,
+      "of": 5,
+      "s": {
+        "mode": "elevated",
+        "eyebrow": "How the room runs",
+        "line1": "Hosts run the room.",
+        "line2": "",
+        "sub": "You are never stranded in a corner."
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug18",
+      "label": "Mon Aug 18 \u2014 Safety / logistics",
+      "n": 5,
+      "of": 5,
+      "s": {
+        "mode": "coral",
+        "eyebrow": "August 26",
+        "line1": "Doors at 6:30.",
+        "line2": "",
+        "sub": "Tellus360, 24 E King St \u00b7 Link in bio",
+        "cta": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug19",
+      "label": "Tue Aug 19 \u2014 One week",
+      "n": 1,
+      "of": 3,
+      "s": {
+        "mode": "stat",
+        "eyebrow": "Countdown",
+        "line1": "One week",
+        "line2": "out.",
+        "sub": ""
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug19",
+      "label": "Tue Aug 19 \u2014 One week",
+      "n": 2,
+      "of": 3,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "The night",
+        "line1": "",
+        "line2": "",
+        "sub": "",
+        "img": "photos/img_9001.png",
+        "photo": "IMG_9001 \u2014 the bar room mid-event, SparkDate card on the table",
+        "fullBleed": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug19",
+      "label": "Tue Aug 19 \u2014 One week",
+      "n": 3,
+      "of": 3,
+      "s": {
+        "mode": "coral",
+        "eyebrow": "Wednesday, August 26",
+        "line1": "Thirty people.",
+        "line2": "That's the cap.",
+        "sub": "24 E King St \u00b7 Doors 6:30 \u00b7 Link in bio",
+        "cta": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug21",
+      "label": "Thu Aug 21 \u2014 The room",
+      "n": 1,
+      "of": 1,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "Reel",
+        "line1": "This is the room.",
+        "line2": "",
+        "sub": "Aug 26 \u00b7 6:30 \u00b7 $24.99",
+        "img": "photos/tellus-patio.png",
+        "photo": "Tellus360 patio \u2014 communal tables, string lights. Shoot walking B-roll here.",
+        "reel": true,
+        "fullBleed": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug22",
+      "label": "Fri Aug 22 \u2014 Bring someone",
+      "n": 1,
+      "of": 4,
+      "s": {
+        "mode": "page",
+        "eyebrow": "Most people don't",
+        "line1": "You don't have to",
+        "line2": "walk in alone.",
+        "sub": ""
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug22",
+      "label": "Fri Aug 22 \u2014 Bring someone",
+      "n": 2,
+      "of": 4,
+      "s": {
+        "mode": "elevated",
+        "eyebrow": "Bring a friend",
+        "line1": "Split the nerves.",
+        "line2": "",
+        "sub": ""
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug22",
+      "label": "Fri Aug 22 \u2014 Bring someone",
+      "n": 3,
+      "of": 4,
+      "s": {
+        "mode": "elevated",
+        "eyebrow": "Bring a friend",
+        "line1": "Meet twice as",
+        "line2": "many people.",
+        "sub": ""
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug22",
+      "label": "Fri Aug 22 \u2014 Bring someone",
+      "n": 4,
+      "of": 4,
+      "s": {
+        "mode": "coral",
+        "eyebrow": "August 26",
+        "line1": "Tellus360.",
+        "line2": "",
+        "sub": "Tellus360 \u00b7 24 E King St, Lancaster \u00b7 Link in bio",
+        "cta": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug23",
+      "label": "Sat Aug 23 \u2014 Final push",
+      "n": 1,
+      "of": 4,
+      "s": {
+        "mode": "stat",
+        "eyebrow": "Countdown",
+        "line1": "Three days.",
+        "line2": "",
+        "sub": ""
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug23",
+      "label": "Sat Aug 23 \u2014 Final push",
+      "n": 2,
+      "of": 4,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "Event one",
+        "line1": "",
+        "line2": "",
+        "sub": "",
+        "img": "photos/img_9001.png",
+        "photo": "IMG_9001 \u2014 the bar room mid-event, SparkDate table card visible",
+        "fullBleed": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug23",
+      "label": "Sat Aug 23 \u2014 Final push",
+      "n": 3,
+      "of": 4,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "Event one",
+        "line1": "",
+        "line2": "",
+        "sub": "",
+        "img": "photos/cleared-8862.png",
+        "photo": "IMG_8862 \u2014 rooftop bar, full crowd at night",
+        "fullBleed": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug23",
+      "label": "Sat Aug 23 \u2014 Final push",
+      "n": 4,
+      "of": 4,
+      "s": {
+        "mode": "coral",
+        "eyebrow": "Wednesday, August 26",
+        "line1": "Doors at 6:30.",
+        "line2": "",
+        "sub": "Tellus360, 24 E King St \u00b7 Link in bio",
+        "cta": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug25",
+      "label": "Tue Aug 25 \u2014 Tomorrow",
+      "n": 1,
+      "of": 1,
+      "s": {
+        "mode": "coral",
+        "eyebrow": "Last call",
+        "line1": "Tomorrow.",
+        "line2": "6:30.",
+        "sub": "Tellus360, 24 E King St, Lancaster",
+        "cta": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug26",
+      "label": "Wed Aug 26 \u2014 Event day",
+      "n": 1,
+      "of": 2,
+      "s": {
+        "mode": "coral",
+        "eyebrow": "Tonight",
+        "line1": "Doors at 6:30.",
+        "line2": "",
+        "sub": "Tellus360, 24 E King St. See you there.",
+        "cta": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug26",
+      "label": "Wed Aug 26 \u2014 Event day",
+      "n": 2,
+      "of": 2,
+      "s": {
+        "mode": "page",
+        "eyebrow": "Story frame",
+        "line1": "Tonight.",
+        "line2": "",
+        "sub": "Tellus360 \u00b7 Lancaster",
+        "story": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug27",
+      "label": "Thu Aug 27 \u2014 Recap",
+      "n": 1,
+      "of": 3,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "Last night",
+        "line1": "",
+        "line2": "",
+        "sub": "",
+        "photo": "Best frame from the night",
+        "fullBleed": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug27",
+      "label": "Thu Aug 27 \u2014 Recap",
+      "n": 2,
+      "of": 3,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "Last night",
+        "line1": "",
+        "line2": "",
+        "sub": "",
+        "photo": "Room shot",
+        "fullBleed": true
+      }
+    },
+    {
+      "group": "organic",
+      "id": "aug27",
+      "label": "Thu Aug 27 \u2014 Recap",
+      "n": 3,
+      "of": 3,
+      "s": {
+        "mode": "page",
+        "eyebrow": "Event three",
+        "line1": "Thanks to everyone",
+        "line2": "who came out.",
+        "sub": "Next one's already in the works. Follow to hear first.",
+        "cta": true
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad1",
+      "label": "Ad 1 \u2014 Proof",
+      "n": 1,
+      "of": 3,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "Event one",
+        "line1": "Real people who",
+        "line2": "actually show up.",
+        "sub": "",
+        "img": "photos/cleared-8861.png",
+        "photo": "IMG_8861 \u2014 mid-conversation at the bar, name cards on the table tag visible",
+        "fullBleed": true
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad1",
+      "label": "Ad 1 \u2014 Proof",
+      "n": 2,
+      "of": 3,
+      "s": {
+        "mode": "stat",
+        "eyebrow": "Event one",
+        "line1": "22",
+        "line2": "",
+        "sub": "people. one night. multiple matches still talking."
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad1",
+      "label": "Ad 1 \u2014 Proof",
+      "n": 3,
+      "of": 3,
+      "s": {
+        "mode": "endcard",
+        "eyebrow": "Tellus AfterDark: Singles Edition @ Tellus360",
+        "line1": "August 26",
+        "line2": "",
+        "sub": "Tellus360 \u00b7 24 E King St, Lancaster",
+        "cta": true,
+        "lowerThird": "TELLUS AFTERDARK: SINGLES EDITION \u00b7 AUG 26 \u00b7 24 E KING ST, LANCASTER"
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad2",
+      "label": "Ad 2 \u2014 Anti-app",
+      "n": 1,
+      "of": 3,
+      "s": {
+        "mode": "dead",
+        "eyebrow": "Frame 1 \u00b7 0.0s",
+        "line1": "47 matches.",
+        "line2": "0 dates.",
+        "sub": "",
+        "note": "Dead match list, drained of colour. No motion, no music yet.",
+        "story": true
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad2",
+      "label": "Ad 2 \u2014 Anti-app",
+      "n": 2,
+      "of": 3,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "Frame 2 \u00b7 1.0s",
+        "line1": "A real room.",
+        "line2": "One night.",
+        "sub": "",
+        "img": "photos/cleared-8862.png",
+        "note": "Hard cut on the beat into the real room, full colour.",
+        "story": true
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad2",
+      "label": "Ad 2 \u2014 Anti-app",
+      "n": 3,
+      "of": 3,
+      "s": {
+        "mode": "endcard",
+        "eyebrow": "Tellus AfterDark: Singles Edition @ Tellus360",
+        "line1": "August 26",
+        "line2": "",
+        "sub": "Tellus360 \u00b7 24 E King St, Lancaster",
+        "cta": true,
+        "story": true
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad3",
+      "label": "Ad 3 \u2014 Objection handler",
+      "n": 1,
+      "of": 1,
+      "s": {
+        "mode": "split",
+        "eyebrow": "Tellus AfterDark: Singles Edition @ Tellus360",
+        "crossed": [
+          "Swiping",
+          "Loud bar",
+          "Cold introductions"
+        ],
+        "line1": "August 26",
+        "line2": "",
+        "sub": "Tellus360 \u00b7 6:30PM \u00b7 24 E King St, Lancaster",
+        "img": "photos/tellus-patio.png",
+        "photo": "Tellus360 patio behind the crossed-out stack"
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad4",
+      "label": "Ad 4 \u2014 Deadline",
+      "n": 1,
+      "of": 2,
+      "s": {
+        "mode": "price",
+        "eyebrow": "Ends Aug 15",
+        "line1": "$18.99",
+        "line2": "$24.99",
+        "sub": "",
+        "cta": true
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad4",
+      "label": "Ad 4 \u2014 Deadline",
+      "n": 2,
+      "of": 2,
+      "s": {
+        "mode": "page",
+        "eyebrow": "Post-Aug 16 variant",
+        "line1": "Regular price.",
+        "line2": "Aug 26.",
+        "sub": "Early bird's done \u2014 the night hasn't changed.",
+        "cta": true
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad5",
+      "label": "Ad 5 \u2014 Bring your girl (women)",
+      "n": 1,
+      "of": 3,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "Event one",
+        "line1": "",
+        "line2": "",
+        "sub": "",
+        "img": "photos/cleared-8861.png",
+        "photo": "IMG_8861 \u2014 a pair talking to a pair; nobody alone",
+        "fullBleed": true
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad5",
+      "label": "Ad 5 \u2014 Bring your girl (women)",
+      "n": 2,
+      "of": 3,
+      "s": {
+        "mode": "coral",
+        "eyebrow": "2-for-1 offer",
+        "line1": "Bring your girl.",
+        "line2": "One ticket. Two seats.",
+        "sub": "Early bird thru Aug 15",
+        "cta": true
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad5",
+      "label": "Ad 5 \u2014 Bring your girl (women)",
+      "n": 3,
+      "of": 3,
+      "s": {
+        "mode": "endcard",
+        "eyebrow": "Tellus AfterDark: Singles Edition @ Tellus360",
+        "line1": "August 26",
+        "line2": "",
+        "sub": "Tellus360 \u00b7 24 E King St \u00b7 2-for-1 ends Aug 15",
+        "cta": true
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad6",
+      "label": "Ad 6 \u2014 TikTok (Spark Ads)",
+      "n": 1,
+      "of": 3,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "Frame 1 \u00b7 0.0s",
+        "line1": "",
+        "line2": "",
+        "sub": "",
+        "img": "photos/cleared-8862.png",
+        "photo": "IMG_8862 \u2014 rooftop bar, full crowd at night",
+        "fullBleed": true,
+        "story": true
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad6",
+      "label": "Ad 6 \u2014 TikTok (Spark Ads)",
+      "n": 2,
+      "of": 3,
+      "s": {
+        "mode": "photo",
+        "eyebrow": "Frame 2 \u00b7 2.0s",
+        "line1": "this is a real",
+        "line2": "singles mixer",
+        "sub": "",
+        "img": "photos/cleared-8861.png",
+        "note": "Cut to the faces. Native TikTok caption styling, not brand type.",
+        "story": true
+      }
+    },
+    {
+      "group": "ads",
+      "id": "ad6",
+      "label": "Ad 6 \u2014 TikTok (Spark Ads)",
+      "n": 3,
+      "of": 3,
+      "s": {
+        "mode": "endcard",
+        "eyebrow": "Tellus AfterDark: Singles Edition @ Tellus360",
+        "line1": "August 26",
+        "line2": "",
+        "sub": "Tellus360 \u00b7 24 E King St \u00b7 link in bio",
+        "cta": true,
+        "story": true
+      }
+    }
+  ]
+}
