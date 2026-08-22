@@ -98,12 +98,29 @@ function cmdApprove(approving) {
   const to = approving ? 'approved' : 'pending';
   const touched = [];
 
+  // Approving a row whose art does not exist yet schedules a hole in the
+  // calendar: Facebook holds a post that can never be filled, and the row
+  // looks done in every report. Approve when the content is READY, not when
+  // the copy is written.
+  const force = flag('force');
+  const blocked = [];
+
   for (const row of rows) {
     if (one && row.row_id !== one) continue;
     if (!one && through && row.date > through) continue;
     if (row.state !== from) continue;
+    if (approving && !force && !String(row.asset_files || '').trim()) {
+      blocked.push(row.row_id);
+      continue;
+    }
     row.state = to;
     touched.push(row.row_id);
+  }
+
+  if (blocked.length) {
+    console.log(`Skipped ${blocked.length} row(s) with no artwork yet: ${blocked.join(', ')}`);
+    console.log('Approve them once the art lands, or pass --force if you mean it.');
+    console.log('');
   }
 
   if (!touched.length) { console.log(`Nothing in state=${from} matched.`); return; }
