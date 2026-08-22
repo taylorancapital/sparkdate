@@ -179,7 +179,17 @@
           var html = '<div class="promo-strip">';
           if (ne) {
             var heading = nextEvent.sameCity ? 'Next up' : 'Our next mixer';
-            var ticketUrl = (ne.ticketPath || '') + '&utm_source=matches&utm_medium=web&utm_campaign=matches_page';
+            // NO UTMs on this link. /matches is our own page, so tagging a link
+            // out of it starts a FRESH GA4 session attributed to
+            // "matches / web" -- which overwrites whatever channel actually
+            // paid to bring the person here. GA4 reported 52 sessions
+            // sourced from `matches` that were really Facebook, email and
+            // direct visitors taking one more step.
+            //
+            // The click is already measured: every [data-promo] link fires
+            // select_content (see wireUpPromoTracking). That reports the
+            // promo's contribution WITHOUT destroying the acquisition data.
+            var ticketUrl = ne.ticketPath || '';
             html += '<div class="promo-row">'
               + '<span class="promo-text">📅 ' + esc(heading) + ': ' + esc(ne.title) + (ne.dateLabel ? ', ' + esc(ne.dateLabel) : '') + '</span>'
               + '<a class="promo-link" href="' + esc(ticketUrl) + '" data-promo="next_mixer">Reserve →</a>'
@@ -191,12 +201,12 @@
             // be stranded with only the Getaways vote below.
             html += '<div class="promo-row">'
               + '<span class="promo-text">📅 No date on the calendar yet — we’ll email you as soon as there is one.</span>'
-              + '<a class="promo-link" href="/events?utm_source=matches&utm_medium=web&utm_campaign=matches_page_no_event" data-promo="no_event">See events →</a>'
+              + '<a class="promo-link" href="/events" data-promo="no_event">See events →</a>'
               + '</div>';
           }
           html += '<div class="promo-row">'
             + '<span class="promo-text">🌴 Getaways: vote + a shot at a free trip</span>'
-            + '<a class="promo-link" href="/getaways?utm_source=matches&utm_medium=web&utm_campaign=matches_page" data-promo="getaways">Vote →</a>'
+            + '<a class="promo-link" href="/getaways" data-promo="getaways">Vote →</a>'
             + '</div>';
           html += '</div>';
           return html;
@@ -221,7 +231,7 @@
               // Don't end on a flat sentence — this is still a past attendee
               // with intent, so give them somewhere to go.
               html += '<div class="empty">No other attendees registered for this one. '
-                + '<a href="/events?utm_source=matches&utm_medium=web&utm_campaign=matches_empty_roster">See what’s coming up →</a></div>';
+                + '<a href="/events">See what’s coming up →</a></div>';
             } else {
               ev.attendees.forEach(function (a) {
                 html += renderAttendee(a, ev.eventId);
@@ -331,7 +341,7 @@
             content.innerHTML = '<h1>Something went wrong.</h1><p class="bad">' + esc(msg) + '</p>'
               + '<button class="connect-btn" id="retryBtn" style="display:block;margin:16px auto 0;">Retry</button>'
               + '<p class="sub" style="text-align:center;margin-top:18px;">'
-              + '<a href="/events?utm_source=matches&utm_medium=web&utm_campaign=matches_error">Browse upcoming events →</a></p>';
+              + '<a href="/events">Browse upcoming events →</a></p>';
             var retryBtn = document.getElementById('retryBtn');
             if (retryBtn) retryBtn.addEventListener('click', function () { load(); });
           }
