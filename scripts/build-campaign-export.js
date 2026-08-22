@@ -300,9 +300,17 @@ function framesForRow(row, ev, brand) {
       const m = String(chunk).match(/^["“]([^"”]+)["”]\s*[-—–]\s*(.+)$/);
       if (m) inCaption.push({ id: 'caption-' + inCaption.length, quote: m[1].trim(), attribution: m[2].trim() });
     }
-    const picks = inCaption.length >= n - 1
-      ? inCaption.slice(0, n - 1)
-      : pickTestimonials(brand, row.row_id, n - 1);
+    // How many quote frames? Whatever the caption carries, up to the slide
+    // count. A caption with three quotes fills all three slides and drops the
+    // closing card -- the CTA is in the caption anyway, and a third voice is
+    // worth more than a repeat of the date. Two quotes leaves room for the
+    // closing card as before.
+    const wantQuotes = inCaption.length >= n
+      ? n
+      : (inCaption.length >= n - 1 ? n - 1 : n - 1);
+    const picks = inCaption.length >= wantQuotes
+      ? inCaption.slice(0, wantQuotes)
+      : pickTestimonials(brand, row.row_id, wantQuotes);
     for (const t of picks) {
       push('quote', {
         line1: `“${t.quote}”`,
@@ -311,10 +319,20 @@ function framesForRow(row, ev, brand) {
         pullQuote: true,
       });
     }
-    // Pad if there are fewer testimonials than slides, so the count still
-    // matches the format the queue promises.
-    while (out.length < n - 1) push('elevated', headlineAndSub(u[1] || ev.name || ''));
-    push('endcard', { ...headlineAndSub(`${prettyDate(ev.date)} · ${ev.venue || ''}`), cta: 'Get tickets' });
+    // Pad if there are fewer testimonials than quote slots.
+    while (out.length < wantQuotes) push('elevated', headlineAndSub(u[1] || ev.name || ''));
+
+    // Closing card only if the quotes did not already fill the carousel.
+    // Three quotes on a three-slide post need no fourth frame -- the CTA is
+    // in the caption, and a third voice beats repeating the date.
+    if (out.length < n) {
+      push('endcard', { ...headlineAndSub(`${prettyDate(ev.date)} · ${ev.venue || ''}`), cta: 'Get tickets' });
+    }
+
+    // push() stamped `of: n` from the format string. Restate it as the real
+    // frame count, or a three-quote post renders "1/3, 2/3, 3/3" correctly
+    // but a padded one would not.
+    out.forEach((f, i) => { f.n = i + 1; f.of = out.length; });
     return out;
   }
 
