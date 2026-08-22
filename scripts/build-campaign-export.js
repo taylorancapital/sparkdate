@@ -290,7 +290,19 @@ function framesForRow(row, ev, brand) {
   // A testimonial post becomes a wall of DIFFERENT people, not one quote cut
   // into pieces. Detected off the first chunk, which is where the quote sits.
   if (pickMode(u[0], 'page') === 'quote') {
-    const picks = pickTestimonials(brand, row.row_id, n - 1);
+    // Prefer the quotes the CAPTION actually uses. The caption is what gets
+    // posted; if the slides picked independently from brand.json the two
+    // could name different people, which is worse than either choice. Fall
+    // back to the picker only when the caption carries fewer quotes than the
+    // carousel has slides.
+    const inCaption = [];
+    for (const chunk of u) {
+      const m = String(chunk).match(/^["“]([^"”]+)["”]\s*[-—–]\s*(.+)$/);
+      if (m) inCaption.push({ id: 'caption-' + inCaption.length, quote: m[1].trim(), attribution: m[2].trim() });
+    }
+    const picks = inCaption.length >= n - 1
+      ? inCaption.slice(0, n - 1)
+      : pickTestimonials(brand, row.row_id, n - 1);
     for (const t of picks) {
       push('quote', {
         line1: `“${t.quote}”`,
