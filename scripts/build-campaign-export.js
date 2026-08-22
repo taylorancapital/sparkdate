@@ -442,7 +442,7 @@ function main() {
       // place anyone reads them, so it must not describe Instagram's while
       // rendering TikTok's.
       .replace('__SAFE_AREA_NOTE__', () => (vertical
-        ? 'These are TikTok frames (1080&times;1920). They reserve the right 250px for the action rail (like, comment, share, sound) and the bottom 500px for the username and caption &mdash; TikTok draws its own UI over both. Nothing readable is placed there.'
+        ? 'These are TikTok frames (1080&times;1920). They reserve the right 250px for the action rail (like, comment, share, sound) and the bottom 380px for the username and caption &mdash; TikTok draws its own UI over both. Nothing readable is placed there.'
         : 'Story frames (1080&times;1920) deliberately reserve the top 250px and bottom 320px &mdash; Instagram UI covers them, and the lower band is where the link or countdown sticker gets placed by hand at posting.'))
       .replace(/<title>[^<]*<\/title>/, () => `<title>${ev.name} — Campaign Export Sheet</title>`);
 

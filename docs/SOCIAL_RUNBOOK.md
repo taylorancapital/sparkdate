@@ -140,7 +140,7 @@ to TikTok and keeps them out of the Instagram carousel.
 
 The TikTok canvas is **not** the Story canvas. Both are 1080×1920, but TikTok
 puts an action rail down the right edge and the caption across the bottom, so
-these frames reserve the right 250px and the bottom 500px. A frame laid out for
+these frames reserve the right 250px and the bottom 380px. A frame laid out for
 an Instagram Story puts its headline under the like button.
 
 **Tokens expire in ~24 hours**, unlike Meta's. Set `TIKTOK_CLIENT_KEY`,
@@ -169,6 +169,53 @@ fail at publish time with errors that do not name the cause:
 2. **The audit application** (Developer Portal → your app → Content Posting
    API) is what unlocks `DIRECT_POST` and `PUBLIC_TO_EVERYONE`.
 
+### 10. TikTok video
+
+```
+npm run social:video -- --all
+npm run social:video -- --row=GG-09 --seconds=3.5
+```
+
+Builds a 1080×1920 slideshow from the row's frames — crossfades, brand navy
+background, h264 — and writes `<row_id>.mp4` to
+`OneDrive\SparkDate\SourceArt\Video\`. **Not the repo.** `.gitignore` already
+blocks `*.mp4`; git never forgets a binary and one clip is the size of all 119
+JPEGs.
+
+**Claude Design is not in this loop.** It renders HTML and exports PNG — it has
+no video output. Design's job ends at the frames, and it already did it.
+Assembly is a build step: same row in, same video out, nothing to re-review.
+
+**Frames used**, in order of preference:
+
+1. `*-tt.png` in SourceArt — the vertical export, laid out for TikTok's safe
+   areas. Full bleed.
+2. The prepared square carousel from `public/social/` — scaled and set high on
+   the navy so TikTok's caption clears the SparkDate mark. It looks deliberate
+   and it works today, but the action rail still overlays the right edge. The
+   `-tt` export is the fix, not this.
+
+**ffmpeg is required** and is not on PATH by default:
+
+```
+pip install imageio-ffmpeg
+```
+
+That ships its own binary inside the Python environment — no system change, and
+`pip uninstall imageio-ffmpeg` removes it. A PATH `ffmpeg` is used instead if
+you have one.
+
+**Posting is manual for now, and that is not only a gap.** The publisher uses
+`PULL_FROM_URL`, so TikTok fetches media from a public address — a file that
+only exists in OneDrive has none. Automating it needs the `FILE_UPLOAD` path
+(init → PUT the bytes, chunked above 64 MB), which is not built.
+
+Upload the MP4 in the app, paste the caption from `caption_x`, and **pick a
+trending sound**. That last part is the actual reason to post video rather than
+the carousel — on TikTok the sound is a bigger algorithmic lever than the
+images, and it can only be chosen in the app where you can hear what is
+currently working.
+
 ---
 
 ## What stays manual, permanently
@@ -179,6 +226,7 @@ fail at publish time with errors that do not name the cause:
 | **Live event coverage (T-0 evening)** | Shot on the night. |
 | **X / Twitter** | No publisher, by decision. `caption_x` is written and linted; posting is a paste. |
 | **Tapping publish on TikTok drafts** | Until the audit clears. `UPLOAD_TO_DRAFT` needs no review; `DIRECT_POST` does. |
+| **Uploading TikTok video + picking the sound** | `FILE_UPLOAD` is not built, so videos in SourceArt have no URL for TikTok to fetch. The sound is chosen in the app regardless — it is the lever, and you have to hear it. |
 | **Counted attendance in recaps** | Never estimate. Wait for the real check-in number. |
 
 ---
@@ -201,6 +249,7 @@ fail at publish time with errors that do not name the cause:
 | `content/brand.json` | Facts, pricing, hashtag pools, the 21-beat template. |
 | `public/social/*.jpg` | What publishes. Committed. |
 | `OneDrive\SparkDate\SourceArt\` | PNG masters. Not in git — 31.5 MB of binaries git can never forget. |
+| `OneDrive\SparkDate\SourceArt\Video\` | TikTok MP4s. Not in git — `.gitignore` blocks `*.mp4`. |
 | `OneDrive\SparkDate\Superseded_*\` | The dead worksheets. Read-only history. |
 
 `content/` is deny-by-default in `.gitignore` — only those two files. A pasted

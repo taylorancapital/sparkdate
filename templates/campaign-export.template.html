@@ -157,7 +157,7 @@ function frameHTML(f) {
   else if ((s.line1 + ' ' + (s.line2 || '')).length > 26) h1 = 82;
 
   // top / right / bottom / left. TikTok's right value is the action rail.
-  const pad = tt ? '190px 250px 500px 72px'
+  const pad = tt ? '190px 250px 380px 72px'
     : story ? '250px 72px 320px'
     : '132px 76px 126px';
   const align = s.fullBleed ? 'align-items:center;text-align:center;' : '';
@@ -185,10 +185,10 @@ function frameHTML(f) {
   inner += '</div>';
 
   if (s.lowerThird) {
-    inner += '<div style="position:absolute;left:0;right:0;bottom:' + (tt ? 560 : story ? 426 : 106) + 'px;background:linear-gradient(135deg,#ff6b6b,#ff5252);color:#fff;font-size:27px;letter-spacing:3.6px;text-transform:uppercase;font-weight:700;padding:24px 52px;line-height:1.4;">' + esc(s.lowerThird) + '</div>';
+    inner += '<div style="position:absolute;left:0;right:0;bottom:' + (tt ? 440 : story ? 426 : 106) + 'px;background:linear-gradient(135deg,#ff6b6b,#ff5252);color:#fff;font-size:27px;letter-spacing:3.6px;text-transform:uppercase;font-weight:700;padding:24px 52px;line-height:1.4;">' + esc(s.lowerThird) + '</div>';
   }
 
-  inner += '<div style="position:absolute;bottom:' + (tt ? 470 : story ? 320 : 0) + 'px;left:0;right:' + (tt ? 200 : 0) + 'px;border-top:3px solid ' + p.divider + ';padding:28px 52px;display:flex;justify-content:space-between;align-items:center;">'
+  inner += '<div style="position:absolute;bottom:' + (tt ? 330 : story ? 320 : 0) + 'px;left:0;right:' + (tt ? 200 : 0) + 'px;border-top:3px solid ' + p.divider + ';padding:28px 52px;display:flex;justify-content:space-between;align-items:center;">'
     + '<span style="font-family:\'Playfair Display\',Georgia,serif;font-weight:900;font-size:38px;"><span style="color:' + p.spark + ';">Spark</span><span style="color:' + p.date + ';">Date</span></span>'
     + '<span style="font-size:24px;letter-spacing:3px;text-transform:uppercase;color:' + p.site + ';">SPARKDATE.DATE</span>'
     + '</div>';
