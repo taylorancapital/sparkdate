@@ -25,6 +25,7 @@ Usage:
   python scripts/prep-social-assets.py --dry-run
   python scripts/prep-social-assets.py
   python scripts/prep-social-assets.py --src "path/to/exports"
+  python scripts/prep-social-assets.py --rebuild     # re-render everything
 """
 
 import argparse
@@ -134,13 +135,35 @@ def discover(src_dir, row_id):
         n = re.search(r"(\d+)of(\d+)", stem)
         hits.append((int(n.group(1)) if n else 1, name))
 
-    return [name for _, name in sorted(hits)]
+    # SourceArt accumulates generations. GG-09 currently matches THREE files
+    # per slide: GG-09_1of4.png from the row-id era, the current square
+    # export good-good-things-gg-09-1of4.png, and its TikTok twin ending
+    # -tt.png. Returning all of them numbers one 4-slide carousel 1of8
+    # through 8of8 and mixes two renderings of the same slide.
+    #
+    # Collapse on (shape, slide number) -- same slide, same surface -- and
+    # let the NEWEST file win, because "re-export and re-run" is exactly the
+    # workflow this has to support. Shape comes from the filename here
+    # rather than the pixels: this runs before anything is opened, and -tt
+    # is the only thing distinguishing two files that are both 1080x1920.
+    best = {}
+    for slide, name in hits:
+        stem = os.path.splitext(name)[0].lower()
+        shape = "tt" if re.search(r"(^|[^a-z0-9])(tt|tiktok)([^a-z0-9]|$)", stem) else ""
+        key = (shape, slide)
+        mtime = os.path.getmtime(os.path.join(src_dir, name))
+        if key not in best or mtime > best[key][0]:
+            best[key] = (mtime, slide, name)
+
+    return [name for _, _, name in sorted(best.values(), key=lambda t: (t[1], t[2]))]
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", default=DEFAULT_SRC)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--rebuild", action="store_true",
+                    help="re-convert from source even where a prepared JPEG already exists")
     ap.add_argument("--quality", type=int, default=JPEG_QUALITY)
     args = ap.parse_args()
 
@@ -187,22 +210,36 @@ def main():
         # this exact file known" but "does this row already have art for this
         # surface". A row with squares and no vertical set gains the vertical
         # set; a row that has both is left alone.
-        have = set()
-        for f in files:
-            m = re.search(r"_(story|tt)\.jpg$", f, re.I)
-            have.add("_" + m.group(1).lower() if m else "")
+        if args.rebuild:
+            # Re-render everything this row has source art for, ignoring what
+            # is already prepared.
+            #
+            # The shape check below asks "does this row have art for that
+            # surface yet", which is right for gaining a NEW surface and
+            # exactly wrong for replacing art that changed. When the fonts
+            # were fixed, every prepared JPEG became stale while its shape
+            # stayed present -- so the incremental path had nothing to do and
+            # correctly reported "211 already prepared".
+            found = discover(args.src, row["row_id"])
+            if found:
+                files = found
+        else:
+            have = set()
+            for f in files:
+                m = re.search(r"_(story|tt)\.jpg$", f, re.I)
+                have.add("_" + m.group(1).lower() if m else "")
 
-        for cand in discover(args.src, row["row_id"]):
-            sp = resolve(args.src, cand)
-            if not sp:
+            for cand in discover(args.src, row["row_id"]):
+                sp = resolve(args.src, cand)
+                if not sp:
+                    continue
+                if suffix_for(sp, cand, dims) not in have:
+                    files.append(cand)
+
+            # Already prepared (a .jpg that exists in public/social) -- leave it.
+            if all(f.lower().endswith(".jpg") and os.path.exists(os.path.join(OUT_DIR, f)) for f in files):
+                skipped += len(files)
                 continue
-            if suffix_for(sp, cand, dims) not in have:
-                files.append(cand)
-
-        # Already prepared (a .jpg that exists in public/social) -- leave it.
-        if all(f.lower().endswith(".jpg") and os.path.exists(os.path.join(OUT_DIR, f)) for f in files):
-            skipped += len(files)
-            continue
 
         rid = row["row_id"]
         new_names = []
@@ -229,7 +266,8 @@ def main():
             # discovered source art. It is not in the source folder and must
             # keep both its name and its numbering -- queue.csv and the live
             # posts already reference it.
-            if fname.lower().endswith(".jpg") and os.path.exists(os.path.join(OUT_DIR, fname)):
+            if (not args.rebuild and fname.lower().endswith(".jpg")
+                    and os.path.exists(os.path.join(OUT_DIR, fname))):
                 new_names.append(fname)
                 skipped += 1
                 continue
