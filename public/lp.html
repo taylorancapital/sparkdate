@@ -57,6 +57,34 @@
         .iab-banner button { padding: 6px 12px; font-size: 12px; border-radius: 4px; }
         .iab-banner #iabDismiss { background: transparent; color: var(--cream); opacity: 0.6; padding: 4px 8px; }
 
+        /* Sticky ticket bar.
+           GA4, Aug 2026: the Get Tickets button sat 655px down the page in a
+           normal browser and 833px inside a Meta in-app browser, where the
+           checkout-warning banner adds 159px above it. A webview's usable
+           height is roughly 650-700px, so the primary action was BELOW THE
+           FOLD for the 61% of paid traffic that arrives in one -- and only
+           14% of those sessions ever fired a scroll event. Most paid
+           visitors never saw the button at all, which is the 8-second
+           average engagement and the 90% who never reached view_item.
+           Unlike index.html's version, this one appears the moment the main
+           CTA is off screen INCLUDING on first paint, because the visitor
+           who never scrolls is exactly the one being rescued. */
+        .lp-sticky { display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 500;
+            background: rgba(10,14,39,0.97); backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255,107,107,0.25); padding: 10px 14px;
+            align-items: center; justify-content: space-between; gap: 12px;
+            animation: lpStickyUp 0.3s cubic-bezier(0.22,1,0.36,1); }
+        .lp-sticky.show { display: flex; }
+        @keyframes lpStickyUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
+        .lp-sticky-line { font-size: 12px; color: rgba(245,243,240,0.75); text-align: left; line-height: 1.35; flex: 1; min-width: 0; }
+        .lp-sticky-line b { color: var(--white); font-weight: 600; display: block; font-size: 13px; }
+        .lp-sticky a { flex-shrink: 0; background: linear-gradient(135deg, var(--coral) 0%, #ff5252 100%);
+            color: #fff; padding: 12px 18px; border-radius: 4px; text-decoration: none;
+            font-weight: 700; font-size: 14px; white-space: nowrap; }
+        /* Clear the fixed bar so it never covers the waitlist form, which is
+           the fallback conversion for anyone not buying today. */
+        body.has-sticky .foot { padding-bottom: 76px; }
+
         /* Social proof: rotates through all live testimonials, between the
            ticket card and the waitlist. Same rotator pattern duplicated on
            index.html/event.html/events.html. */
@@ -130,16 +158,6 @@
     </noscript>
 </head>
 <body>
-    <div class="find-us-bar">
-        <span class="fu-label">As Seen On</span>
-        <img class="fu-logo fu-google" src="/images/press/google-news.png" alt="Google News" loading="lazy">
-        <img class="fu-logo fu-eventbrite" src="/images/press/eventbrite.png" alt="Eventbrite" loading="lazy">
-        <img class="fu-logo fu-pinterest" src="/images/press/pinterest.png" alt="Pinterest" loading="lazy">
-        <img class="fu-logo fu-yahoo" src="/images/press/yahoo-news.png" alt="Yahoo News" loading="lazy">
-        <img class="fu-logo fu-facebook" src="/images/press/facebook.png" alt="Facebook" loading="lazy">
-        <img class="fu-logo fu-patch" src="/images/press/patch.png" alt="Patch" loading="lazy">
-        <img class="fu-logo fu-tickettailor" src="/images/press/tickettailor.png" alt="Ticket Tailor" loading="lazy">
-    </div>
     <div class="wrap">
         <div class="logo">Spark<span>Date</span></div>
 
@@ -148,15 +166,6 @@
              iframe at checkout — a limitation enforced by the host app, not
              fixable in our Stripe integration. Non-blocking: the rest of the
              page works normally underneath. -->
-        <div class="iab-banner" id="iabBanner" style="display:none">
-            <span>Checkout can fail inside Instagram/Facebook. Tap <strong>⋮</strong> or <strong>•••</strong> → <strong>"Open in browser"</strong> to buy — or join the list below and we'll email you a link that works.</span>
-            <!-- Android only: revealed by the script below, which can hand the
-                 page straight to Chrome. Hidden on iOS, where no such jump
-                 exists and the instructions above are the only route out. -->
-            <button type="button" id="iabOpenChrome" style="display:none">Open in Chrome</button>
-            <button type="button" id="iabCopyLink">Copy link</button>
-            <button type="button" id="iabDismiss" aria-label="Dismiss">×</button>
-        </div>
 
         <h1>Your app matched you.<br>We <span class="hl">host the date.</span></h1>
         <p class="sub" id="lpSub">Real, curated dating events at Lancaster &amp; Philadelphia's best venues. Skip the endless texting — meet in person.</p>
@@ -168,6 +177,27 @@
             <div class="meta" id="lpMeta">📍 Venue announced soon</div>
             <a class="ticket" id="lpTicketBtn" href="/events">🎟️ Get Tickets</a>
             <div class="fine">Secure checkout · no account needed</div>
+        </div>
+
+        <div class="iab-banner" id="iabBanner" style="display:none">
+            <span>Checkout can fail inside Instagram/Facebook. Tap <strong>⋮</strong> or <strong>•••</strong> → <strong>"Open in browser"</strong> to buy — or join the list below and we'll email you a link that works.</span>
+            <!-- Android only: revealed by the script below, which can hand the
+                 page straight to Chrome. Hidden on iOS, where no such jump
+                 exists and the instructions above are the only route out. -->
+            <button type="button" id="iabOpenChrome" style="display:none">Open in Chrome</button>
+            <button type="button" id="iabCopyLink">Copy link</button>
+            <button type="button" id="iabDismiss" aria-label="Dismiss">×</button>
+        </div>
+
+        <div class="find-us-bar">
+        <span class="fu-label">As Seen On</span>
+        <img class="fu-logo fu-google" src="/images/press/google-news.png" alt="Google News" loading="lazy">
+        <img class="fu-logo fu-eventbrite" src="/images/press/eventbrite.png" alt="Eventbrite" loading="lazy">
+        <img class="fu-logo fu-pinterest" src="/images/press/pinterest.png" alt="Pinterest" loading="lazy">
+        <img class="fu-logo fu-yahoo" src="/images/press/yahoo-news.png" alt="Yahoo News" loading="lazy">
+        <img class="fu-logo fu-facebook" src="/images/press/facebook.png" alt="Facebook" loading="lazy">
+        <img class="fu-logo fu-patch" src="/images/press/patch.png" alt="Patch" loading="lazy">
+        <img class="fu-logo fu-tickettailor" src="/images/press/tickettailor.png" alt="Ticket Tailor" loading="lazy">
         </div>
 
         <!-- The checkout-intercept panel that used to sit here has been removed.
@@ -567,6 +597,13 @@
           // second decision, and Stripe's zero incomplete PaymentIntents say
           // that is where paid traffic was being lost.
           btn.href = '/events?event=' + encodeURIComponent(ev.id) + '&checkout=1' + carry;
+          // Mirror the real destination onto the sticky bar. Built from the
+          // SAME resolved event, never a second fetch, so the two CTAs can
+          // never point at different events.
+          var sBtn = $('lpStickyBtn');
+          if (sBtn) sBtn.href = btn.href;
+          if ($('lpStickyTitle')) $('lpStickyTitle').textContent = ev.title || 'SparkDate Mixer';
+          if ($('lpStickyMeta') && $('lpMeta')) $('lpStickyMeta').textContent = $('lpMeta').textContent;
 
           // Prewarm the checkout hop: prefetch the destination page and
           // preload Stripe.js (both events.html and event.html load it
@@ -677,5 +714,39 @@
         });
       })();
     </script>
+<div class="lp-sticky" id="lpSticky" role="complementary" aria-label="Ticket bar">
+    <div class="lp-sticky-line"><b id="lpStickyTitle">SparkDate Mixer</b><span id="lpStickyMeta">Reserve your spot</span></div>
+    <a id="lpStickyBtn" href="/events">Get Tickets</a>
+</div>
+<script>
+  // Reveal the sticky bar whenever the main ticket card's button is not on
+  // screen -- which, critically, INCLUDES first paint. IntersectionObserver
+  // fires immediately on observe with the element's current state, so a
+  // visitor whose viewport ends above the button gets the bar without ever
+  // scrolling. That is the whole point: 86% of paid sessions never fired a
+  // scroll event, so a bar that only appears after scrolling would rescue
+  // nobody.
+  (function () {
+    var cta = document.getElementById('lpTicketBtn');
+    var bar = document.getElementById('lpSticky');
+    if (!cta || !bar || typeof IntersectionObserver === 'undefined') return;
+
+    new IntersectionObserver(function (entries) {
+      var visible = entries[0].isIntersecting;
+      bar.classList.toggle('show', !visible);
+      document.body.classList.toggle('has-sticky', !visible);
+    }, { threshold: 0.5 }).observe(cta);
+
+    document.getElementById('lpStickyBtn').addEventListener('click', function () {
+      // select_promotion, not begin_checkout -- this navigates to the event
+      // page, it does not start a checkout. Same reasoning as index.html.
+      // The distinct promotion_name is what will show whether the bar is
+      // what produced the tap.
+      if (typeof gtag === 'function') {
+        gtag('event', 'select_promotion', { promotion_name: 'lp_sticky_bar', creative_slot: 'lp_sticky' });
+      }
+    });
+  })();
+</script>
 </body>
 </html>
