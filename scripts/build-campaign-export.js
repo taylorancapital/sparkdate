@@ -64,6 +64,10 @@ function units(caption) {
     .split(/\r?\n\s*\r?\n/).map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
   const out = [];
   for (const p of paras) {
+    // Never sentence-split a quotation. MC-08's testimonial runs past 110
+    // characters, so the generic split cut it mid-sentence and left the
+    // opening quotation mark orphaned on its own frame.
+    if (/^["“]/.test(p.trim())) { out.push(p); continue; }
     if (p.length <= 110) { out.push(p); continue; }
     let buf = '';
     for (const sentence of (p.match(/[^.!?]+[.!?]*/g) || [p])) {
@@ -77,29 +81,59 @@ function units(caption) {
 }
 
 /**
- * Split one unit across the template's two display lines. The layout sets
- * line1 and line2 in Playfair 900 and expects a deliberate break, so break on
- * the last sentence boundary, else near the middle on a word.
+ * Turn one chunk of caption into a headline plus (optionally) a subline.
+ *
+ * The template sets BOTH line1 and line2 in Playfair 900 at 82-104px. Feeding
+ * a long sentence into them produced two enormous lines of body prose -- 15 of
+ * 90 frames ran over 60 characters, and a 152-character one filled the canvas
+ * edge to edge. A headline has to be short enough to read at a glance while
+ * someone is scrolling; the rest belongs in `sub`, which renders as small
+ * italic serif.
+ *
+ * So: cut at the first strong boundary inside the first ~46 characters, and
+ * demote everything after it. Boundaries in order of preference -- sentence
+ * end, em dash, colon, then comma -- because that is roughly the order in
+ * which a break reads as deliberate rather than accidental.
  */
-function twoLines(text) {
-  // Trim trailing separators too -- a split on "Mon, Aug 31 · Philadelphia"
-  // otherwise leaves the middot dangling at the end of line 1.
+function headlineAndSub(text) {
   const clean = (x) => String(x || '').trim().replace(/[\s·,;:-]+$/, '').trim();
   const t = clean(text);
-  if (!t) return { line1: '', line2: '' };
-  if (t.length <= 26) return { line1: t, line2: '' };
+  if (!t) return { line1: '', line2: '', sub: '' };
 
-  const sentenceBreak = t.search(/[.!?]\s+\S/);
-  if (sentenceBreak > 0 && sentenceBreak < t.length - 8) {
-    return { line1: clean(t.slice(0, sentenceBreak + 1)), line2: clean(t.slice(sentenceBreak + 1)) };
+  // Short enough to stand alone: split across the two display lines only if it
+  // needs a second, which keeps "Three days." and "Last call" as-is.
+  if (t.length <= 46) return { line1: t, line2: '', sub: '' };
+
+  const boundaries = [/([.!?])\s+/g, /\s+[—-]\s+/g, /:\s+/g, /,\s+/g];
+  for (const re of boundaries) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(t)) !== null) {
+      const cut = m.index + (m[1] ? 1 : 0);
+      const head = clean(t.slice(0, cut));
+      // A hook wants roughly four to eight words. Below ~14 chars it is a
+      // fragment, above ~52 it stops being a headline.
+      if (head.length >= 14 && head.length <= 52) {
+        return { line1: head, line2: '', sub: clean(t.slice(m.index + m[0].length)) };
+      }
+    }
   }
+
+  // No usable boundary -- break on a word near 46 and demote the tail.
   const words = t.split(' ');
   let a = '';
   for (const w of words) {
-    if ((a + ' ' + w).trim().length > t.length / 2) break;
+    if ((a + ' ' + w).trim().length > 46) break;
     a = (a + ' ' + w).trim();
   }
-  return { line1: clean(a), line2: clean(t.slice(a.length)) };
+  if (!a) a = t.slice(0, 46);
+  return { line1: clean(a), line2: '', sub: clean(t.slice(a.length)) };
+}
+
+/** Back-compat shim: some call sites still want a pure two-line split. */
+function twoLines(text) {
+  const r = headlineAndSub(text);
+  return { line1: r.line1, line2: r.line2 };
 }
 
 const priceOf = (ev) => {
@@ -115,31 +149,107 @@ const prettyDate = (iso) => {
     .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 };
 
+
+/**
+ * Pick a frame mode from what the copy actually IS, not just its position.
+ *
+ * `stat`, `quote` and `crossed` all exist in the template and none were ever
+ * emitted -- so the approved attendance figure (gold, 300px) and the Quang
+ * testimonial (gold eyebrow, italic serif) were being set as ordinary
+ * statement frames. Both facts already live in brand.json; this only routes
+ * them to the mode built for them.
+ */
+function pickMode(text, fallback) {
+  const t = String(text || '').trim();
+
+  // A testimonial STARTS with a quotation mark. Scare-quotes mid-sentence are
+  // not testimonials -- LX-18 ("sorry, crazy week") and LX-23 ("next time")
+  // both contain quotes and neither is one, and a looser test caught both.
+  if (/^["\u201c]/.test(t)) return 'quote';
+
+  // The differentiation beat: three or more "No ..." clauses in a row. The
+  // template strikes these through in coral, which is the brand's sharpest
+  // visual device and was never being generated.
+  if ((t.match(/\bNo /g) || []).length >= 3) return 'crossed';
+
+  // The one sanctioned proof number, used AS a proof point. The window is
+  // tight and demands a headcount word immediately after, because every
+  // Loxley's caption also contains "September 22".
+  if (/\b22 (people|attendees)\b/i.test(t)) return 'stat';
+
+  return fallback;
+}
+
+/**
+ * Build the content fields for a frame. Two modes do not take line1/line2 the
+ * way the others do:
+ *
+ *   quote   — must not break mid-sentence. The generic 46-character split cut
+ *             the Quang testimonial in half and orphaned its opening quotation
+ *             mark. Break at the closing quote instead; the attribution drops
+ *             to `sub`.
+ *   crossed — takes an ARRAY, which the template renders as struck-through
+ *             uppercase lines. Passing line1/line2 renders nothing at all.
+ */
+function contentSpec(text, mode) {
+  const t = String(text || '').trim();
+
+  if (mode === 'quote') {
+    const m = t.match(/^([“"][^”"]*[”"])\s*[—–-]?\s*(.*)$/);
+    if (m) return { line1: m[1].trim(), line2: '', sub: m[2].trim(), pullQuote: true };
+    return { ...headlineAndSub(t), pullQuote: true };
+  }
+
+  if (mode === 'crossed') {
+    // "No profiles. No swiping. No 'sorry, crazy week' texts." -> three lines.
+    const items = t.split(/(?<=\.)\s+/).map((x) => x.trim().replace(/\.$/, '')).filter(Boolean);
+    if (items.length >= 2) return { crossed: items.slice(0, 4), line1: '', line2: '' };
+    return headlineAndSub(t);
+  }
+
+  return headlineAndSub(t);
+}
+
 /** Turn one queue row into the frame objects the renderer expects. */
 function framesForRow(row, ev, brand) {
   const n = slideCount(row.format);
   const u = units(row.caption);
   const story = /story|reel/i.test(row.format);
-  const eyebrow = ev.name || row.row_id;
+
+  // The eyebrow names the event the COPY is about, which is not always the
+  // sheet it appears in. GG-07 recaps Good Good Things and forward-promotes
+  // Loxley's, so it lands in both sheets -- and in the Loxley's sheet it was
+  // captioned "Last night at Good Good Things" under a LOXLEYS eyebrow. Same
+  // for MC-15. Use the row's own primary event.
+  //
+  // The FACT frame deliberately keeps the sheet's event: a recap points at
+  // whatever is still on sale, which is the point of running it.
+  const primary = brand.events[Q.rowEvents(row)[0]] || ev;
+  const eyebrow = primary.name || ev.name || row.row_id;
   const label = `${prettyDate(row.date)} — ${row.row_id}`;
   const out = [];
 
+  // If a frame ever carries an image it MUST be photo mode -- every other
+  // palette sets line2 coral, and the scrim is only 45% navy where the
+  // headline sits. Silent until you look at the exported PNG.
   const push = (mode, s) => out.push({
     group: 'organic',
     id: row.row_id.toLowerCase(),
     label,
     n: out.length + 1,
     of: n,
-    s: { mode, eyebrow, story: story || undefined, ...s },
+    s: { mode: s.img ? 'photo' : mode, eyebrow, story: story || undefined, ...s },
   });
 
   if (n === 1) {
-    push('page', { ...twoLines(u[0]), sub: u[1] || '' });
+    const m0 = pickMode(u[0], 'page');
+    const h = contentSpec(u[0], m0);
+    push(m0, { ...h, sub: h.sub || u[1] || '' });
     return out;
   }
 
   // 1: the hook.
-  push('page', twoLines(u[0]));
+  { const m0 = pickMode(u[0], 'page'); push(m0, contentSpec(u[0], m0)); }
 
   // Middle: remaining copy, alternating navy/elevated so a long carousel does
   // not read as one flat block; the penultimate frame carries the hard facts.
@@ -158,7 +268,8 @@ function framesForRow(row, ev, brand) {
         sub: [ev.doors ? `Doors ${ev.doors}` : '', price].filter(Boolean).join('  ·  '),
       });
     } else {
-      push(i % 2 ? 'elevated' : 'page', twoLines(u[i] || ''));
+      const mi = pickMode(u[i] || '', i % 2 ? 'elevated' : 'page');
+      push(mi, contentSpec(u[i] || '', mi));
     }
   }
 
@@ -173,7 +284,7 @@ function framesForRow(row, ev, brand) {
   const tail = unused.length ? unused[unused.length - 1] : '';
   const stripped = String(tail).replace(/\s*link in bio\.?/i, '').trim();
   const closing = stripped || `${prettyDate(ev.date)} · ${ev.city || ''}`.trim();
-  push('endcard', { ...twoLines(closing), cta: 'Get tickets' });
+  push('endcard', { ...headlineAndSub(closing), cta: 'Get tickets' });
 
   return out;
 }
