@@ -19,7 +19,12 @@
  *
  * Env (see scripts/social-preflight.js, run that first):
  *   META_SOCIAL_ACCESS_TOKEN, META_PAGE_ID, META_IG_USER_ID
- *   TIKTOK_ACCESS_TOKEN                  optional; TikTok is skipped without it
+ *   TIKTOK_CLIENT_KEY / _CLIENT_SECRET / _REFRESH_TOKEN
+ *                                        optional; TikTok is skipped without them.
+ *                                        Access tokens last ~24h, so they are
+ *                                        minted per run from the refresh token.
+ *   TIKTOK_POST_MODE                     UPLOAD_TO_DRAFT (default) | DIRECT_POST
+ *   TIKTOK_PRIVACY_LEVEL                 DIRECT_POST only; SELF_ONLY until audited
  *   SOCIAL_ASSET_BASE_URL                default https://sparkdate.date/social
  */
 
@@ -30,6 +35,7 @@ const path = require('path');
 const Q = require('../lib/content-queue');
 const P = require('../lib/social-publish');
 const R = require('../lib/social-requests');
+const TikTokAuth = require('../lib/tiktok-auth');
 
 const QUEUE = path.join(__dirname, '..', 'content', 'queue.csv');
 const BASE_URL = process.env.SOCIAL_ASSET_BASE_URL || 'https://sparkdate.date/social';
@@ -198,9 +204,13 @@ async function cmdRun() {
     pageId: process.env.META_PAGE_ID,
     igUserId: process.env.META_IG_USER_ID,
     baseUrl: BASE_URL,
+    // Drafts until TikTok's audit clears, then flip TIKTOK_POST_MODE to
+    // DIRECT_POST. Defaulting the other way would mean every run before
+    // approval fails on a permission the app does not have yet.
+    mode: process.env.TIKTOK_POST_MODE === 'DIRECT_POST' ? 'DIRECT_POST' : 'UPLOAD_TO_DRAFT',
+    privacyLevel: process.env.TIKTOK_PRIVACY_LEVEL || 'SELF_ONLY',
   };
   const systemToken = process.env.META_SOCIAL_ACCESS_TOKEN;
-  const tiktokToken = process.env.TIKTOK_ACCESS_TOKEN;
   let metaToken = systemToken;
 
   const plans = P.planAll(rows, now).filter((p) => p.action !== 'skip');
@@ -251,6 +261,27 @@ async function cmdRun() {
       }
     } catch (e) {
       console.log(`  !! Page token request failed: ${e.message}\n`);
+    }
+  }
+
+  // TikTok access tokens last about 24 hours, so unlike the Meta tokens this
+  // one cannot be read from the environment and trusted. It is derived from
+  // the refresh token, once per run, and only when something actually needs
+  // it -- an unattended run must not fail on TikTok credentials when the
+  // batch is entirely Facebook.
+  let tiktokToken = null;
+  if (!dry && plans.some((p) => p.surface === 'tiktok')) {
+    try {
+      const t = await TikTokAuth.getAccessToken(process.env, { log: (m) => console.log(m) });
+      tiktokToken = t && t.accessToken;
+      if (!tiktokToken) console.log('  !! TikTok credentials unset -- TikTok items will be skipped.\n');
+    } catch (e) {
+      // Not fatal to the whole batch. Facebook and Instagram are unaffected
+      // by TikTok auth, and losing 15 scheduled Meta posts because a TikTok
+      // refresh token went stale would be a much worse failure than the one
+      // it is reporting.
+      console.log(`  !! TikTok auth failed: ${e.message}`);
+      console.log('     TikTok items will be skipped; other surfaces continue.\n');
     }
   }
 

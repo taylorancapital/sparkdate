@@ -179,6 +179,18 @@ function lint(rows, brand, opts = {}) {
           `every asset is 1080x1920 but this posts to ${platforms.filter((p) => p !== 'ig_story').join('/')} -- a feed post needs a 1080x1080 image`);
       }
 
+      // TikTok's feed is vertical. A square carousel posts fine -- 1080x1080
+      // fits inside the 1080x1920 bound -- so this is not an error and the
+      // publisher does not refuse it. But it letterboxes, and a letterboxed
+      // square is the visual tell of cross-posted content on the one platform
+      // whose ranking penalises exactly that. Rendering the vertical set is
+      // one export pass (build-campaign-export --vertical), so the gap is
+      // worth naming rather than shipping quietly.
+      if (platforms.includes('tiktok') && assets.length && !assets.some((a) => /_tt\./i.test(a))) {
+        add('warning', id, 'tiktok-not-vertical',
+          'posts to TikTok with square art only -- it will letterbox; export a 1080x1920 set with --vertical');
+      }
+
       if (!/^\d{2}:\d{2}$/.test(row.time || '')) {
         add('warning', id, 'time-unparseable',
           `time "${row.time}" is not HH:MM -- a scheduler cannot place this post`);

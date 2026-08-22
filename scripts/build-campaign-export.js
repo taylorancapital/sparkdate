@@ -386,6 +386,7 @@ function main() {
     : String(arg('event', '')).split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
   if (!keys.length) { console.error('Specify --event=MC or --all.'); process.exit(2); }
 
+  const vertical = flag('vertical') || flag('tiktok');
   const outdir = arg('outdir', path.join(require('os').homedir(), 'Downloads'));
   fs.mkdirSync(outdir, { recursive: true });
 
@@ -403,13 +404,33 @@ function main() {
     const frames = [];
     for (const row of build) frames.push(...framesForRow(row, ev, brand));
 
+    // TikTok's feed is vertical. The same copy, headlines and testimonials
+    // render onto a 1080x1920 canvas -- which the template already supports,
+    // because Stories needed it -- so a TikTok set costs one more export pass
+    // rather than a second round of design.
+    //
+    // Posting the squares instead is not neutral: they letterbox, and a
+    // letterboxed square is the visual signature of cross-posted content on
+    // the one platform that ranks against exactly that.
+    // `tiktok`, not `story`: same 1080x1920 canvas, different safe areas.
+    // TikTok puts an action rail down the right edge and the caption across
+    // the bottom, so a frame laid out for an Instagram Story pushes its
+    // headline straight under the like and share buttons.
+    if (vertical) for (const f of frames) f.s.tiktok = true;
+
     const prefix = (ev.name || key).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     // Replace with FUNCTIONS, never strings. Frame JSON contains prices like
     // "$29.99", and in a string replacement `$2` is a backreference -- it ate
     // the closing </script> tag and dumped the raw JSON onto the page as text.
     const json = JSON.stringify(frames);
     const header = `${ev.name} @ ${ev.venue} · ${ev.city}`;
-    const example = `${prefix}-${(build[0] || { row_id: 'xx-01' }).row_id.toLowerCase()}-1of4.png`;
+    // The suffix is not decoration: prep-social-assets names the prepared
+    // file `<row>_tt.jpg` from it, and assetUrls routes `_tt` files to TikTok.
+    // Export these WITHOUT it and they land as ordinary feed art, which is
+    // how a vertical image ends up in a square Instagram carousel.
+    const example = vertical
+      ? `${prefix}-${(build[0] || { row_id: 'xx-01' }).row_id.toLowerCase()}-1of4-tt.png`
+      : `${prefix}-${(build[0] || { row_id: 'xx-01' }).row_id.toLowerCase()}-1of4.png`;
 
     let html = template
       .replace(/(<script id="frames-data"[^>]*>)__DATA__(<\/script>)/, (m, a, b) => a + json + b)
@@ -417,12 +438,18 @@ function main() {
       .replace('<body>', () => `<body data-prefix="${prefix}">`)
       .replace('__EVENT_HEADER__', () => header)
       .replace('__FILE_EXAMPLE__', () => example)
+      // The reserved bands differ per platform and the sheet is the only
+      // place anyone reads them, so it must not describe Instagram's while
+      // rendering TikTok's.
+      .replace('__SAFE_AREA_NOTE__', () => (vertical
+        ? 'These are TikTok frames (1080&times;1920). They reserve the right 250px for the action rail (like, comment, share, sound) and the bottom 500px for the username and caption &mdash; TikTok draws its own UI over both. Nothing readable is placed there.'
+        : 'Story frames (1080&times;1920) deliberately reserve the top 250px and bottom 320px &mdash; Instagram UI covers them, and the lower band is where the link or countdown sticker gets placed by hand at posting.'))
       .replace(/<title>[^<]*<\/title>/, () => `<title>${ev.name} — Campaign Export Sheet</title>`);
 
-    const dest = path.join(outdir, `Campaign-Export-${key}-${prefix}.html`);
+    const dest = path.join(outdir, `Campaign-Export-${key}-${prefix}${vertical ? '-TIKTOK' : ''}.html`);
     fs.writeFileSync(dest, html, 'utf8');
 
-    console.log(`${key}  ${String(ev.name).padEnd(34)} ${String(frames.length).padStart(3)} frames from ${build.length} posts`);
+    console.log(`${key}  ${String(ev.name).padEnd(34)} ${String(frames.length).padStart(3)} frames from ${build.length} posts${vertical ? '  [1080x1920 TikTok]' : ''}`);
     if (held.length) {
       console.log(`     held back (need real photos): ${held.map((r) => r.row_id).join(', ')}`);
     }
