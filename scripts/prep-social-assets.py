@@ -40,7 +40,7 @@ QUEUE = os.path.join(REPO, "content", "queue.csv")
 BRAND = os.path.join(REPO, "content", "brand.json")
 OUT_DIR = os.path.join(REPO, "public", "social")
 
-DEFAULT_SRC = os.path.expanduser(r"~/Downloads/30 Day Content Plan Claude Posting")
+DEFAULT_SRC = os.path.expanduser(r"~/OneDrive/SparkDate/SourceArt")
 JPEG_QUALITY = 88
 
 
@@ -52,6 +52,45 @@ def classify(size, dims):
         if size == (d["width"], d["height"]):
             return name
     return None
+
+
+
+def discover(src_dir, row_id):
+    """Find source files for a row that has no asset_files yet.
+
+    The script originally only converted files the QUEUE already named, which
+    worked when asset_files came pre-filled from the worksheet. New artwork
+    arrives the other way round: the files land in the folder and the queue
+    knows nothing about them, so every freshly designed row was skipped and
+    the run reported "0 converted, 41 already prepared".
+
+    Matches both naming shapes in use:
+        GG-09_1of4.png              the row-id convention
+        sparkdate-aug23-1of3-MC2.png  the older event+date exports
+    """
+    if not os.path.isdir(src_dir):
+        return []
+
+    m = re.match(r"^([A-Z]+)-0*(\d+)$", row_id)
+    keys = {row_id.lower()}
+    if m:
+        keys.add((m.group(1) + m.group(2)).lower())          # MC2
+        keys.add((m.group(1) + "-" + m.group(2)).lower())    # MC-2
+    else:
+        keys.add(row_id.replace("-", "").lower())            # MCLAUNCH
+
+    hits = []
+    for name in os.listdir(src_dir):
+        if not name.lower().endswith(".png"):
+            continue
+        stem = re.sub(r"\s+", "", os.path.splitext(name)[0]).lower()
+        # Bound the match so MC-1 does not also claim MC-10's files.
+        if not any(re.search(r"(^|[^a-z0-9])" + re.escape(k) + r"([^0-9]|$)", stem) for k in keys):
+            continue
+        n = re.search(r"(\d+)of(\d+)", stem)
+        hits.append((int(n.group(1)) if n else 1, name))
+
+    return [name for _, name in sorted(hits)]
 
 
 def main():
@@ -85,7 +124,11 @@ def main():
     for row in rows:
         files = [f.strip() for f in (row.get("asset_files") or "").split(",") if f.strip()]
         if not files:
-            continue
+            files = discover(args.src, row["row_id"])
+            if files:
+                print(f"  {row['row_id']:<11} discovered {len(files)} new file(s)")
+            else:
+                continue
 
         # Already prepared (a .jpg that exists in public/social) -- leave it.
         if all(f.lower().endswith(".jpg") and os.path.exists(os.path.join(OUT_DIR, f)) for f in files):
