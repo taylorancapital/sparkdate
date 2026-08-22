@@ -90,6 +90,26 @@ describe('planRow — the approval gate', () => {
     expect(p.reason).toBe('no artwork yet');
   });
 
+  it('refuses a feed post whose every asset is story-shaped', () => {
+    // "Single image + Story" delivered as two 1080x1920 frames would put
+    // vertical images in a Facebook feed post. The request builder falls back
+    // to using them, so the refusal has to happen here.
+    const r = row({ asset_files: 'MC-12_1of2_story.jpg,MC-12_2of2_story.jpg' });
+    const p = planRow(r, 'fb', now);
+    expect(p.action).toBe('skip');
+    expect(p.reason).toMatch(/story-shaped/);
+  });
+
+  it('still allows a Reel, which is meant to be vertical', () => {
+    const r = row({ format: 'Reel', asset_files: 'LX-16_story.jpg' });
+    expect(planRow(r, 'fb', now).action).not.toBe('skip');
+  });
+
+  it('allows a feed post that has at least one feed-shaped asset', () => {
+    const r = row({ asset_files: 'MC-01_1of2.jpg,MC-01_2of2_story.jpg' });
+    expect(planRow(r, 'fb', now).action).not.toBe('skip');
+  });
+
   it('skips a row marked manual', () => {
     const p = planRow(row({ manual_reason: 'sticker Story' }), 'ig_story', now);
     expect(p.action).toBe('skip');

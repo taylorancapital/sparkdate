@@ -168,7 +168,14 @@ function lint(rows, brand, opts = {}) {
       const feedSurface = platforms.includes('fb') || platforms.includes('ig');
       const isReel = /reel/i.test(row.format || '');
       if (feedSurface && !isReel && assets.length && assets.every((a) => /_story\./i.test(a))) {
-        add('error', id, 'no-feed-asset',
+        // WARNING, not an error, per this file's own rule: an error means a
+        // post would state something FALSE; a warning means work is
+        // outstanding for a human to judge. A missing 1080x1080 is the
+        // latter, and making it an error turned main red for every unrelated
+        // PR until Design delivered. The publisher REFUSES these rows
+        // (lib/social-publish.js), so nothing broken can post -- the block
+        // belongs there, not in CI.
+        add('warning', id, 'no-feed-asset',
           `every asset is 1080x1920 but this posts to ${platforms.filter((p) => p !== 'ig_story').join('/')} -- a feed post needs a 1080x1080 image`);
       }
 
