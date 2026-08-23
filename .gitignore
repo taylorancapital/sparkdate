@@ -66,6 +66,24 @@ Thumbs.db
 .claude-gh-token.txt
 Business Plan/files/Night Tasks/logs/
 
+# ── Internal analytics working notes (local only) ─────────────────
+# ANALYTICS_CONTEXT.md is the brief read in full before any GA4 or Meta figure
+# is computed. It is deliberately candid -- unfixed ad defects, conversion
+# rates, which campaigns are failing, corrections to previously published
+# numbers -- because its whole job is to stop the next analysis repeating the
+# last one's mistakes. That candour is exactly what should not sit in a PUBLIC
+# repo, and this one is public.
+#
+# It has never been tracked. These rules exist so a stray `git add -A` cannot
+# change that, which is how stripe_backup_code.txt ended up readable for 103
+# days. The glob is deliberately broader than the path: a copy saved elsewhere
+# in the tree is the same disclosure.
+#
+# Analytics output meant for sharing goes in reports/ instead, where it is
+# written knowing it will be public.
+Business Plan/files/Night Tasks/ANALYTICS_CONTEXT.md
+*ANALYTICS_CONTEXT*
+
 # ── Untracked credential notes (NEVER commit) ─────────────────────
 # These sit in Business Plan/files/ and hold real values, including
 # META_CAPI_ACCESS_TOKENS. They were never tracked -- these rules exist so a
