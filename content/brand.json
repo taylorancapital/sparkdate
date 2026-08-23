@@ -72,11 +72,23 @@
 
   "markets": {
     "lancaster": {
-      "geo": { "city": "Lancaster", "region": "Pennsylvania", "country": "US", "radius_miles": 20 },
+      "geo": {
+        "_comment": "A LIST, because the Lancaster market is really the Lancaster-Harrisburg-York triangle and one 20-mile circle misses two thirds of it. The live Marion Court ad sets already target Lancaster-Harrisburg-York-Reading at 15mi; this matches that shape at 20mi, minus Reading, per instruction 2026-08-23.",
+        "_overlap": "The three circles overlap -- York sits about 25 miles from both Lancaster and Harrisburg. That is fine: Meta dedupes overlapping geo targeting and does not charge twice for a person inside two radii.",
+        "cities": [
+          { "city": "Lancaster", "region": "Pennsylvania", "country": "US", "radius_miles": 20 },
+          { "city": "Harrisburg", "region": "Pennsylvania", "country": "US", "radius_miles": 20 },
+          { "city": "York", "region": "Pennsylvania", "country": "US", "radius_miles": 20 }
+        ]
+      },
       "hashtags": ["#LancasterDating", "#LancasterPA", "#LancasterEvents", "#SingleInLancaster", "#DowntownLancaster", "#LancasterNightlife", "#LancasterSingles"]
     },
     "philadelphia": {
-      "geo": { "city": "Philadelphia", "region": "Pennsylvania", "country": "US", "radius_miles": 15 },
+      "geo": {
+        "cities": [
+          { "city": "Philadelphia", "region": "Pennsylvania", "country": "US", "radius_miles": 15 }
+        ]
+      },
       "hashtags": ["#PhillyDating", "#PhillyEvents", "#SingleInPhilly", "#RittenhouseSquare", "#PhillyNightlife", "#PhillySingles"]
     },
     "_neutral": {
@@ -215,7 +227,7 @@
       "billing_event": "IMPRESSIONS",
       "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
       "budget": "CBO at campaign level, so Meta allocates between the gender ad sets instead of letting them bid against each other in separate auctions.",
-      "geo": "The event's own city, 15-25 mile radius. Geography is a campaign property, not a matrix dimension -- one campaign per event, not one per city-gender pair.",
+      "geo": "The event's MARKET, from markets[].geo.cities -- a list of city+radius pairs, not one circle. Lancaster is Lancaster + Harrisburg + York at 20mi each; Philadelphia is one city at 15mi. Geography is a campaign property, not a matrix dimension: one campaign per event, not one per city-gender pair.",
       "_why_traffic": "Measured on this account: LINK_CLICKS runs $0.13-$0.30 per click against $0.66-$1.58 for OFFSITE_CONVERSIONS on the same events. Established by #254 and #255."
     },
     "ad_sets": [
