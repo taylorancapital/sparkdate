@@ -1,0 +1,82 @@
+name: sync ad spend
+
+# Pulls Meta ad spend into Firestore so the admin dashboard can trend it and
+# attribute it per event, instead of showing a figure somebody typed once.
+#
+# Why here and not Vercel: api/ holds exactly 12 functions, which is the Hobby
+# plan's cap, so a thirteenth would mean deleting one or paying for Pro. Same
+# reasoning as social-publish.yml.
+#
+# Every four hours rather than every fifteen minutes. Meta's own reporting lags
+# by up to a few hours and spend figures for the current day keep moving until
+# it settles, so a tighter schedule would burn API calls to rewrite the same
+# unfinished number. Four hours is well inside "live" for a dashboard read by a
+# human, and the run is idempotent -- each day overwrites its own document, so
+# re-reading an unsettled day costs nothing and corrects itself.
+
+on:
+  schedule:
+    - cron: '17 */4 * * *'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'How many days back to sync (default 30)'
+        default: '30'
+      execute:
+        description: 'Actually write to Firestore (unchecked = dry run)'
+        type: boolean
+        default: false
+
+# Two overlapping runs would write the same documents. Harmless in principle,
+# since each day's doc is keyed by date and overwritten wholesale rather than
+# incremented -- but there is no reason to pay for it twice.
+concurrency:
+  group: sync-ad-spend
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Sync Meta spend into Firestore
+        env:
+          META_ADS_ACCESS_TOKEN: ${{ secrets.META_ADS_ACCESS_TOKEN }}
+          META_AD_ACCOUNT_ID: ${{ secrets.META_AD_ACCOUNT_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          DAYS: ${{ github.event.inputs.days || '30' }}
+        run: |
+          # A missing secret must not look like a successful sync. Report which
+          # one and fall back to a dry run, the same way social-publish does.
+          MISSING=""
+          [ -z "$META_ADS_ACCESS_TOKEN" ] && MISSING="$MISSING META_ADS_ACCESS_TOKEN"
+          [ -z "$FIREBASE_PROJECT_ID" ]   && MISSING="$MISSING FIREBASE_PROJECT_ID"
+          [ -z "$FIREBASE_CLIENT_EMAIL" ] && MISSING="$MISSING FIREBASE_CLIENT_EMAIL"
+          [ -z "$FIREBASE_PRIVATE_KEY" ]  && MISSING="$MISSING FIREBASE_PRIVATE_KEY"
+
+          if [ -n "$MISSING" ]; then
+            echo "::warning::Not writing -- missing secret(s):$MISSING"
+            echo "Add them under Settings -> Secrets -> Actions. Running as a dry run."
+            node scripts/sync-meta-spend.js --days="$DAYS"
+            exit 0
+          fi
+
+          # workflow_dispatch defaults to a dry run so the button is safe to
+          # press; the schedule always writes, which is the point of it.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.execute }}" != "true" ]; then
+            echo "Manual run without 'execute' ticked -- dry run."
+            node scripts/sync-meta-spend.js --days="$DAYS"
+          else
+            node scripts/sync-meta-spend.js --days="$DAYS" --execute
+          fi
