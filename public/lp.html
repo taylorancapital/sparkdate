@@ -153,7 +153,16 @@
         .sp-polaroid-scatter { position: absolute; top: 24px; left: 50%; width: 850px; height: 500px; transform: translateX(-50%) scale(var(--scatter-scale, 1)); transform-origin: top center; }
         .sp-polaroid { position: absolute; width: 240px; background: #fff; border: 12px solid #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.4); transform: rotate(var(--r, 0deg)); transition: transform 0.25s ease; }
         .sp-polaroid:hover { transform: rotate(0deg) scale(1.08); z-index: 20 !important; }
-        .sp-polaroid img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; }
+        /* height:auto is load-bearing. The <img> tags on THIS page carry
+           width="240" height="240" attributes, added to reserve space and
+           stop layout shift -- lp.html is the only page that has them. With
+           no CSS height, that attribute wins and pins the box to 240px tall
+           while width:100% shrinks it to the polaroid's 216px content box,
+           so every photo rendered 216x240: portrait, not the square the
+           polaroid design assumes. Setting height explicitly hands control
+           back to aspect-ratio. The attributes still do their CLS job by
+           giving the browser a ratio before this stylesheet applies. */
+        .sp-polaroid img { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; }
         .sp-polaroid-cap { height: 58px; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 4px 6px 0; text-align: center; font-family: 'Caveat', cursive; font-size: 18px; font-weight: 700; color: #0a0e27; letter-spacing: 0.5px; line-height: 1.15; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
 
         /* Mobile: stop scaling the rigid 850x500 unit and lay it out instead.
@@ -180,13 +189,6 @@
                angles -- more of them at this size adds nothing but weight. */
             .sp-polaroid:nth-of-type(n+4) { display: none; }
             .sp-polaroid-cap { display: none; }
-            /* The img carries height="240" as an HTML attribute, added to
-               reserve space and stop layout shift. No CSS rule set a height,
-               so that attribute governed and overrode aspect-ratio: a 105px
-               wide photo rendered 245px TALL. Setting height explicitly hands
-               control back to the aspect ratio. Measured live: image 245px ->
-               97px, section 375px -> 245px. */
-            .sp-polaroid img { height: auto; }
             .sp-polaroid:hover { transform: rotate(var(--r)) scale(1); }
         }
 
