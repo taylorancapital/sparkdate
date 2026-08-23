@@ -470,8 +470,17 @@ async function resolveGeo(geo) {
     (r) => r.country_code === geo.country && (!geo.region || r.region === geo.region)
   );
   if (!hit) throw new Error(`no Meta city match for ${geo.city}, ${geo.region}`);
+  // MUST be wrapped in geo_locations. Returning a bare { cities: [...] } is
+  // what created an empty campaign on 2026-08-23: the campaign POST succeeded,
+  // then every ad set was rejected with "Add at least one location or choose a
+  // custom audience" because the targeting object had no geo_locations key at
+  // all. Meta does not validate the campaign against the ad sets that will
+  // follow, so a malformed targeting shape fails HALFWAY -- campaign created,
+  // nothing under it.
   return {
-    cities: [{ key: hit.key, radius: geo.radius_miles, distance_unit: 'mile' }],
+    geo_locations: {
+      cities: [{ key: hit.key, radius: geo.radius_miles, distance_unit: 'mile' }],
+    },
   };
 }
 
@@ -486,7 +495,23 @@ async function main() {
   // above is what a human raises or lowers the budget to, not something Meta
   // enforces on its own.
   const runDays = Math.max(1, runway);
-  const dailyCents = Math.max(100, Math.round(totalCents / runDays));
+  // The campaign is created at the START of prime, so it opens at the PRIME
+  // daily rate -- not the run average.
+  //
+  // Averaging was the original behaviour and it quietly defeated the whole
+  // point: $300 over a 30-day runway is $10/day flat, against a prime rate of
+  // $3/day. Left alone that spends ~$150 during prime instead of $45, which is
+  // 3.3x over on the phase that produces 18% of sales, and correspondingly
+  // starves the last fortnight that produces 73%. The tool would have printed
+  // the right schedule and then built the wrong campaign.
+  //
+  // The later steps are NOT automated. Meta has no native concept of "raise
+  // this budget on that date", so each transition is a human editing the
+  // campaign budget on the date the plan names. That is stated in the output
+  // rather than left to be discovered.
+  const primePhase = plan.find((x) => x.key === 'prime');
+  const dailyCents = Math.max(100, primePhase && primePhase.daily ? primePhase.daily
+                                 : Math.round(totalCents / runDays));
 
   const sourceAdSet = arg('from-adset', null);
   let baseTargeting = null;
@@ -498,6 +523,14 @@ async function main() {
     if (!market.geo) throw new Error(`markets.${ev.market} has no geo block to build targeting from`);
     baseTargeting = { ...(await resolveGeo(market.geo)), age_min: 22, age_max: 45 };
     console.log(`targeting built from markets.${ev.market}.geo (${market.geo.city}, ${market.geo.radius_miles}mi)`);
+  }
+
+  // Targeting is resolved and validated BEFORE the campaign is created, so a
+  // bad geo block fails with nothing written rather than leaving an empty
+  // campaign behind. Ordering is the fix; the geo_locations bug above is what
+  // proved it was needed.
+  if (!baseTargeting || !baseTargeting.geo_locations) {
+    throw new Error('targeting has no geo_locations — refusing to create a campaign that its ad sets will be rejected from');
   }
 
   const camp = await post(`${ACCOUNT}/campaigns`, {
@@ -531,8 +564,14 @@ async function main() {
   }
 
   console.log('');
-  console.log('Created PAUSED. Ads still need creatives attached — this builds the');
-  console.log('structure, not the art. Verify in Ads Manager before activating.');
+  console.log('Created PAUSED at the PRIME daily rate. Ads still need creatives');
+  console.log('attached — this builds the structure, not the art.');
+  console.log('');
+  console.log('The budget does NOT step itself. Edit the campaign budget on these dates:');
+  for (const ph of plan) {
+    if (!ph.daily || ph.key === 'build' || ph.key === 'prime') continue;
+    console.log(`  ${ph.startsOn}   ${ph.key.padEnd(8)} -> ${money(ph.daily)}/day`);
+  }
   console.log('');
 }
 
