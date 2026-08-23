@@ -225,6 +225,27 @@ async function main() {
   for (const [k, v] of Object.entries(perEvent).sort((a, b) => b[1] - a[1])) {
     console.log(`  ${(k === '_unattributed' ? 'UNATTRIBUTED' : k).padEnd(26)} $${v.toFixed(2)}`);
   }
+  // Name the unattributed campaigns rather than leaving a bare total. On this
+  // account every dollar of it is June/July spend pointing at Eventbrite, a
+  // Facebook Event page or a bare /lp -- all predating the eventId= link
+  // convention -- which is history rather than a defect, and much easier to
+  // conclude when the destinations are printed than when they are not.
+  if (perEvent._unattributed) {
+    const noEvent = new Map();
+    for (const d of sorted) {
+      for (const c of d.byCampaign) {
+        if (c.eventId) continue;
+        noEvent.set(c.name, Math.round(((noEvent.get(c.name) || 0) + c.spend) * 100) / 100);
+      }
+    }
+    console.log('');
+    console.log('unattributed, by campaign (no eventId in the destination URL):');
+    for (const [n, v] of [...noEvent].sort((a, b) => b[1] - a[1]).slice(0, 12)) {
+      console.log(`  $${v.toFixed(2).padStart(8)}  ${String(n).slice(0, 52)}`);
+    }
+    if (noEvent.size > 12) console.log(`  … ${noEvent.size - 12} more`);
+  }
+
   if (ambiguous.size) {
     console.log('');
     console.log('AMBIGUOUS -- ads in one campaign point at different events, so its');
