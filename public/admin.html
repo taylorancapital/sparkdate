@@ -3792,16 +3792,24 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 });
 
                 // Everything Meta does not report, on the event date: venue and
-                // delivery, plus the ad channels still entered by hand. Facebook
-                // is added ONLY where no live figure exists, or it would be
-                // counted twice.
+                // delivery, plus the ad channels still entered by hand.
+                //
+                // The typed Facebook figure is added ONLY when ad_spend does not
+                // cover that day at all. Checking metaSpendFor() alone was not
+                // enough: an event whose ads pointed at Eventbrite or a bare /lp
+                // carries no eventId, so its Meta spend lands in the day's
+                // `_unattributed` bucket -- already counted in day.total above --
+                // while metaSpendFor() still returns null and the typed figure
+                // got added on top. That is roughly $436 of June/July spend on
+                // this account, counted twice on any window reaching back to it.
+                const covered = new Set(adSpendDays.map(d => String(d.date || d.id || '')));
                 allEvents.forEach(e => {
                     const d = toDate(e.date);
                     if (!d) return;
                     const k = dayKey(d);
                     if (!out.has(k)) return;
                     let extra = num(e.costOther) + num(e.costTiktok) + num(e.costEventbriteAds);
-                    if (metaSpendFor(e) === null) extra += num(e.costFacebook);
+                    if (metaSpendFor(e) === null && !covered.has(k)) extra += num(e.costFacebook);
                     out.set(k, out.get(k) + extra);
                 });
                 return [...out.values()];
