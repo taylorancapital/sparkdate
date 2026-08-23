@@ -47,7 +47,20 @@
         .event .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; opacity: 0.9; margin-bottom: 8px; }
         .event h3 { font-family: 'Playfair Display', serif; font-weight: 900; font-size: clamp(22px, 5vw, 32px); margin-bottom: 8px; }
         .event .meta { font-size: 14px; opacity: 0.95; margin-bottom: 18px; }
-        .event .ticket { display: inline-block; background: #0a0e27; color: #fff; padding: 15px 36px; border-radius: 4px; text-decoration: none; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 14px; }
+        /* White and raised, not navy and flat. The navy button was the same
+           colour as the page background, so on the coral card it read as a
+           hole punched through rather than an action sitting on top -- the
+           one element that most needed to look pressable looked like absence.
+           Compared five treatments on the real card: cream went muddy, coral
+           text nearly vanished, an outlined navy still read heavy. White wins
+           the card at roughly 17:1 contrast. The solid 4px lower edge is what
+           makes it look depressible; :active drops it onto that edge. */
+        .event .ticket { display: inline-block; background: #fff; color: #0a0e27; padding: 15px 36px; border-radius: 4px; text-decoration: none; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 14px;
+            box-shadow: 0 4px 0 rgba(10,14,39,0.32), 0 7px 18px rgba(10,14,39,0.28);
+            transition: transform 0.08s ease, box-shadow 0.08s ease; }
+        .event .ticket:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(10,14,39,0.32), 0 2px 6px rgba(10,14,39,0.22); }
+        @media (hover: hover) { .event .ticket:hover { transform: translateY(-1px); box-shadow: 0 5px 0 rgba(10,14,39,0.32), 0 10px 22px rgba(10,14,39,0.3); } }
+        @media (prefers-reduced-motion: reduce) { .event .ticket, .event .ticket:hover, .event .ticket:active { transition: none; transform: none; } }
         .event .fine { font-size: 12px; opacity: 0.85; margin-top: 12px; }
         .divider { font-size: 13px; color: rgba(245,243,240,0.5); margin: 24px 0 18px; text-transform: uppercase; letter-spacing: 1px; }
         .foot { margin-top: 40px; font-size: 12px; color: rgba(245,243,240,0.45); }
@@ -97,7 +110,18 @@
            Instagram/Facebook webviews, so for that ~17% we steer to the email
            capture (which works fine — no Stripe) rather than a dead-end
            checkout. Applied via a body class so it's pure CSS, no DOM reorder. */
-        body.iab .capture { border-color: var(--coral); box-shadow: 0 0 0 1px var(--coral), 0 8px 30px rgba(255,107,107,0.18); }
+        /* The waitlist is a RESCUE, not an alternative offer, so it is never
+           promoted above the ticket.
+        
+           This rule used to give the email capture a coral glow for in-app
+           visitors, from the era when their checkout was believed broken and
+           email was the better ask. The matching de-emphasis on the ticket
+           card was removed when that stopped being true -- this half was
+           left behind. The result: for the 61% of paid traffic that arrives
+           in a webview, the page visually promoted the waitlist over the
+           thing being sold. GA4 shows 48 lead-form starts against 52
+           view_items in non-webview paid mobile, which is far too close for
+           a fallback. */
         /* The ticket card used to be dimmed here (opacity 0.9) to push in-app
            visitors toward email instead. Now that the tap isn't blocked, they
            are the cohort we most want buying -- no de-emphasis. */
@@ -131,6 +155,40 @@
         .sp-polaroid:hover { transform: rotate(0deg) scale(1.08); z-index: 20 !important; }
         .sp-polaroid img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; }
         .sp-polaroid-cap { height: 58px; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 4px 6px 0; text-align: center; font-family: 'Caveat', cursive; font-size: 18px; font-weight: 700; color: #0a0e27; letter-spacing: 0.5px; line-height: 1.15; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+
+        /* Mobile: stop scaling the rigid 850x500 unit and lay it out instead.
+        
+           The scatter is one frozen design shrunk to fit its container. At
+           375px that means scale 0.39, so each 240px polaroid renders 94px
+           wide and each 18px caption renders at SEVEN pixels. It cost 366px
+           of page -- more than the ticket card itself -- to show seven
+           thumbnails captioned in text nobody can read.
+        
+           Below 600px it becomes three photos in a row at roughly 100px, the
+           captions come off because they are decorative at any size that
+           fits, and the reserved aspect-ratio is released so the section
+           takes only the height it needs. The scatter survives intact on the
+           tablet and desktop widths it was designed for. */
+        @media (max-width: 600px) {
+            .sp-social-proof { padding: 24px 0; margin-bottom: 20px; }
+            .sp-polaroid-scatter-wrap { aspect-ratio: auto; padding-top: 8px; }
+            .sp-polaroid-scatter { position: static; width: 100%; height: auto; transform: none;
+                display: flex; gap: 10px; justify-content: center; align-items: flex-start; }
+            .sp-polaroid { position: static; width: auto; flex: 1 1 0; max-width: 104px;
+                border-width: 5px; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+            /* Only the first three. The rest are the same night from other
+               angles -- more of them at this size adds nothing but weight. */
+            .sp-polaroid:nth-of-type(n+4) { display: none; }
+            .sp-polaroid-cap { display: none; }
+            /* The img carries height="240" as an HTML attribute, added to
+               reserve space and stop layout shift. No CSS rule set a height,
+               so that attribute governed and overrode aspect-ratio: a 105px
+               wide photo rendered 245px TALL. Setting height explicitly hands
+               control back to the aspect ratio. Measured live: image 245px ->
+               97px, section 375px -> 245px. */
+            .sp-polaroid img { height: auto; }
+            .sp-polaroid:hover { transform: rotate(var(--r)) scale(1); }
+        }
 
         /* "Find us on" logo strip -- platform presence (listings/profiles),
            not press coverage, so it's phrased as such rather than an
@@ -179,14 +237,17 @@
              for the 2-for-1 female ads, the all-genders ads and the
              retargeting ads alike, and says nothing event-specific. -->
         <h1>You show up.<br>We <span class="hl">handle the rest.</span></h1>
-        <p class="sub" id="lpSub">Real, curated dating events at Lancaster &amp; Philadelphia's best venues. Skip the endless texting — meet in person.</p>
+        <!-- Geography removed: the ticket card directly below names the venue
+             and the city, and the ads are geo-targeted, so this said it a
+             third time. What remains differentiates instead of locating. -->
+        <p class="sub" id="lpSub">Skip the endless texting — meet in person.</p>
 
         <!-- Primary CTA: dynamic next-event ticket card (real revenue action) -->
         <div class="event">
             <div class="eyebrow" id="lpEyebrow">Upcoming Mixer</div>
             <h3 id="lpTitle">SparkDate Mixer</h3>
             <div class="meta" id="lpMeta">📍 Venue announced soon</div>
-            <a class="ticket" id="lpTicketBtn" href="/events">🎟️ Get Tickets</a>
+            <a class="ticket" id="lpTicketBtn" href="/events">Get Tickets</a>
             <div class="fine">Secure checkout · no account needed</div>
         </div>
 
@@ -308,9 +369,21 @@
         <script>
             (function() {
                 function fitPolaroidScatter() {
+                    // Below 600px the scatter is not scaled at all -- the CSS
+                    // lays the polaroids out as a flex row instead. Setting an
+                    // inline height here would pin the section to the height
+                    // of the scaled 850x500 design it is no longer using, and
+                    // did: the row rendered 127px tall inside a 342px box.
+                    // Clear it and let the content size itself.
+                    var mobile = window.matchMedia('(max-width: 600px)').matches;
                     document.querySelectorAll('.sp-polaroid-scatter-wrap').forEach(function(wrap) {
                         var scatter = wrap.querySelector('.sp-polaroid-scatter');
                         if (!scatter) return;
+                        if (mobile) {
+                            wrap.style.height = '';
+                            wrap.style.removeProperty('--scatter-scale');
+                            return;
+                        }
                         var designWidth = 850, designHeight = 500;
                         var scale = Math.min(1, wrap.clientWidth / designWidth);
                         wrap.style.setProperty('--scatter-scale', scale);
@@ -322,7 +395,11 @@
             })();
         </script>
 
-        <div class="divider" id="lpDivider">Not ready yet? Get on the waitlist</div>
+        <!-- "Not ready yet?" invited the reader not to buy, on a page whose
+             job is selling. A date conflict is a real reason to take the
+             email instead; hesitation about buying is not one we should
+             suggest. -->
+        <div class="divider" id="lpDivider">Can't make this one? Hear about the next</div>
 
         <!-- Secondary CTA: email capture (lowest friction, for people not ready to book) -->
         <div class="capture">
@@ -595,7 +672,7 @@
             if (scarce) $('lpEyebrow').textContent = 'Filling up';
           }
           if (ev.price != null) {
-            var html = '🎟️ Get Tickets — ' + fmt(ev.price);
+            var html = 'Get Tickets — ' + fmt(ev.price);
             if (ev.isEarlyBird && ev.regularPrice && Number(ev.regularPrice) > Number(ev.price)) html += ' <span style="opacity:0.6;text-decoration:line-through;font-weight:500;">' + fmt(ev.regularPrice) + '</span>';
             btn.innerHTML = html;
           }
@@ -640,7 +717,8 @@
           var city = (ev.city || '').trim();
           if (city) {
             document.title = 'SparkDate — Real ' + city + ' Dating Events';
-            if ($('lpSub')) $('lpSub').textContent = 'Real, curated dating events at ' + city + "'s best venues. Skip the endless texting — meet in person.";
+            // No longer city-personalised -- the city was the redundant part.
+            // The <title> still uses it, where it does real work.
             // Don't clobber the IAB steering copy set above — in a webview the
             // "we'll email you a working link" message matters more than the
             // city-personalized waitlist line.

@@ -939,7 +939,7 @@
                 <span>📍 A real Philly venue</span>
             </div>
             <a class="event-cta-button" id="eventCtaBtn" href="/events">
-                🎟️ Get Tickets
+                Get Tickets
             </a>
             <div class="event-cta-sub">Secure checkout · no account needed</div>
             <ul class="event-cta-trust">
@@ -1053,7 +1053,7 @@
             if ($('eventCtaEyebrow')) $('eventCtaEyebrow').textContent = eyebrow;
 
             if (ev.price != null) {
-              var html = '🎟️ Get Tickets — ' + fmt(ev.price);
+              var html = 'Get Tickets — ' + fmt(ev.price);
               if (ev.isEarlyBird && ev.regularPrice && Number(ev.regularPrice) > Number(ev.price)) {
                 html += ' <span class="regular-price">' + fmt(ev.regularPrice) + '</span>';
               }
@@ -1079,7 +1079,7 @@
             }
             if (stickyBtn) {
               stickyBtn.href = href;
-              if (ev.price != null) stickyBtn.innerHTML = '🎟️ Get Tickets — ' + fmt(ev.price);
+              if (ev.price != null) stickyBtn.innerHTML = 'Get Tickets — ' + fmt(ev.price);
             }
           })
           .catch(function () { /* keep generic copy + /events fallback */ });
@@ -1392,7 +1392,7 @@
         <div class="sticky-ticket-bar-eyebrow">Next mixer</div>
         <div class="sticky-ticket-bar-line" id="stickyBarLine">SparkDate Mixer · A real Philly venue</div>
     </div>
-    <a class="sticky-ticket-bar-btn" id="stickyBarBtn" href="/events">🎟️ Get Tickets</a>
+    <a class="sticky-ticket-bar-btn" id="stickyBarBtn" href="/events">Get Tickets</a>
 </div>
 <script>
   // Shows the sticky bar only in the stretch of the page between the top
