@@ -3,18 +3,12 @@
   "_ported": "2026-08-21",
 
   "universal": {
-    "banned_facts": [
-      {
-        "id": "unsourced-28",
-        "pattern": "\\b28\\b(?=[^\\n]{0,40}\\b(?:people|attendees?|attended|came|confirmed|showed up|in the room)\\b)",
-        "description": "The '28 attendees' figure is unsourced and banned everywhere. 22 (Event 1) is the only sanctioned number. A revision to 31 (American Bar & Grill door count: 26 registered + unregistered +1s) is PROPOSED but NOT APPROVED -- do not swap it in without confirming."
-      }
-    ],
+    "banned_facts": [],
+    "_attendance_note": "CHECK-IN COUNTS UNDERCOUNT ATTENDANCE. Not everyone who comes checks in -- attended.txt even records one guest who checked in under a different address than he bought under. So a figure higher than the check-in tally is NOT evidence of fabrication, and must not be reported as one. This file previously banned '28 attendees' as \"unsourced\" on exactly that mistaken reasoning, and the rule caused the same wrong conclusion to be re-derived more than once. Confirmed by Taylor 2026-08-22: 31 is the real number.",
     "approved_stat": {
-      "value": 22,
-      "context": "Event 1 attendance",
-      "proposed_revision": 31,
-      "proposed_revision_approved": false
+      "value": 31,
+      "context": "Event 1 attendance -- American Bar & Grill door count: 26 registered plus unregistered +1s",
+      "approved": true
     },
     "_pulled_images_note": "These are pulled from every use, organic and paid. NO REASON IS RECORDED. The source (SparkDate_Brand_Source_of_Truth_1_Multi_Event.md) says only that they are pulled and that substitutes must come from the confirmed-consent list. Do not state or infer a cause -- an earlier generated brief asserted \"consent withdrawn\", which was never established and is a claim about a real person's decision. The rule is absolute; the reason is unknown.",
     "pulled_images": ["IMG_9203", "IMG_9204", "IMG_9207"],
