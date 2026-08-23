@@ -187,6 +187,114 @@ if (ev.pricing && ev.pricing.early_bird_through) {
   }
 }
 
+// ─── Claude Design handoff for paid creative ───────────────────────
+//
+// Mirrors scripts/design-handoff.js deliberately, including why it is shaped
+// this way: earlier handoffs specified ONE piece, so Design built one, and
+// front-loaded brand reference so the model spent its first turn confirming
+// rather than producing. Brand block stays short; everything after it is the
+// work, ad after ad, with the finished copy already written.
+//
+// Organic creative comes from queue.csv through design-handoff.js. Paid does
+// not live in the queue -- see paid_template._comment -- so it needs its own
+// emitter. The ART is the shared part; only the delivery differs.
+function emitHandoff(slots, fill, needsEarlyBird) {
+  const CT = PT.caption_templates;
+  // Underscore keys are notes to humans, not sizes. Emitting _comment as a
+  // size produced "**_comment** undefined×undefined" in the brief.
+  const dimsAll = (brand.asset_rules && brand.asset_rules.paid_ad_dimensions) || {};
+  const dims = Object.fromEntries(Object.entries(dimsAll).filter(([k]) => !k.startsWith('_')));
+  const sets = ['female', 'male', 'retargeting'];
+
+  // Count first, so the brief can say how many and Design does not stop early.
+  const jobs = [];
+  sets.forEach(k => {
+    const node = CT[k] || {};
+    Object.keys(node).filter(p => !p.startsWith('_') && p !== 'offer_line').forEach(ph => {
+      const c = node[ph];
+      if (needsEarlyBird(c.primary_text) && !(ev.pricing || {}).early_bird) return;
+      jobs.push({ set: k, phase: ph, c });
+    });
+  });
+
+  const L = [];
+  L.push(`# ${ev.name} — Meta ad creative`);
+  L.push('');
+  L.push(`**${jobs.length} ads to build · ${Object.keys(dims).length} sizes each**`);
+  L.push('');
+  L.push('Every ad below has its finished copy. Set the type, export the PNG. Do not');
+  L.push('rewrite the copy, do not ask which to start with, do not stop after the first');
+  L.push(`one. Work straight down the list and produce all ${jobs.length}.`);
+  L.push('');
+  L.push('If you can only manage part of it in one go, finish whole ads and tell me the');
+  L.push('last one you completed. I will paste "continue from <id>" and you carry on.');
+  L.push('');
+  L.push('## The look — same as organic, then we start');
+  L.push('');
+  L.push('- Canvas **#0a0e27** navy. Text **#ffffff** headings, **#f5f3f0** body. One action colour: **#ff6b6b** coral. **#d4af37** gold for a single emphasised number only.');
+  L.push('- Headlines **Playfair Display 900**, tight (-1px). Body/labels **Inter** 400–600. Never headline in Inter.');
+  L.push('- Wordmark `SPARKDATE` bottom-left, coral, Inter 600, 12px, uppercase, 2px tracking.');
+  L.push('- Export **PNG**, sRGB.');
+  L.push('');
+  L.push('**Sizes — build every ad at all of these:**');
+  L.push('');
+  Object.entries(dims).forEach(([k, v]) => {
+    L.push(`- **${k}** ${v.width}×${v.height}${v.note ? ` — ${v.note}` : ''}`);
+  });
+  L.push('');
+  L.push('**One hard rule:** the copy below is the AD TEXT, which Meta renders outside');
+  L.push('the image. Do NOT typeset the primary text into the picture. The image carries');
+  L.push('the headline and the event facts only — Meta penalises image-heavy text, and');
+  L.push('the primary text is already going in the ad itself.');
+  L.push('');
+  L.push('---');
+  L.push('');
+
+  jobs.forEach((j, i) => {
+    const isRetarget = j.set === 'retargeting';
+    L.push(`## ${i + 1}. \`${eventKey}-${j.set.toUpperCase()}-${j.phase.toUpperCase()}\``);
+    L.push('');
+    L.push(`Ad set **${j.set}** · phase **${j.phase}**`);
+    L.push('');
+    L.push('### On the image');
+    L.push('');
+    L.push('```');
+    L.push(fill(j.c.headline));
+    L.push('```');
+    L.push('');
+    L.push(`Plus the event facts, small: **${ev.venue}, ${ev.city}** · doors **${ev.doors || '6:30'}**.`);
+    if (isRetarget) {
+      L.push('');
+      L.push('> This audience has already seen an ad. Do not re-introduce the event —');
+      L.push('> lead with the date and the price, not the concept.');
+    }
+    L.push('');
+    L.push('### Ad text (goes in Meta, not on the image)');
+    L.push('');
+    L.push('```');
+    L.push(fill(j.c.primary_text));
+    if (j.set === 'female' && CT.female.offer_line) {
+      L.push('');
+      L.push(CT.female.offer_line + '   <-- FEMALE AD SET ONLY');
+    }
+    L.push('```');
+    L.push('');
+    L.push(`- **Headline:** ${fill(j.c.headline)}`);
+    L.push(`- **Description:** ${fill(j.c.description)}`);
+    L.push('');
+    L.push('---');
+    L.push('');
+  });
+
+  L.push('## Do not put these in any ad');
+  L.push('');
+  L.push('- The 2-for-1 offer in the **male** or **retargeting** ad sets. Female only.');
+  L.push('- Any attendance or ticket-count number that is not in `content/brand.json`.');
+  L.push('- A price that contradicts the event block above.');
+  L.push('');
+  return L.join('\n');
+}
+
 // ─── Print the plan ────────────────────────────────────────────────
 
 console.log('');
@@ -255,7 +363,7 @@ if (primeP.daily && convertP.daily && primeP.daily > convertP.daily) {
 // and so the text handed to Claude Design is finished rather than a template
 // someone still has to fill in.
 const CT = PT.caption_templates;
-if (CT && flag('captions')) {
+if (CT && (flag('captions') || flag('handoff'))) {
   const pr = ev.pricing || {};
   const dt = new Date(`${ev.date}T12:00:00Z`);
   const long = dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
@@ -273,6 +381,19 @@ if (CT && flag('captions')) {
   };
   const needsEarlyBird = (t) => t.includes('{early_price}') || t.includes('{early_through}');
   const fill = (t) => Object.entries(slots).reduce((a, [k, v]) => a.split(k).join(v), t);
+
+  // Written to a file rather than stdout, matching design-handoff.js: the
+  // brief is pasted into Claude Design whole, and the plan above would be
+  // noise inside it.
+  if (flag('handoff')) {
+    const md = emitHandoff(slots, fill, needsEarlyBird);
+    const out = arg('out', path.join('build', `paid-handoff-${eventKey}.md`));
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, md);
+    console.log('handoff  ' + md.split(String.fromCharCode(10)).length + ' lines -> ' + out);
+    console.log('');
+    process.exit(0);
+  }
 
   console.log('AD COPY');
   console.log('');
