@@ -173,6 +173,87 @@
     ]
   },
 
+  "paid_template": {
+    "_comment": "The paid counterpart to calendar_template, and a SEPARATE TABLE on purpose. Organic is a posting API -- one post, one timestamp, one row in queue.csv. Paid is the Marketing API -- a campaign with a lifecycle across a date range, carrying budgets, objectives and audiences. Forcing that into a row-per-post queue would put ads-manager fields on organic rows and a date range into a single-timestamp column. The ART is still shared: paid creative that needs art emits queue rows so scripts/design-handoff.js picks it up unchanged. The DELIVERY is what differs.",
+    "_measured": {
+      "read": "93 confirmed, non-comp tickets across 6 events, from Firestore on 2026-08-23.",
+      "basis": "ONLY the 2 COMPLETED events (n=51). Events still on sale are CENSORED -- their late window has not happened yet, so including them biases the curve early. Loxleys' apparent 38-day median is that artifact, not a buying pattern. Re-measure after each event completes.",
+      "completed_events": ["Founders Mixer 2026-06-24", "SparkDate: Round 2 -- Summer Nights 2026-07-29"],
+      "sales_by_window": [
+        { "window": "T-60..T-31", "tickets": 4, "cumulative_pct": 8 },
+        { "window": "T-30..T-22", "tickets": 5, "cumulative_pct": 18 },
+        { "window": "T-21..T-15", "tickets": 5, "cumulative_pct": 27 },
+        { "window": "T-14..T-8", "tickets": 14, "cumulative_pct": 55 },
+        { "window": "T-7..T-1", "tickets": 19, "cumulative_pct": 92 },
+        { "window": "T-0", "tickets": 4, "cumulative_pct": 100 }
+      ],
+      "headline": "73% of tickets sell in the final 14 days. The last week alone (19 tickets) outsells everything before T-15 (14 tickets).",
+      "confidence": "n=51 across two events, both Lancaster. Philadelphia has no completed event, so there is no market comparison. Treat the SHAPE as directional, not the percentages as precise.",
+      "early_bird_alignment": "MC and LX both set early_bird_through at exactly T-15, which is where cumulative sales go 27% -> 55%. The price step and the volume surge already coincide. The budget step is placed there to match what already happens, not to invent a third schedule."
+    },
+    "runway": {
+      "reference_days": 30,
+      "minimum_days": 21,
+      "compression": "PROPORTIONAL, BUT ONLY ON THE PRIME PHASE.",
+      "_why": "Buyer behaviour does not compress. People still buy in the final 14 days whether you advertised for 30 days or 21. Compressing every phase proportionally would move the budget step to T-10 on a 21-day runway and miss the real inflection at T-15. So prime absorbs all compression; step, convert, close and day_of stay anchored to absolute days before the event.",
+      "_floor": "Below 18 days prime disappears entirely and retargeting launches with no audience pool. 21 days is the stated minimum for that reason."
+    },
+    "campaign": {
+      "one_per": "event",
+      "objective": "OUTCOME_TRAFFIC",
+      "optimization_goal": "LINK_CLICKS",
+      "billing_event": "IMPRESSIONS",
+      "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
+      "budget": "CBO at campaign level, so Meta allocates between the gender ad sets instead of letting them bid against each other in separate auctions.",
+      "geo": "The event's own city, 15-25 mile radius. Geography is a campaign property, not a matrix dimension -- one campaign per event, not one per city-gender pair.",
+      "_why_traffic": "Measured on this account: LINK_CLICKS runs $0.13-$0.30 per click against $0.66-$1.58 for OFFSITE_CONVERSIONS on the same events. Established by #254 and #255."
+    },
+    "ad_sets": [
+      {
+        "key": "female",
+        "targeting": "women, 22-45, campaign geo",
+        "budget_share": 0.45,
+        "live_from": "prime",
+        "offer": "MAY carry the 2-for-1 offer.",
+        "_offer_restriction": "2-for-1 is FEMALE ADS ONLY. It is a marketing restriction, not a code one -- checkout's toggle is unconditional, so nothing stops the offer being honoured from a male ad. Never put it in male or retargeting copy."
+      },
+      {
+        "key": "male",
+        "targeting": "men, 22-45, campaign geo",
+        "budget_share": 0.30,
+        "live_from": "prime",
+        "offer": "None. No 2-for-1 under any circumstances."
+      },
+      {
+        "key": "retargeting",
+        "targeting": "video viewers and site visitors originating from the female and male ad sets",
+        "budget_share": 0.25,
+        "live_from": "convert",
+        "_why_not_earlier": "It has nothing to retarget until prime has built the pool. Launching it at T-30 produces a campaign with an empty audience -- which is exactly why Loxleys Retargeting was deliberately NOT built in #255."
+      }
+    ],
+    "_ad_set_note": "Male and Female -- NOT 'All Genders' and 'Female'. The live account currently runs the latter, which targets women in BOTH ad sets so they bid against each other. That is the same pathology #254 fixed at campaign level, still present at ad-set level. Budget shares are a STARTING POINT and are NOT measured: female is weighted higher because gender balance is the binding constraint on these events, not because a test showed 45/30.",
+    "phases": [
+      { "key": "build", "at": "runway_start", "spend_share": 0.00, "compresses": false,
+        "action": "Create the campaign and both gender ad sets PAUSED. Verify against the API afterwards rather than from the script's own output." },
+      { "key": "prime", "from": "runway_start", "to": "T-16", "spend_share": 0.15, "compresses": true,
+        "action": "Link-click traffic on female + male. Cheap reach, and it builds the audience retargeting needs at T-14 -- it pays for itself twice." },
+      { "key": "step", "at": "T-15", "anchor": "events[].pricing.early_bird_through", "spend_share": 0.00, "compresses": false,
+        "action": "Early bird ends and the price rises. Step the budget up to match -- this is the inflection, not an arbitrary marker." },
+      { "key": "convert", "from": "T-14", "to": "T-8", "spend_share": 0.35, "compresses": false,
+        "action": "Retargeting goes live. 27% of volume lands in this window." },
+      { "key": "close", "from": "T-7", "to": "T-1", "spend_share": 0.45, "compresses": false,
+        "action": "Heaviest spend of the run. 37% of volume -- the single biggest window." },
+      { "key": "day_of", "at": "T-0", "spend_share": 0.05, "compresses": false,
+        "action": "Last call." }
+    ],
+    "caption_rules": {
+      "per_ad_set": true,
+      "_note": "Every ad set needs its own caption. Male and female audiences are not reading the same pitch, and the 2-for-1 restriction makes a shared caption unsafe by construction. Retargeting copy assumes prior exposure -- it should not re-introduce the event from scratch.",
+      "utm": { "medium": "paid_social", "campaign_format": "{event_key}_{YYYYMM}", "content": "{ad_set_key}" },
+      "banned_outside_female_ad_set": ["2-for-1", "2 for 1", "two-for-one"]
+    }
+  },
   "asset_rules": {
     "naming": "{row_id}[_{subtype}][_{N}of{Total}].{ext}, row_id zero-padded to two digits (MC-02.jpg, TL-01_1of3.jpg, MC-12_story.jpg)",
     "_naming_note": "Zero-padding matters: without it MC-10 sorts before MC-2 and the folder falls out of posting order.",
@@ -187,6 +268,19 @@
   },
 
   "platform_capabilities": {
+    "meta_ads": {
+      "api_create": true,
+      "_proven": "#255 built campaign 120251072593050542 -- OUTCOME_TRAFFIC, CBO, two LINK_CLICKS ad sets and two ads -- through the Marketing API, verified against the API afterwards rather than from the script's own output.",
+      "url_tags_writable": false,
+      "_utm_note": "scripts/check-meta-ad-tags.js can REPORT missing UTMs but cannot write them: Meta rejects the url_tags parameter. UTM fixes are a manual paste in Ads Manager.",
+      "_pipeline": "Marketing API. Separate from the organic posting API in every way that matters -- a campaign is a lifecycle over a date range with budgets and audiences, not a post at a timestamp. This is why paid_template is its own table and not extra columns on queue.csv."
+    },
+    "tiktok_ads": {
+      "api_create": "unproven here",
+      "account": "Ads account created 2026-08-23. Not yet connected to Windsor -- get_data returns 'No tiktok account for user'. Connect it before trusting any spend figure.",
+      "spark_ads": "Promotes an existing organic post, but needs an ad authorisation code generated per post by the account owner, so it is not fully hands-off.",
+      "_promote_button": "TikTok's in-app Promote button is NOT the same thing as TikTok Ads. It has no public API and can never be scheduled -- if that is what is wanted, it belongs in the runbook's permanently-manual table."
+    },
     "fb": { "api_publish": true, "api_schedule": true, "schedule_window": "10 minutes to 30 days ahead" },
     "ig": { "api_publish": true, "api_schedule": false, "_note": "No scheduling parameter exists and media containers expire after 24h, so the container must be created at publish time by the runner." },
     "ig_story": { "api_publish": true, "api_stickers": false, "_note": "A Story can be posted via API but link and countdown stickers CANNOT be attached -- that is where the link and the urgency live, so sticker Stories stay manual." },
