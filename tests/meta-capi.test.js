@@ -182,3 +182,56 @@ describe('sendMetaEvent', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe('advanced matching fields', () => {
+  // Meta's account diagnostics flagged this pixel for low event match
+  // quality. The Purchase path is the worst case: stripe-webhook runs on
+  // Stripe's servers, so it has no IP and no user agent, and before this it
+  // matched on a hashed email alone.
+
+  it('sends fbp and fbc in PLAINTEXT', () => {
+    // These are Meta's own cookies, not PII. Hashing them does not error --
+    // it silently destroys the match, exactly the trap the existing note on
+    // hashPii describes for client_ip_address.
+    const u = buildUserData({ fbp: 'fb.1.1700000000.123456789', fbc: 'fb.1.1700000000.IwAR0abc' });
+    expect(u.fbp).toBe('fb.1.1700000000.123456789');
+    expect(u.fbc).toBe('fb.1.1700000000.IwAR0abc');
+  });
+
+  it('hashes external_id, because the browser pixel hashes the same uid', () => {
+    // If the two sides disagree about hashing, Meta sees two different people
+    // and the match is worse than sending nothing at all.
+    const u = buildUserData({ externalId: 'firebase_uid_abc123' });
+    expect(u.external_id[0]).toMatch(/^[0-9a-f]{64}$/);
+    expect(u.external_id[0]).toBe(hashPii('firebase_uid_abc123'));
+  });
+
+  it('normalises external_id the same way it normalises email', () => {
+    // hashPii lowercases and trims. A uid captured with different casing on
+    // one side would otherwise never match.
+    expect(buildUserData({ externalId: '  ABC123  ' }).external_id[0])
+      .toBe(buildUserData({ externalId: 'abc123' }).external_id[0]);
+  });
+
+  it('omits every new field when it is absent', () => {
+    // Sending fbp: undefined or external_id: [null] is worse than omitting
+    // them -- Meta counts a present-but-empty field against match quality.
+    const u = buildUserData({ email: 'a@b.com' });
+    expect(u).not.toHaveProperty('fbp');
+    expect(u).not.toHaveProperty('fbc');
+    expect(u).not.toHaveProperty('external_id');
+  });
+
+  it('still works with nothing at all, so a caller can pass partial data', () => {
+    expect(buildUserData()).toEqual({});
+    expect(buildUserData({})).toEqual({});
+  });
+
+  it('keeps the existing email and phone behaviour untouched', () => {
+    // Regression guard: the new fields must not disturb what already worked.
+    const u = buildUserData({ email: ' A@B.COM ', phone: '(555) 123-4567', fbp: 'fb.1.2.3' });
+    expect(u.em[0]).toBe(hashPii('a@b.com'));
+    expect(u.ph[0]).toBe(hashPii('5551234567'));
+    expect(u.fbp).toBe('fb.1.2.3');
+  });
+});
