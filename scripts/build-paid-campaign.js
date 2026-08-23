@@ -106,6 +106,17 @@ if (!ev) {
   process.exit(2);
 }
 
+// Which ad system this run targets. paid_template.campaign is split into a
+// neutral part and a per-platform part, because the phases and the budget
+// curve do not vary by network but the vocabulary does -- Meta has ad SETS and
+// OUTCOME_TRAFFIC, TikTok has ad GROUPS and TRAFFIC.
+const PLATFORM = String(arg('platform', PT.campaign._default_platform || 'meta')).toLowerCase();
+const CAMP = (PT.campaign.platforms || {})[PLATFORM];
+if (!CAMP) {
+  console.error(`✗ No platform "${PLATFORM}". Known: ` + Object.keys(PT.campaign.platforms || {}).join(', '));
+  process.exit(2);
+}
+
 const market = brand.markets[ev.market] || {};
 const eventDate = new Date(`${ev.date}T00:00:00Z`);
 
@@ -198,9 +209,9 @@ if (ev.pricing) {
 }
 console.log('');
 
-console.log(`campaign  "${ev.name} | Traffic"`);
-console.log(`          ${PT.campaign.objective} / ${PT.campaign.optimization_goal} / ${PT.campaign.billing_event} / ${PT.campaign.bid_strategy}`);
-console.log(`          CBO, created PAUSED, stops ${ev.date}`);
+console.log(`campaign  "${ev.name} | Traffic"   [${PLATFORM}]`);
+console.log(`          ${CAMP.objective} / ${CAMP.optimization_goal} / ${CAMP.billing_event}${CAMP.bid_strategy ? ' / ' + CAMP.bid_strategy : ''}`);
+console.log(`          ${CAMP.budget_mode ? String(CAMP.budget_mode).split(',')[0] : 'budget'}, created PAUSED, stops ${ev.date}`);
 console.log('');
 
 const buildable = PT.ad_sets.filter((a) => a.key !== 'retargeting');
@@ -316,6 +327,19 @@ if (!EXECUTE) {
 
 // ─── Execute ───────────────────────────────────────────────────────
 
+// --execute talks to graph.facebook.com and nothing else. Letting it run with
+// TikTok selected would POST TikTok's vocabulary at Meta's API, which fails in
+// the least useful way possible -- a generic "Invalid parameter" on a call that
+// looked like it should work. TikTok has no create path at all: Windsor offers
+// pause/enable and budgets but no create action, so the campaign is built once
+// by hand and every phase after that is drivable.
+if (PLATFORM !== 'meta') {
+  console.error(`✗ --execute only supports meta. ${PLATFORM} has no create path:`);
+  console.error(`  ${CAMP.control_plane}`);
+  console.error('  Build it once in Ads Manager, then drive the phases from the plan above.');
+  process.exit(2);
+}
+
 const token = process.env.META_ADS_ACCESS_TOKEN;
 if (!token) {
   console.error('✗ --execute needs META_ADS_ACCESS_TOKEN. Copy it from the GitHub secret or Vercel.');
@@ -381,11 +405,11 @@ async function main() {
 
   const camp = await post(`${ACCOUNT}/campaigns`, {
     name: `${ev.name} | Traffic`,
-    objective: PT.campaign.objective,
+    objective: CAMP.objective,
     status: 'PAUSED',
     special_ad_categories: JSON.stringify([]),
     daily_budget: String(dailyCents),
-    bid_strategy: PT.campaign.bid_strategy,
+    bid_strategy: CAMP.bid_strategy,
     stop_time: `${ev.date}T16:30:00-0400`,
   });
   const back = await get(camp.id, { fields: 'name,status,objective,daily_budget' });
@@ -396,8 +420,8 @@ async function main() {
     const set = await post(`${ACCOUNT}/adsets`, {
       name: `${ev.name} | ${a.key} | Traffic`,
       campaign_id: camp.id,
-      optimization_goal: PT.campaign.optimization_goal,
-      billing_event: PT.campaign.billing_event,
+      optimization_goal: CAMP.optimization_goal,
+      billing_event: CAMP.billing_event,
       attribution_spec: JSON.stringify([{ event_type: 'CLICK_THROUGH', window_days: 1 }]),
       targeting: JSON.stringify({ ...baseTargeting, genders: GENDER[a.key] }),
       end_time: `${ev.date}T16:30:00-0400`,

@@ -201,14 +201,35 @@
       "_floor": "Below 18 days prime disappears entirely and retargeting launches with no audience pool. 21 days is the stated minimum for that reason."
     },
     "campaign": {
+      "_comment": "Split per platform 2026-08-23. Everything above `platforms` is platform-neutral and shared; everything inside it is the vocabulary of one ad system. The phases, budget weights and the sales curve they came from do not vary by platform -- people buy tickets in the last 14 days regardless of which network sold them the click.",
       "one_per": "event",
-      "objective": "OUTCOME_TRAFFIC",
-      "optimization_goal": "LINK_CLICKS",
-      "billing_event": "IMPRESSIONS",
-      "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
-      "budget": "CBO at campaign level, so Meta allocates between the gender ad sets instead of letting them bid against each other in separate auctions.",
       "geo": "The event's own city, 15-25 mile radius. Geography is a campaign property, not a matrix dimension -- one campaign per event, not one per city-gender pair.",
-      "_why_traffic": "Measured on this account: LINK_CLICKS runs $0.13-$0.30 per click against $0.66-$1.58 for OFFSITE_CONVERSIONS on the same events. Established by #254 and #255."
+      "ad_set_axis": "gender: one female, one male. Plus retargeting from `convert`.",
+      "platforms": {
+        "meta": {
+          "hierarchy": "Campaign -> Ad Set -> Ad",
+          "objective": "OUTCOME_TRAFFIC",
+          "optimization_goal": "LINK_CLICKS",
+          "billing_event": "IMPRESSIONS",
+          "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
+          "budget_mode": "CBO at campaign level, so Meta allocates between the gender ad sets instead of letting them bid against each other in separate auctions.",
+          "control_plane": "graph.facebook.com Marketing API, direct. CREATE and lifecycle both scripted -- scripts/build-paid-campaign.js does the whole thing.",
+          "_proven": "LINK_CLICKS runs $0.13-$0.30 per click on this account against $0.66-$1.58 for OFFSITE_CONVERSIONS on the same events. Measured, via #254 and #255.",
+          "_windsor": "Windsor's Meta connector was DISCONNECTED 2026-08-23. Spend comes from scripts/sync-meta-spend.js hitting the Graph API directly. Two sources made figures non-comparable -- PR #252's Meta numbers came via Windsor and could not be diffed against earlier pulls. Do not reconnect it for reporting."
+        },
+        "tiktok": {
+          "hierarchy": "Campaign -> Ad GROUP -> Ad. Not 'ad set' -- the level is named differently and so are the API calls, which is the main thing that breaks when Meta vocabulary is assumed to carry over.",
+          "objective": "TRAFFIC",
+          "optimization_goal": "CLICK",
+          "billing_event": "CPC",
+          "budget_mode": "BUDGET_MODE_DAY",
+          "_enums_unverified": "The four values above are TikTok Marketing API vocabulary but have NOT been executed against this account -- nothing has run here, and Windsor cannot create a campaign to test them. Confirm in TikTok Ads Manager on the first build rather than trusting this block.",
+          "control_plane": "SPLIT, and this is the important part. Windsor's TikTok connector offers pause/enable at campaign, ad-group and ad level, plus set_campaign_budget and set_ad_group_budget -- but NO create action. So the campaign is built ONCE BY HAND in TikTok Ads Manager, and every phase after that is drivable: enable at prime, budget raises at step/convert/close, pause at T-0.",
+          "_no_cpc_history": "TikTok has never run an ad on this account -- Windsor returns zero rows at 90 days. The $0.13-$0.30 link-click figure is MEASURED ON META and does not transfer. Treat the first TikTok run as a test, with a small budget concentrated in convert/close where 73% of sales happen, not spread across a full runway on an unproven channel.",
+          "_windsor": "Connected 2026-08-23. Reporting works; zero spend so far because nothing has run."
+        }
+      },
+      "_default_platform": "meta"
     },
     "ad_sets": [
       {
