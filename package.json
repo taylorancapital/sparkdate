@@ -15,6 +15,7 @@
     "ads:check": "node scripts/check-meta-ad-tags.js",
     "ads:traffic": "node scripts/meta-restore-traffic.js",
     "ads:lint": "node scripts/lint-ad-copy.js",
+    "ads:plan": "node scripts/build-paid-campaign.js",
     "social:plan": "node scripts/social.js plan",
     "social:approve": "node scripts/social.js approve",
     "social:run": "node scripts/social.js run",
