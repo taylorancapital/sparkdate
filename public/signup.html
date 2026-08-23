@@ -647,7 +647,7 @@
                 <div id="suEyebrow" style="font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:0.9;margin-bottom:10px;">Upcoming Mixer</div>
                 <h2 id="suTitle" style="font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(26px,5vw,40px);margin-bottom:10px;">SparkDate Mixer</h2>
                 <div id="suMeta" style="font-size:15px;opacity:0.95;margin-bottom:22px;">📍 A real Philly venue</div>
-                <a id="suTicketBtn" href="/events" style="display:inline-block;background:#0a0e27;color:#fff;padding:16px 40px;border-radius:4px;text-decoration:none;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:14px;">🎟️ Get Tickets</a>
+                <a id="suTicketBtn" href="/events" style="display:inline-block;background:#fff;color:#0a0e27;padding:16px 40px;border-radius:4px;box-shadow:0 4px 0 rgba(10,14,39,0.32),0 7px 18px rgba(10,14,39,0.28);text-decoration:none;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:14px;">Get Tickets</a>
                 <div style="font-size:12px;opacity:0.85;margin-top:14px;">Secure checkout · no account needed</div>
                 <div style="margin-top:14px;"><a href="/events" style="color:#fff;text-decoration:underline;font-size:13px;opacity:0.9;">See all upcoming events →</a></div>
 
@@ -788,7 +788,7 @@
             $('suEyebrow').textContent = 'Early-bird · ends ' + new Date(ev.earlyBirdEnds).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           }
           if (ev.price != null) {
-            var html = '🎟️ Get Tickets — ' + fmt(ev.price);
+            var html = 'Get Tickets — ' + fmt(ev.price);
             if (ev.isEarlyBird && ev.regularPrice && Number(ev.regularPrice) > Number(ev.price)) html += ' <span style="opacity:0.6;text-decoration:line-through;font-weight:500;">' + fmt(ev.regularPrice) + '</span>';
             btn.innerHTML = html;
           }

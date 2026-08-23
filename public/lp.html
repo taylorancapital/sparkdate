@@ -47,7 +47,30 @@
         .event .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; opacity: 0.9; margin-bottom: 8px; }
         .event h3 { font-family: 'Playfair Display', serif; font-weight: 900; font-size: clamp(22px, 5vw, 32px); margin-bottom: 8px; }
         .event .meta { font-size: 14px; opacity: 0.95; margin-bottom: 18px; }
-        .event .ticket { display: inline-block; background: #0a0e27; color: #fff; padding: 15px 36px; border-radius: 4px; text-decoration: none; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 14px; }
+        /* White, not navy, and raised rather than flat.
+        
+           The navy button was the same colour as the page background, so on
+           the coral card it read as a hole punched through the card instead
+           of an action sitting on top of it -- the one element that most
+           needed to look pressable looked like absence.
+        
+           White makes it the brightest thing on the card, which is what an
+           only-action should be, and navy text keeps it on brand at roughly
+           17:1 contrast. The solid 4px lower edge plus an ambient shadow give
+           it physical depth; :active drops it onto that edge so the tap has a
+           real press. Guarded by prefers-reduced-motion for anyone who has
+           asked the OS for less movement. */
+        .event .ticket { display: inline-block; background: #fff; color: #0a0e27; padding: 15px 36px; border-radius: 4px; text-decoration: none; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 14px;
+            box-shadow: 0 4px 0 rgba(10,14,39,0.32), 0 7px 18px rgba(10,14,39,0.28);
+            transition: transform 0.08s ease, box-shadow 0.08s ease; }
+        .event .ticket:active { transform: translateY(3px);
+            box-shadow: 0 1px 0 rgba(10,14,39,0.32), 0 2px 6px rgba(10,14,39,0.22); }
+        @media (hover: hover) {
+            .event .ticket:hover { transform: translateY(-1px); box-shadow: 0 5px 0 rgba(10,14,39,0.32), 0 10px 22px rgba(10,14,39,0.3); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .event .ticket, .event .ticket:hover, .event .ticket:active { transition: none; transform: none; }
+        }
         .event .fine { font-size: 12px; opacity: 0.85; margin-top: 12px; }
         .divider { font-size: 13px; color: rgba(245,243,240,0.5); margin: 24px 0 18px; text-transform: uppercase; letter-spacing: 1px; }
         .foot { margin-top: 40px; font-size: 12px; color: rgba(245,243,240,0.45); }
@@ -168,14 +191,20 @@
              page works normally underneath. -->
 
         <h1>Your app matched you.<br>We <span class="hl">host the date.</span></h1>
-        <p class="sub" id="lpSub">Real, curated dating events at Lancaster &amp; Philadelphia's best venues. Skip the endless texting — meet in person.</p>
+        <!-- The geography came out. The ticket card directly below already
+             names the venue and city, and the ads are geo-targeted, so
+             "dating events at Lancaster & Philadelphia's best venues" told
+             the reader something they had already been told twice. What is
+             left is the line that differentiates rather than locates, and
+             matches what the ads sell against. -->
+        <p class="sub" id="lpSub">Skip the endless texting — meet in person.</p>
 
         <!-- Primary CTA: dynamic next-event ticket card (real revenue action) -->
         <div class="event">
             <div class="eyebrow" id="lpEyebrow">Upcoming Mixer</div>
             <h3 id="lpTitle">SparkDate Mixer</h3>
             <div class="meta" id="lpMeta">📍 Venue announced soon</div>
-            <a class="ticket" id="lpTicketBtn" href="/events">🎟️ Get Tickets</a>
+            <a class="ticket" id="lpTicketBtn" href="/events">Get Tickets</a>
             <div class="fine">Secure checkout · no account needed</div>
         </div>
 
@@ -584,7 +613,7 @@
             if (scarce) $('lpEyebrow').textContent = 'Filling up';
           }
           if (ev.price != null) {
-            var html = '🎟️ Get Tickets — ' + fmt(ev.price);
+            var html = 'Get Tickets — ' + fmt(ev.price);
             if (ev.isEarlyBird && ev.regularPrice && Number(ev.regularPrice) > Number(ev.price)) html += ' <span style="opacity:0.6;text-decoration:line-through;font-weight:500;">' + fmt(ev.regularPrice) + '</span>';
             btn.innerHTML = html;
           }
@@ -629,7 +658,10 @@
           var city = (ev.city || '').trim();
           if (city) {
             document.title = 'SparkDate — Real ' + city + ' Dating Events';
-            if ($('lpSub')) $('lpSub').textContent = 'Real, curated dating events at ' + city + "'s best venues. Skip the endless texting — meet in person.";
+            // The subline is no longer city-personalised -- the city was the
+            // redundant part. The <title> below still uses it, where it does
+            // real work for the browser tab and for search.
+
             // Don't clobber the IAB steering copy set above — in a webview the
             // "we'll email you a working link" message matters more than the
             // city-personalized waitlist line.
