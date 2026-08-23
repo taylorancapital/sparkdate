@@ -1680,6 +1680,81 @@
                 </div>
             </div>
 
+            <!-- Campaign performance -->
+            <!--
+              The sync has written byCampaign into every ad_spend document since
+              #257 -- name, eventId, spend, clicks, impressions, per campaign per
+              day -- and nothing read it. Cheap clicks and no sales looks
+              identical to expensive clicks and no sales unless the two are put
+              on the same screen, which is the whole reason this panel exists.
+            -->
+            <div class="card" style="margin-top:24px;">
+                <div class="card-header">
+                    <h2 class="card-title">Campaign performance</h2>
+                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">
+                        Cost per campaign against tickets sold — are the clicks converting?
+                        <select id="campaignWindow" style="margin-left:10px;background:rgba(255,255,255,0.06);color:inherit;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:3px 6px;font-size:12px;">
+                            <option value="2">Last 2 days</option>
+                            <option value="7" selected>Last 7 days</option>
+                            <option value="14">Last 14 days</option>
+                            <option value="30">Last 30 days</option>
+                        </select>
+                    </span>
+                </div>
+
+                <div style="padding:14px 18px 4px;font-size:12px;color:rgba(245,243,240,0.55);font-weight:600;letter-spacing:0.03em;">
+                    SALES vs SPEND, BY EVENT
+                </div>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Event</th>
+                                <th>Spend</th>
+                                <th>Clicks</th>
+                                <th>CPC</th>
+                                <th>Tickets</th>
+                                <th>Cost / ticket</th>
+                            </tr>
+                        </thead>
+                        <tbody id="campaignByEventTable">
+                            <tr><td colspan="6"><div class="spinner"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="padding:18px 18px 4px;font-size:12px;color:rgba(245,243,240,0.55);font-weight:600;letter-spacing:0.03em;">
+                    COST BY CAMPAIGN
+                </div>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Campaign</th>
+                                <th>Event</th>
+                                <th>Spend</th>
+                                <th>Clicks</th>
+                                <th>CPC</th>
+                                <th>Impressions</th>
+                                <th>CTR</th>
+                            </tr>
+                        </thead>
+                        <tbody id="campaignCostTable">
+                            <tr><td colspan="7"><div class="spinner"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="padding:12px 18px;font-size:11px;color:rgba(245,243,240,0.45);line-height:1.6;">
+                    Tickets are counted by PURCHASE date and attributed to the event they were bought for,
+                    not to a campaign — several campaigns sell the same event, so cost per ticket is an
+                    event-level figure and cannot be split between them. Spend not carrying an
+                    <code>eventId</code> lands in <em>Unattributed</em>: those ads point at Eventbrite, a
+                    Facebook event page or a bare <code>/lp</code>, which predates the
+                    <code>eventId=</code> link convention. It is real money and not a defect.
+                </div>
+            </div>
+
             <!-- Channel P&L -->
             <div class="card" style="margin-top:24px;">
                 <div class="card-header">
@@ -3910,6 +3985,130 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // updating, and you'd never know which.
         let kpiSnapshot = null;
 
+        // ─── Campaign performance ──────────────────────────
+        //
+        // Joins ad_spend.byCampaign (written every 4h by sync-meta-spend.js and
+        // read by nothing until now) to tickets sold in the same window.
+        //
+        // WHY BOTH TABLES
+        //
+        // Moving the account to LINK_CLICKS cut cost per click from $0.66-$1.58
+        // to $0.13-$0.30, which reads as an unambiguous win right up until you
+        // ask what the cheap clicks bought. A CPC column on its own rewards
+        // buying the cheapest possible traffic; a tickets column beside it is
+        // what stops that being mistaken for progress.
+        //
+        // Cost per ticket is EVENT level, not campaign level. Several campaigns
+        // sell the same event and a ticket names the event it is for, not the
+        // ad that produced it -- splitting the cost between them would be
+        // invention. Campaign rows carry CPC and CTR, which are honestly theirs.
+        document.addEventListener('change', (e) => {
+            if (e.target && e.target.id === 'campaignWindow') renderCampaigns();
+        });
+
+        function renderCampaigns() {
+            const evtBody = document.getElementById('campaignByEventTable');
+            const costBody = document.getElementById('campaignCostTable');
+            if (!evtBody || !costBody) return;
+
+            const sel = document.getElementById('campaignWindow');
+            const days = Number(sel && sel.value) || 7;
+            const cutoff = dayKey(new Date(Date.now() - (days - 1) * 86400000));
+
+            const inWindow = adSpendDays.filter(d => String(d.date || d.id || '') >= cutoff);
+            if (!inWindow.length) {
+                const msg = adSpendDays.length
+                    ? `No ad_spend documents in the last ${days} days.`
+                    : 'No ad_spend data. Check the sync-ad-spend workflow and that firestore.rules is deployed.';
+                evtBody.innerHTML = `<tr><td colspan="6" class="empty">${safe(msg)}</td></tr>`;
+                costBody.innerHTML = `<tr><td colspan="7" class="empty">${safe(msg)}</td></tr>`;
+                return;
+            }
+
+            const eventName = (id) => {
+                const e = allEvents.find(x => x.id === id);
+                return e ? (e.title || e.name || id) : id;
+            };
+
+            // ── Per campaign, summed across the window ──
+            const camps = new Map();
+            inWindow.forEach(d => (d.byCampaign || []).forEach(c => {
+                const key = c.id || c.name;
+                const row = camps.get(key) || { name: c.name || '(unnamed)', eventId: c.eventId || null, spend: 0, clicks: 0, impressions: 0 };
+                row.spend += Number(c.spend || 0);
+                row.clicks += Number(c.clicks || 0);
+                row.impressions += Number(c.impressions || 0);
+                if (!row.eventId && c.eventId) row.eventId = c.eventId;
+                camps.set(key, row);
+            }));
+
+            // ── Per event: spend and clicks from the campaigns, tickets from sales ──
+            const perEvent = new Map();
+            camps.forEach(r => {
+                const k = r.eventId || '_unattributed';
+                const e = perEvent.get(k) || { spend: 0, clicks: 0, tickets: 0 };
+                e.spend += r.spend;
+                e.clicks += r.clicks;
+                perEvent.set(k, e);
+            });
+
+            // Tickets by PURCHASE date, same window, so spend and sales are
+            // being compared over the same days rather than over an event's
+            // whole lifetime.
+            const since = Date.now() - days * 86400000;
+            trendTickets.forEach(t => {
+                if (t.isComp) return;
+                const c = toDate(t.createdAt);
+                if (!c || c.getTime() < since) return;
+                const e = perEvent.get(t.eventId);
+                if (e) e.tickets++;
+            });
+
+            const dash = '<span style="opacity:0.35;">—</span>';
+            const cpc = (s, c) => (c > 0 ? money(s / c) : dash);
+
+            const evtRows = [...perEvent.entries()]
+                .sort((a, b) => b[1].spend - a[1].spend)
+                .map(([id, e]) => {
+                    const label = id === '_unattributed'
+                        ? '<em style="opacity:0.7;">Unattributed</em>'
+                        : safe(eventName(id));
+                    // No ticket count for unattributed spend: there is no event
+                    // to count sales against, and a 0 there would read as
+                    // "spent and sold nothing" rather than "cannot be measured".
+                    const tix = id === '_unattributed' ? dash : String(e.tickets);
+                    const perTicket = id === '_unattributed' ? dash
+                        : (e.tickets > 0 ? money(e.spend / e.tickets)
+                          : `<span style="color:var(--danger,#ff6b6b);">${money(e.spend)} / 0</span>`);
+                    return `<tr>
+                        <td>${label}</td>
+                        <td>${money(e.spend)}</td>
+                        <td>${e.clicks}</td>
+                        <td>${cpc(e.spend, e.clicks)}</td>
+                        <td>${tix}</td>
+                        <td>${perTicket}</td>
+                    </tr>`;
+                }).join('');
+
+            const costRows = [...camps.values()]
+                .sort((a, b) => b.spend - a.spend)
+                .map(r => {
+                    const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100).toFixed(2) + '%' : dash;
+                    return `<tr>
+                        <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${safe(r.name)}">${safe(r.name)}</td>
+                        <td style="color:rgba(245,243,240,0.6);">${r.eventId ? safe(eventName(r.eventId)) : dash}</td>
+                        <td>${money(r.spend)}</td>
+                        <td>${r.clicks}</td>
+                        <td>${cpc(r.spend, r.clicks)}</td>
+                        <td style="color:rgba(245,243,240,0.6);">${r.impressions}</td>
+                        <td style="color:rgba(245,243,240,0.6);">${ctr}</td>
+                    </tr>`;
+                }).join('');
+
+            evtBody.innerHTML = evtRows || '<tr><td colspan="6" class="empty">No campaigns in this window.</td></tr>';
+            costBody.innerHTML = costRows || '<tr><td colspan="7" class="empty">No campaigns in this window.</td></tr>';
+        }
+
         function renderReport() {
             const grid = document.getElementById('reportKpis');
             if (!grid) return;
@@ -4376,6 +4575,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 velocityNote: velEl ? velEl.textContent : '',
             };
             renderReport();
+            renderCampaigns();
         }
 
         // ─── Renderers ─────────────────────────────────────
@@ -5488,7 +5688,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             }
             // Report reads a snapshot taken during renderKPIs, so repaint it on
             // entry rather than leaving whatever was there at last full load.
-            if (id === 'report') { renderReport(); renderMetric(); }
+            if (id === 'report') { renderReport(); renderMetric(); renderCampaigns(); }
             if (id === 'venues') loadVenues();
             if (id === 'leads')  loadLeads();
             if (id === 'events') populateVenuePicker();
