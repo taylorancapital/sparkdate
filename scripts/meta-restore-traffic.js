@@ -104,17 +104,40 @@ const GG = {
   ],
 };
 
-const MC = {
-  campaignName: 'Marion Court | Traffic',
-  // $6/day = the $3 + $3 the two current Marion Court prospecting campaigns
-  // already carry. Deliberately not an increase -- budget changes are their
-  // own diagnosed problem on this account.
-  dailyBudgetCents: 600,
-  stopTime: '2026-09-08T16:30:00-0400',
-  adSets: [
-    { label: 'Female', sourceAdSet: '120250958720260542', creativeId: '989920904068883', adName: 'MC Women - Video Ad' },
-    { label: 'All Genders', sourceAdSet: '120250958718960542', creativeId: '2226093511569186', adName: 'MC All Genders - Video Ad' },
-  ],
+// Events that need a Traffic campaign built because they have no dormant one
+// to revive. Budgets deliberately match what the event's existing campaigns
+// already carry -- this is a change of optimisation goal, not of spend, and
+// budget churn is its own diagnosed problem on this account.
+const BUILDS = {
+  mc: {
+    event: 'Marion Court',
+    campaignName: 'Marion Court | Traffic',
+    dailyBudgetCents: 600,          // the $3 + $3 the two MC campaigns carry
+    stopTime: '2026-09-08T16:30:00-0400',
+    adSets: [
+      { label: 'Female', sourceAdSet: '120250958720260542', creativeId: '989920904068883', adName: 'MC Women - Video Ad' },
+      { label: 'All Genders', sourceAdSet: '120250958718960542', creativeId: '2226093511569186', adName: 'MC All Genders - Video Ad' },
+    ],
+  },
+  lx: {
+    event: "Loxley's",
+    campaignName: "Loxley's | Traffic",
+    dailyBudgetCents: 1000,         // the $5 + $5 the two LX campaigns carry
+    stopTime: '2026-09-22T16:30:00-0400',
+    // Built BEFORE launch. Loxley's has never spent a cent: all three of its
+    // campaigns are paused with 2026-08-17 start times, configured
+    // OFFSITE_CONVERSIONS like the ones costing $0.62-$1.45 a click. This is
+    // the only event on the account that can be set up right rather than
+    // corrected afterwards.
+    //
+    // "Loxley's Retargeting" is deliberately not included: it has no ads and
+    // no custom audience, so it is a retargeting campaign with nothing to
+    // retarget and nothing to show. That needs a human, not a copy.
+    adSets: [
+      { label: 'Female', sourceAdSet: '120250963981640542', creativeId: '2840839246291917', adName: 'LX Women - Video Ad' },
+      { label: 'All Genders', sourceAdSet: '120250963945740542', creativeId: '1790312089082843', adName: 'LX All Genders - Video Ad' },
+    ],
+  },
 };
 
 async function get(path, params = {}) {
@@ -168,32 +191,32 @@ async function doGoodGood(execute) {
   return { changed };
 }
 
-async function doMarionCourt(execute) {
-  console.log('MARION COURT  build a Traffic campaign (nothing dormant to revive)');
-  console.log(`     campaign  "${MC.campaignName}"  OUTCOME_TRAFFIC, CBO $${(MC.dailyBudgetCents / 100).toFixed(2)}/day, PAUSED`);
+async function doBuild(cfg, execute) {
+  console.log(`${cfg.event.toUpperCase()}  build a Traffic campaign (nothing dormant to revive)`);
+  console.log(`     campaign  "${cfg.campaignName}"  OUTCOME_TRAFFIC, CBO $${(cfg.dailyBudgetCents / 100).toFixed(2)}/day, PAUSED`);
 
   const planned = [];
-  for (const a of MC.adSets) {
+  for (const a of cfg.adSets) {
     const src = await get(a.sourceAdSet, { fields: 'name,targeting,end_time' });
     const t = src.targeting || {};
-    console.log(`     ad set    "Marion Court | ${a.label} | Traffic"  LINK_CLICKS, PAUSED`);
+    console.log(`     ad set    "${cfg.event} | ${a.label} | Traffic"  LINK_CLICKS, PAUSED`);
     console.log(`               targeting from ${String(src.name).slice(0, 40)}`);
     console.log(`               genders=${JSON.stringify(t.genders || 'all')} age=${t.age_min}-${t.age_max} ends ${String(src.end_time).slice(0, 10)}`);
     console.log(`     ad        "${a.adName} (Traffic)" -> creative ${a.creativeId} reused`);
     planned.push({ ...a, src });
   }
-  console.log('     leaving   the existing Marion Court campaigns RUNNING until you activate this');
+  console.log(`     leaving   the existing ${cfg.event} campaigns as they are until you activate this`);
 
   if (!execute) return { changed: 0 };
 
   const camp = await post(`${ACCOUNT}/campaigns`, {
-    name: MC.campaignName,
+    name: cfg.campaignName,
     objective: 'OUTCOME_TRAFFIC',
     status: 'PAUSED',
     special_ad_categories: JSON.stringify([]),
-    daily_budget: String(MC.dailyBudgetCents),
+    daily_budget: String(cfg.dailyBudgetCents),
     bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-    stop_time: MC.stopTime,
+    stop_time: cfg.stopTime,
   });
   const campBack = await get(camp.id, { fields: 'name,status,objective,daily_budget' });
   console.log(`     OK   campaign ${camp.id} (${campBack.objective}, ${campBack.status}, $${(+campBack.daily_budget / 100).toFixed(2)}/day)`);
@@ -201,7 +224,7 @@ async function doMarionCourt(execute) {
   let changed = 1;
   for (const p of planned) {
     const set = await post(`${ACCOUNT}/adsets`, {
-      name: `Marion Court | ${p.label} | Traffic`,
+      name: `${cfg.event} | ${p.label} | Traffic`,
       campaign_id: camp.id,
       optimization_goal: 'LINK_CLICKS',
       billing_event: 'IMPRESSIONS',
@@ -238,8 +261,12 @@ async function main() {
 
   let total = 0;
   try {
-    if (!only || only === 'gg') { total += (await doGoodGood(execute)).changed; console.log(); }
-    if (!only || only === 'mc') { total += (await doMarionCourt(execute)).changed; console.log(); }
+    if (only === 'gg' || !only) { total += (await doGoodGood(execute)).changed; console.log(); }
+    for (const [key, cfg] of Object.entries(BUILDS)) {
+      if (only && only !== key) continue;
+      total += (await doBuild(cfg, execute)).changed;
+      console.log();
+    }
   } catch (e) {
     console.error(`FAILED: ${e.message}`);
     console.error('\nStopping here. Anything already written above is reported and is\n'
