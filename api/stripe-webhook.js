@@ -241,7 +241,16 @@ module.exports = async function handler(req, res) {
           await sendMetaEvent({
             eventName: 'Purchase',
             eventId: pi.id,
-            userData: { email: ticketData.email },
+            userData: {
+              email: ticketData.email,
+              // Recorded on the ticket doc at purchase time by
+              // api/purchase-ticket.js. fbp in particular is the strongest
+              // match signal available on this path, which otherwise has
+              // only a hashed email -- no IP, no user agent.
+              fbp: ticketData.fbp || undefined,
+              fbc: ticketData.fbc || undefined,
+              externalId: ticketData.userId || ticketData.firebaseUid || undefined,
+            },
             customData: {
               value: (pi.amount_received || pi.amount || 0) / 100,
               currency: (pi.currency || 'usd').toUpperCase(),

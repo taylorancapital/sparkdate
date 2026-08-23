@@ -210,6 +210,50 @@
       'https://connect.facebook.net/en_US/fbevents.js');
       fbq('init', '4390442851170732');
       fbq('track', 'PageView');
+      // Advanced matching + Meta's own cookies.
+      //
+      // Meta's account diagnostics flag this pixel for low event match
+      // quality: init carried no identifiers at all, so an event could only
+      // be matched on cookie and IP. That fails for the iOS majority, and it
+      // fails completely on the server-side Purchase, which runs from
+      // Stripe's servers with no browser behind it.
+      //
+      // Re-initialising is deliberate, not a mistake. Auth state is not known
+      // when the pixel loads; calling init again with the same pixel id is
+      // Meta's documented way to attach matching data once it is.
+      //
+      // Hashed locally rather than handed over raw. Meta's library will hash
+      // plain values itself, but only after the address has already crossed
+      // into third-party script scope. SHA-256 here costs nothing and the
+      // raw value never leaves. Must stay byte-identical to lib/meta-capi.js
+      // hashPii(): lowercase, trim, SHA-256 hex -- if the two disagree, Meta
+      // sees two people and the match is worse than sending nothing.
+      window.spdCookie = function (name) {
+        var m = document.cookie.match('(^|;)\s*' + name + '\s*=\s*([^;]+)');
+        return m ? m.pop() : null;
+      };
+      window.spdAdvancedMatch = async function (data) {
+        if (typeof fbq !== 'function' || !data) return;
+        var out = {};
+        try {
+          var em = String(data.email || '').trim().toLowerCase();
+          if (em && window.crypto && crypto.subtle) {
+            var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(em));
+            out.em = Array.from(new Uint8Array(buf)).map(function (b) {
+              return b.toString(16).padStart(2, '0');
+            }).join('');
+          }
+          var uid = String(data.uid || '').trim().toLowerCase();
+          if (uid && window.crypto && crypto.subtle) {
+            var ubuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(uid));
+            out.external_id = Array.from(new Uint8Array(ubuf)).map(function (b) {
+              return b.toString(16).padStart(2, '0');
+            }).join('');
+          }
+          if (!Object.keys(out).length) return;
+          fbq('init', '4390442851170732', out);
+        } catch (_) { /* matching is an optimisation, never a blocker */ }
+      };
     </script>
     <noscript>
       <img height="1" width="1" style="display:none"

@@ -487,7 +487,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { paymentMethodId, email, name, phone, gender, eventId, ref, attribution } = req.body || {};
+    const { paymentMethodId, email, name, phone, gender, eventId, ref, attribution, fbp, fbc } = req.body || {};
     // Untrusted -- length-capped and key-restricted before it touches Firestore.
     const attr = normalizeAttribution(attribution);
     let firebaseUid = null;
@@ -794,6 +794,14 @@ module.exports = async function handler(req, res) {
       // buyer arrived with no UTMs, which is itself the answer: direct.
       channel: channelOf(attr),
       attribution: attr,
+      // Meta's own cookies, carried through so the Purchase event sent from
+      // stripe-webhook can include them. That handler runs on Stripe's
+      // servers, so it has no browser to read them from and no IP or user
+      // agent either -- without this it matches on hashed email alone, which
+      // is what Meta's diagnostics flagged. Length-capped and string-coerced
+      // like every other browser-supplied field; see lib/attribution.js.
+      fbp: typeof fbp === 'string' ? fbp.slice(0, 100) : null,
+      fbc: typeof fbc === 'string' ? fbc.slice(0, 200) : null,
       createdAt: FieldValue.serverTimestamp(),
     });
     batch.set(regRef, {
