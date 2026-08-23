@@ -314,6 +314,10 @@
     },
     "paid_ad_dimensions": {
     "_comment": "Meta ad creative. Separate from the organic dimensions above: paid needs 4:5, which organic never used, and a paid Story ad needs no sticker safe-area because it carries no stickers.",
+    "_format": "VIDEO, 3-5 seconds. The account ALREADY runs video ads -- the two Loxley's ads #255 built are named 'LX Women - Video Ad' and 'LX All Genders - Video Ad' and reuse video creatives. Stills were an error in the first version of the handoff.",
+    "_silent_first": "Meta autoplays MUTED. Anything that must be understood has to be on screen as text; nothing may depend on audio. Assume the sound is never heard, because usually it is not.",
+    "_beats": "0-1s hook (the headline, large). 1-3s the facts (date, venue, doors, price). 3-5s the wordmark and a clear next step. Five seconds is not long enough for a story -- it is long enough for one claim plus the details that make it actionable.",
+    "_export": "MP4, H.264, 30fps, under 30MB per file. Also export one still frame at 1080x1350 as the thumbnail: Meta shows it before playback starts and in placements that do not autoplay.",
     "feed_portrait": { "width": 1080, "height": 1350, "note": "4:5 -- best-performing feed ratio, build this one first" },
     "feed_square": { "width": 1080, "height": 1080, "note": "1:1 -- safe everywhere" },
     "story_reel": { "width": 1080, "height": 1920, "note": "9:16 -- keep the middle 80% clear of critical text" }
