@@ -248,6 +248,60 @@ if (primeP.daily && convertP.daily && primeP.daily > convertP.daily) {
   );
 }
 
+// ─── Rendered ad copy ──────────────────────────────────────────────
+//
+// Templates live in brand.json; the event supplies the slots. Rendered here so
+// the copy is reviewable in the same breath as the budget that will carry it,
+// and so the text handed to Claude Design is finished rather than a template
+// someone still has to fill in.
+const CT = PT.caption_templates;
+if (CT && flag('captions')) {
+  const pr = ev.pricing || {};
+  const dt = new Date(`${ev.date}T12:00:00Z`);
+  const long = dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  const short = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const slots = {
+    '{event_name}': ev.name,
+    '{venue}': ev.venue,
+    '{city}': ev.city,
+    '{date_long}': long,
+    '{date_short}': short,
+    '{doors}': ev.doors || '6:30',
+    '{price}': pr.regular ? `$${pr.regular}` : '',
+    '{early_price}': pr.early_bird ? `$${pr.early_bird}` : '',
+    '{early_through}': pr.early_bird_through || '',
+  };
+  const needsEarlyBird = (t) => t.includes('{early_price}') || t.includes('{early_through}');
+  const fill = (t) => Object.entries(slots).reduce((a, [k, v]) => a.split(k).join(v), t);
+
+  console.log('AD COPY');
+  console.log('');
+  for (const setKey of ['female', 'male', 'retargeting']) {
+    const node = CT[setKey] || {};
+    const phases = Object.keys(node).filter((k) => !k.startsWith('_') && k !== 'offer_line');
+    for (const ph of phases) {
+      const c = node[ph];
+      console.log(`  ${setKey} / ${ph}`);
+      // An event with no early bird cannot render early-bird copy. Filling the
+      // slots with empty strings would look finished and ship a broken
+      // sentence -- "Early bird  through ." -- so it is skipped loudly.
+      if (needsEarlyBird(c.primary_text) && !pr.early_bird) {
+        console.log('     SKIPPED — template needs an early bird, this event has none');
+        console.log('');
+        continue;
+      }
+      console.log(fill(c.primary_text).split('\n').map((l) => (l ? '     ' + l : '')).join('\n'));
+      console.log('');
+      console.log(`     headline:     ${fill(c.headline)}`);
+      console.log(`     description:  ${fill(c.description)}`);
+      if (setKey === 'female' && CT.female.offer_line) {
+        console.log(`     offer line:   ${CT.female.offer_line}   [FEMALE AD SET ONLY]`);
+      }
+      console.log('');
+    }
+  }
+}
+
 if (warnings.length) {
   console.log('WARNINGS');
   for (const w of warnings) console.log(`  ! ${w}`);

@@ -249,6 +249,46 @@
       { "key": "day_of", "at": "T-0", "spend_share": 0.05, "compresses": false,
         "action": "Last call." }
     ],
+    "caption_templates": {
+      "_comment": "Ad copy per ad set per phase, in Meta's three fields. Templates rather than written-out copy for the same reason calendar_template holds beats rather than 45 finished captions: the event changes, the pitch does not. scripts/build-paid-campaign.js renders these and scripts/design-handoff.js hands the rendered text to Claude Design.",
+      "_voice": "Short declarative sentences and fragments. Concrete facts -- date, venue, doors, price -- before any pitch. No exclamation marks, no hype, no emoji. 'Not speed dating. Not an app.' is the register. Copied from the live organic captions, not invented.",
+      "_slots": ["{event_name}", "{venue}", "{city}", "{date_long}", "{date_short}", "{doors}", "{price}", "{early_price}", "{early_through}"],
+      "_phase_note": "prime copy introduces the event to someone who has never heard of it. close copy assumes they have seen it and drops the explanation for the specifics. retargeting has no phase variants -- it only ever runs from `convert`, and by then everyone in the audience has already seen an ad.",
+      "female": {
+        "prime": {
+          "primary_text": "{event_name}. {date_long} at {venue}, {city}. Doors {doors}.\n\nNot an app. Not speed dating. A room of people who actually decided to show up.\n\nEarly bird {early_price} through {early_through}.",
+          "headline": "{city} · {date_short}",
+          "description": "Doors {doors}"
+        },
+        "close": {
+          "primary_text": "{date_long}. {venue}, {city}. Doors {doors}.\n\nDrinks, then an icebreaker, then conversations - in that order.\n\n{price}.",
+          "headline": "{date_short} · {city}",
+          "description": "{price}"
+        },
+        "offer_line": "Bring a friend - 2-for-1 on tickets.",
+        "_offer_line_note": "APPEND to primary_text ONLY in the female ad set, and only when the event is actually running the offer. It is a marketing restriction, not a code one: checkout's toggle is unconditional, so a male ad carrying this line would be honoured and the restriction would be broken silently."
+      },
+      "male": {
+        "prime": {
+          "primary_text": "{event_name}. {date_long} at {venue}, {city}. Doors {doors}.\n\nWeeks of texting and no plan ever made. This is the other option.\n\nEarly bird {early_price} through {early_through}.",
+          "headline": "{city} · {date_short}",
+          "description": "Doors {doors}"
+        },
+        "close": {
+          "primary_text": "{date_long}. {venue}, {city}. Doors {doors}.\n\nOne evening, in person, with people who showed up on purpose.\n\n{price}.",
+          "headline": "{date_short} · {city}",
+          "description": "{price}"
+        }
+      },
+      "retargeting": {
+        "convert": {
+          "primary_text": "You looked at {event_name}.\n\n{date_long}. {venue}, {city}. Doors {doors}. {price}.\n\nStill time.",
+          "headline": "{date_short} · {city}",
+          "description": "{price}"
+        },
+        "_no_reintroduction": "This audience has already seen the event, so the copy does not explain it again. Re-introducing it is the most common way retargeting copy wastes its one advantage."
+      }
+    },
     "caption_rules": {
       "per_ad_set": true,
       "_note": "Every ad set needs its own caption. Male and female audiences are not reading the same pitch, and the 2-for-1 restriction makes a shared caption unsafe by construction. Retargeting copy assumes prior exposure -- it should not re-introduce the event from scratch.",
