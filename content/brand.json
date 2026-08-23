@@ -200,6 +200,14 @@
       "_why": "Buyer behaviour does not compress. People still buy in the final 14 days whether you advertised for 30 days or 21. Compressing every phase proportionally would move the budget step to T-10 on a 21-day runway and miss the real inflection at T-15. So prime absorbs all compression; step, convert, close and day_of stay anchored to absolute days before the event.",
       "_floor": "Below 18 days prime disappears entirely and retargeting launches with no audience pool. 21 days is the stated minimum for that reason."
     },
+    "_tiktok_ads": {
+      "status": "PAUSED INDEFINITELY (2026-08-23) -- cost, not performance.",
+      "why": "TikTok enforces a ~$20/day minimum per campaign. Total Meta spend across ALL FOUR events runs about $21/day ($530.76 over 25 days), so one TikTok campaign on one event would roughly double the entire ad budget, on a channel with no CPC history on this account. Windsor returns zero rows at 90 days.",
+      "revisit_when": "Daily Meta spend is comfortably above $50/day, so a $20/day test is a wing rather than a doubling.",
+      "scope": "ADS ONLY. TikTok ORGANIC continues unchanged -- it is free and already carries 17 of the 46 rows in content/queue.csv.",
+      "if_resumed": "Campaign -> Ad GROUP -> Ad, objective TRAFFIC, optimization CLICK, billing CPC, budget BUDGET_MODE_DAY. Those enums are Marketing API vocabulary and have NEVER been executed on this account -- confirm in Ads Manager. Windsor can pause/enable at all three levels and set budgets, but has NO create action, so the campaign must be built once by hand.",
+      "_lost_work": "PR #262 built this as a full per-platform split of the campaign block. It was stacked on #261, and when #261 squash-merged GitHub auto-closed #262 as merged without its commit landing on main. The split is recoverable from branch claude/paid-per-platform if TikTok is ever resumed."
+    },
     "campaign": {
       "one_per": "event",
       "objective": "OUTCOME_TRAFFIC",
@@ -304,7 +312,13 @@
       "story": { "width": 1080, "height": 1920 },
       "reel": { "width": 1080, "height": 1920 }
     },
-    "publish_format": "jpeg",
+    "paid_ad_dimensions": {
+    "_comment": "Meta ad creative. Separate from the organic dimensions above: paid needs 4:5, which organic never used, and a paid Story ad needs no sticker safe-area because it carries no stickers.",
+    "feed_portrait": { "width": 1080, "height": 1350, "note": "4:5 -- best-performing feed ratio, build this one first" },
+    "feed_square": { "width": 1080, "height": 1080, "note": "1:1 -- safe everywhere" },
+    "story_reel": { "width": 1080, "height": 1920, "note": "9:16 -- keep the middle 80% clear of critical text" }
+  },
+  "publish_format": "jpeg",
     "_publish_format_note": "Instagram's Content Publishing API accepts JPEG ONLY. Source exports are PNG in RGBA mode and cannot be handed to the API as-is; RGBA must be composited onto a background before JPEG encoding. TikTok also rejects PNG.",
     "public_base_url": "https://sparkdate.date/social"
   },

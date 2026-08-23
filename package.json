@@ -16,6 +16,7 @@
     "ads:traffic": "node scripts/meta-restore-traffic.js",
     "ads:lint": "node scripts/lint-ad-copy.js",
     "ads:plan": "node scripts/build-paid-campaign.js",
+    "ads:handoff": "node scripts/build-paid-campaign.js --handoff",
     "social:plan": "node scripts/social.js plan",
     "social:approve": "node scripts/social.js approve",
     "social:run": "node scripts/social.js run",
