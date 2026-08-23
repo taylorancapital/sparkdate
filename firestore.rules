@@ -220,6 +220,21 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Daily Meta ad spend, one document per YYYY-MM-DD, written by
+    // scripts/sync-meta-spend.js on a schedule. The dashboard reads it to
+    // trend cost and attribute it per event.
+    //
+    // Read-only even for an admin. The Admin SDK bypasses these rules
+    // entirely, so the sync job is unaffected -- but nothing reaching
+    // Firestore through a browser should be able to edit a figure that came
+    // from Meta. A hand-corrected spend number that still says source:'meta'
+    // would be indistinguishable from a real one, and the whole reason this
+    // collection exists is that hand-entered cost could not be trusted.
+    match /ad_spend/{day} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // ── Default deny ─────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

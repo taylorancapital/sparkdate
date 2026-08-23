@@ -2236,6 +2236,12 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         let allPayments = [];
         // month key ('YYYY-MM') -> recurring cost doc
         let allRecurring = {};
+        // Daily Meta spend from `ad_spend`, written by scripts/sync-meta-spend.js
+        // every four hours. `adSpendDays` is the raw series for the trend;
+        // `metaSpendByEvent` is it summed per event id, which is what replaces a
+        // hand-typed costFacebook.
+        let adSpendDays = [];
+        let metaSpendByEvent = {};
 
         // ─── Cost helpers ──────────────────────────────────
         const money = (n) => '$' + (Number(n) || 0).toFixed(2);
@@ -2249,8 +2255,27 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         }
 
+        // Live Meta spend for one event, or null when the sync has nothing for
+        // it. Null and zero are different: null means "not measured", zero
+        // means "measured, spent nothing", and collapsing them would make an
+        // unsynced event look free.
+        function metaSpendFor(ev) {
+            const v = metaSpendByEvent[ev && ev.id];
+            return typeof v === 'number' ? v : null;
+        }
+
         function eventAdSpend(ev) {
-            return AD_COST_FIELDS.reduce((s, f) => s + num(ev[f.key]), 0);
+            return AD_COST_FIELDS.reduce((s, f) => {
+                // costFacebook is Facebook/Instagram, which is exactly what the
+                // Meta API reports. Where a real figure exists it wins over the
+                // typed one -- that is the whole point of syncing it. TikTok and
+                // Eventbrite boosting stay manual; nothing pulls those yet.
+                if (f.key === 'costFacebook') {
+                    const live = metaSpendFor(ev);
+                    return s + (live === null ? num(ev[f.key]) : live);
+                }
+                return s + num(ev[f.key]);
+            }, 0);
         }
 
         // Eventbrite's cut on a set of EB tickets. Face values are stored in cents.
@@ -2411,7 +2436,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 // loadRecurring must resolve before renderKPIs: CAC and every
                 // margin figure now include allocated monthly costs, so rendering
                 // ahead of it would flash a too-rosy number and then correct it.
-                await Promise.all([loadUsers(), loadActivity(), loadPayments(), loadAdminEvents(), loadRecurring(), loadTrendTickets()]);
+                await Promise.all([loadUsers(), loadActivity(), loadPayments(), loadAdminEvents(), loadRecurring(), loadAdSpend(), loadTrendTickets()]);
                 renderKPIs();
                 renderHero();
                 renderSparklines();
@@ -2501,7 +2526,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                                 <div style="font-size:11px;color:rgba(245,243,240,0.5);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Acquisition</div>
                                 ${AD_COST_FIELDS.map(f => `
                                 <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(245,243,240,0.7);">
-                                    ${safe(f.label)} $
+                                    ${safe(f.label)}${f.key === 'costFacebook' && metaSpendFor(ev) !== null
+                                        ? ` <span title="Live from the Meta API, synced every 4 hours. This is the figure used in CAC and margin; the box below is ignored while it exists." style="color:var(--success);font-weight:600;">live ${money(metaSpendFor(ev))}</span> <span style="opacity:0.45;">typed</span>`
+                                        : ''} $
                                     <input type="number" min="0" step="0.01" id="cost-${safe(f.key)}-${safe(ev.id)}" value="${Number(ev[f.key])||0}" style="width:72px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,107,107,0.2);border-radius:4px;padding:4px 8px;color:var(--white);font-size:12px;">
                                 </label>`).join('')}
                                 <div style="font-size:11px;color:rgba(245,243,240,0.5);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Delivery</div>
@@ -3508,6 +3535,29 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // events/registrations reads above, this can't grow with traffic.
         // Fail-soft to {} so a rules/permissions hiccup degrades the P&L to
         // "no recurring costs" rather than blanking the whole dashboard.
+        // Fails soft to empty, like loadRecurring: a rules or network hiccup
+        // should degrade the dashboard to hand-typed costs, not blank it.
+        async function loadAdSpend() {
+            try {
+                const snap = await getDocs(collection(db, 'ad_spend'));
+                const days = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                    .sort((a, b) => String(a.date || a.id).localeCompare(String(b.date || b.id)));
+                const byEvent = {};
+                for (const day of days) {
+                    for (const [eid, amt] of Object.entries(day.byEvent || {})) {
+                        if (eid === '_unattributed') continue;
+                        byEvent[eid] = Math.round(((byEvent[eid] || 0) + Number(amt || 0)) * 100) / 100;
+                    }
+                }
+                adSpendDays = days;
+                metaSpendByEvent = byEvent;
+            } catch (e) {
+                console.warn('[ad_spend] load failed:', e && e.message);
+                adSpendDays = [];
+                metaSpendByEvent = {};
+            }
+        }
+
         async function loadRecurring() {
             try {
                 const snap = await getDocs(collection(db, 'recurring_costs'));
@@ -3717,14 +3767,42 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         function metricDefs() {
             const revenue = dailySeries(30, t => t.isComp ? 0 : num(t.amount) / 100);
             const tickets = dailySeries(30, t => t.isComp ? 0 : 1);
+            // Cost, on the day it was actually incurred.
+            //
+            // This used to dump an event's ENTIRE cost onto its event date, so
+            // the chart showed a flat line with a spike on event day -- which is
+            // not when ads were paid for. Meta spend now comes from `ad_spend`,
+            // one real figure per real day, so a change like cost per click
+            // tripling on 2026-08-13 is visible the week it happens.
+            //
+            // dayKey is local-time YYYY-MM-DD and ad_spend doc ids are Meta's
+            // account-timezone YYYY-MM-DD. They can disagree by a day at the
+            // edges; that is acceptable for a trend and would not be for a
+            // ledger.
             const cost = (() => {
                 const out = new Map();
                 for (let i = 29; i >= 0; i--) out.set(dayKey(new Date(Date.now() - i * 86400000)), 0);
+
+                // Meta, by real spend date. Uses the day's TOTAL, including
+                // spend not attributable to an event -- money left the account
+                // either way, and hiding it would understate cost.
+                adSpendDays.forEach(day => {
+                    const k = String(day.date || day.id || '');
+                    if (out.has(k)) out.set(k, out.get(k) + Number(day.total || 0));
+                });
+
+                // Everything Meta does not report, on the event date: venue and
+                // delivery, plus the ad channels still entered by hand. Facebook
+                // is added ONLY where no live figure exists, or it would be
+                // counted twice.
                 allEvents.forEach(e => {
                     const d = toDate(e.date);
                     if (!d) return;
                     const k = dayKey(d);
-                    if (out.has(k)) out.set(k, out.get(k) + eventAdSpend(e) + num(e.costOther));
+                    if (!out.has(k)) return;
+                    let extra = num(e.costOther) + num(e.costTiktok) + num(e.costEventbriteAds);
+                    if (metaSpendFor(e) === null) extra += num(e.costFacebook);
+                    out.set(k, out.get(k) + extra);
                 });
                 return [...out.values()];
             })();
@@ -3739,7 +3817,8 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 { key: 'revenue', title: 'Ticket revenue', series: revenue, color: '#d4af37',
                   value: money(revenue.reduce((s, v) => s + v, 0)), sub: 'last 30 days' },
                 { key: 'cost', title: 'Cost', series: cost, color: '#ff6b6b',
-                  value: money(cost.reduce((s, v) => s + v, 0)), sub: 'ads + venue, by event date' },
+                  value: money(cost.reduce((s, v) => s + v, 0)),
+                  sub: adSpendDays.length ? 'ads by spend date, venue by event date' : 'ads + venue, by event date' },
                 { key: 'tickets', title: 'Tickets sold', series: tickets, color: '#4ade80',
                   value: String(tickets.reduce((s, v) => s + v, 0)), sub: 'last 30 days' },
                 { key: 'gender', title: 'Ticket sales by gender', breakdown: g, color: '#60a5fa',
