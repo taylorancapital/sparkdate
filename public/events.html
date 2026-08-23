@@ -25,8 +25,21 @@
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
+      // in_app_browser is set at CONFIG level, so it rides on EVERY event
+      // rather than the handful that name it. It was previously passed only to
+      // checkout_form_started, checkout_3ds_*, checkout_error, generate_lead
+      // and select_promotion -- which is why 94.6% of events (7,739 of 8,177
+      // over Aug 9-23) recorded the custom dimension as (not set), purchase
+      // was (not set) on all 12 of them, and the webview-conversion question
+      // could not be answered at all. The registration was never the problem;
+      // the parameter simply was not on the events that mattered.
+      //
+      // The UA test is inlined rather than calling isInAppBrowser(): this runs
+      // in <head>, before the module that defines it. Keep the two in sync --
+      // they are the same expression on purpose.
       gtag('config', 'G-21YLCC35F1', {
-        'page_path': window.location.pathname + window.location.search
+        'page_path': window.location.pathname + window.location.search,
+        'in_app_browser': /FBAN|FBAV|Instagram|Line\/|TikTok|BytedanceWebview|Twitter/i.test(navigator.userAgent)
       });
     </script>
     <!-- Referral capture — same convention as index.html/lp.html. This page
