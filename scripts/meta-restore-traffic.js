@@ -11,6 +11,9 @@
  *   MARION COURT build a Traffic campaign, because unlike Good Good it has
  *               no dormant one to revive -- it launched 2026-08-17, after
  *               the account had already switched.
+ *   LOXLEY'S     the same, built before it ever launches rather than
+ *               corrected afterwards.
+ *   GG FEMALE    add the female ad set the revival left behind.
  *
  * WHY
  *
@@ -63,6 +66,15 @@
  *     configuration that already ran for a week, not something to review.
  *   - Every write is read back. Meta returns success on writes it silently
  *     ignores; that has bitten this project twice.
+ *
+ * ALREADY APPLIED
+ *
+ * Every operation in this file has been run once against the live account and
+ * is recorded here for the reasoning, not as a queue of pending work. The
+ * status flips are idempotent, but the BUILDS and ADD_ADSETS operations are
+ * NOT -- re-running them with --execute creates a SECOND campaign or a SECOND
+ * ad set, silently, because Meta is happy to have two of anything. Check the
+ * account before executing.
  *
  * Env: META_ADS_ACCESS_TOKEN (ads_management), META_AD_ACCOUNT_ID (optional)
  *
@@ -137,6 +149,46 @@ const BUILDS = {
       { label: 'Female', sourceAdSet: '120250963981640542', creativeId: '2840839246291917', adName: 'LX Women - Video Ad' },
       { label: 'All Genders', sourceAdSet: '120250963945740542', creativeId: '1790312089082843', adName: 'LX All Genders - Video Ad' },
     ],
+  },
+};
+
+
+// Ad sets added to a campaign that already exists and is already serving,
+// rather than whole new campaigns.
+//
+// Reviving Good Good's Traffic campaign restored ONE ad set: all genders. Its
+// female targeting lived in the conversion campaign that was paused in the
+// same operation, so the event was left selling to everyone and to no women
+// in particular. On a dating event where the gender mix IS the product, that
+// is not a rounding error -- and it went unnoticed until Taylor asked.
+const ADD_ADSETS = {
+  'gg-female': {
+    label: 'Good Good',
+    campaign: { id: '120250622050150542', name: 'Campaign 1 Event 3 Good Good Campaign' },
+    // Targeting is copied from the SIBLING ad set already running in this
+    // campaign, with only `genders` changed -- NOT from the paused female
+    // conversion ad set that used to carry it.
+    //
+    // That was the first attempt and Meta rejected it: "your selected ad set
+    // is not eligible for individual_setting". The female conversion ad set
+    // has Advantage+ audience switched on, and its targeting_automation block
+    // is not valid inside an OUTCOME_TRAFFIC campaign. Copying what already
+    // works in the destination beats copying what worked somewhere else.
+    siblingAdSet: '120250622050160542',
+    genders: [2],
+    creativeId: '1368673922082256',
+    adName: 'GG Women - Traffic',
+    // Matches the sibling. NOT the $10/day the female conversion campaign
+    // carried against that sibling's $2 -- restoring a 5:1 weighting toward
+    // women at the same moment as changing the optimisation goal would make
+    // next week's numbers unreadable. One number to raise if that weighting
+    // was deliberate.
+    dailyBudgetCents: 300,
+    // ACTIVE, unlike the newly built campaigns: this is one ad set joining a
+    // campaign already serving the same event with the identical proven
+    // configuration, and Good Good is 2026-08-31 -- delivery days are the
+    // thing being bought.
+    status: 'ACTIVE',
   },
 };
 
@@ -252,6 +304,47 @@ async function doBuild(cfg, execute) {
   return { changed };
 }
 
+
+async function doAddAdSet(cfg, execute) {
+  console.log(`${cfg.label.toUpperCase()}  add an ad set to a campaign already serving`);
+  const sib = await get(cfg.siblingAdSet, { fields: 'name,targeting,end_time' });
+  const targeting = JSON.parse(JSON.stringify(sib.targeting || {}));
+  targeting.genders = cfg.genders;
+
+  console.log(`     campaign  ${cfg.campaign.name}`);
+  console.log(`     copying   ${String(sib.name).slice(0, 46)}`);
+  console.log(`     new       "${cfg.label} | Female | Traffic"  LINK_CLICKS, $${(cfg.dailyBudgetCents / 100).toFixed(2)}/day, ${cfg.status}`);
+  console.log(`               genders=${JSON.stringify(targeting.genders)} age=${targeting.age_min}-${targeting.age_max} ends ${String(sib.end_time).slice(0, 10)}`);
+  console.log(`     ad        "${cfg.adName}" -> creative ${cfg.creativeId} reused`);
+
+  if (!execute) return { changed: 0 };
+
+  const set = await post(`${ACCOUNT}/adsets`, {
+    name: `${cfg.label} | Female | Traffic`,
+    campaign_id: cfg.campaign.id,
+    optimization_goal: 'LINK_CLICKS',
+    billing_event: 'IMPRESSIONS',
+    bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+    daily_budget: String(cfg.dailyBudgetCents),
+    attribution_spec: JSON.stringify([{ event_type: 'CLICK_THROUGH', window_days: 1 }]),
+    targeting: JSON.stringify(targeting),
+    end_time: sib.end_time,
+    status: cfg.status,
+  });
+  const back = await get(set.id, { fields: 'name,status,optimization_goal,daily_budget,targeting{genders}' });
+  console.log(`     OK   ad set ${set.id} (${back.optimization_goal}, ${back.status}, $${(+back.daily_budget / 100).toFixed(2)}/day, genders ${JSON.stringify((back.targeting || {}).genders)})`);
+
+  const ad = await post(`${ACCOUNT}/ads`, {
+    name: cfg.adName,
+    adset_id: set.id,
+    creative: JSON.stringify({ creative_id: cfg.creativeId }),
+    status: cfg.status,
+  });
+  const adBack = await get(ad.id, { fields: 'name,status' });
+  console.log(`     OK   ad ${ad.id} (${adBack.status}) on creative ${cfg.creativeId}`);
+  return { changed: 2 };
+}
+
 async function main() {
   const execute = flag('execute');
   const only = String(arg('only', '')).toLowerCase();
@@ -265,6 +358,11 @@ async function main() {
     for (const [key, cfg] of Object.entries(BUILDS)) {
       if (only && only !== key) continue;
       total += (await doBuild(cfg, execute)).changed;
+      console.log();
+    }
+    for (const [key, cfg] of Object.entries(ADD_ADSETS)) {
+      if (only && only !== key) continue;
+      total += (await doAddAdSet(cfg, execute)).changed;
       console.log();
     }
   } catch (e) {
