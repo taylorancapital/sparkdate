@@ -13,7 +13,7 @@
     "social:import": "python scripts/import-worksheet.py",
     "social:preflight": "node scripts/social-preflight.js",
     "ads:check": "node scripts/check-meta-ad-tags.js",
-    "ads:consolidate": "node scripts/meta-consolidate-adsets.js",
+    "ads:traffic": "node scripts/meta-restore-traffic.js",
     "ads:lint": "node scripts/lint-ad-copy.js",
     "social:plan": "node scripts/social.js plan",
     "social:approve": "node scripts/social.js approve",
