@@ -153,7 +153,17 @@
         .sp-polaroid-scatter { position: absolute; top: 24px; left: 50%; width: 850px; height: 500px; transform: translateX(-50%) scale(var(--scatter-scale, 1)); transform-origin: top center; }
         .sp-polaroid { position: absolute; width: 240px; background: #fff; border: 12px solid #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.4); transform: rotate(var(--r, 0deg)); transition: transform 0.25s ease; }
         .sp-polaroid:hover { transform: rotate(0deg) scale(1.08); z-index: 20 !important; }
-        .sp-polaroid img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; }
+        /* height:auto is load-bearing. The <img> tags on THIS page carry
+           width="240" height="240" attributes, added to reserve space and
+           stop layout shift -- lp.html is the only one of the nine pages
+           using this block that has them. With no CSS height, the attribute
+           wins and pins the box to 240px tall while width:100% shrinks it to
+           the polaroid's 216px content box, so every photo rendered 216x240:
+           portrait, not the square the design assumes. aspect-ratio: 1/1 was
+           being declared and ignored. The attributes stay -- they still give
+           the browser a ratio before this stylesheet applies, which is the
+           CLS job they were added for. */
+        .sp-polaroid img { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; }
         .sp-polaroid-cap { height: 58px; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 4px 6px 0; text-align: center; font-family: 'Caveat', cursive; font-size: 18px; font-weight: 700; color: #0a0e27; letter-spacing: 0.5px; line-height: 1.15; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
 
         /* Mobile: stop scaling the rigid 850x500 unit and lay it out instead.
@@ -169,25 +179,16 @@
            fits, and the reserved aspect-ratio is released so the section
            takes only the height it needs. The scatter survives intact on the
            tablet and desktop widths it was designed for. */
+        /* Mobile keeps the scatter -- it is the whole visual idea -- and only
+           makes it smaller. An earlier attempt replaced it with a flat row of
+           three photos, which reads as a generic image strip and loses the
+           after-the-party pile the design is going for. MOBILE_SCALE in the
+           fit function below is the entire mechanism; nothing here reflows
+           the design, so every internal proportion stays frozen exactly as it
+           does on desktop. */
         @media (max-width: 600px) {
             .sp-social-proof { padding: 24px 0; margin-bottom: 20px; }
-            .sp-polaroid-scatter-wrap { aspect-ratio: auto; padding-top: 8px; }
-            .sp-polaroid-scatter { position: static; width: 100%; height: auto; transform: none;
-                display: flex; gap: 10px; justify-content: center; align-items: flex-start; }
-            .sp-polaroid { position: static; width: auto; flex: 1 1 0; max-width: 104px;
-                border-width: 5px; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
-            /* Only the first three. The rest are the same night from other
-               angles -- more of them at this size adds nothing but weight. */
-            .sp-polaroid:nth-of-type(n+4) { display: none; }
-            .sp-polaroid-cap { display: none; }
-            /* The img carries height="240" as an HTML attribute, added to
-               reserve space and stop layout shift. No CSS rule set a height,
-               so that attribute governed and overrode aspect-ratio: a 105px
-               wide photo rendered 245px TALL. Setting height explicitly hands
-               control back to the aspect ratio. Measured live: image 245px ->
-               97px, section 375px -> 245px. */
-            .sp-polaroid img { height: auto; }
-            .sp-polaroid:hover { transform: rotate(var(--r)) scale(1); }
+            .sp-polaroid:hover { transform: rotate(var(--r)); }
         }
 
         /* "Find us on" logo strip -- platform presence (listings/profiles),
@@ -369,23 +370,21 @@
         <script>
             (function() {
                 function fitPolaroidScatter() {
-                    // Below 600px the scatter is not scaled at all -- the CSS
-                    // lays the polaroids out as a flex row instead. Setting an
-                    // inline height here would pin the section to the height
-                    // of the scaled 850x500 design it is no longer using, and
-                    // did: the row rendered 127px tall inside a 342px box.
-                    // Clear it and let the content size itself.
+                    // On a phone the scatter is shrunk further than fitting the
+                    // width requires. Fitting alone gives 0.385 at 375px, and
+                    // the section then eats 366px -- more than the ticket card
+                    // it is meant to support. 0.72 of that keeps the pile
+                    // recognisably itself at roughly two thirds the height.
+                    // Applied to the SCALE, not the layout, so the design stays
+                    // one rigid unit exactly as on desktop.
+                    var MOBILE_SCALE = 0.72;
                     var mobile = window.matchMedia('(max-width: 600px)').matches;
                     document.querySelectorAll('.sp-polaroid-scatter-wrap').forEach(function(wrap) {
                         var scatter = wrap.querySelector('.sp-polaroid-scatter');
                         if (!scatter) return;
-                        if (mobile) {
-                            wrap.style.height = '';
-                            wrap.style.removeProperty('--scatter-scale');
-                            return;
-                        }
                         var designWidth = 850, designHeight = 500;
                         var scale = Math.min(1, wrap.clientWidth / designWidth);
+                        if (mobile) scale *= MOBILE_SCALE;
                         wrap.style.setProperty('--scatter-scale', scale);
                         wrap.style.height = (designHeight * scale + 24) + 'px';
                     });
