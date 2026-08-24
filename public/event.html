@@ -322,12 +322,26 @@
         select:focus, input[type="email"]:focus, input[type="text"]:focus, input[type="tel"]:focus { outline: none; border-color: var(--coral); background: #ffffff; color: #000000; }
         input:disabled { opacity: 0.7; cursor: not-allowed; }
 
+        /* Matched to select/input above, deliberately and in every respect.
+           This was the only field on the checkout that was not white with
+           black text: it sat on a half-transparent navy at rgba(10,14,39,.5)
+           with a 1px border, against every other field's solid white and 2px.
+           A buyer reported the digits being hard to read as they typed them,
+           which is the worst possible field to have that problem in.
+
+           Padding is 12px 14px, not 12px 15px, so the card digits line up on
+           the same left edge as the email and name above them. */
         #card-element {
-            padding: 12px 15px;
-            border: 1px solid rgba(255, 107, 107, 0.2);
+            padding: 12px 14px;
+            border: 2px solid rgba(255, 107, 107, 0.4);
             border-radius: 4px;
-            background: rgba(10, 14, 39, 0.5);
+            background: #ffffff;
         }
+        /* Stripe adds these to the mount node. Without them the card field is
+           the one input that gives no focus feedback -- every other field
+           turns its border coral. */
+        #card-element.StripeElement--focus { border-color: var(--coral); }
+        #card-element.StripeElement--invalid { border-color: var(--danger, #f87171); }
 
         .price-breakdown {
             background: rgba(10, 14, 39, 0.5);
@@ -1122,14 +1136,27 @@
         const db = getFirestore(app);
 
         const stripe = Stripe('pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1');
+        // The card iframe is styled to match the rest of the form: white
+        // ground, black text. It was theme:'night' on #0d1230 with cream text
+        // while every other field was white on black -- the one field a buyer
+        // has to read back digit by digit, and the only one that did not look
+        // like the others.
+        //
+        // fontSizeBase is stated at 16px for the same reason the CSS above
+        // pins the other inputs to 16px: iOS Safari auto-zooms the viewport
+        // when a focused input is under 16px, which yanks the page mid-
+        // checkout. Stripe's default is already 16px; stating it means a
+        // change to that default cannot quietly reintroduce the zoom.
         const elements = stripe.elements({
             appearance: {
-                theme: 'night',
+                theme: 'stripe',
                 variables: {
                     colorPrimary: '#ff6b6b',
-                    colorBackground: '#0d1230',
-                    colorText: '#f5f3f0',
+                    colorBackground: '#ffffff',
+                    colorText: '#000000',
+                    colorDanger: '#f87171',
                     fontFamily: 'Inter, sans-serif',
+                    fontSizeBase: '16px',
                     borderRadius: '4px',
                 }
             }
