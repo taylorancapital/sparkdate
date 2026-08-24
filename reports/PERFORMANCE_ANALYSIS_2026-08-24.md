@@ -240,17 +240,23 @@ origins" on `/event`, once a browser is available.
 
 ### Page weight, for the baseline record
 
+**Units are BYTES**, measured on the git blob at `bd7be40e` — the commit this branch
+is based on. Stated explicitly because the first draft of this table reported UTF-8
+*character* counts, which run 0.2–1.1% low depending on how many em dashes, arrows and
+emoji a file carries. A future M6 run measuring bytes the natural way (`wc -c`, a CDN,
+a browser) would have read that gap as a size regression that never happened.
+
 | Page | HTML | inline CSS | inline JS | ext JS | blocking |
 |---|---|---|---|---|---|
-| `admin.html` | 346,922 | 47,789 | 241,125 | 1 | 0 |
-| `events.html` | 168,129 | 38,524 | 101,653 | 2 | 1 |
-| `event.html` | 130,281 | 24,143 | 85,835 | 2 | 1 |
-| `account.html` | 97,168 | 22,092 | 53,069 | 2 | 1 |
-| `city.html` | 74,553 | 13,263 | 53,983 | 1 | 0 |
-| `index.html` | 67,723 | 26,590 | 18,126 | 1 | 0 |
-| `signup.html` | 60,006 | 16,471 | 26,047 | 2 | 1 |
-| `lp.html` | 59,378 | 15,071 | 33,694 | 1 | 0 |
-| `blog/conversation-starters.html` | 25,755 | 6,635 | 4,166 | 1 | 0 |
+| `admin.html` | 350,592 | 48,103 | 244,312 | 1 | 0 |
+| `events.html` | 168,485 | 38,562 | 101,851 | 2 | 1 |
+| `event.html` | 130,617 | 24,153 | 86,066 | 2 | 1 |
+| `account.html` | 97,491 | 22,102 | 53,326 | 2 | 1 |
+| `city.html` | 75,849 | 13,263 | 55,224 | 1 | 0 |
+| `index.html` | 67,888 | 26,612 | 18,187 | 1 | 0 |
+| `signup.html` | 60,645 | 16,473 | 26,548 | 2 | 1 |
+| `lp.html` | 59,508 | 15,073 | 33,754 | 1 | 0 |
+| `blog/conversation-starters.html` | 25,821 | 6,635 | 4,178 | 1 | 0 |
 
 Everything is inlined — no external CSS or JS bundle exists anywhere. That is a defensible
 choice for a site this size (zero extra round-trips), and it is noted for the baseline
@@ -414,6 +420,36 @@ risk first.
    single highest-value item in this report. **Do not also add the `width="240"
    height="240"` image attributes** — see Finding 1 for why that combination broke the
    render on `lp.html`.
+
+   **Name the cause while doing it.** The reason one fix reached one page is that the
+   collage — markup, CSS and the inline `fitPolaroidScatter()` script — is copy-pasted
+   nine times with no shared asset. Applying this fix leaves nine copies of the
+   declaration rather than one, and the next collage change faces the same one-in-nine
+   odds. Fixes 2, 3 and 4 below have exactly the same shape (eight files, four files,
+   four files, all by hand). Doing them without item 8 fixes today's instance and
+   preserves the mechanism.
+
+8. **Add a guard test so this class of bug cannot ship again.** `tests/internal-links.test.js`
+   is the precedent: it walks every HTML file and asserts a cross-page invariant, and its
+   header records that it exists because a real bug shipped (five internal links carrying
+   UTMs relabelled 52 sessions of paid social). The collage finding is the same shape — an
+   invariant that must hold across nine files, which failed silently on eight. Roughly ten
+   lines:
+
+   ```js
+   // every page shipping the collage must reserve its height in CSS
+   const pages = fs.readdirSync(PUBLIC).filter(f => f.endsWith('.html'));
+   for (const f of pages) {
+     const src = fs.readFileSync(path.join(PUBLIC, f), 'utf8');
+     if (!src.includes('sp-polaroid-scatter-wrap')) continue;
+     const rule = src.match(/\.sp-polaroid-scatter-wrap\s*\{([^}]*)\}/);
+     expect(rule?.[1]).toContain('aspect-ratio');
+   }
+   ```
+
+   It fails today on eight files, passes after item 1, and makes the tenth page
+   impossible to add wrong. The same pattern covers the preconnect and Stripe-`async`
+   items.
 2. **Add the two `fonts.googleapis.com` / `fonts.gstatic.com` preconnect lines** to the
    eight pages that request the stylesheet without them (`privacy`, `profile`, `admin`,
    `checkin`, `matches`, `terms`, `account`, `404`), matching the existing pattern.
@@ -465,6 +501,13 @@ risk first.
   change rather than on a fixed clock," and exactly such a change shipped on 2026-08-22
   (#243 CTA move + sticky bar, #248 waitlist de-emphasis + button restyle, #250 collage
   resize).
-- **Report backlog.** `main` at `bd7be40` does not contain `GA4_ANALYSIS_2026-08-23.md`
-  or `DEPENDENCY_AUDIT_2026-08-23.md` — those PRs are still open. Worth knowing when
-  reading this one.
+- **Report backlog — and no PR is coming.** `main` at `bd7be40` does not contain
+  `GA4_ANALYSIS_2026-08-23.md` or `DEPENDENCY_AUDIT_2026-08-23.md`. An earlier draft of
+  this note said "those PRs are still open"; they are not. **No PR was ever opened for
+  either.** Both files exist and are committed, on branches nobody is watching:
+  `GA4_ANALYSIS_2026-08-23.md` (393 lines) at `c9edaafd` on
+  `claude/ga4-meta-analysis-2026-08-23`, and `DEPENDENCY_AUDIT_2026-08-23.md` (377 lines)
+  at `bac4f842` on `claude/dependency-audit-2026-08-23`. Neither is an ancestor of `main`.
+  The work is not lost, but it is invisible until someone runs `gh pr create --head <branch>`
+  — and the run that produced them evidently committed without opening the PR, so the
+  nightly runner is worth checking before it happens a third time.
