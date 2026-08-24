@@ -105,6 +105,10 @@
       "destination": "/about.html"
     },
     {
+      "source": "/careers",
+      "destination": "/careers.html"
+    },
+    {
       "source": "/terms",
       "destination": "/terms.html"
     },
