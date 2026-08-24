@@ -2171,17 +2171,19 @@
                                 <th>Email</th>
                                 <th>Phone</th>
                                 <th>Source</th>
+                                <th>Sequence</th>
                                 <th>Signed Up</th>
                                 <th>Welcome</th>
                                 <th>D2</th>
                                 <th>D5</th>
                                 <th>D14</th>
                                 <th>D25</th>
+                                <th>Next due</th>
                                 <th>Subscribed</th>
                             </tr>
                         </thead>
                         <tbody id="leadsTable">
-                            <tr><td colspan="11"><div class="spinner"></div></td></tr>
+                            <tr><td colspan="13"><div class="spinner"></div></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -6003,45 +6005,106 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             countEl.textContent = `${allLeads.length} lead${allLeads.length !== 1 ? 's' : ''}`;
 
             if (allLeads.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="11" class="empty">No leads yet. Signups from the site\'s forms will appear here.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="13" class="empty">No leads yet. Signups from the site\'s forms will appear here.</td></tr>';
                 return;
             }
 
-            // Four-state pill renderer: green checkmark only if that specific
-            // email actually went out (Resend accepted it, tracked by
-            // `${key}_sent`); gold dot if not yet; a muted "n/a" for
-            // returning-attendee leads where the whole first-timer sequence
-            // is intentionally suppressed (they already attended — see
-            // sendReturningAttendeeInvites in cron-send-emails.js) so it's
-            // never mistaken for an actual send; red — if unsubscribed
-            // before the send window. Previously "n/a" leads were stamped
-            // `*_sent: true` at creation to get the same visual effect, which
-            // made this table disagree with Resend's own send log — fixed by
-            // tracking suppression separately from "sent".
-            const pill = (sent, subscribed, suppressed) => {
-                if (!subscribed) return `<span style="color: rgba(245,243,240,0.3);">—</span>`;
-                if (suppressed)  return `<span style="color: rgba(245,243,240,0.3); font-size: 10px;" title="Returning attendee — first-timer sequence not applicable">n/a</span>`;
-                if (sent)      return `<span style="color: var(--success); font-weight: 600;">✓</span>`;
-                return            `<span style="color: rgba(245,243,240,0.4);">·</span>`;
+            // ─── What each source is actually enrolled in ───────────────
+            //
+            // A lead's row used to show the same five email columns whatever
+            // it was, and a green tick meant only that `${key}_sent` was
+            // true. That flag carries two opposite meanings:
+            //
+            //   a real send   cron writes _sent AND _sent_at AND _resend_id
+            //   a suppression creation writes _sent alone, to stop the cron
+            //
+            // api/lead-signup.js does the second for getaway_interest, and
+            // scripts/backfill-leads-from-registrations.js does it for the
+            // Eventbrite/Meetup imports. Measured against live data, 113 of
+            // the green ticks in this table were emails that were never sent.
+            // The site's own forms are clean -- ad_landing and founding_form
+            // carry a Resend id on every tick -- so the corruption is entirely
+            // in the imported and suppressed sources.
+            //
+            // The renderer now trusts EVIDENCE, not the flag: a tick requires
+            // a _sent_at or a _resend_id. Everything else is labelled for what
+            // it is.
+            const SEQ = {
+                ad_landing:       { label: 'Nurture',   nurture: true  },
+                founding_form:    { label: 'Nurture',   nurture: true  },
+                exit_intent:      { label: 'Nurture',   nurture: true  },
+                newsletter:       { label: 'Nurture',   nurture: true  },
+                blog:             { label: 'Nurture',   nurture: true  },
+                ticket_purchase:  { label: 'Buyer',     nurture: true,  welcomeElsewhere: 'sent by the ticket-purchase flow, not the cron' },
+                attendee:         { label: 'Returning', nurture: false },
+                getaway_interest: { label: 'Getaway',   nurture: false },
+                eventbrite_import:{ label: 'Imported',  nurture: false, welcomeElsewhere: 'Eventbrite sent its own registration confirmation' },
+                meetup_import:    { label: 'Imported',  nurture: false, welcomeElsewhere: 'Meetup sent its own registration confirmation' },
+                manual_import:    { label: 'Imported',  nurture: false, welcomeElsewhere: 'imported, no welcome was due' },
+            };
+            const seqOf = (src) => SEQ[src] || { label: 'Nurture', nurture: true };
+
+            // Evidence of an actual delivery. The cron writes both of these on
+            // success (api/cron-send-emails.js), suppression writes neither.
+            const wasSent = (l, key) => !!(l[`${key}_sent_at`] || l[`${key}_resend_id`]);
+
+            const DAY_OFFSET = { day2: 2, day5: 5, day14: 14, day25: 25 };
+
+            const cell = (l, key, seq) => {
+                if (!l.subscribed) return `<span style="color: rgba(245,243,240,0.3);" title="Unsubscribed">—</span>`;
+                if (wasSent(l, key)) {
+                    const at = l[`${key}_sent_at`];
+                    const when = at ? new Date(at).toLocaleString() : 'delivery confirmed by Resend';
+                    return `<span style="color: var(--success); font-weight: 600;" title="Sent ${safe(when)}">✓</span>`;
+                }
+                if (l[`${key}_sent`] === true) {
+                    // Flag set with no delivery record. Either another system
+                    // sent it, or creation set the flag purely to suppress.
+                    if (key === 'welcome' && seq.welcomeElsewhere) {
+                        return `<span style="color: rgba(74,222,128,0.45); font-weight:600;" title="${safe(seq.welcomeElsewhere)}">✓</span>`;
+                    }
+                    return `<span style="color: rgba(245,243,240,0.3); font-size: 10px;" title="Not sent — suppressed at signup for a ${safe(seq.label)} lead">n/a</span>`;
+                }
+                return `<span style="color: rgba(245,243,240,0.4);" title="Not sent yet">·</span>`;
+            };
+
+            // Where they are in the drip: the first step still pending, and
+            // when it comes due. Answers "did this stall?" without opening
+            // Resend.
+            const nextDue = (l, seq, created) => {
+                if (!l.subscribed) return '<span style="color:#f87171;">unsubscribed</span>';
+                if (!seq.nurture)  return '<span style="color: rgba(245,243,240,0.3);">—</span>';
+                if (!created)      return '<span style="color: rgba(245,243,240,0.3);">—</span>';
+                for (const [key, days] of Object.entries(DAY_OFFSET)) {
+                    if (wasSent(l, key) || l[`${key}_sent`] === true) continue;
+                    const due = new Date(created.getTime() + days * 86400000);
+                    const inDays = Math.ceil((due - Date.now()) / 86400000);
+                    const label = key.toUpperCase().replace('DAY', 'D');
+                    if (inDays > 0) return `<span style="color: rgba(245,243,240,0.6);">${label} in ${inDays}d</span>`;
+                    return `<span style="color: var(--gold); font-weight:600;" title="Due ${safe(due.toLocaleDateString())} and not sent">${label} overdue ${Math.abs(inDays)}d</span>`;
+                }
+                return '<span style="color: rgba(245,243,240,0.35);">complete</span>';
             };
 
             tbody.innerHTML = allLeads.map(l => {
                 const created = l.createdAt?.toDate ? l.createdAt.toDate() : (l.createdAt ? new Date(l.createdAt) : null);
                 const dateStr = created ? created.toLocaleDateString() + ' ' + created.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—';
                 const subColor = l.subscribed ? 'var(--success)' : '#f87171';
-                const suppressed = l.source === 'attendee';
+                const seq = seqOf(l.source);
                 return `
                     <tr style="${l.subscribed ? '' : 'opacity: 0.6;'}">
                         <td style="color: var(--white); font-weight: 500;">${safe(l.name || '—')}</td>
                         <td style="color: rgba(245,243,240,0.7); font-size: 12px;">${safe(l.email || '—')}</td>
                         <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(l.phone || '—')}</td>
                         <td style="color: rgba(245,243,240,0.5); font-size: 11px;">${safe(l.source || '—')}</td>
+                        <td style="font-size: 11px; color: ${seq.nurture ? 'var(--gold)' : 'rgba(245,243,240,0.45)'};" title="${seq.nurture ? 'In the 4-touch mixer nurture' : 'Not in the mixer nurture — newsletter only'}">${safe(seq.label)}</td>
                         <td style="color: rgba(245,243,240,0.6); font-size: 12px;">${safe(dateStr)}</td>
-                        <td style="text-align: center;">${pill(l.welcome_sent, l.subscribed, suppressed)}</td>
-                        <td style="text-align: center;">${pill(l.day2_sent,  l.subscribed, suppressed)}</td>
-                        <td style="text-align: center;">${pill(l.day5_sent,  l.subscribed, suppressed)}</td>
-                        <td style="text-align: center;">${pill(l.day14_sent, l.subscribed, suppressed)}</td>
-                        <td style="text-align: center;">${pill(l.day25_sent, l.subscribed, suppressed)}</td>
+                        <td style="text-align: center;">${cell(l, 'welcome', seq)}</td>
+                        <td style="text-align: center;">${cell(l, 'day2',  seq)}</td>
+                        <td style="text-align: center;">${cell(l, 'day5',  seq)}</td>
+                        <td style="text-align: center;">${cell(l, 'day14', seq)}</td>
+                        <td style="text-align: center;">${cell(l, 'day25', seq)}</td>
+                        <td style="font-size: 11px;">${nextDue(l, seq, created)}</td>
                         <td style="color: ${subColor}; font-weight: 600; font-size: 12px;">${l.subscribed ? 'Yes' : 'Unsubscribed'}</td>
                     </tr>`;
             }).join('');
