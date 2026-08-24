@@ -815,15 +815,65 @@
             border-radius: 4px; border: 1px solid rgba(212, 175, 55, 0.5);
             background: rgba(212, 175, 55, 0.15); color: var(--cream); cursor: pointer;
         }
-        .checkout-trust {
-            background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.3);
-            border-radius: 4px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px;
-            line-height: 1.5; color: var(--cream);
+        /* One quiet block, BELOW the CTA.
+           Everything here used to sit between the testimonial and the button:
+           a gold-bordered .checkout-trust box plus a separate .legal line after
+           it. Three stacked blocks of reassurance and small print competing
+           with the one element on the screen that matters. The order is now
+           testimonial -> button -> fine print, so social proof leads into the
+           CTA and the housekeeping follows it.
+
+           Deliberately low-contrast and borderless: this is reference text a
+           buyer scans if they wonder, not a callout. The single hairline rule
+           is the only separation it needs from the button. */
+        /* Three kinds of information, three levels of emphasis -- not one
+           uniform wall of grey.
+
+              perks   what the buyer gets      brightest, discrete items
+              note    what a purchase is not   dimmer
+              legal   the required wording     dimmest
+
+           The perks were previously one run-on line joined by middots, which
+           reads as a sentence nobody finishes. As separate flex items they
+           scan in a glance and wrap cleanly at 375px.
+
+           Links are muted grey-underlined rather than coral: a coral link in
+           the fine print pulls the eye straight back off the CTA, which is the
+           whole thing this block was moved below the button to stop. */
+        /* One bordered box, two rows, all of it quiet.
+              row 1   four facts, each with its own emoji, as discrete items
+              row 2   the required legal wording
+
+           "One-time ticket purchase" is now a fact in that row rather than a
+           sentence of its own. It used to carry "no membership and no
+           subscription -- you're only paying for this event. Nothing
+           recurring." -- three restatements of one idea, and phrasing that
+           raised the possibility of a subscription in order to deny it. The
+           ticket emoji does the same work as the padlock beside it.
+
+           Links are muted grey-underlined, not coral: a coral link down here
+           pulls the eye straight back off the CTA, which is the whole reason
+           this block sits below the button. */
+        .checkout-fineprint {
+            margin-top: 16px; padding: 11px 14px;
+            border: 1px solid rgba(245, 243, 240, 0.10); border-radius: 4px;
+            text-align: center;
         }
-        .checkout-trust .trial-disclosure strong { color: var(--gold); }
-        .checkout-trust .rp { font-size: 11.5px; color: rgba(245,243,240,0.65); margin-top: 8px; }
-        /* Standalone testimonial box, swapped above .checkout-trust per
-           Taylor's request -- social proof leads, logistics follow. */
+        .checkout-fineprint .fp-perks {
+            display: flex; flex-wrap: wrap; justify-content: center;
+            gap: 4px 14px; margin-bottom: 8px;
+            font-size: 11.5px; line-height: 1.5; color: rgba(245, 243, 240, 0.6);
+        }
+        .checkout-fineprint .fp-legal {
+            font-size: 11px; line-height: 1.6; color: rgba(245, 243, 240, 0.42);
+        }
+        .checkout-fineprint a {
+            color: rgba(245, 243, 240, 0.55);
+            text-decoration: underline; text-underline-offset: 2px;
+        }
+        /* Standalone testimonial box. It now sits DIRECTLY above the CTA:
+           social proof leads straight into the button, and everything else
+           moved below it into .checkout-fineprint. */
         .checkout-testimonial {
             background: rgba(74, 222, 128, 0.06); border: 1px solid rgba(74, 222, 128, 0.2);
             border-radius: 4px; padding: 12px 14px; margin-bottom: 14px; font-size: 12.5px;
@@ -843,8 +893,6 @@
         .plus-one-fields { display: none; border-top: 1px dashed rgba(255,107,107,0.25); margin-top: 4px; padding-top: 16px; }
         .plus-one-fields.active { display: block; }
         .plus-one-fields .po-heading { font-size: 12px; font-weight: 700; color: var(--coral); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-        .event-modal .legal { font-size: 11px; color: rgba(245, 243, 240, 0.5); text-align: center; margin-top: 14px; line-height: 1.5; }
-        .event-modal .legal a { color: var(--coral); text-decoration: none; }
         .modal-success-message, .modal-error-message { padding: 14px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; display: none; }
         .modal-success-message { background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.3); color: var(--success); }
         .modal-error-message { background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.3); color: #f87171; }
@@ -1228,13 +1276,6 @@
 
                     <div class="checkout-testimonial" id="rqBox"><span id="rqText"></span> <span class="who" id="rqWho"></span></div>
 
-                    <div class="checkout-trust">
-                        <div class="trial-disclosure" id="modalTrialDisclosure">
-                            <strong>One-time ticket purchase.</strong>
-                            No membership and no subscription — you're only paying for this event. Nothing recurring.
-                        </div>
-                        <div class="rp">🔒 Secure checkout · 🔄 Free ticket transfer if your plans change · A real host is on-site the whole night</div>
-                    </div>
                     <script>
                       // Rotating testimonial — see index.html for the canonical copy of this pattern.
                       (function () {
@@ -1298,10 +1339,26 @@
 
                     <button type="submit" class="checkout-btn" id="modalCheckoutBtn" disabled>Select Gender</button>
 
-                    <div class="legal">
-                        By purchasing, you agree to our <a href="/terms">Terms</a> and
-                        <a href="/privacy">Privacy Policy</a>.<br>
-                        Must be 21+. Bring valid ID.
+                    <!-- Fine print, consolidated and moved BELOW the button. Order is
+                         usefulness-descending: what the buyer gets, then what a purchase is
+                         not, then the legal line.
+
+                         The "one-time purchase" line is DEMOTED, not deleted. It exists
+                         because this checkout once claimed a 30-day trial at $9.99/mo that a
+                         ticket never created (fixed in ae0ad0fd, 2026-06-09), and it is
+                         hidden for logged-in members by applyUserContext(). Memberships are
+                         down for now, so nothing on the page invites the confusion and it has
+                         no business shouting from a gold box above the CTA -- but the day
+                         memberships return it is load-bearing again, and re-adding it is the
+                         kind of thing nobody remembers to do. It costs one quiet line here. -->
+                    <div class="checkout-fineprint">
+                        <div class="fp-perks">
+                            <span id="modalTrialDisclosure">🎫 One-time ticket purchase</span>
+                            <span>🔒 Secure checkout</span>
+                            <span>🔄 Free ticket transfer</span>
+                            <span>👤 Real host on-site</span>
+                        </div>
+                        <div class="fp-legal">By purchasing you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>. Must be 21+ with valid ID.</div>
                     </div>
                 </form>
 
