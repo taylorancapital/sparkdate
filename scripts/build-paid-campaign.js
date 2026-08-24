@@ -207,6 +207,7 @@ function emitHandoff(slots, fill, needsEarlyBird) {
   const sets = ['female', 'male', 'retargeting'];
 
   // Count first, so the brief can say how many and Design does not stop early.
+  const dimsAllRef = dimsAll;
   const jobs = [];
   sets.forEach(k => {
     const node = CT[k] || {};
@@ -234,7 +235,13 @@ function emitHandoff(slots, fill, needsEarlyBird) {
   L.push('- Canvas **#0a0e27** navy. Text **#ffffff** headings, **#f5f3f0** body. One action colour: **#ff6b6b** coral. **#d4af37** gold for a single emphasised number only.');
   L.push('- Headlines **Playfair Display 900**, tight (-1px). Body/labels **Inter** 400–600. Never headline in Inter.');
   L.push('- Wordmark `SPARKDATE` bottom-left, coral, Inter 600, 12px, uppercase, 2px tracking.');
-  L.push('- Export **PNG**, sRGB.');
+  L.push('');
+  L.push('## Format — VIDEO, 3–5 seconds');
+  L.push('');
+  if (dimsAll._format) L.push('- ' + dimsAll._format);
+  if (dimsAll._silent_first) L.push('- **Silent-first.** ' + dimsAll._silent_first);
+  if (dimsAll._beats) L.push('- **Beats.** ' + dimsAll._beats);
+  if (dimsAll._export) L.push('- **Export.** ' + dimsAll._export);
   L.push('');
   L.push('**Sizes — build every ad at all of these:**');
   L.push('');
@@ -243,9 +250,9 @@ function emitHandoff(slots, fill, needsEarlyBird) {
   });
   L.push('');
   L.push('**One hard rule:** the copy below is the AD TEXT, which Meta renders outside');
-  L.push('the image. Do NOT typeset the primary text into the picture. The image carries');
-  L.push('the headline and the event facts only — Meta penalises image-heavy text, and');
-  L.push('the primary text is already going in the ad itself.');
+  L.push('the video. Do NOT burn the primary text into the frames. The video carries the');
+  L.push('headline and the event facts only — Meta penalises text-heavy creative, and the');
+  L.push('primary text is already going in the ad itself.');
   L.push('');
   L.push('---');
   L.push('');
@@ -256,7 +263,7 @@ function emitHandoff(slots, fill, needsEarlyBird) {
     L.push('');
     L.push(`Ad set **${j.set}** · phase **${j.phase}**`);
     L.push('');
-    L.push('### On the image');
+    L.push('### On screen');
     L.push('');
     L.push('```');
     L.push(fill(j.c.headline));
@@ -269,7 +276,7 @@ function emitHandoff(slots, fill, needsEarlyBird) {
       L.push('> lead with the date and the price, not the concept.');
     }
     L.push('');
-    L.push('### Ad text (goes in Meta, not on the image)');
+    L.push('### Ad text (goes in Meta, NOT burned into the video)');
     L.push('');
     L.push('```');
     L.push(fill(j.c.primary_text));
