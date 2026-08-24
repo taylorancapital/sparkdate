@@ -422,6 +422,12 @@ const IMPORT_CHANNELS = {
 };
 
 async function enrollEventbriteOne({ email, name, gender, eventId, eventName, priceCents, channel }) {
+  // Normalize gender at the boundary: Eventbrite CSVs say "Woman"/"Man",
+  // the rest of the system speaks lowercase, and seatFields picks a seat
+  // COUNTER off this value. Anything unrecognized becomes null rather than
+  // silently landing in the men's pool.
+  gender = typeof gender === 'string' && ['woman', 'man'].includes(gender.trim().toLowerCase())
+    ? gender.trim().toLowerCase() : null;
   const norm = String(email || '').toLowerCase().trim();
   if (!norm) return { email, status: 'skipped', reason: 'empty email' };
 
