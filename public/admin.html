@@ -2375,6 +2375,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         let allUsers = [];
         let allActivity = [];
         let allPayments = [];
+        // Refunded tickets, kept OUT of allPayments so nothing sums them as
+        // revenue. Payment History merges them back in for display only.
+        let refundedPayments = [];
         // month key ('YYYY-MM') -> recurring cost doc
         let allRecurring = {};
         // Daily Meta spend from `ad_spend`, written by scripts/sync-meta-spend.js
@@ -3657,9 +3660,12 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     getDocs(query(collection(db, 'tickets'), orderBy('createdAt', 'desc'), limit(200))).catch(() => ({ docs: [] })),
                 ]);
                 const subs = subSnap.docs.map(d => ({ id: d.id, _type: 'subscription', ...d.data() }));
-                const tickets = tkSnap.docs
-                    .map(d => ({ id: d.id, _type: 'ticket', ...d.data() }))
-                    .filter(t => t.status === 'confirmed');
+                const allTix = tkSnap.docs.map(d => ({ id: d.id, _type: 'ticket', ...d.data() }));
+                const tickets = allTix.filter(t => t.status === 'confirmed');
+                // Separate list, NOT merged into allPayments: the P&L and the
+                // revenue KPIs read allPayments and trust that every row in it
+                // is money kept. Refunded rows are display-only.
+                refundedPayments = allTix.filter(t => t.status === 'refunded');
                 // Merge and sort newest first
                 allPayments = [...subs, ...tickets].sort((a, b) => {
                     const ta = (a.paidAt || a.createdAt)?.toMillis?.() ?? 0;
@@ -3668,6 +3674,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 });
             } catch (e) {
                 allPayments = [];
+                refundedPayments = [];
             }
         }
 
@@ -5057,8 +5064,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             // short list, and 103 payments read as 8.
             const note = document.getElementById('paymentHistoryNote');
             if (note) {
-                note.textContent = allPayments.length
-                    ? `Tickets + subscriptions · newest first · ${allPayments.length} shown, scroll for more`
+                const total = allPayments.length + refundedPayments.length;
+                note.textContent = total
+                    ? `Tickets + subscriptions · newest first · ${total} shown, scroll for more`
                     : 'Tickets + subscriptions · newest first';
             }
             if (allPayments.length === 0) {
@@ -5078,24 +5086,41 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 const cents = tix.reduce((s, p) => s + num(p.amount), 0);
                 return `<div class="candidate-stat" title="${CHANNEL_LABELS[k]} ticket sales"><strong>$${(cents / 100).toFixed(2)}</strong>${CHANNEL_LABELS[k]} (${tix.length})</div>`;
             }).join('');
+            // Refunds are shown, never summed: every dollar figure above is
+            // net of them by construction, because refunded rows live outside
+            // allPayments. The chip is the visibility, the exclusion is the math.
+            const refundTotal = refundedPayments.reduce((s, p) => s + (Number(p.amountRefunded ?? p.amount) || 0), 0);
+            const refundChip = refundedPayments.length
+                ? `<div class="candidate-stat" title="Refunded tickets — excluded from every revenue figure"><strong style="color:#f87171;">−$${(refundTotal / 100).toFixed(2)}</strong>Refunds (${refundedPayments.length})</div>`
+                : '';
             document.getElementById('revenueKPIs').innerHTML = `
                 <div class="candidate-stat"><strong>$${(grandTotal / 100).toFixed(2)}</strong>Total revenue</div>
                 <div class="candidate-stat"><strong>$${(ticketTotal / 100).toFixed(2)}</strong>Ticket sales</div>
                 ${channelStats}
                 <div class="candidate-stat"><strong>$${(subTotal / 100).toFixed(2)}</strong>Subscriptions</div>
+                ${refundChip}
             `;
             renderEventPnl();
             renderChannelPnl();
 
-            tbody.innerHTML = allPayments.map(p => {
+            // Merge refunded rows back for DISPLAY, newest first with the rest.
+            const displayRows = [...allPayments, ...refundedPayments].sort((a, b) => {
+                const ta = (a.paidAt || a.createdAt)?.toMillis?.() ?? 0;
+                const tb = (b.paidAt || b.createdAt)?.toMillis?.() ?? 0;
+                return tb - ta;
+            });
+            tbody.innerHTML = displayRows.map(p => {
                 const isTicket = p._type === 'ticket';
+                const isRefunded = p.status === 'refunded';
                 const user = allUsers.find(u => u.id === (p.userId || p.firebaseUid));
                 const name = p.name || (user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '') || '—';
                 const email = p.email || p.userEmail || user?.email || '—';
                 const amount = Number(p.amount) || 0;
                 const when = p.paidAt || p.createdAt;
                 const event = isTicket ? (allEvents.find(e => e.id === p.eventId)?.title || p.eventName || '—') : (user?.tier ? user.tier + ' plan' : '—');
-                const typeBadge = isTicket
+                const typeBadge = isRefunded
+                    ? `<span class="badge" style="font-size:10px;background:rgba(248,113,113,0.12);color:#f87171;border:1px solid rgba(248,113,113,0.35);">Refunded</span>`
+                    : isTicket
                     ? `<span class="badge badge-active" style="font-size:10px;">Ticket</span>`
                     : `<span class="badge badge-pending" style="font-size:10px;">Subscription</span>`;
                 const source = isTicket && p.source === 'eventbrite_import'
@@ -5106,7 +5131,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <div style="font-size:11px;color:rgba(245,243,240,0.5);">${safe(email)}</div>
                     </td>
                     <td>${typeBadge}</td>
-                    <td style="color:var(--white);font-weight:600;">$${(amount / 100).toFixed(2)}</td>
+                    <td style="color:${isRefunded ? '#f87171' : 'var(--white)'};font-weight:600;${isRefunded ? 'text-decoration:line-through;opacity:0.7;' : ''}">$${(amount / 100).toFixed(2)}</td>
                     <td style="color:rgba(245,243,240,0.6);font-size:12px;">${safe(event)}</td>
                     <td style="color:rgba(245,243,240,0.6);">${formatDate(when)}</td>
                 </tr>`;

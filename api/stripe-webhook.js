@@ -299,6 +299,85 @@ module.exports = async function handler(req, res) {
         break;
       }
 
+      // ── Refund issued (usually from the Stripe dashboard). Until this
+      // case existed a refunded ticket stayed status:'confirmed' forever:
+      // it kept counting in revenue, CAC, the charts and the event P&L,
+      // and the seat it held was never released. Taylor's own test
+      // purchase-and-refund on 2026-08-23 was still being reported as
+      // revenue a day later.
+      //
+      // NOTE FOR STRIPE CONFIG: the webhook endpoint must be subscribed to
+      // charge.refunded or this case never fires. If refunds stop being
+      // reflected, check the endpoint's event list first.
+      case 'charge.refunded': {
+        const charge = event.data.object;
+        const piId = charge.payment_intent;
+        if (!piId) break;
+
+        // Partial refunds are recorded but do NOT void the ticket — the
+        // buyer still holds a seat. Only a full refund releases it.
+        if (!charge.refunded) {
+          const partialSnap = await db.collection('tickets')
+            .where('paymentIntentId', '==', piId).get();
+          for (const doc of partialSnap.docs) {
+            await doc.ref.update({
+              amountRefunded: charge.amount_refunded,
+              partialRefundAt: new Date().toISOString(),
+            }).catch(() => {});
+          }
+          console.log(`[webhook] partial refund recorded, ticket kept: ${piId}`);
+          break;
+        }
+
+        // NO limit(1): a 2-for-1 purchase writes TWO ticket docs (primary +
+        // isPlusOne guest) sharing one paymentIntentId, and refunding the
+        // charge voids the whole party. Each releases its OWN seat counter —
+        // the guest may be a different gender on a legacy split event.
+        const ticketSnap = await db.collection('tickets')
+          .where('paymentIntentId', '==', piId).get();
+        if (ticketSnap.empty) {
+          // A subscription invoice charge, or something predating tickets.
+          console.log(`[webhook] refund for ${piId} matches no ticket — ignored`);
+          break;
+        }
+
+        for (const doc of ticketSnap.docs) {
+          // Atomic flip, same shape as the 3DS confirm above: only the txn
+          // that wins confirmed→refunded releases the seat, so a Stripe
+          // redelivery of this event can never decrement twice.
+          const flipped = await db.runTransaction(async (tx) => {
+            const fresh = await tx.get(doc.ref);
+            if (!fresh.exists) return null;
+            const d = fresh.data();
+            if (d.status !== 'confirmed') return null; // pending/failed/expired seats were handled elsewhere
+            tx.update(doc.ref, {
+              status: 'refunded',
+              refundedAt: new Date().toISOString(),
+              amountRefunded: d.isPlusOne ? 0 : charge.amount_refunded,
+            });
+            return d;
+          });
+
+          if (flipped) {
+            const evRef = db.collection('events').doc(flipped.eventId);
+            const evSnap = await evRef.get();
+            const { counterField } = seatFields(evSnap.exists ? evSnap.data() : {}, flipped.gender);
+            await evRef
+              .update({ [counterField]: admin.firestore.FieldValue.increment(-1) })
+              .catch(() => {});
+            console.log(`[webhook] ticket refunded: ${doc.id} (released ${counterField})`);
+          }
+        }
+
+        // Registrations share the PI too (primary + plusone reg docs).
+        const regSnap = await db.collection('event_registrations')
+          .where('paymentIntentId', '==', piId).get();
+        for (const doc of regSnap.docs) {
+          await doc.ref.update({ status: 'refunded' }).catch(() => {});
+        }
+        break;
+      }
+
       // ── Customer deleted in Stripe (manually via dashboard, or via
       // the future account-deletion flow tracked as audit M7). Clear
       // the Firestore user's stripeCustomerId so subsequent API calls
