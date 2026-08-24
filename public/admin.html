@@ -633,6 +633,30 @@
         }
 
         /* Cards */
+        /* Full Report charts. Grid and axes are recessive on purpose: the
+           data is the only thing meant to carry weight. */
+        .rc-chart { position: relative; padding: 4px 0 0; }
+        .rc-chart svg { display: block; width: 100%; height: auto; }
+        .rc-grid line { stroke: rgba(245,243,240,0.08); stroke-width: 1; }
+        .rc-axis text { fill: rgba(245,243,240,0.45); font-size: 11px; font-family: 'Inter', sans-serif; }
+        .rc-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+        .rc-legend {
+            display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
+            font-size: 12px; color: rgba(245,243,240,0.75); margin: 2px 0 10px 4px;
+        }
+        .rc-legend .k { display: inline-flex; align-items: center; gap: 7px; }
+        .rc-legend .sw { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+        .rc-cross { stroke: rgba(245,243,240,0.28); stroke-width: 1; }
+        .rc-dot { stroke: #0b0f28; stroke-width: 2; }
+        .rc-tip {
+            position: absolute; pointer-events: none; opacity: 0; transition: opacity .12s;
+            background: #0b0f28; border: 1px solid rgba(255,107,107,0.28); border-radius: 4px;
+            padding: 8px 10px; font-size: 12px; color: var(--cream); white-space: nowrap;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.45); z-index: 5;
+        }
+        .rc-tip .d { color: rgba(245,243,240,0.55); font-size: 11px; margin-bottom: 4px; }
+        .rc-tip .r { display: flex; align-items: center; gap: 7px; }
+        .rc-tip .r b { margin-left: auto; font-variant-numeric: tabular-nums; }
         .card {
             background: rgba(255, 107, 107, 0.03);
             border: 1px solid rgba(255, 107, 107, 0.12);
@@ -1753,6 +1777,26 @@
                     Facebook event page or a bare <code>/lp</code>, which predates the
                     <code>eventId=</code> link convention. It is real money and not a defect.
                 </div>
+            </div>
+
+
+            <!-- Revenue/cost and tickets, plotted on a real numbered grid.
+                 Full Report only: Overview keeps the compact rotating card,
+                 which is a glance, not a read. -->
+            <div class="card" style="margin-top:24px;">
+                <div class="card-header">
+                    <h2 class="card-title">Revenue &amp; cost</h2>
+                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">Daily, last 30 days · both in dollars, one scale</span>
+                </div>
+                <div class="rc-chart" id="chartRevCost"></div>
+            </div>
+
+            <div class="card" style="margin-top:24px;">
+                <div class="card-header">
+                    <h2 class="card-title">Tickets sold</h2>
+                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">Daily count, last 30 days</span>
+                </div>
+                <div class="rc-chart" id="chartTickets"></div>
             </div>
 
             <!-- Channel P&L -->
@@ -3839,6 +3883,48 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // day to hang it on.
         let metricIdx = 0, metricTimer = null;
 
+        // Daily cost for the last `days` days, oldest first.
+        //
+        // Lifted out of metricDefs() so the rotating card and the Full Report
+        // charts read the SAME numbers. Two copies of this arithmetic would
+        // disagree the first time either was touched, and the disagreement
+        // would be between two figures sitting on one screen.
+        function costSeries(days = 30) {
+            const out = new Map();
+            for (let i = days - 1; i >= 0; i--) out.set(dayKey(new Date(Date.now() - i * 86400000)), 0);
+
+            // Meta, by real spend date. Uses the day's TOTAL, including
+            // spend not attributable to an event -- money left the account
+            // either way, and hiding it would understate cost.
+            adSpendDays.forEach(day => {
+                const k = String(day.date || day.id || '');
+                if (out.has(k)) out.set(k, out.get(k) + Number(day.total || 0));
+            });
+
+            // Everything Meta does not report, on the event date: venue and
+            // delivery, plus the ad channels still entered by hand.
+            //
+            // The typed Facebook figure is added ONLY when ad_spend does not
+            // cover that day at all. Checking metaSpendFor() alone was not
+            // enough: an event whose ads pointed at Eventbrite or a bare /lp
+            // carries no eventId, so its Meta spend lands in the day's
+            // `_unattributed` bucket -- already counted in day.total above --
+            // while metaSpendFor() still returns null and the typed figure
+            // got added on top. That is roughly $436 of June/July spend on
+            // this account, counted twice on any window reaching back to it.
+            const covered = new Set(adSpendDays.map(d => String(d.date || d.id || '')));
+            allEvents.forEach(e => {
+                const d = toDate(e.date);
+                if (!d) return;
+                const k = dayKey(d);
+                if (!out.has(k)) return;
+                let extra = num(e.costOther) + num(e.costTiktok) + num(e.costEventbriteAds);
+                if (metaSpendFor(e) === null && !covered.has(k)) extra += num(e.costFacebook);
+                out.set(k, out.get(k) + extra);
+            });
+            return [...out.values()];
+        }
+
         function metricDefs() {
             const revenue = dailySeries(30, t => t.isComp ? 0 : num(t.amount) / 100);
             const tickets = dailySeries(30, t => t.isComp ? 0 : 1);
@@ -3854,41 +3940,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             // account-timezone YYYY-MM-DD. They can disagree by a day at the
             // edges; that is acceptable for a trend and would not be for a
             // ledger.
-            const cost = (() => {
-                const out = new Map();
-                for (let i = 29; i >= 0; i--) out.set(dayKey(new Date(Date.now() - i * 86400000)), 0);
-
-                // Meta, by real spend date. Uses the day's TOTAL, including
-                // spend not attributable to an event -- money left the account
-                // either way, and hiding it would understate cost.
-                adSpendDays.forEach(day => {
-                    const k = String(day.date || day.id || '');
-                    if (out.has(k)) out.set(k, out.get(k) + Number(day.total || 0));
-                });
-
-                // Everything Meta does not report, on the event date: venue and
-                // delivery, plus the ad channels still entered by hand.
-                //
-                // The typed Facebook figure is added ONLY when ad_spend does not
-                // cover that day at all. Checking metaSpendFor() alone was not
-                // enough: an event whose ads pointed at Eventbrite or a bare /lp
-                // carries no eventId, so its Meta spend lands in the day's
-                // `_unattributed` bucket -- already counted in day.total above --
-                // while metaSpendFor() still returns null and the typed figure
-                // got added on top. That is roughly $436 of June/July spend on
-                // this account, counted twice on any window reaching back to it.
-                const covered = new Set(adSpendDays.map(d => String(d.date || d.id || '')));
-                allEvents.forEach(e => {
-                    const d = toDate(e.date);
-                    if (!d) return;
-                    const k = dayKey(d);
-                    if (!out.has(k)) return;
-                    let extra = num(e.costOther) + num(e.costTiktok) + num(e.costEventbriteAds);
-                    if (metaSpendFor(e) === null && !covered.has(k)) extra += num(e.costFacebook);
-                    out.set(k, out.get(k) + extra);
-                });
-                return [...out.values()];
-            })();
+            const cost = costSeries(30);
             const g = { woman: 0, man: 0, other: 0 };
             trendTickets.forEach(t => {
                 const d = toDate(t.createdAt);
@@ -4107,6 +4159,153 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
             evtBody.innerHTML = evtRows || '<tr><td colspan="6" class="empty">No campaigns in this window.</td></tr>';
             costBody.innerHTML = costRows || '<tr><td colspan="7" class="empty">No campaigns in this window.</td></tr>';
+        }
+
+
+        // ─── Full Report charts ────────────────────────────────
+        //
+        // A real grid: numbered y axis, dated x axis, hover crosshair.
+        // Overview keeps its rotating sparkline card, which answers "roughly
+        // what shape" at a glance; this answers "how much, on which day".
+        //
+        // Revenue and cost share ONE axis because they are the same unit.
+        // Tickets is a count, so it gets its own chart rather than a second
+        // y-scale -- a dual-axis chart lets the author decide which line looks
+        // higher by choosing the scales, which is not a decision a chart should
+        // be making for its reader.
+        //
+        // Colours: revenue #c9a227, cost #e05555. Checked with the palette
+        // validator against this surface -- CVD separation 10.6 deutan (target
+        // >= 8), normal-vision 19.7, contrast over 3:1. Gold sits at OKLCH
+        // L 0.728, just above the 0.48-0.67 dark band; pulling it into the band
+        // drops CVD separation to 5.5, a hard fail. The two checks conflict for
+        // a gold/red pair, and legibility for colourblind readers wins over an
+        // even lightness. Both lines are also directly labelled at their right
+        // end and carry a legend, so identity never rests on colour alone.
+        function niceMax(v) {
+            if (!(v > 0)) return 10;
+            const mag = Math.pow(10, Math.floor(Math.log10(v)));
+            const n = v / mag;
+            // Finer ladder than 1/2/5/10. A $128.95 peak against a 1/2/5 ladder
+            // rounds to $200 and leaves a third of the plot empty; 1.5 puts the
+            // top at $150 and gives the data the height back.
+            const step = [1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find(k => n <= k) || 10;
+            return step * mag;
+        }
+
+        function rcChart(mountId, series, fmt) {
+            const host = document.getElementById(mountId);
+            if (!host) return;
+            const n = series[0].values.length;
+            const W = 760, H = 250, PL = 54, PR = 58, PT = 14, PB = 30;
+            const iw = W - PL - PR, ih = H - PT - PB;
+
+            const peak = Math.max(...series.flatMap(s => s.values), 0);
+            const top = niceMax(peak);
+            const TICKS = 5;
+            const x = i => PL + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+            const y = v => PT + ih - (top === 0 ? 0 : (v / top) * ih);
+
+            const grid = [], axis = [];
+            for (let t = 0; t <= TICKS; t++) {
+                const val = (top / TICKS) * t, yy = y(val);
+                grid.push(`<line x1="${PL}" y1="${yy}" x2="${PL + iw}" y2="${yy}"></line>`);
+                axis.push(`<text x="${PL - 9}" y="${yy + 4}" text-anchor="end">${safe(fmt(val))}</text>`);
+            }
+            // Roughly every 6th day, and always the last, so the axis reads
+            // without the labels colliding at 375px.
+            // The LAST day is always labelled -- it is the one the reader came
+            // for. Stepping from 0 alone lands on 0,6,12,18,24 across 30 days
+            // and silently drops today, which an earlier version of this did
+            // while its comment claimed otherwise. Build the list, force the
+            // last index in, and drop any neighbour that would collide with it.
+            const step = Math.max(1, Math.round((n - 1) / 5));
+            const ticks = [];
+            for (let i = 0; i < n - 1; i += step) ticks.push(i);
+            while (ticks.length && (n - 1) - ticks[ticks.length - 1] < step * 0.6) ticks.pop();
+            ticks.push(n - 1);
+            for (const i of ticks) {
+                const d = new Date(Date.now() - (n - 1 - i) * 86400000);
+                axis.push(`<text x="${x(i)}" y="${H - 9}" text-anchor="middle">${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</text>`);
+            }
+
+            const paths = series.map(s =>
+                `<path class="rc-line" stroke="${s.color}" d="${s.values.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ')}"></path>`
+            ).join('');
+
+            // Direct labels at the right end -- the secondary encoding the
+            // palette check requires, and the fastest way to tell two lines
+            // apart without hunting for the legend.
+            // Nudge apart if two series end at nearly the same value, so the
+            // labels never sit on top of each other.
+            const endYs = series.map(s => y(s.values[n - 1]));
+            for (let i = 1; i < endYs.length; i++) {
+                for (let j = 0; j < i; j++) {
+                    if (Math.abs(endYs[i] - endYs[j]) < 12) endYs[i] = endYs[j] + (endYs[i] >= endYs[j] ? 12 : -12);
+                }
+            }
+            const ends = series.map((s, k) =>
+                `<text x="${PL + iw + 8}" y="${endYs[k] + 4}" fill="${s.color}" font-size="11" font-family="Inter, sans-serif">${safe(s.label)}</text>`
+            ).join('');
+
+            host.innerHTML =
+                (series.length > 1
+                    ? `<div class="rc-legend">${series.map(s => `<span class="k"><i class="sw" style="background:${s.color}"></i>${safe(s.label)}</span>`).join('')}</div>`
+                    : '') +
+                `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${safe(series.map(s => s.label).join(' and '))} by day">` +
+                `<g class="rc-grid">${grid.join('')}</g>` +
+                `<g class="rc-axis">${axis.join('')}</g>` +
+                paths + ends +
+                `<line class="rc-cross" x1="0" y1="${PT}" x2="0" y2="${PT + ih}" style="opacity:0"></line>` +
+                series.map(s => `<circle class="rc-dot" r="4" fill="${s.color}" style="opacity:0"></circle>`).join('') +
+                `<rect x="${PL}" y="${PT}" width="${iw}" height="${ih}" fill="transparent"></rect>` +
+                `</svg><div class="rc-tip"></div>`;
+
+            const svg = host.querySelector('svg');
+            const cross = host.querySelector('.rc-cross');
+            const dots = [...host.querySelectorAll('.rc-dot')];
+            const tip = host.querySelector('.rc-tip');
+
+            const move = (ev) => {
+                const r = svg.getBoundingClientRect();
+                const px = ((ev.clientX - r.left) / r.width) * W;
+                let i = Math.round(((px - PL) / iw) * (n - 1));
+                i = Math.max(0, Math.min(n - 1, i));
+                cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i));
+                cross.style.opacity = 1;
+                dots.forEach((c, k) => {
+                    c.setAttribute('cx', x(i)); c.setAttribute('cy', y(series[k].values[i]));
+                    c.style.opacity = 1;
+                });
+                const d = new Date(Date.now() - (n - 1 - i) * 86400000);
+                tip.innerHTML = `<div class="d">${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>` +
+                    series.map(s => `<div class="r"><i class="sw" style="display:inline-block;width:10px;height:3px;border-radius:2px;background:${s.color}"></i>${safe(s.label)}<b>${safe(fmt(s.values[i]))}</b></div>`).join('');
+                tip.style.opacity = 1;
+                const leftPx = (x(i) / W) * r.width;
+                tip.style.left = Math.min(Math.max(leftPx - tip.offsetWidth / 2, 0), r.width - tip.offsetWidth) + 'px';
+                tip.style.top = '0px';
+            };
+            const leave = () => {
+                cross.style.opacity = 0; tip.style.opacity = 0;
+                dots.forEach(c => { c.style.opacity = 0; });
+            };
+            svg.addEventListener('mousemove', move);
+            svg.addEventListener('mouseleave', leave);
+            svg.addEventListener('touchmove', (e) => { if (e.touches[0]) move(e.touches[0]); }, { passive: true });
+            svg.addEventListener('touchend', leave);
+        }
+
+        function renderReportCharts() {
+            if (!document.getElementById('chartRevCost')) return;
+            const revenue = dailySeries(30, t => t.isComp ? 0 : num(t.amount) / 100);
+            const tickets = dailySeries(30, t => t.isComp ? 0 : 1);
+            rcChart('chartRevCost', [
+                { label: 'Revenue', color: '#c9a227', values: revenue },
+                { label: 'Cost', color: '#e05555', values: costSeries(30) },
+            ], (v) => '$' + Math.round(v));
+            rcChart('chartTickets', [
+                { label: 'Tickets', color: '#4ade80', values: tickets },
+            ], (v) => String(Math.round(v)));
         }
 
         function renderReport() {
@@ -4576,6 +4775,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             };
             renderReport();
             renderCampaigns();
+            renderReportCharts();
         }
 
         // ─── Renderers ─────────────────────────────────────
@@ -5688,7 +5888,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             }
             // Report reads a snapshot taken during renderKPIs, so repaint it on
             // entry rather than leaving whatever was there at last full load.
-            if (id === 'report') { renderReport(); renderMetric(); renderCampaigns(); }
+            if (id === 'report') { renderReport(); renderMetric(); renderCampaigns(); renderReportCharts(); }
             if (id === 'venues') loadVenues();
             if (id === 'leads')  loadLeads();
             if (id === 'events') populateVenuePicker();
