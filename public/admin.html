@@ -1764,6 +1764,14 @@
               day -- and nothing read it. Cheap clicks and no sales looks
               identical to expensive clicks and no sales unless the two are put
               on the same screen, which is the whole reason this panel exists.
+
+              Campaigns now expand into their AD SETS, because that is where the
+              gender split actually lives -- a campaign row averages a female set
+              together with an all-genders one and hides the thing being managed.
+              Each ad set carries its objective, since a traffic set's CPC and a
+              sales set's CPC are not the same number, and comparing them is how
+              a 10x-cheaper set that has never produced a checkout gets mistaken
+              for the winner.
             -->
             <div class="card" style="margin-top:24px;">
                 <div class="card-header">
@@ -4139,12 +4147,33 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const camps = new Map();
             inWindow.forEach(d => (d.byCampaign || []).forEach(c => {
                 const key = c.id || c.name;
-                const row = camps.get(key) || { name: c.name || '(unnamed)', eventId: c.eventId || null, spend: 0, clicks: 0, impressions: 0 };
+                const row = camps.get(key) || { id: c.id || null, name: c.name || '(unnamed)', eventId: c.eventId || null, spend: 0, clicks: 0, impressions: 0 };
                 row.spend += Number(c.spend || 0);
                 row.clicks += Number(c.clicks || 0);
                 row.impressions += Number(c.impressions || 0);
                 if (!row.eventId && c.eventId) row.eventId = c.eventId;
                 camps.set(key, row);
+            }));
+
+            // ── Per AD SET, grouped under its campaign ──
+            // Gender targeting lives in ad sets, so a campaign row averages a
+            // "| Female |" set together with an all-genders one and hides the
+            // very split being managed. Documents written before the sync moved
+            // to level:'adset' have no byAdset -- those campaigns simply render
+            // without children, exactly as they did before.
+            const adsetsBy = new Map();
+            inWindow.forEach(d => (d.byAdset || []).forEach(a => {
+                const list = adsetsBy.get(a.campaignId) || new Map();
+                const key = a.id || a.name;
+                const row = list.get(key) || { name: a.name || '(unnamed)', objective: a.objective || null,
+                                               spend: 0, clicks: 0, linkClicks: 0, impressions: 0 };
+                row.spend += Number(a.spend || 0);
+                row.clicks += Number(a.clicks || 0);
+                row.linkClicks += Number(a.linkClicks || 0);
+                row.impressions += Number(a.impressions || 0);
+                if (!row.objective && a.objective) row.objective = a.objective;
+                list.set(key, row);
+                adsetsBy.set(a.campaignId, list);
             }));
 
             // ── Per event: spend and clicks from the campaigns, tickets from sales ──
@@ -4217,11 +4246,30 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     </tr>`;
                 }).join('');
 
+            // An objective badge, because it is the field that most changes how
+            // a row should be read. Measured on this account: LINK_CLICKS ad
+            // sets produced 406 landing-page views and ZERO checkouts, while
+            // OUTCOME_SALES sets produced 35 -- so a traffic set showing a
+            // 10x cheaper CPC is not the winner it looks like. The badge says
+            // what the CPC is a CPC *of*.
+            const objBadge = (o) => {
+                if (!o) return '';
+                const traffic = /LINK_CLICKS|TRAFFIC|OUTCOME_TRAFFIC/.test(o);
+                const label = traffic ? 'traffic' : /SALES|CONVERSION/.test(o) ? 'sales' : o.toLowerCase().replace(/^outcome_/, '');
+                const tip = traffic
+                    ? 'Optimised for clicks, not purchases - a cheap CPC here does not mean cheap tickets'
+                    : 'Optimised for purchases';
+                return ` <span title="${safe(tip)}" style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;padding:1px 5px;border-radius:3px;`
+                    + (traffic ? 'background:rgba(224,85,85,0.14);color:#e88;' : 'background:rgba(74,222,128,0.14);color:#6ee7a0;')
+                    + `">${safe(label)}</span>`;
+            };
+
             const costRows = [...camps.values()]
                 .sort((a, b) => b.spend - a.spend)
                 .map(r => {
                     const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100).toFixed(2) + '%' : dash;
-                    return `<tr>
+                    const kids = [...(adsetsBy.get(r.id) || new Map()).values()].sort((a, b) => b.spend - a.spend);
+                    const parent = `<tr>
                         <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${safe(r.name)}">${safe(r.name)}</td>
                         <td style="color:rgba(245,243,240,0.6);">${r.eventId ? safe(eventName(r.eventId)) : dash}</td>
                         <td>${money(r.spend)}</td>
@@ -4230,6 +4278,26 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <td style="color:rgba(245,243,240,0.6);">${r.impressions}</td>
                         <td style="color:rgba(245,243,240,0.6);">${ctr}</td>
                     </tr>`;
+                    // Only one ad set? The child row would just restate the
+                    // parent. Children appear when there is an actual split.
+                    if (kids.length < 2) return parent;
+                    const childRows = kids.map(a => {
+                        const actr = a.impressions > 0 ? (a.clicks / a.impressions * 100).toFixed(2) + '%' : dash;
+                        // CPC here is all-clicks, matching what Ads Manager
+                        // shows by default; link-click CPC sits in the tooltip
+                        // because the gap between the two is itself a signal.
+                        const lc = a.linkClicks ? `link CPC ${cpc(a.spend, a.linkClicks)} on ${a.linkClicks} link clicks` : 'no link clicks recorded';
+                        return `<tr style="background:rgba(255,255,255,0.02);">
+                            <td style="padding-left:22px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:rgba(245,243,240,0.75);" title="${safe(a.name)}">&#8627; ${safe(a.name)}${objBadge(a.objective)}</td>
+                            <td></td>
+                            <td style="font-size:12px;color:rgba(245,243,240,0.75);">${money(a.spend)}</td>
+                            <td style="font-size:12px;color:rgba(245,243,240,0.75);">${a.clicks}</td>
+                            <td style="font-size:12px;color:rgba(245,243,240,0.75);" title="${safe(lc)}">${cpc(a.spend, a.clicks)}</td>
+                            <td style="font-size:12px;color:rgba(245,243,240,0.5);">${a.impressions}</td>
+                            <td style="font-size:12px;color:rgba(245,243,240,0.5);">${actr}</td>
+                        </tr>`;
+                    }).join('');
+                    return parent + childRows;
                 }).join('');
 
             evtBody.innerHTML = evtRows || '<tr><td colspan="6" class="empty">No campaigns in this window.</td></tr>';

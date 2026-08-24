@@ -50,7 +50,9 @@
  *     date        '2026-08-22'
  *     total       19.26                       dollars, all campaigns
  *     byEvent     { '<eventId>': 5.20, _unattributed: 2.00 }
- *     byCampaign  [ { id, name, eventId, spend, clicks, impressions } ]
+ *     byCampaign  [ { id, name, eventId, spend, clicks, linkClicks, impressions, adsets } ]
+ *     byAdset     [ { id, name, campaignId, campaignName, objective, eventId,
+ *                     spend, clicks, linkClicks, impressions } ]
  *     source      'meta'
  *     syncedAt    server timestamp
  *
@@ -173,9 +175,29 @@ async function main() {
   console.log(EXECUTE ? 'EXECUTING -- will write to Firestore\n' : 'DRY RUN -- nothing written\n');
 
   const map = await campaignEventMap();
+  // AD SET level, not campaign. Gender targeting lives in AD SETS -- a single
+  // campaign routinely holds a "| Female |" set beside an all-genders one --
+  // so a campaign-level pull cannot see the split that is actually being
+  // managed. Taylor hit this directly: the dashboard reported a Good Good
+  // women's CPC of $1.25 while Ads Manager showed $0.15, because those were
+  // two different ad sets inside two different campaigns and only the
+  // campaign totals were stored. byCampaign is still written (aggregated up
+  // from the ad sets below), so nothing downstream has to change.
+  //
+  // `objective` is pulled because it turned out to be the single most
+  // decisive field on this account: across every venue, LINK_CLICKS ad sets
+  // produced 406 landing-page views and ZERO checkouts, while OUTCOME_SALES
+  // ad sets produced 35. Cheap clicks are not cheap tickets, and without the
+  // objective stored next to the CPC the dashboard makes the cheap ones look
+  // like the winners.
+  //
+  // `clicks` is ALL clicks (what Ads Manager's default CPC column shows);
+  // `inline_link_clicks` is link clicks only. Both are stored because
+  // comparing one against the other is exactly how the $1.25-vs-$0.15
+  // confusion above got started.
   const rows = (await get(`${ACCOUNT}/insights`, {
-    fields: 'campaign_id,campaign_name,spend,clicks,impressions',
-    level: 'campaign',
+    fields: 'campaign_id,campaign_name,adset_id,adset_name,objective,spend,clicks,inline_link_clicks,impressions',
+    level: 'adset',
     time_increment: '1',
     time_range: JSON.stringify({ since: ymd(since), until: ymd(until) }),
     limit: 500,
@@ -186,7 +208,7 @@ async function main() {
   const ambiguous = new Set();
   for (const r of rows) {
     const date = r.date_start;
-    if (!days.has(date)) days.set(date, { date, total: 0, byEvent: {}, byCampaign: [] });
+    if (!days.has(date)) days.set(date, { date, total: 0, byEvent: {}, byCampaign: [], byAdset: [] });
     const day = days.get(date);
     const spend = Math.round((Number(r.spend) || 0) * 100) / 100;
     const info = map.get(r.campaign_id) || {};
@@ -195,14 +217,38 @@ async function main() {
 
     day.total = Math.round((day.total + spend) * 100) / 100;
     day.byEvent[key] = Math.round(((day.byEvent[key] || 0) + spend) * 100) / 100;
-    day.byCampaign.push({
-      id: r.campaign_id,
-      name: r.campaign_name,
+    day.byAdset.push({
+      id: r.adset_id,
+      name: r.adset_name || '(unnamed)',
+      campaignId: r.campaign_id,
+      campaignName: r.campaign_name,
+      objective: r.objective || null,
       eventId: info.eventId || null,
       spend,
       clicks: Number(r.clicks) || 0,
+      linkClicks: Number(r.inline_link_clicks) || 0,
       impressions: Number(r.impressions) || 0,
     });
+  }
+
+  // Fold the ad sets up into the campaign rows the dashboard already reads.
+  // Same shape as before the ad-set switch, so byCampaign stays a drop-in --
+  // an older dashboard build keeps working against a newer document.
+  for (const day of days.values()) {
+    const roll = new Map();
+    for (const a of day.byAdset) {
+      const c = roll.get(a.campaignId) || {
+        id: a.campaignId, name: a.campaignName, eventId: a.eventId,
+        spend: 0, clicks: 0, linkClicks: 0, impressions: 0, adsets: 0,
+      };
+      c.spend += a.spend;
+      c.clicks += a.clicks;
+      c.linkClicks += a.linkClicks;
+      c.impressions += a.impressions;
+      c.adsets += 1;
+      roll.set(a.campaignId, c);
+    }
+    day.byCampaign = [...roll.values()].map(c => ({ ...c, spend: Math.round(c.spend * 100) / 100 }));
   }
 
   const sorted = [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
@@ -210,11 +256,11 @@ async function main() {
   const perEvent = {};
   for (const d of sorted) for (const [k, v] of Object.entries(d.byEvent)) perEvent[k] = (perEvent[k] || 0) + v;
 
-  console.log('date         spend   campaigns  attributed');
+  console.log('date         spend   campaigns  ad sets  attributed');
   for (const d of sorted.slice(-14)) {
     const attributed = Object.entries(d.byEvent).filter(([k]) => k !== '_unattributed').reduce((a, [, v]) => a + v, 0);
     const pct = d.total ? Math.round(attributed / d.total * 100) : 0;
-    console.log(`  ${d.date}  ${('$' + d.total.toFixed(2)).padStart(8)}  ${String(d.byCampaign.length).padStart(6)}     ${String(pct).padStart(3)}%`);
+    console.log(`  ${d.date}  ${('$' + d.total.toFixed(2)).padStart(8)}  ${String(d.byCampaign.length).padStart(6)}  ${String(d.byAdset.length).padStart(7)}     ${String(pct).padStart(3)}%`);
   }
   if (sorted.length > 14) console.log(`  … ${sorted.length - 14} earlier day(s) not printed`);
 
