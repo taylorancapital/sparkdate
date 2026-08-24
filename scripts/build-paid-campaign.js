@@ -569,7 +569,20 @@ async function main() {
   const back = await get(camp.id, { fields: 'name,status,objective,daily_budget' });
   console.log(`OK  campaign ${camp.id}  ${back.objective}  ${back.status}  ${money(+back.daily_budget)}/day`);
 
+  // If ANY ad set fails, delete the campaign.
+  //
+  // Validating before creating was not enough, and could never have been:
+  // on 2026-08-23 this left THREE empty campaigns in the live account, each
+  // from a different Meta requirement discovered only by attempting it --
+  // first a missing geo_locations wrapper, then advantage_audience. Meta
+  // does not validate a campaign against ad sets that do not exist yet, so
+  // a half-built run is the default failure mode and the next unknown rule
+  // would have produced a fourth husk.
+  //
+  // Guessing every rule in advance is not possible. Cleaning up after
+  // ourselves is.
   const GENDER = { female: [2], male: [1] };
+  try {
   for (const a of buildable) {
     const set = await post(`${ACCOUNT}/adsets`, {
       name: `${ev.name} | ${a.key} | Traffic`,
@@ -577,7 +590,23 @@ async function main() {
       optimization_goal: PT.campaign.optimization_goal,
       billing_event: PT.campaign.billing_event,
       attribution_spec: JSON.stringify([{ event_type: 'CLICK_THROUGH', window_days: 1 }]),
-      targeting: JSON.stringify({ ...baseTargeting, genders: GENDER[a.key] }),
+      // advantage_audience MUST be stated. Meta rejects an ad set that leaves
+      // it unset: "you need to enable or disable the Advantage audience
+      // feature ... within the targeting_automation field".
+      //
+      // It is 0, and that is a design decision rather than a default.
+      // Advantage audience lets Meta spend OUTSIDE the targeting it was
+      // given -- including outside the gender split. Turning it on would
+      // let the female ad set serve men and the male ad set serve women,
+      // which dissolves the one axis these two ad sets exist to separate.
+      // #256 hit the neighbouring version of this: an ad set carrying
+      // Advantage+ audience was "not eligible for individual_setting"
+      // inside an OUTCOME_TRAFFIC campaign.
+      targeting: JSON.stringify({
+        ...baseTargeting,
+        genders: GENDER[a.key],
+        targeting_automation: { advantage_audience: 0 },
+      }),
       end_time: `${ev.date}T16:30:00-0400`,
       // No per-ad-set budget: the campaign's CBO allocates between them, which
       // is the whole reason they share a campaign instead of bidding separately.
@@ -585,6 +614,22 @@ async function main() {
     });
     const sb = await get(set.id, { fields: 'name,status,optimization_goal' });
     console.log(`OK  ad set ${set.id}  ${sb.optimization_goal}  ${sb.status}  (${a.key})`);
+  }
+  } catch (e) {
+    console.error('');
+    console.error(`\u2717 ad set failed: ${e.message}`);
+    console.error(`  rolling back campaign ${camp.id} so it is not left empty...`);
+    try {
+      const u = new URL(`${GRAPH}/${camp.id}`);
+      u.searchParams.set('access_token', token);
+      const res = await (await fetch(u, { method: 'DELETE' })).json();
+      console.error(res && res.success
+        ? `  campaign ${camp.id} deleted. Nothing was left behind.`
+        : `  DELETE returned ${JSON.stringify(res)} -- check campaign ${camp.id} by hand.`);
+    } catch (delErr) {
+      console.error(`  rollback ALSO failed (${delErr.message}). Delete campaign ${camp.id} by hand.`);
+    }
+    process.exit(1);
   }
 
   console.log('');
