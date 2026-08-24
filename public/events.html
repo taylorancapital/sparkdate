@@ -1091,7 +1091,7 @@
                 who introduces people at parties, that's the whole job — $22 an hour,
                 evenings, a few nights a month.
             </p>
-            <a href="/careers" style="display: inline-block; padding: 13px 30px; border: 1px solid rgba(255,107,107,0.55); border-radius: 4px; color: #ff6b6b; text-decoration: none; font-weight: 600; font-size: 15px;">Become a SparkDate host →</a>
+            <a href="/careers" style="display: inline-block; padding: 13px 30px; border: 1px solid rgba(255,107,107,0.55); border-radius: 4px; color: #ff6b6b; text-decoration: none; font-weight: 600; font-size: 15px;" data-promo="careers_events_callout">Become a SparkDate host →</a>
         </div>
     </section>
 
@@ -1415,7 +1415,7 @@
             <a href="https://twitter.com/sparkdatedate" target="_blank" rel="noopener" aria-label="Twitter / X" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:rgba(255,107,107,0.1);color:rgba(245,243,240,0.7);transition:all 0.3s;"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.9 1.15h3.68l-8.04 9.19L24 22.85h-7.41l-5.8-7.58-6.64 7.58H.47l8.6-9.83L0 1.15h7.6l5.24 6.93 6.06-6.93zm-1.29 19.5h2.04L6.49 3.24H4.3L17.61 20.65z"/></svg></a>
         </div>
         <p style="margin-top: 16px; font-size: 11px;">
-            <a href="/careers" style="color: rgba(245, 243, 240, 0.6); text-decoration: none; margin: 0 8px;">Careers</a>
+            <a href="/careers" data-promo="careers_footer" style="color: rgba(245, 243, 240, 0.6); text-decoration: none; margin: 0 8px;">Careers</a>
             <a href="/terms" style="color: rgba(245, 243, 240, 0.6); text-decoration: none; margin: 0 8px;">Terms</a>
             ·
             <a href="/privacy" style="color: rgba(245, 243, 240, 0.6); text-decoration: none; margin: 0 8px;">Privacy</a>
@@ -2723,6 +2723,31 @@
             }
             await loadEvents();
         });
+    </script>
+
+    <script>
+      // Which careers placement people actually click. The destination page
+      // already reports the application itself (host_application_started); this
+      // reports the step before it, so the two can be divided -- clicks per
+      // placement against applications, rather than a single undifferentiated
+      // count of people who reached /careers.
+      //
+      // select_promotion with a promotion_name, matching the convention
+      // index.html and lp.html already use for CTA clicks. NOT a UTM on the
+      // href: internal links carrying UTMs cause self-referral, GA4 relabels
+      // the session, and the channel that really acquired the visit loses the
+      // credit (tests/internal-links.test.js).
+      (function () {
+        document.querySelectorAll('a[href="/careers"]').forEach(function (a) {
+          a.addEventListener('click', function () {
+            if (typeof gtag !== 'function') return;
+            gtag('event', 'select_promotion', {
+              promotion_name: a.dataset.promo || 'careers_link',
+              creative_slot: 'events'
+            });
+          });
+        });
+      })();
     </script>
 </body>
 </html>
