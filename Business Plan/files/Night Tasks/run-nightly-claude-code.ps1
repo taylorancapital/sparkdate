@@ -1,13 +1,18 @@
 # run-nightly-claude-code.ps1
 #
-# Nightly local prep for the Cowork review. Two jobs, in order:
+# Nightly local prep for the Cowork review. Three jobs, in order:
 #
 #   1. Pull Meta Ads insights into the Night Tasks folder, so the Cowork
 #      scheduled task finds them sitting next to the manually-exported GA4
 #      files. Cowork cannot do this itself -- it runs in a cloud sandbox with
 #      no access to this machine and no Meta token -- so it has to happen here.
 #
-#   2. If a fresh TONIGHT_PROMPT.md exists, run it through the local Claude
+#   2. Open PRs for any claude/* branch that was pushed without one. Cowork
+#      CANNOT do this itself -- its sandbox blocks api.github.com, so `gh pr
+#      create` fails there after the push succeeds, leaving the report on a
+#      branch nobody is watching. This machine has working gh credentials.
+#
+#   3. If a fresh TONIGHT_PROMPT.md exists, run it through the local Claude
 #      Code CLI (the one with working git/gh credentials). This is the older
 #      half of the job and is now usually a no-op: Cowork writes its reports
 #      directly as PRs rather than queuing a prompt for this script.
@@ -102,7 +107,116 @@ try {
     Log "WARN (meta): pull threw '$_'. Continuing -- this does not block the review."
 }
 
-# ── Step 2: queued Claude Code prompt (usually absent) ───────────────────
+# ── Step 2: open PRs Cowork could not open ───────────────────────────────
+# Cowork's sandbox blocks api.github.com, so `gh pr create` cannot run there.
+# It commits the report and pushes the branch, and the PR never appears. That
+# is not hypothetical: GA4_ANALYSIS_2026-08-23.md (393 lines) and
+# DEPENDENCY_AUDIT_2026-08-23.md (377 lines) sat on origin for two days with no
+# PR, while two later reports cited them as "still open" and as missing
+# entirely. Nobody noticed because a branch with no PR is invisible.
+#
+# This machine has working gh credentials, which is the whole reason step 3
+# exists at all, so it can close the gap. Idempotent: it only ever creates a PR
+# where none exists.
+#
+# Deliberately NOT a GitHub Action on push. A workflow firing on every
+# claude/** push would race interactive sessions and open PRs with generated
+# titles before a real description is written. Sweeping at night catches the
+# unattended runs and leaves daytime work alone.
+try {
+    Log "Checking for pushed branches with no PR..."
+    Push-Location $RepoPath
+    try {
+        & git fetch --prune --quiet origin 2>&1 | Out-Null
+
+        # Two hours, so a branch pushed by an interactive session that is still
+        # writing its PR description is left alone. Cowork's branches are hours
+        # old by the time this runs.
+        $cutoff = (Get-Date).ToUniversalTime().AddHours(-2)
+        # And a floor: this repo carries 271 claude/* branches, most of them old
+        # and deliberately abandoned. Without a window the first sweep would open
+        # a PR for every one of them. Seven days catches an unattended run that
+        # failed to open its PR and ignores everything archaeological.
+        $floor = (Get-Date).ToUniversalTime().AddDays(-7)
+        $opened = 0
+        $branches = & git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/claude/*'
+
+        # ONE API call, not one per branch. Asking gh per branch across 271
+        # branches took over two minutes in testing and would hammer the API
+        # every night for an answer that fits in a single request.
+        $withPR = New-Object 'System.Collections.Generic.HashSet[string]'
+        $prJson = & gh pr list --state all --limit 500 --json headRefName 2>$null
+        if ($prJson) {
+            foreach ($r in ($prJson | ConvertFrom-Json)) { [void]$withPR.Add($r.headRefName) }
+        } else {
+            Log "  WARN: could not list PRs -- skipping the sweep rather than opening duplicates."
+            $branches = @()
+        }
+
+        foreach ($ref in $branches) {
+            if (-not $ref) { continue }
+            $branch = $ref -replace '^origin/', ''
+
+            # Nothing to propose if it is already contained in main.
+            $ahead = (& git rev-list --count "origin/main..$ref" 2>$null | Select-Object -First 1)
+            if (-not $ahead -or [int]$ahead -eq 0) { continue }
+
+            $whenRaw = (& git log -1 --format='%cI' $ref 2>$null | Select-Object -First 1)
+            if ($whenRaw) {
+                $when = [datetime]::Parse($whenRaw).ToUniversalTime()
+                if ($when -gt $cutoff) {
+                    Log "  skip $branch -- pushed less than 2h ago, may still be in progress."
+                    continue
+                }
+                if ($when -lt $floor) { continue }
+            }
+
+            if ($withPR.Contains($branch)) { continue }
+
+            # A PR is only useful if its diff is the work. These branches are cut
+            # from whatever main looked like that night, and a stale one shows
+            # every intervening change as its own: claude/paid-efficiency-analysis-
+            # 2026-08-21 carries a 1-file, 319-line report and would open a PR of
+            # 15,686 files, 15,370 of them node_modules that main has since
+            # untracked. Opening that is worse than opening nothing.
+            #
+            # So: propose the easy case, report the hard one. A stale branch needs
+            # its commits replayed onto current main before a PR means anything,
+            # and that is a judgement call, not a sweep's job.
+            $behind = (& git rev-list --count "$ref..origin/main" 2>$null | Select-Object -First 1)
+            if ($behind -and [int]$behind -gt 20) {
+                Log "  STALE $branch -- $behind commits behind main, $ahead ahead. Not opening: the PR would show main's changes as its own. Replay it onto current main first (git cherry-pick), then open the PR."
+                continue
+            }
+
+            # --fill is NOT used on purpose: it resolves the head through a LOCAL
+            # ref and fails with "unknown revision" for a branch that only exists
+            # on origin, which is exactly the case here. Title and body are read
+            # off the remote commit instead, so no local branch is needed.
+            $title = (& git log -1 --format='%s' $ref 2>$null | Select-Object -First 1)
+            $body  = (& git log -1 --format='%b' $ref 2>$null) -join "`n"
+            if (-not $title) { continue }
+            if (-not $body) { $body = "Opened automatically by the nightly sweep: this branch was pushed without a PR." }
+            $body = $body + "`n`n---`nPR opened by the nightly sweep in run-nightly-claude-code.ps1 -- the run that pushed this branch could not reach api.github.com."
+
+            Log "  opening PR for $branch ($ahead commit(s) ahead)"
+            $out = & gh pr create --head $branch --base main --title $title --body $body 2>&1
+            Write-ProcessOutputToLog $out
+            if ($LASTEXITCODE -eq 0) { $opened++ } else { Log "  WARN: gh pr create failed for $branch (exit $LASTEXITCODE)." }
+        }
+
+        if ($opened -eq 0) { Log "No branches needed a PR." }
+        else { Log "Opened $opened PR(s) that had been pushed without one." }
+    } finally {
+        Pop-Location
+    }
+} catch {
+    # Non-fatal, like the Meta pull: a sweep failure must not stop the queued
+    # prompt from running.
+    Log "WARN (pr-sweep): threw '$_'. Continuing."
+}
+
+# ── Step 3: queued Claude Code prompt (usually absent) ───────────────────
 if (-not (Test-Path $PromptFile)) {
     Log "No TONIGHT_PROMPT.md -- nothing queued for the local CLI. Done."
     exit 0
