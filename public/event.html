@@ -832,6 +832,27 @@
                             <input type="tel" id="ticketPhone" placeholder="+1 (555) 123-4567" autocomplete="tel">
                         </div>
 
+
+                        <div class="form-group" id="cardFormGroup">
+                            <label>Payment Card</label>
+                            <div id="card-element"></div>
+                            <div style="font-size: 12px; color: rgba(245,243,240,0.5); margin-top: 8px;">🔒 Payments processed securely by Stripe</div>
+                        </div>
+
+                        <div class="form-group" id="cardOnFileNotice" style="display: none;">
+                            <label>Payment Method</label>
+                            <div style="padding: 14px 16px; background: rgba(74, 222, 128, 0.06); border: 1px solid rgba(74, 222, 128, 0.25); border-radius: 4px; font-size: 13px; color: var(--cream);">
+                                <strong style="color: var(--success);">Card on file</strong>
+                                <div style="font-size: 12px; color: rgba(245,243,240,0.6); margin-top: 4px;">We'll charge the card you used for your subscription.</div>
+                            </div>
+                        </div>
+
+                        <!-- 2-for-1 sits AFTER the card, immediately above the price breakdown it
+                             changes. It used to sit between the phone field and Payment Card, which
+                             put an optional offer -- and, when ticked, a second full set of name /
+                             email / phone inputs -- in the middle of the buyer's own details, pushing
+                             the card further down the form for everyone including the majority who
+                             never take it. Here it is adjacent to the subtotal line it relabels. -->
                         <div class="two-for-one-toggle">
                             <input type="checkbox" id="twoForOneCheckbox">
                             <label for="twoForOneCheckbox"><strong>🎉 2-for-1:</strong> bring someone for free. Add their info below — you're only charged for one ticket.</label>
@@ -858,20 +879,6 @@
                             <div class="form-group">
                                 <label for="plusOnePhone">Their Phone <span style="font-weight: 400; color: rgba(245,243,240,0.45);">(optional)</span></label>
                                 <input type="tel" id="plusOnePhone" placeholder="+1 (555) 123-4567" autocomplete="tel">
-                            </div>
-                        </div>
-
-                        <div class="form-group" id="cardFormGroup">
-                            <label>Payment Card</label>
-                            <div id="card-element"></div>
-                            <div style="font-size: 12px; color: rgba(245,243,240,0.5); margin-top: 8px;">🔒 Payments processed securely by Stripe</div>
-                        </div>
-
-                        <div class="form-group" id="cardOnFileNotice" style="display: none;">
-                            <label>Payment Method</label>
-                            <div style="padding: 14px 16px; background: rgba(74, 222, 128, 0.06); border: 1px solid rgba(74, 222, 128, 0.25); border-radius: 4px; font-size: 13px; color: var(--cream);">
-                                <strong style="color: var(--success);">Card on file</strong>
-                                <div style="font-size: 12px; color: rgba(245,243,240,0.6); margin-top: 4px;">We'll charge the card you used for your subscription.</div>
                             </div>
                         </div>
 
