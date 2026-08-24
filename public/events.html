@@ -826,16 +826,51 @@
            Deliberately low-contrast and borderless: this is reference text a
            buyer scans if they wonder, not a callout. The single hairline rule
            is the only separation it needs from the button. */
+        /* Three kinds of information, three levels of emphasis -- not one
+           uniform wall of grey.
+
+              perks   what the buyer gets      brightest, discrete items
+              note    what a purchase is not   dimmer
+              legal   the required wording     dimmest
+
+           The perks were previously one run-on line joined by middots, which
+           reads as a sentence nobody finishes. As separate flex items they
+           scan in a glance and wrap cleanly at 375px.
+
+           Links are muted grey-underlined rather than coral: a coral link in
+           the fine print pulls the eye straight back off the CTA, which is the
+           whole thing this block was moved below the button to stop. */
+        /* One bordered box, two rows, all of it quiet.
+              row 1   four facts, each with its own emoji, as discrete items
+              row 2   the required legal wording
+
+           "One-time ticket purchase" is now a fact in that row rather than a
+           sentence of its own. It used to carry "no membership and no
+           subscription -- you're only paying for this event. Nothing
+           recurring." -- three restatements of one idea, and phrasing that
+           raised the possibility of a subscription in order to deny it. The
+           ticket emoji does the same work as the padlock beside it.
+
+           Links are muted grey-underlined, not coral: a coral link down here
+           pulls the eye straight back off the CTA, which is the whole reason
+           this block sits below the button. */
         .checkout-fineprint {
-            margin-top: 16px; padding-top: 14px;
-            border-top: 1px solid rgba(245, 243, 240, 0.10);
-            font-size: 11.5px; line-height: 1.65;
-            color: rgba(245, 243, 240, 0.55); text-align: center;
+            margin-top: 16px; padding: 11px 14px;
+            border: 1px solid rgba(245, 243, 240, 0.10); border-radius: 4px;
+            text-align: center;
         }
-        .checkout-fineprint .fp-line { margin: 0 0 7px; }
-        .checkout-fineprint .fp-line:last-child { margin-bottom: 0; }
-        .checkout-fineprint strong { color: rgba(245, 243, 240, 0.78); font-weight: 600; }
-        .checkout-fineprint a { color: var(--coral); text-decoration: none; }
+        .checkout-fineprint .fp-perks {
+            display: flex; flex-wrap: wrap; justify-content: center;
+            gap: 4px 14px; margin-bottom: 8px;
+            font-size: 11.5px; line-height: 1.5; color: rgba(245, 243, 240, 0.6);
+        }
+        .checkout-fineprint .fp-legal {
+            font-size: 11px; line-height: 1.6; color: rgba(245, 243, 240, 0.42);
+        }
+        .checkout-fineprint a {
+            color: rgba(245, 243, 240, 0.55);
+            text-decoration: underline; text-underline-offset: 2px;
+        }
         /* Standalone testimonial box. It now sits DIRECTLY above the CTA:
            social proof leads straight into the button, and everything else
            moved below it into .checkout-fineprint. */
@@ -1317,9 +1352,13 @@
                          memberships return it is load-bearing again, and re-adding it is the
                          kind of thing nobody remembers to do. It costs one quiet line here. -->
                     <div class="checkout-fineprint">
-                        <div class="fp-line">🔒 Secure checkout · 🔄 Free ticket transfer if your plans change · A real host is on-site the whole night</div>
-                        <div class="fp-line" id="modalTrialDisclosure"><strong>One-time ticket purchase</strong> — no membership, no subscription, nothing recurring.</div>
-                        <div class="fp-line">By purchasing, you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>. Must be 21+, bring valid ID.</div>
+                        <div class="fp-perks">
+                            <span id="modalTrialDisclosure">🎫 One-time ticket purchase</span>
+                            <span>🔒 Secure checkout</span>
+                            <span>🔄 Free ticket transfer</span>
+                            <span>👤 Real host on-site</span>
+                        </div>
+                        <div class="fp-legal">By purchasing you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>. Must be 21+ with valid ID.</div>
                     </div>
                 </form>
 
