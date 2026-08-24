@@ -468,27 +468,44 @@ async function post(p, fields) {
 
 /** Meta's own city key for a market, looked up rather than hardcoded. */
 async function resolveGeo(geo) {
-  const res = await get('search', {
-    type: 'adgeolocation',
-    location_types: JSON.stringify(['city']),
-    q: geo.city,
-  });
-  const hit = (res.data || []).find(
-    (r) => r.country_code === geo.country && (!geo.region || r.region === geo.region)
-  );
-  if (!hit) throw new Error(`no Meta city match for ${geo.city}, ${geo.region}`);
+  // geo.cities is a LIST. A market is rarely one circle: Lancaster is really
+  // the Lancaster-Harrisburg-York triangle, and a single 20-mile radius drops
+  // two thirds of it.
+  const wanted = geo.cities || [];
+  if (!wanted.length) throw new Error('market geo has no cities');
+
+  const out = [];
+  for (const c of wanted) {
+    const res = await get('search', {
+      type: 'adgeolocation',
+      location_types: JSON.stringify(['city']),
+      q: c.city,
+    });
+    // Match on EXACT name as well as country and region. Searching "Lancaster"
+    // returns both Lancaster and West Lancaster in Pennsylvania, and every one
+    // of these names also exists in several other states -- York alone matches
+    // Nebraska, New York and Maine. Taking the first hit was ordering-dependent
+    // and would eventually have targeted the wrong town without saying so.
+    const hits = (res.data || []).filter(
+      (r) => r.country_code === c.country
+        && (!c.region || r.region === c.region)
+        && String(r.name).toLowerCase() === String(c.city).toLowerCase()
+    );
+    if (!hits.length) throw new Error(`no Meta city match for ${c.city}, ${c.region}`);
+    if (hits.length > 1) {
+      throw new Error(`ambiguous Meta match for ${c.city}, ${c.region}: ${hits.map((h) => h.key).join(', ')}`);
+    }
+    out.push({ key: hits[0].key, radius: c.radius_miles, distance_unit: 'mile' });
+    console.log(`  geo  ${c.city}, ${c.region} -> ${hits[0].key} @ ${c.radius_miles}mi`);
+  }
+
   // MUST be wrapped in geo_locations. Returning a bare { cities: [...] } is
   // what created an empty campaign on 2026-08-23: the campaign POST succeeded,
   // then every ad set was rejected with "Add at least one location or choose a
   // custom audience" because the targeting object had no geo_locations key at
   // all. Meta does not validate the campaign against the ad sets that will
-  // follow, so a malformed targeting shape fails HALFWAY -- campaign created,
-  // nothing under it.
-  return {
-    geo_locations: {
-      cities: [{ key: hit.key, radius: geo.radius_miles, distance_unit: 'mile' }],
-    },
-  };
+  // follow, so a malformed targeting shape fails HALFWAY.
+  return { geo_locations: { cities: out } };
 }
 
 async function main() {
@@ -529,7 +546,7 @@ async function main() {
   } else {
     if (!market.geo) throw new Error(`markets.${ev.market} has no geo block to build targeting from`);
     baseTargeting = { ...(await resolveGeo(market.geo)), age_min: 22, age_max: 45 };
-    console.log(`targeting built from markets.${ev.market}.geo (${market.geo.city}, ${market.geo.radius_miles}mi)`);
+    console.log(`targeting built from markets.${ev.market}.geo (${(market.geo.cities || []).map((c) => c.city).join(', ')})`);
   }
 
   // Targeting is resolved and validated BEFORE the campaign is created, so a
