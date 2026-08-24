@@ -53,6 +53,27 @@ Four things must be said before anyone acts on that:
    people already browsing an events marketplace. Meta paid is cold prospecting. A 37×
    efficiency gap does not mean "move the budget," it means the two are doing different
    jobs and only one is being measured on revenue.
+
+   **From Taylor (2026-08-24), which explains the mechanism:** the Eventbrite listings
+   carry hand-added UTM links inviting people to learn more about SparkDate, and people
+   click them. That accounts for the channel existing at all. `listing` is not a medium
+   GA4 ever assigns by itself, and no `utm_medium=listing` appears anywhere in this
+   repository — so the tags were placed on Eventbrite, outside the codebase, exactly as
+   described.
+
+   It also sharpens what the 37× means. These are not strangers: Eventbrite showed them
+   a dated event first, and the click is a warm second step. The behaviour matches —
+   `download (26).csv` attributes 34 `view_item`, 24 `checkout_form_started` and **10
+   `purchase`** to `eventbrite / listing`, a 29% view-to-purchase rate that no cold
+   channel produces. Eventbrite did the acquiring; our site took the payment.
+
+   **One part of the account is not visible in this export and should not be assumed.**
+   Whether those visitors land on an About-style page before the event page cannot be
+   checked here: `download (26).csv` is the only source-attributed event file and it
+   carries commerce events only — no `page_view`, no About Us. Confirming the landing
+   path needs a Landing page × Session source/medium export, which is worth pulling,
+   because the answer changes whether the winning link is a "learn about us" link or an
+   event link.
 4. **Direct and email are contaminated by internal traffic.** See the internal-traffic
    section below.
 
