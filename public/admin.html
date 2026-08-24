@@ -694,6 +694,20 @@
            table crush itself into 300px; below that it scrolls. */
         .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .table-scroll > table { min-width: 520px; }
+        /* Opt-in vertical cap. Payment History rendered all 103 rows at 6,037px
+           -- 63% of the entire Revenue tab and about five viewports of scrolling
+           for one table -- which is what made the page feel enormous. Capping it
+           keeps roughly eight rows visible, which is what "newest first" is for,
+           and the rest scrolls inside the card instead of inside the page.
+           Opt-in via a modifier rather than applied to .table-scroll, because
+           the short tables (Channel P&L, the campaign panel) read better whole. */
+        .table-scroll.is-capped { max-height: 460px; overflow-y: auto; }
+        /* The header has to carry its own opaque background or rows scroll
+           through it. #111129 is the card's rgba(255,107,107,0.03) composited
+           over --primary-navy #0a0e27 -- computed, not eyeballed. */
+        .table-scroll.is-capped thead th {
+            position: sticky; top: 0; z-index: 1; background: #111129;
+        }
         thead th {
             text-align: left;
             font-size: 10px;
@@ -1684,9 +1698,9 @@
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">Payment History</h2>
-                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">Tickets + subscriptions · newest first</span>
+                    <span id="paymentHistoryNote" style="font-size:12px;color:rgba(245,243,240,0.5);">Tickets + subscriptions · newest first</span>
                 </div>
-                <div class="table-scroll">
+                <div class="table-scroll is-capped">
                     <table>
                         <thead>
                             <tr>
@@ -5038,6 +5052,15 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
         function renderPaymentHistory() {
             const tbody = document.getElementById('paymentHistory');
+            // The table is capped at 460px now, so most rows sit below the fold.
+            // Say how many there are -- otherwise a capped list looks like a
+            // short list, and 103 payments read as 8.
+            const note = document.getElementById('paymentHistoryNote');
+            if (note) {
+                note.textContent = allPayments.length
+                    ? `Tickets + subscriptions · newest first · ${allPayments.length} shown, scroll for more`
+                    : 'Tickets + subscriptions · newest first';
+            }
             if (allPayments.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" class="empty">No payments yet.</td></tr>';
                 return;
