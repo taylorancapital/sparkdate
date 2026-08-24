@@ -56,6 +56,23 @@ describe('isSinglePool', () => {
 });
 
 describe('seatFields', () => {
+  it('treats capitalized gender the same as lowercase (Eventbrite imports say "Woman")', () => {
+    // 63 of 104 real tickets carried "Woman"/"Man" from the CSV import while
+    // checkout writes lowercase. An exact match sent imported women to the
+    // men's counter on legacy split events.
+    expect(seatFields({ spotsWomen: 15, spotsMen: 15 }, 'Woman'))
+      .toEqual({ capField: 'spotsWomen', counterField: 'confirmedWomen' });
+    expect(seatFields({ spotsWomen: 15, spotsMen: 15 }, 'WOMAN'))
+      .toEqual({ capField: 'spotsWomen', counterField: 'confirmedWomen' });
+    expect(seatFields({ spotsWomen: 15, spotsMen: 15 }, 'Man'))
+      .toEqual({ capField: 'spotsMen', counterField: 'confirmedMen' });
+  });
+
+  it('routes null/unknown gender to the men-side fields unchanged (documented fallback)', () => {
+    expect(seatFields({ spotsWomen: 15, spotsMen: 15 }, null))
+      .toEqual({ capField: 'spotsMen', counterField: 'confirmedMen' });
+  });
+
   it('uses the single shared pool for new events (gender ignored)', () => {
     expect(seatFields({ spots: 30 }, 'man')).toEqual({ capField: 'spots', counterField: 'confirmed' });
     expect(seatFields({ spots: 30 }, 'woman')).toEqual({ capField: 'spots', counterField: 'confirmed' });
@@ -92,6 +109,10 @@ describe('spotsRemaining', () => {
 });
 
 describe('ticketPriceDollars', () => {
+  it('prices capitalized gender like lowercase on legacy split events', () => {
+    expect(ticketPriceDollars({ priceWomen: 15, priceMen: 25 }, 'Woman')).toBe(15);
+  });
+
   it('uses the flat price for new events', () => {
     expect(ticketPriceDollars({ price: 18.99 }, 'man')).toBe(18.99);
     expect(ticketPriceDollars({ price: 18.99 }, 'woman')).toBe(18.99);
