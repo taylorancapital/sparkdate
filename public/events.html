@@ -764,10 +764,19 @@
         @media (max-width: 480px) {
             .field-row { flex-direction: column; gap: 0; }
         }
+        /* Matched to the modal's other inputs -- white ground, 2px coral
+           border -- for the same reason as event.html's #card-element (#271):
+           this was the only field on the checkout that was not white with
+           black text, in the one field a buyer reads back digit by digit.
+           This modal is the checkout the /lp funnel actually lands in
+           (GET TICKETS -> /events?event=X&checkout=1), so the earlier fix on
+           event.html alone missed the door paid traffic uses. */
         #modalCardElement {
-            padding: 12px 15px; border: 1px solid rgba(255, 107, 107, 0.2);
-            border-radius: 4px; background: rgba(10, 14, 39, 0.5);
+            padding: 12px 14px; border: 2px solid rgba(255, 107, 107, 0.4);
+            border-radius: 4px; background: #ffffff;
         }
+        #modalCardElement.StripeElement--focus { border-color: var(--coral); }
+        #modalCardElement.StripeElement--invalid { border-color: var(--danger, #f87171); }
         .price-breakdown { background: rgba(10, 14, 39, 0.5); padding: 16px; border-radius: 4px; margin-bottom: 20px; }
         .price-breakdown .price-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; color: rgba(245, 243, 240, 0.8); }
         .price-breakdown .price-row.subtotal { font-weight: 600; color: rgba(245, 243, 240, 0.95); }
@@ -1752,10 +1761,14 @@
         })();
 
         const stripeModal = Stripe('pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1');
+        // theme 'stripe' on white with black text, matching the modal's other
+        // fields -- same change and same reasoning as event.html (#271). The
+        // stated fontSizeBase pins Stripe's 16px default so a change to that
+        // default cannot reintroduce iOS Safari's under-16px focus zoom.
         const elementsModal = stripeModal.elements({
             appearance: {
-                theme: 'night',
-                variables: { colorPrimary: '#ff6b6b', colorBackground: '#0d1230', colorText: '#f5f3f0', fontFamily: 'Inter, sans-serif', borderRadius: '4px' }
+                theme: 'stripe',
+                variables: { colorPrimary: '#ff6b6b', colorBackground: '#ffffff', colorText: '#000000', colorDanger: '#f87171', fontFamily: 'Inter, sans-serif', fontSizeBase: '16px', borderRadius: '4px' }
             }
         });
         const cardElementModal = elementsModal.create('card');
