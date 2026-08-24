@@ -1722,6 +1722,7 @@
                             <option value="7" selected>Last 7 days</option>
                             <option value="14">Last 14 days</option>
                             <option value="30">Last 30 days</option>
+                            <option value="all">All time</option>
                         </select>
                     </span>
                 </div>
@@ -4064,13 +4065,16 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             if (!evtBody || !costBody) return;
 
             const sel = document.getElementById('campaignWindow');
-            const days = Number(sel && sel.value) || 7;
-            const cutoff = dayKey(new Date(Date.now() - (days - 1) * 86400000));
+            const raw = sel ? sel.value : '7';
+            const allTime = raw === 'all';
+            const days = allTime ? null : (Number(raw) || 7);
 
-            const inWindow = adSpendDays.filter(d => String(d.date || d.id || '') >= cutoff);
+            const inWindow = allTime
+                ? adSpendDays
+                : adSpendDays.filter(d => String(d.date || d.id || '') >= dayKey(new Date(Date.now() - (days - 1) * 86400000)));
             if (!inWindow.length) {
                 const msg = adSpendDays.length
-                    ? `No ad_spend documents in the last ${days} days.`
+                    ? `No ad_spend documents ${allTime ? 'at all' : `in the last ${days} days`}.`
                     : 'No ad_spend data. Check the sync-ad-spend workflow and that firestore.rules is deployed.';
                 evtBody.innerHTML = `<tr><td colspan="6" class="empty">${safe(msg)}</td></tr>`;
                 costBody.innerHTML = `<tr><td colspan="7" class="empty">${safe(msg)}</td></tr>`;
@@ -4104,17 +4108,39 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 perEvent.set(k, e);
             });
 
-            // Tickets by PURCHASE date, same window, so spend and sales are
-            // being compared over the same days rather than over an event's
-            // whole lifetime.
-            const since = Date.now() - days * 86400000;
-            trendTickets.forEach(t => {
-                if (t.isComp) return;
-                const c = toDate(t.createdAt);
-                if (!c || c.getTime() < since) return;
-                const e = perEvent.get(t.eventId);
-                if (e) e.tickets++;
-            });
+            // Tickets by PURCHASE date, over the SAME window as the spend, so
+            // the two are compared across the same days rather than one being
+            // a lifetime figure and the other a slice.
+            //
+            // The source switches with the window, and it has to. trendTickets
+            // is deliberately capped at 60 days (TREND_DAYS), so using it for
+            // "all time" would divide all-time spend by 60 days of sales and
+            // inflate every cost-per-ticket on the table. All time therefore
+            // reads allPayments, which is what the P&L and every other
+            // all-time number on this page already uses.
+            //
+            // allPayments is itself capped, at the 200 most recent tickets. That
+            // covers the current 102 and is the same limit the P&L lives with,
+            // so this panel agrees with the rest of the page rather than being
+            // separately wrong -- but past 200 tickets both understate together,
+            // and this comment is where to start looking.
+            const paidFor = (t) => !t.isComp;
+            if (allTime) {
+                allPayments.forEach(t => {
+                    if (t._type !== 'ticket' || !paidFor(t)) return;
+                    const e = perEvent.get(t.eventId);
+                    if (e) e.tickets++;
+                });
+            } else {
+                const since = Date.now() - days * 86400000;
+                trendTickets.forEach(t => {
+                    if (!paidFor(t)) return;
+                    const c = toDate(t.createdAt);
+                    if (!c || c.getTime() < since) return;
+                    const e = perEvent.get(t.eventId);
+                    if (e) e.tickets++;
+                });
+            }
 
             const dash = '<span style="opacity:0.35;">—</span>';
             const cpc = (s, c) => (c > 0 ? money(s / c) : dash);
