@@ -6202,17 +6202,69 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             // Where they are in the drip: the first step still pending, and
             // when it comes due. Answers "did this stall?" without opening
             // Resend.
+            // ─── The two suppressions and the closing window ────────────
+            //
+            // This column used to compute "due = created + N days" and call
+            // anything past that OVERDUE. It read as a broken cron -- 38 rows
+            // saying "D2 overdue 37d" -- and it was wrong on every one of
+            // them. Checked against the live data: the set of leads that are
+            // subscribed, inside the window, unsuppressed and unsent is
+            // EMPTY. Nothing is stuck. The column was inventing a backlog.
+            //
+            // api/cron-send-emails.js skips a lead for three reasons this
+            // column knew nothing about:
+            //
+            //   holds a ticket   registeredUpcomingEmails -- day2/5/25 pitch a
+            //                    ticket they already own. Lifts by itself if
+            //                    the ticket is refunded.
+            //   attended         attendedEmails -- the sequence is first-timer
+            //                    education; they get the returning invite.
+            //   window closed    eligible only from dayN to dayN+MAX_LATE_DAYS.
+            //                    Past that the cron will NEVER send it, so
+            //                    "overdue" is the wrong word -- it implies a
+            //                    pending send. It is missed, permanently.
+            //
+            // MAX_LATE_DAYS is mirrored from the cron. If it changes there,
+            // change it here -- a mismatch makes this column lie again.
+            const MAX_LATE_DAYS = 21;
+            const now = Date.now();
+            const holdsTicket = new Set();
+            const hasAttended = new Set();
+            (typeof allRegistrations !== 'undefined' ? allRegistrations : []).forEach(r => {
+                const em = (r.email || '').toLowerCase().trim();
+                if (!em) return;
+                const ev = (typeof allEvents !== 'undefined' ? allEvents : []).find(e => e.id === r.eventId);
+                const d = ev && ev.date ? (ev.date.toDate ? ev.date.toDate() : new Date(ev.date)) : null;
+                if (!d || isNaN(d.getTime())) return;
+                (d.getTime() > now ? holdsTicket : hasAttended).add(em);
+            });
+
             const nextDue = (l, seq, created) => {
+                const grey = (t, tip) => `<span style="color: rgba(245,243,240,0.4);" title="${safe(tip || '')}">${t}</span>`;
                 if (!l.subscribed) return '<span style="color:#f87171;">unsubscribed</span>';
                 if (!seq.nurture)  return '<span style="color: rgba(245,243,240,0.3);">—</span>';
                 if (!created)      return '<span style="color: rgba(245,243,240,0.3);">—</span>';
+
+                const em = (l.email || '').toLowerCase().trim();
+                // Ordered as the cron orders them: attendance outranks a
+                // ticket, since someone can hold a future ticket AND have
+                // come before, and the returning-attendee track owns them.
+                if (hasAttended.has(em)) return grey('attended', 'Already came to a mixer — the cron routes them to the returning-attendee invite instead of the first-timer sequence.');
+                if (holdsTicket.has(em)) return grey('holds ticket', 'Holds a ticket to an upcoming event — the cron suppresses nurture that would pitch a ticket they already own. Resumes by itself if refunded.');
+
                 for (const [key, days] of Object.entries(DAY_OFFSET)) {
                     if (wasSent(l, key) || l[`${key}_sent`] === true) continue;
-                    const due = new Date(created.getTime() + days * 86400000);
-                    const inDays = Math.ceil((due - Date.now()) / 86400000);
                     const label = key.toUpperCase().replace('DAY', 'D');
+                    const due = new Date(created.getTime() + days * 86400000);
+                    const ageDays = (now - created.getTime()) / 86400000;
+                    const inDays = Math.ceil((due - now) / 86400000);
+
                     if (inDays > 0) return `<span style="color: rgba(245,243,240,0.6);">${label} in ${inDays}d</span>`;
-                    return `<span style="color: var(--gold); font-weight:600;" title="Due ${safe(due.toLocaleDateString())} and not sent">${label} overdue ${Math.abs(inDays)}d</span>`;
+                    if (ageDays > days + MAX_LATE_DAYS) {
+                        return `<span style="color: rgba(245,243,240,0.45);" title="Was due ${safe(due.toLocaleDateString())}. The cron only sends a step between day ${days} and day ${days + MAX_LATE_DAYS}, so this one will never go out.">${label} missed</span>`;
+                    }
+                    // Genuinely actionable: in window, not suppressed, unsent.
+                    return `<span style="color: var(--gold); font-weight:600;" title="Due ${safe(due.toLocaleDateString())}, still inside the ${MAX_LATE_DAYS}-day send window and not sent — this one is a real backlog item.">${label} overdue ${Math.abs(inDays)}d</span>`;
                 }
                 return '<span style="color: rgba(245,243,240,0.35);">complete</span>';
             };
