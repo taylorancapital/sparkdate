@@ -2078,10 +2078,25 @@
             const gender = document.getElementById('modalGender').value;
             const btn = document.getElementById('modalCheckoutBtn');
             if (!gender) {
+                // Seed the breakdown with the LISTING price rather than $0.00.
+                // Before this, the first thing a buyer saw under PAYMENT was
+                // "Total $0.00" until they picked a gender -- a zeroed order at
+                // the exact moment they are deciding whether to trust the form.
+                //
+                // ticketPriceFor is the same resolver that priced the card they
+                // just tapped, so the seeded number cannot disagree with what
+                // got them here, and early bird resolves by time inside it. The
+                // button stays disabled and keeps saying Select Gender: this
+                // seeds the display, it does not skip the gate. No quote is
+                // recorded (lastQuotedTicket stays null below) and no
+                // add_to_cart fires -- both belong to the real gender-priced
+                // pass in the else branch.
+                const seed = ticketPriceFor(ev);
+                const seeded = Number.isFinite(seed) && seed > 0;
                 document.getElementById('modalSubtotalLabel').textContent = 'Ticket';
-                document.getElementById('modalSubtotalPrice').textContent = '$0.00';
-                document.getElementById('modalServiceFee').textContent = '$0.00';
-                document.getElementById('modalTotalPrice').textContent = '$0.00';
+                document.getElementById('modalSubtotalPrice').textContent = seeded ? money(seed) : '$0.00';
+                document.getElementById('modalServiceFee').textContent = seeded ? money(SERVICE_FEE) : '$0.00';
+                document.getElementById('modalTotalPrice').textContent = seeded ? money(seed + SERVICE_FEE) : '$0.00';
                 btn.textContent = 'Select Gender';
                 btn.disabled = true;
                 // No priced total is on screen, so there's no quote to hold the

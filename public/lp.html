@@ -308,7 +308,12 @@
             <h3 id="lpTitle">SparkDate Mixer</h3>
             <div class="meta" id="lpMeta">📍 Venue announced soon</div>
             <a class="ticket" id="lpTicketBtn" href="/events">Get Tickets</a>
-            <div class="fine">Secure checkout · no account needed</div>
+            <!-- $2.50 mirrors SERVICE_FEE_CENTS in lib/pricing.js, the same way the
+                 SERVICE_FEE consts in events.html and event.html do. Disclosed here so
+                 the checkout total is not the first time the buyer sees it: the CTA
+                 says $24.99 and the pay button says $27.49, and a ~10% surprise at the
+                 moment of commitment is the classic quiet abandonment driver. -->
+            <div class="fine">Secure checkout · no account needed · + $2.50 service fee</div>
         </div>
 
         <div class="iab-banner" id="iabBanner" style="display:none">
