@@ -636,11 +636,48 @@ async function main() {
   console.log('Created PAUSED at the PRIME daily rate. Ads still need creatives');
   console.log('attached — this builds the structure, not the art.');
   console.log('');
-  console.log('The budget does NOT step itself. Edit the campaign budget on these dates:');
+
+  // The ladder, not just the steps left to take.
+  //
+  // This used to print three bare "date -> $X/day" lines. Three problems: it
+  // omitted the rate the campaign was just created at, so there was nothing to
+  // read the climb against; it printed `day_of`, an object key, at a human; and
+  // it gave no weekday, when every row is a diary entry someone has to keep.
+  //
+  // Prime is included and marked as already applied. The early-bird cutoff is
+  // shown inline because it is the reason the ladder steps where it does, and
+  // the campaign's own end is shown last so nobody adds a fourth reminder to
+  // turn it off.
+  const dayName = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US',
+    { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' });
+
+  console.log('BUDGET LADDER');
+  console.log('Meta has no "raise this on that date" — every row below is a manual edit.');
+  console.log('');
+  // Header built from the same pad widths as the rows below, so the columns
+  // cannot drift apart when someone edits one and not the other.
+  console.log('  ' + 'WHEN'.padEnd(17) + ' ' + 'PHASE'.padEnd(10) + ' '
+    + 'DAILY'.padStart(6) + '   ' + 'SHARE');
+
+  const eb = (ev.pricing || {}).early_bird_through;
   for (const ph of plan) {
-    if (!ph.daily || ph.key === 'build' || ph.key === 'prime') continue;
-    console.log(`  ${ph.startsOn}   ${ph.key.padEnd(8)} -> ${money(ph.daily)}/day`);
+    if (ph.key === 'build' || ph.key === 'step') continue;
+
+    // The early-bird cutoff lands between prime and convert and explains the
+    // jump, so it prints where it falls rather than as a footnote.
+    if (eb && ph.key === 'convert') {
+      const p = ev.pricing;
+      console.log(`  ${dayName(eb).padEnd(17)} early bird ends — $${p.early_bird} becomes $${p.regular}`);
+    }
+
+    const label = ph.key.replace('_', '-');
+    const note = ph.key === 'prime' ? '   ← already set, running now' : '';
+    console.log(
+      `  ${dayName(ph.startsOn).padEnd(17)} ${label.padEnd(10)} ` +
+      `${money(ph.daily).padStart(6)}    ${String(Math.round(ph.share * 100)).padStart(3)}%${note}`
+    );
   }
+  console.log(`  ${dayName(ev.date).padEnd(17)} ends 16:30 — stop_time is already set, no action`);
   console.log('');
 }
 
