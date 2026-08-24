@@ -391,6 +391,36 @@
         </p>
     </footer>
 
+    <script>
+      // The mailto IS the conversion, and it was invisible: careers.html
+      // carried the gtag config and not one event, so the page could report
+      // traffic and never report an application.
+      //
+      // A distinct event name rather than generate_lead. generate_lead is the
+      // waitlist metric -- the one the whole funnel analysis runs on -- and
+      // folding host applications into it would quietly corrupt a number
+      // several reports already depend on.
+      //
+      // `entry` carries where the click came from, so the placements can be
+      // compared: the events-page callout, the about section, or a footer
+      // link. Read off document.referrer because internal links must not
+      // carry UTMs (tests/internal-links.test.js) -- self-referral tagging
+      // relabels the channel that actually acquired the visit.
+      (function () {
+        var btn = document.querySelector('a[href^="mailto:"]');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          if (typeof gtag !== 'function') return;
+          var ref = document.referrer || '';
+          var entry = /\/events/.test(ref) ? 'events_callout'
+                    : /\/about/.test(ref) ? 'about_section'
+                    : ref.indexOf(location.host) > -1 ? 'internal_other'
+                    : 'external_or_direct';
+          gtag('event', 'host_application_started', { entry: entry });
+        });
+      })();
+    </script>
+
     <!--
       JobPosting structured data, one entry per city.
 
@@ -445,8 +475,12 @@
             "sameAs": "https://sparkdate.date",
             "logo": "https://sparkdate.date/og-image.jpg"
           },
-          "jobLocationType": "",
-          "applicantLocationRequirements": null,
+          "identifier": {
+            "@type": "PropertyValue",
+            "name": "SparkDate",
+            "value": "host-2026"
+          },
+          "directApply": false,
           "jobLocation": [
             { "@type": "Place", "address": { "@type": "PostalAddress", "addressLocality": "Lancaster", "addressRegion": "PA", "addressCountry": "US" } },
             { "@type": "Place", "address": { "@type": "PostalAddress", "addressLocality": "Chicago", "addressRegion": "IL", "addressCountry": "US" } },
