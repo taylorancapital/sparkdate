@@ -1348,7 +1348,7 @@
             <span>Retention</span>
         </button>
 
-        <div class="nav-group-label">Money</div>
+        <div class="nav-group-label">Finance</div>
         <button class="tab" data-tab="report" title="Full Report" onclick="switchTab('report', this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
             <span>Full Report</span>
@@ -1356,6 +1356,14 @@
         <button class="tab" data-tab="revenue" title="Revenue" onclick="switchTab('revenue', this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
             <span>Revenue</span>
+        </button>
+        <button class="tab tab-sub" data-tab="ads" title="Ads" onclick="switchTab('ads', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+            <span>Ads</span>
+        </button>
+        <button class="tab tab-sub" data-tab="pnl" title="P&amp;L" onclick="switchTab('pnl', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+            <span>P&amp;L</span>
         </button>
 
         <div class="nav-group-label">Operations</div>
@@ -1603,7 +1611,7 @@
                     </select>
                 </div>
 
-                <div class="table-scroll">
+                <div class="table-scroll is-capped">
                     <table>
                         <thead>
                             <tr>
@@ -1670,6 +1678,28 @@
                 </div>
             </div>
 
+            <!-- Revenue/cost and tickets, plotted on a real numbered grid.
+                 Overview keeps the compact rotating card, which is a glance
+                 rather than a read; these are the read. They lead the Revenue
+                 tab (Taylor closed #279, which offered to move them to Full
+                 Report); the P&L they used to sit beside now has its own
+                 Finance › P&L sub-tab. -->
+            <div class="card" style="margin-top:24px;">
+                <div class="card-header">
+                    <h2 class="card-title">Revenue &amp; cost</h2>
+                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">Daily, last 30 days · both in dollars, one scale</span>
+                </div>
+                <div class="rc-chart" id="chartRevCost"></div>
+            </div>
+
+            <div class="card" style="margin-top:24px;">
+                <div class="card-header">
+                    <h2 class="card-title">Tickets sold</h2>
+                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">Daily count, last 30 days</span>
+                </div>
+                <div class="rc-chart" id="chartTickets"></div>
+            </div>
+
             <!-- Moved off Overview. It sits here because it is the breakdown of
                  the Active Subscriptions KPI directly above it — same numbers,
                  split by tier, with the monthly dollars each tier contributes. -->
@@ -1718,6 +1748,15 @@
                 </div>
             </div>
 
+
+        </div>
+
+        <!-- Ads Tab (Finance › Ads). Campaign performance moved out of the
+             Revenue pane WHOLESALE — same element ids, same renderCampaigns(),
+             same document-level change listener on #campaignWindow. Revenue
+             had grown to eight cards on one scroll; this is the split into
+             sub-tabs, not a rebuild. -->
+        <div class="tab-content" id="tab-ads">
             <!-- Campaign performance -->
             <!--
               The sync has written byCampaign into every ad_spend document since
@@ -1793,34 +1832,13 @@
                     <code>eventId=</code> link convention. It is real money and not a defect.
                 </div>
             </div>
+        </div>
 
-
-            <!-- Revenue/cost and tickets, plotted on a real numbered grid.
-                 Overview keeps the compact rotating card, which is a glance
-                 rather than a read; these are the read.
-
-                 They live on the REVENUE tab. #277 built them believing this
-                 was the Full Report -- the insert was anchored on the Channel
-                 P&L comment without checking which tab that comment sat in --
-                 and #279 offered to move them. Taylor closed it: revenue and
-                 cost charts belong beside the P&L they explain, which is here.
-                 The comment is corrected rather than the markup moved. -->
-            <div class="card" style="margin-top:24px;">
-                <div class="card-header">
-                    <h2 class="card-title">Revenue &amp; cost</h2>
-                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">Daily, last 30 days · both in dollars, one scale</span>
-                </div>
-                <div class="rc-chart" id="chartRevCost"></div>
-            </div>
-
-            <div class="card" style="margin-top:24px;">
-                <div class="card-header">
-                    <h2 class="card-title">Tickets sold</h2>
-                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">Daily count, last 30 days</span>
-                </div>
-                <div class="rc-chart" id="chartTickets"></div>
-            </div>
-
+        <!-- P&L Tab (Finance › P&L). Channel P&L, Recurring costs and Event
+             P&L, moved wholesale from the Revenue pane for the same reason as
+             the Ads tab above. Revenue keeps money-in (charts, subscriptions,
+             payment history); this pane is margin. -->
+        <div class="tab-content" id="tab-pnl">
             <!-- Channel P&L -->
             <div class="card" style="margin-top:24px;">
                 <div class="card-header">
@@ -2101,6 +2119,7 @@
                 <div class="card-header">
                     <h2 class="card-title">Venue Outreach Pipeline</h2>
                     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <span id="venueCount" style="font-size:12px;color:rgba(245,243,240,0.5);"></span>
                         <select id="venueStatusFilter" class="form-input" style="width: 150px; height: 36px; font-size: 13px;">
                             <option value="">All Statuses</option>
                             <option value="not_contacted">Not Contacted</option>
@@ -2130,7 +2149,7 @@
                         With <strong>Overwrite existing</strong> ON, rows whose names already exist will <em>merge</em> new fields (email, phone, stars, etc) into the existing venue — preserving pipeline state (status, contacted_at). Blank cells never overwrite. Turn OFF to skip duplicates entirely.
                     </div>
                 </details>
-                <div class="table-scroll">
+                <div class="table-scroll is-capped">
                     <table>
                         <thead>
                             <tr>
@@ -2163,7 +2182,7 @@
                 <p style="font-size: 13px; color: rgba(245,243,240,0.55); margin: -6px 0 16px; line-height: 1.6;">
                     Signups from the site's lead-capture forms (newsletter, blog, exit-intent, etc). Welcome email + the 4-touch nurture sequence (day 2, 5, 14, 25) auto-fire from <code>/api/cron-send-emails</code>. Unsubscribes flip the row to red.
                 </p>
-                <div class="table-scroll">
+                <div class="table-scroll is-capped">
                     <table>
                         <thead>
                             <tr>
@@ -5930,7 +5949,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 leads:     ['Leads', 'Captured emails and where they came from.'],
                 funnel:    ['Funnel', 'Lead to buyer conversion, stage by stage.'],
                 retention: ['Retention', 'Who comes back, event over event.'],
-                revenue:   ['Revenue', 'Payments, channel P&L, recurring costs and per-event margin.'],
+                revenue:   ['Revenue', 'Money in: daily trend, subscriptions and payment history.'],
+                ads:       ['Ads', 'Campaign spend against the tickets it sold.'],
+                pnl:       ['P&L', 'Channel P&L, recurring costs and per-event margin.'],
                 events:    ['Events', 'The calendar, rosters, and per-event costs.'],
                 venues:    ['Venues', 'Places we run events.'],
                 enroll:    ['Import Buyers', 'Bring in Eventbrite, Meetup, direct or comped attendees.'],
@@ -5946,7 +5967,13 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             }
             // Report reads a snapshot taken during renderKPIs, so repaint it on
             // entry rather than leaving whatever was there at last full load.
-            if (id === 'report') { renderReport(); renderMetric(); renderCampaigns(); renderReportCharts(); }
+            if (id === 'report') { renderReport(); renderMetric(); }
+            // These two refreshes used to hang off 'report', where the cards
+            // themselves no longer were -- entering Report repainted panes on
+            // other tabs while entering Revenue repainted nothing. The hook
+            // follows the markup.
+            if (id === 'revenue') renderReportCharts();
+            if (id === 'ads') renderCampaigns();
             if (id === 'venues') loadVenues();
             if (id === 'leads')  loadLeads();
             if (id === 'events') populateVenuePicker();
@@ -6134,6 +6161,13 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const filter = document.getElementById('venueStatusFilter').value;
 
             const filtered = filter ? allVenues.filter(v => v.status === filter) : allVenues;
+
+            // The table is capped and scrolls now (it rendered 445 rows at
+            // 51,275px -- forty viewports). Say what the cap is hiding.
+            const countEl = document.getElementById('venueCount');
+            if (countEl) countEl.textContent = filter
+                ? `${filtered.length} of ${allVenues.length} · scroll for more`
+                : `${allVenues.length} venues · scroll for more`;
 
             if (filtered.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="9" class="empty">No venues match this filter.</td></tr>';
