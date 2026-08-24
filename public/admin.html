@@ -2180,7 +2180,7 @@
                     <span style="font-size: 12px; color: rgba(245,243,240,0.5);" id="leadCount">—</span>
                 </div>
                 <p style="font-size: 13px; color: rgba(245,243,240,0.55); margin: -6px 0 16px; line-height: 1.6;">
-                    Signups from the site's lead-capture forms (newsletter, blog, exit-intent, etc). Welcome email + the 4-touch nurture sequence (day 2, 5, 14, 25) auto-fire from <code>/api/cron-send-emails</code>. Unsubscribes flip the row to red.
+                    Signups from the site's lead-capture forms (newsletter, blog, exit-intent, etc). Welcome email + the 4-touch nurture sequence (day 2, 5, 14, 25) auto-fire from <code>/api/cron-send-emails</code>; engagement flows back from the Resend webhook. Ticks: <span style="color:var(--success);opacity:0.45;">✓</span> sent · <span style="color:var(--success);">✓</span> opened · <span style="color:var(--gold);">✓</span> clicked · <span style="color:#f87171;">✕</span> bounced. Unsubscribes flip the row to red.
                 </p>
                 <div class="table-scroll is-capped">
                     <table>
@@ -6103,12 +6103,23 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const DAY_OFFSET = { day2: 2, day5: 5, day14: 14, day25: 25 };
 
             const cell = (l, key, seq) => {
-                if (!l.subscribed) return `<span style="color: rgba(245,243,240,0.3);" title="Unsubscribed">—</span>`;
+                // A SENT email keeps its history even after an unsubscribe or
+                // bounce — flipping every past tick to an em dash would erase
+                // what actually happened. Only the not-yet-sent steps go dark.
                 if (wasSent(l, key)) {
-                    const at = l[`${key}_sent_at`];
-                    const when = at ? new Date(at).toLocaleString() : 'delivery confirmed by Resend';
-                    return `<span style="color: var(--success); font-weight: 600;" title="Sent ${safe(when)}">✓</span>`;
+                    const when = (f) => l[`${key}_${f}`] ? new Date(l[`${key}_${f}`]).toLocaleString() : null;
+                    // Engagement tiers from the Resend webhook
+                    // (api/resend-events.js). Click implies open; a bounce on
+                    // this specific email outranks everything.
+                    if (l[`${key}_bounced_at`])
+                        return `<span style="color:#f87171; font-weight:600;" title="Bounced ${safe(when('bounced_at'))}">✕</span>`;
+                    if (l[`${key}_clicked_at`])
+                        return `<span style="color: var(--gold); font-weight: 600;" title="Clicked ${safe(when('clicked_at'))}">✓</span>`;
+                    if (l[`${key}_opened_at`])
+                        return `<span style="color: var(--success); font-weight: 600;" title="Opened ${safe(when('opened_at'))}">✓</span>`;
+                    return `<span style="color: var(--success); font-weight: 600; opacity: 0.45;" title="Sent ${safe(when('sent_at') || 'delivery confirmed by Resend')} — no open recorded yet (opens only tracked from the webhook's install date)">✓</span>`;
                 }
+                if (!l.subscribed) return `<span style="color: rgba(245,243,240,0.3);" title="Unsubscribed — will not be sent">—</span>`;
                 if (l[`${key}_sent`] === true) {
                     // Flag set with no delivery record. Either another system
                     // sent it, or creation set the flag purely to suppress.
@@ -6157,7 +6168,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <td style="text-align: center;">${cell(l, 'day14', seq)}</td>
                         <td style="text-align: center;">${cell(l, 'day25', seq)}</td>
                         <td style="font-size: 11px;">${nextDue(l, seq, created)}</td>
-                        <td style="color: ${subColor}; font-weight: 600; font-size: 12px;">${l.subscribed ? 'Yes' : 'Unsubscribed'}</td>
+                        <td style="color: ${subColor}; font-weight: 600; font-size: 12px;">${l.subscribed ? 'Yes' : (l.unsubscribe_reason === 'bounce' ? 'Bounced' : l.unsubscribe_reason === 'complaint' ? 'Spam complaint' : 'Unsubscribed')}</td>
                     </tr>`;
             }).join('');
         }
