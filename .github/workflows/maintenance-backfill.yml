@@ -1,0 +1,87 @@
+name: maintenance backfill
+
+# Runs a one-off maintenance script against Firestore, on demand, using the
+# same Firebase service-account secrets sync-ad-spend.yml already holds.
+#
+# Why this exists: these scripts need FIREBASE_* credentials, and the local
+# machine turned out not to have them -- .env.local was a stale `vercel env
+# pull` full of empty strings, and the CLI hung rather than refresh it. The
+# credentials this repo can actually reach live in Actions secrets, so the
+# runner comes to the credentials instead of the credentials coming to the
+# runner.
+#
+# Manual-only (workflow_dispatch, no schedule): every script here mutates
+# production data and is meant to be run once, deliberately, not on a cadence.
+# On a public repo only collaborators can dispatch. The script list is a
+# CHOICE input, not a free string, so this can never be steered into running
+# an arbitrary file.
+#
+# Dry run is the default. The checkbox is the trigger you pull on purpose.
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: 'Which maintenance script to run'
+        type: choice
+        required: true
+        options:
+          # Lowercases "Woman"/"Man" gender values the Eventbrite import wrote
+          # (63 of 104 tickets at time of writing). Idempotent; values that are
+          # not Woman/Man in any casing are listed, never coerced.
+          - normalize-gender-casing
+          # Flips tickets for Stripe refunds that predate the charge.refunded
+          # webhook handler. Idempotent. ALSO needs STRIPE_SECRET_KEY, which is
+          # not currently an Actions secret -- add it before running this one,
+          # or it exits 2 with a message saying exactly that.
+          - backfill-refunds
+      execute:
+        description: 'Actually write to Firestore (unchecked = dry run)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: maintenance-backfill
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run ${{ github.event.inputs.script }}
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          SCRIPT: ${{ github.event.inputs.script }}
+          EXECUTE: ${{ github.event.inputs.execute }}
+        run: |
+          # A missing secret must not look like a clean dry run. Same guard
+          # shape as sync-ad-spend.yml.
+          MISSING=""
+          [ -z "$FIREBASE_PROJECT_ID" ]   && MISSING="$MISSING FIREBASE_PROJECT_ID"
+          [ -z "$FIREBASE_CLIENT_EMAIL" ] && MISSING="$MISSING FIREBASE_CLIENT_EMAIL"
+          [ -z "$FIREBASE_PRIVATE_KEY" ]  && MISSING="$MISSING FIREBASE_PRIVATE_KEY"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing repo secret(s):$MISSING"
+            exit 1
+          fi
+
+          if [ "$EXECUTE" = "true" ]; then
+            echo "EXECUTING scripts/$SCRIPT.js -- this writes to Firestore"
+            node "scripts/$SCRIPT.js" --execute
+          else
+            echo "Dry run of scripts/$SCRIPT.js (re-dispatch with execute checked to write)"
+            node "scripts/$SCRIPT.js"
+          fi
