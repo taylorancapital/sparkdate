@@ -5236,12 +5236,22 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             CHANNEL_KEYS.forEach(k => { byChannel[k] = paid.filter(t => channelOf(t) === k); });
             const acq = {};
             AD_COST_FIELDS.forEach(f => { acq[f.key] = num(ev[f.key]); });
+            // The synced Meta figure replaces the hand-typed costFacebook,
+            // exactly as eventAdSpend() already does for CAC. Until this line
+            // the two P&L tables and the CAC card disagreed about the same
+            // event: CAC was costed by the ad sync, the P&Ls only by whatever
+            // had been typed into the event doc -- usually nothing, so ads
+            // showed as free. null means "sync has nothing for this event"
+            // (pre-eventId-convention campaigns); the typed value then stands.
+            const liveMeta = metaSpendFor(ev);
+            if (liveMeta !== null) acq.costFacebook = liveMeta;
             const ebFees = ebFeesFor(byChannel.eventbrite);
             const other = num(ev.costOther);
             const allocated = allocatedRecurringFor(ev, false);
             const acqTotal = AD_COST_FIELDS.reduce((s, f) => s + acq[f.key], 0);
             return {
                 byChannel, acq, acqTotal, ebFees, other, allocated,
+                metaSynced: liveMeta !== null,
                 paidCount: paid.length,
                 compCount: evTix.length - paid.length,
                 total: acqTotal + ebFees + other + allocated,
@@ -5292,7 +5302,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     .map(k => `${CHANNEL_LABELS[k]}: ${c.byChannel[k].length}`).join(', ');
 
                 const detailRows = [
-                    ...AD_COST_FIELDS.map(f => [f.label, c.acq[f.key]]),
+                    ...AD_COST_FIELDS.map(f => [
+                        f.key === 'costFacebook' && c.metaSynced ? f.label + ' (synced)' : f.label,
+                        c.acq[f.key]]),
                     ['Eventbrite fees', c.ebFees],
                     ['Venue / other', c.other],
                     ['Allocated monthly', c.allocated],
@@ -5339,7 +5351,13 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
             const acqByChannel = { direct: 0, eventbrite: 0, meetup: 0 };
             allEvents.forEach(ev => {
-                AD_COST_FIELDS.forEach(f => { acqByChannel[f.channel] += num(ev[f.key]); });
+                // Same synced-wins rule as eventCosts()/eventAdSpend(): the
+                // Meta API figure replaces the typed costFacebook per event.
+                const liveMeta = metaSpendFor(ev);
+                AD_COST_FIELDS.forEach(f => {
+                    const v = (f.key === 'costFacebook' && liveMeta !== null) ? liveMeta : num(ev[f.key]);
+                    acqByChannel[f.channel] += v;
+                });
             });
             Object.keys(allRecurring).forEach(mk => {
                 RECURRING_FIELDS.forEach(f => {
