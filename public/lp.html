@@ -306,7 +306,13 @@
         <div class="event">
             <div class="eyebrow" id="lpEyebrow">Upcoming Mixer</div>
             <h3 id="lpTitle">SparkDate Mixer</h3>
-            <div class="meta" id="lpMeta">📍 Venue announced soon</div>
+            <!-- This is what a visitor sees when /api/next-event has not resolved
+                 yet -- which, per GA4 2026-08-24, was 27 real paid-social users in
+                 one day. "Venue announced soon" told every one of them the event
+                 was not booked, which is both false and the exact opposite of the
+                 urgency the ad promised. The placeholder now says nothing it might
+                 have to take back. -->
+            <div class="meta" id="lpMeta">📍 Lancaster &amp; Philadelphia · tap for dates</div>
             <a class="ticket" id="lpTicketBtn" href="/events">Get Tickets</a>
             <!-- $2.50 mirrors SERVICE_FEE_CENTS in lib/pricing.js, the same way the
                  SERVICE_FEE consts in events.html and event.html do. Disclosed here so
@@ -676,20 +682,98 @@
           gtag('event', 'targeted_event_landing', { source: 'lp', target_event_id: requestedEventId });
         }
 
-        function fetchNextEventWithRetry(attempt) {
+        // ── Why this is more than "a fetch with a retry" ────────────────
+        //
+        // GA4 for 2026-08-24 counted next_event_fetch_failed 29 times in the
+        // paid-social WEBVIEW segment and EXACTLY ZERO in the direct-browser
+        // segment (report #298 §A6). A slow network does not produce a clean
+        // zero on one side. Something structural separates the two, and the
+        // 4s flat timeout above was firing because of it:
+        //
+        //   Meta's in-app browser opens the destination in a hidden,
+        //   throttled state before the user swipes to it. Hidden pages get
+        //   their timers and network throttled, so the 4s AbortController
+        //   counted down against a page nobody was looking at yet -- and
+        //   BOTH attempts could be spent before the visitor ever saw it.
+        //   They then arrived at a card that never populated.
+        //
+        // A direct browser opens in the foreground, so its budget starts when
+        // the user is actually there. Hence the zero.
+        //
+        // Four changes, each aimed at a specific part of that:
+        //   1. The timeout does not run while the page is hidden.
+        //   2. A failure while hidden waits for visibility instead of burning
+        //      the next attempt in the same throttled state.
+        //   3. Three attempts with backoff, and a longer budget -- 4s was
+        //      tuned for a foreground desktop fetch, not a mobile webview.
+        //   4. A non-OK response is its own error, so a 500 is no longer
+        //      indistinguishable from a dead network (r.json() on an HTML
+        //      error page throws a parse error that looked identical).
+        var pageStartedHidden = (typeof document.hidden !== 'undefined') && document.hidden;
+        var lastFetchError = null;
+        var navigatingAway = false;
+        // A tap on Get Tickets aborts the in-flight fetch. That is the visitor
+        // succeeding, not the card failing, and counting it inflated the very
+        // metric this block exists to report.
+        window.addEventListener('pagehide', function () { navigatingAway = true; });
+
+        function isVisible() {
+          return (typeof document.hidden === 'undefined') || !document.hidden;
+        }
+
+        function fetchNextEventOnce(timeoutMs) {
           var url = '/api/next-event' + (requestedEventId ? ('?id=' + encodeURIComponent(requestedEventId)) : '');
           var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-          var timer = controller ? setTimeout(function () { controller.abort(); }, 4000) : null;
+          var timer = null;
+          function startTimer() {
+            if (!controller || timer) return;
+            timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+          }
+          function stopTimer() {
+            if (timer) { clearTimeout(timer); timer = null; }
+          }
+          function onVis() { if (isVisible()) startTimer(); else stopTimer(); }
+          if (isVisible()) startTimer();
+          document.addEventListener('visibilitychange', onVis);
+          function cleanup() {
+            stopTimer();
+            document.removeEventListener('visibilitychange', onVis);
+          }
           return fetch(url, controller ? { signal: controller.signal } : undefined)
             .then(function (r) {
-              if (timer) clearTimeout(timer);
+              cleanup();
+              if (!r.ok) { var e = new Error('http_' + r.status); e.reason = 'http_' + r.status; throw e; }
               return r.json();
             })
-            .catch(function (err) {
-              if (timer) clearTimeout(timer);
-              if (!attempt) return fetchNextEventWithRetry(1); // one retry, no backoff needed for a 4s timeout
-              throw err;
+            .catch(function (err) { cleanup(); throw err; });
+        }
+
+        function whenVisible() {
+          if (isVisible()) return Promise.resolve();
+          return new Promise(function (resolve) {
+            document.addEventListener('visibilitychange', function once() {
+              if (!isVisible()) return;
+              document.removeEventListener('visibilitychange', once);
+              resolve();
             });
+          });
+        }
+
+        function fetchNextEventWithRetry(attempt) {
+          var budgets = [6000, 10000, 10000];
+          return fetchNextEventOnce(budgets[attempt] || 10000).catch(function (err) {
+            lastFetchError = err && err.reason
+              ? err.reason
+              : ((err && err.name === 'AbortError') ? 'timeout' : 'network');
+            if (navigatingAway || attempt >= 2) throw err;
+            // Wait for the page to be visible before spending the next
+            // attempt; in a prerendered webview this is the whole fix.
+            return whenVisible().then(function () {
+              return new Promise(function (resolve) {
+                setTimeout(function () { resolve(fetchNextEventWithRetry(attempt + 1)); }, attempt * 500);
+              });
+            });
+          });
         }
 
         var btn = $('lpTicketBtn');
@@ -789,10 +873,22 @@
           }
         }).catch(function () {
           // Previously swallowed silently. When /api/next-event fails, the
-          // ticket button keeps its static /event fallback (server-resolves
-          // the next event), but the failure is now visible in analytics
-          // instead of only inferable from Vercel logs after the fact.
-          if (typeof gtag === 'function') gtag('event', 'next_event_fetch_failed', { source: 'lp', target_event_id: requestedEventId || undefined });
+          // ticket button keeps its static /events fallback, but the failure
+          // is now visible in analytics instead of only inferable from Vercel
+          // logs after the fact.
+          //
+          // Two additions after report #298 §A6, which could say the fetch
+          // failed 29 times in webviews but not WHY -- and named that gap as
+          // the reason it could not choose between a retry, a longer timeout
+          // and server-rendering. `reason` and `page_started_hidden` are what
+          // let the next report tell those apart.
+          if (navigatingAway) return; // they tapped through; the card did its job
+          if (typeof gtag === 'function') gtag('event', 'next_event_fetch_failed', {
+            source: 'lp',
+            target_event_id: requestedEventId || undefined,
+            reason: lastFetchError || 'unknown',
+            page_started_hidden: pageStartedHidden ? 1 : 0
+          });
         });
         // The Get Tickets tap now navigates for everyone. It used to be
         // intercepted inside in-app browsers and answered with a copy-paste
