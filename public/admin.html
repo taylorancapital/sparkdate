@@ -1215,6 +1215,16 @@
 
         /* Priority intro list */
         .prio-list { display: flex; flex-direction: column; }
+        /* Tables view */
+        .table-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+        .table-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 12px 14px; }
+        .table-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .table-card-title { font-weight: 600; color: var(--white); font-size: 13px; flex: 1; }
+        .table-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+        .table-chip { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid transparent; }
+        .table-chip.w { background: rgba(255,107,107,0.12); color: #ff9c9c; border-color: rgba(255,107,107,0.3); }
+        .table-chip.m { background: rgba(96,165,250,0.10); color: #93c5fd; border-color: rgba(96,165,250,0.28); }
+        .table-topics { font-size: 11px; color: rgba(245,243,240,0.5); border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 6px; margin-top: 2px; }
         .prio-item { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: opacity 0.15s; }
         .prio-item:last-child { border-bottom: none; }
         .prio-item.done { opacity: 0.35; }
@@ -2105,6 +2115,7 @@
                 <button class="chem-toggle-btn active" id="viewChemBtn" onclick="switchChemView('chemistry')">Chemistry</button>
                 <button class="chem-toggle-btn" id="viewIntrosBtn" onclick="switchChemView('intros')">Intro order</button>
                 <button class="chem-toggle-btn" id="viewScheduleBtn" onclick="switchChemView('schedule')">Priority Intros</button>
+                <button class="chem-toggle-btn" id="viewTablesBtn" onclick="switchChemView('tables')">Tables</button>
             </div>
             <div id="chemView">
                 <div class="chem-cards" id="candidateTable"></div>
@@ -2118,6 +2129,7 @@
                 </div>
             </div>
             <div id="scheduleView" style="display:none;"></div>
+            <div id="tablesView" style="display:none;"></div>
         </div>
     </div>
 
@@ -3312,11 +3324,14 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             document.getElementById('chemView').style.display      = view === 'chemistry' ? '' : 'none';
             document.getElementById('introsView').style.display    = view === 'intros'    ? '' : 'none';
             document.getElementById('scheduleView').style.display  = view === 'schedule'  ? '' : 'none';
+            document.getElementById('tablesView').style.display    = view === 'tables'    ? '' : 'none';
             document.getElementById('viewChemBtn').classList.toggle('active',     view === 'chemistry');
             document.getElementById('viewIntrosBtn').classList.toggle('active',   view === 'intros');
             document.getElementById('viewScheduleBtn').classList.toggle('active', view === 'schedule');
+            document.getElementById('viewTablesBtn').classList.toggle('active',   view === 'tables');
             if (view === 'intros')    renderIntros();
             if (view === 'schedule')  renderPriorityIntros();
+            if (view === 'tables')    renderTables();
         };
 
         // ── Intro cheat sheet state ───────────────────────────
@@ -3445,6 +3460,191 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     <button class="action-btn" onclick="printPriorityIntros()">⎙ Print intro list</button>
                 </div>`;
         }
+
+        // ── Tables — seat people together for discussion rounds ────────
+        //
+        // The other three views answer "who should MEET whom" one pair at a
+        // time. This one answers "who should SIT together": partition the
+        // room into tables, balanced women/men, maximising the chemistry of
+        // the pairs that end up at the same table.
+        //
+        // The optimisation is greedy, on purpose. True max-sum partitioning
+        // is NP-hard, and at ~30 attendees a seeded greedy gets within a few
+        // points of anything fancier while staying explainable to the host
+        // mid-event: each table starts from the best still-unseated pair,
+        // then repeatedly adds whichever unseated person has the highest
+        // total chemistry with everyone already at the table, alternating
+        // gender to keep the table balanced. Only W-M pairs carry scores
+        // (that is all scorePair produces), so within-table chemistry is the
+        // sum of cross-gender pair scores.
+        let _tableSize = 6;
+
+        function buildTables(size) {
+            const women = [..._chemWomen], men = [..._chemMen];
+            const perGender = Math.max(1, Math.floor(size / 2));
+            const score = new Map();
+            _chemPairs.forEach(p => {
+                score.set(p.a.id + '|' + p.b.id, p);
+                score.set(p.b.id + '|' + p.a.id, p);
+            });
+            const pairOf = (x, y) => score.get(x.id + '|' + y.id) || null;
+            const seatedIds = new Set();
+            const unseated = (list) => list.filter(u => !seatedIds.has(u.id));
+            const tables = [];
+
+            const nTables = Math.max(1, Math.ceil((women.length + men.length) / size));
+            for (let t = 0; t < nTables; t++) {
+                const freeW = unseated(women), freeM = unseated(men);
+                if (!freeW.length && !freeM.length) break;
+                const table = { women: [], men: [], pairs: [] };
+
+                // Seed: best remaining cross-gender pair; if one side is
+                // exhausted, seed with whoever is left.
+                let seed = null;
+                _chemPairs.forEach(p => {
+                    if (seatedIds.has(p.a.id) || seatedIds.has(p.b.id)) return;
+                    if (!seed || p.score > seed.score) seed = p;
+                });
+                if (seed) {
+                    table.women.push(seed.a); table.men.push(seed.b);
+                    seatedIds.add(seed.a.id); seatedIds.add(seed.b.id);
+                } else {
+                    const solo = freeW[0] || freeM[0];
+                    (freeW[0] ? table.women : table.men).push(solo);
+                    seatedIds.add(solo.id);
+                }
+
+                // Fill: alternate toward balance; pick the unseated person of
+                // the needed gender with the highest total score against the
+                // table's OPPOSITE gender members.
+                while (table.women.length + table.men.length < size) {
+                    const needWoman = table.women.length <= table.men.length
+                        ? unseated(women).length > 0
+                        : unseated(men).length === 0;
+                    const pool = needWoman ? unseated(women) : unseated(men);
+                    if (!pool.length) break;
+                    const others = needWoman ? table.men : table.women;
+                    // stop before over-packing one gender past its share,
+                    // unless the other side has nobody left to give
+                    const mine = needWoman ? table.women : table.men;
+                    const otherPoolLeft = (needWoman ? unseated(men) : unseated(women)).length;
+                    if (mine.length >= perGender && otherPoolLeft > 0) break;
+                    let best = null, bestTotal = -1;
+                    pool.forEach(u => {
+                        const total = others.reduce((sum, o) => {
+                            const pr = pairOf(u, o);
+                            return sum + (pr ? pr.score : 0);
+                        }, 0);
+                        if (total > bestTotal) { bestTotal = total; best = u; }
+                    });
+                    (needWoman ? table.women : table.men).push(best);
+                    seatedIds.add(best.id);
+                }
+
+                table.women.forEach(w => table.men.forEach(m => {
+                    const pr = pairOf(w, m);
+                    if (pr) table.pairs.push(pr);
+                }));
+                tables.push(table);
+            }
+
+            // A tiny trailing table (fewer than half a table's seats) gets
+            // folded into the one before it -- a person seated alone is worse
+            // than a slightly over-full table.
+            while (tables.length > 1) {
+                const last = tables[tables.length - 1];
+                if (last.women.length + last.men.length >= Math.ceil(size / 2)) break;
+                const prev = tables[tables.length - 2];
+                prev.women.push(...last.women);
+                prev.men.push(...last.men);
+                prev.pairs = [];
+                prev.women.forEach(w => prev.men.forEach(m => {
+                    const pr = pairOf(w, m);
+                    if (pr) prev.pairs.push(pr);
+                }));
+                tables.pop();
+            }
+
+            // Sweep any stragglers (odd counts) onto the last table rather
+            // than leaving someone standing.
+            const leftovers = [...unseated(women), ...unseated(men)];
+            if (leftovers.length && tables.length) {
+                const last = tables[tables.length - 1];
+                leftovers.forEach(u => {
+                    (_chemWomen.some(w => w.id === u.id) ? last.women : last.men).push(u);
+                    seatedIds.add(u.id);
+                });
+                last.pairs = [];
+                last.women.forEach(w => last.men.forEach(m => {
+                    const pr = pairOf(w, m);
+                    if (pr) last.pairs.push(pr);
+                }));
+            }
+            return tables;
+        }
+
+        function renderTables() {
+            const container = document.getElementById('tablesView');
+            if (!_chemWomen.length && !_chemMen.length) {
+                container.innerHTML = '<div class="empty" style="padding:24px;text-align:center;">No attendees scored yet.</div>';
+                return;
+            }
+            const tables = buildTables(_tableSize);
+
+            const cards = tables.map((t, i) => {
+                const avg = t.pairs.length
+                    ? Math.round(t.pairs.reduce((s2, p) => s2 + p.score, 0) / t.pairs.length)
+                    : null;
+                const avgCls = avg == null ? '' : avg >= 70 ? 'high' : avg < 45 ? 'low' : '';
+
+                // Conversation starters: the interests shared by the most
+                // pairs at this table -- what the group actually has in
+                // common, which is the point of seating them together.
+                const tally = {};
+                t.pairs.forEach(p => (p.sharedInterests || []).forEach(tag => { tally[tag] = (tally[tag] || 0) + 1; }));
+                const topics = Object.entries(tally).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([tag]) => tag);
+
+                const chip = (u, cls) => `<span class="table-chip ${cls}" title="${safe((u.firstName || '') + ' ' + (u.lastName || ''))}">${safe(_chemShortName(u))}${u.limitedProfile ? '' : ''}</span>`;
+                return `<div class="table-card">
+                    <div class="table-card-head">
+                        <span class="table-card-title">Table ${i + 1}</span>
+                        <span style="font-size:11px;color:rgba(245,243,240,0.45);">${t.women.length}W · ${t.men.length}M</span>
+                        ${avg != null ? `<span class="intro-score ${avgCls}" title="Average chemistry across the ${t.pairs.length} cross-gender pairs at this table">${avg}</span>` : ''}
+                    </div>
+                    <div class="table-chip-row">${t.women.map(w => chip(w, 'w')).join('')}</div>
+                    <div class="table-chip-row">${t.men.map(m => chip(m, 'm')).join('')}</div>
+                    ${topics.length ? `<div class="table-topics" title="Interests shared by the most pairs at this table">Talk about: ${topics.map(safe).join(' · ')}</div>` : ''}
+                </div>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+                    <span style="font-size:12px;color:rgba(245,243,240,0.55);">Seats per table</span>
+                    ${[4, 6, 8].map(n => `<button class="chem-toggle-btn${n === _tableSize ? ' active' : ''}" onclick="setTableSize(${n})">${n}</button>`).join('')}
+                    <span style="flex:1"></span>
+                    <button class="action-btn" onclick="printTables()">&#9046; Print seating</button>
+                </div>
+                <div class="table-cards">${cards}</div>
+                <div style="font-size:11px;color:rgba(245,243,240,0.4);margin-top:10px;">
+                    Tables are seeded from the strongest unseated pair, then filled with whoever has the
+                    highest total chemistry with the people already seated, keeping women/men balanced.
+                    Odd headcounts land on the last table.
+                </div>`;
+        }
+
+        window.setTableSize = (n) => { _tableSize = n; renderTables(); };
+
+        window.printTables = () => {
+            const tables = buildTables(_tableSize);
+            const lines = tables.map((t, i) => {
+                const names = [...t.women, ...t.men].map(u => '  ' + _chemShortName(u)).join('\n');
+                return `Table ${i + 1} (${t.women.length}W/${t.men.length}M)\n${names}`;
+            }).join('\n\n');
+            const w = window.open('', '_blank');
+            w.document.write(`<pre style="font-family:monospace;font-size:14px;padding:24px;white-space:pre-wrap;">${lines}</pre>`);
+            w.document.close();
+            w.print();
+        };
 
         window.togglePrio = (wId, mId) => {
             const key = wId + '|' + mId;
