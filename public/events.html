@@ -65,12 +65,42 @@
       // and the account moved to Pro on 2026-08-24 so the cap is gone anyway.
       // Four copies, kept in step by tests/view-promotion.test.js.
       window.sdViewPromotion = (function () {
-        var seen = {};
-        return function (name, slot) {
-          if (seen[name] || typeof gtag !== 'function') return;
+        // seen[] is set the moment the impression HAPPENS, not when it is
+        // successfully reported. Those are different events and conflating
+        // them was the bug: the old guard returned early when gtag was not a
+        // function WITHOUT marking the promotion seen, so the impression was
+        // dropped and only retried if the observer happened to fire again --
+        // which on /lp it may never do for a visitor who lands, reads and
+        // clicks without scrolling the CTA past the threshold. That is a
+        // click with no impression, understating the denominator this helper
+        // exists to build.
+        //
+        // Small in practice: gtag is declared synchronously in the head of all
+        // four pages, before this helper, so it is nearly always ready. This
+        // covers the case where it is not -- and costs one array.
+        var seen = {}, queued = [];
+        function flush() {
+          if (typeof gtag !== 'function') return;
+          while (queued.length) {
+            var q = queued.shift();
+            gtag('event', 'view_promotion', { promotion_name: q.n, creative_slot: q.s });
+          }
+        }
+        // One more attempt once everything has loaded, in case gtag arrived
+        // after an impression was queued. Guarded because the helper is also
+        // run headless by tests/view-promotion.test.js, where window is a stub.
+        if (window && typeof window.addEventListener === 'function') window.addEventListener('load', flush);
+      return function (name, slot) {
+        // Queue the impression at most once, but ALWAYS try to flush -- so a
+        // later sighting of an already-seen promotion is what delivers one that
+        // was queued while gtag was still missing. Returning early here instead
+        // is what tests/view-promotion.test.js's late-gtag case catches.
+        if (!seen[name]) {
           seen[name] = 1;
-          gtag('event', 'view_promotion', { promotion_name: name, creative_slot: slot });
-        };
+          queued.push({ n: name, s: slot });
+        }
+        flush();
+      };
       })();
 </script>
     <!-- Referral capture — same convention as index.html/lp.html. This page
