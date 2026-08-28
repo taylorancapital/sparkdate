@@ -51,6 +51,11 @@ Thumbs.db
 
 # ── Claude Code internal state ────────────────────────────────────
 .claude/worktrees/
+# Per-machine permission grants. This one is NOT shared: it accumulates
+# whatever the person at this keyboard clicked 'allow' on, and this repo is
+# public. .claude/settings.json (no .local) is the shared one.
+.claude/settings.local.json
+.claude/settings.local.json.bak
 
 # ── Large media binaries (keep marketing video/audio out of git) ──
 *.mp4
