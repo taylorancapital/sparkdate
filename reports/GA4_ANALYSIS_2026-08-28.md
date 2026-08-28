@@ -17,12 +17,18 @@ engaged-sessions series' final value at 0100 is the §A5 artifact.
 
 ---
 
-## Headline: the waitlist question is answered, and the freshness rule needs splitting in two
+## Headline: the waitlist question is half-answered, and the freshness rule needs splitting in two
 
 Open question 1 — *is the waitlist rescuing or cannibalising?* — has been open across at least four
-reports. A new **Waitlist: Rescue or Cannibalize?** exploration answers it: **43 of 58
-lead-generating sessions never viewed an item.** The waitlist is catching people who were never
-going to reach a ticket. It should stay.
+reports. A new **Waitlist: Rescue or Cannibalize?** exploration moves it a long way: **43 of 58
+lead-generating sessions never viewed an item**, and the decision rule `ANALYTICS_CONTEXT.md` §4
+pre-registered says that means rescue.
+
+**It is half-answered rather than answered, and §A1 explains why.** "Lead, no item view" describes a
+rescued bounce *and* a visitor who filled the form instead of tapping Get Tickets equally well —
+the rule cannot tell them apart, and I did not notice that when I first wrote this section. The
+finding is strong enough to say **leave the waitlist alone**, and not strong enough to say it is
+purely rescuing. §C8 is the one-tab addition that would settle it.
 
 Second: the finalisation rule added to `ANALYTICS_CONTEXT.md` after the 08-26 report is **directionally
 right and mechanically wrong**. It treats "the last two days are unreliable" as one phenomenon. It is
@@ -37,7 +43,7 @@ what I did instead.
 
 ## A. Findings
 
-### A1. Open question 1, ANSWERED: the waitlist rescues, it does not cannibalise
+### A1. Open question 1, HALF-ANSWERED: no evidence of cannibalisation, but the rule cannot rule it out
 
 `download (30).csv`, a new tab. Three segments over lead-generating sessions:
 
@@ -57,14 +63,38 @@ never viewed an item.
 **Stress-tested against the internal-traffic caveat.** The window opens 2026-05-19, and the internal
 filter only became active 2026-08-25, so this window still contains Taylor's own sessions.
 `download (29).csv` gives lead sessions by landing page: `/admin` 6, `/matches` 5, `/profile` 1 —
-**12 of 58 (20.7%) are internal-suspect.** Those pages cannot fire `view_item` (§1: it fires only on
-`/events` and `/event`), so all 12 must sit in the `L only` bucket. Worst case:
+**12 of 58 (20.7%) are internal-suspect.** Assigning all 12 to the `L only` bucket is the assumption
+least favourable to this finding, so it bounds it:
 
-> **31 of 46 genuine lead sessions (67.4%) never viewed an item.**
+> **Worst case, 31 of 46 genuine lead sessions (67.4%) never viewed an item.**
 
-The direction survives the harshest available correction. **Recommendation: keep the waitlist where
-it is.** Note this conclusion runs *with* the grain of the 08-22 change that de-emphasised it (#248) —
-de-emphasising is not removing, and nothing here argues for reversing #248.
+This is a **bound, not a measurement.** `download (29).csv` reports the *landing* page — the session's
+first page — and a session that lands on `/admin` can navigate onward to `/events` and fire
+`view_item` perfectly well. So the 12 are not *provably* all in the no-view bucket; the point is only
+that putting them all there still leaves two thirds.
+
+### The limitation this finding has, stated plainly
+
+`ANALYTICS_CONTEXT.md` §4 pre-registers the decision rule, which is the right way to run this — but
+**the rule cannot separate the two cases it claims to.** "Generated a lead without viewing an item"
+is equally consistent with:
+
+- *rescue* — the visitor was going to leave, and the form caught them; and
+- *cannibalisation* — the visitor saw the waitlist form and filled it **instead of** tapping Get
+  Tickets, never reaching an item **because the form got there first.**
+
+Both produce a lead session with no `view_item`. The 43 therefore cannot be read as 43 rescues.
+
+**What would separate them:** `select_promotion` — the `/lp` CTA tap — co-occurring with
+`generate_lead` in the same session. A visitor who tapped Get Tickets *and* filled the form is a
+different animal from one who filled the form having never tapped. **No file in this 38-CSV export
+cross-tabs the two at session level** (`select_promotion` appears in `download (9)`, `(11)`, `(13)`
+and `(33)`, in none of them against `generate_lead`), so this could not be resolved tonight. → §C8.
+
+**What the finding does support:** the waitlist is not obviously taking sales, and there is no
+evidence here for making it *less* prominent than #248 already did. **Recommendation: leave it as it
+is and resolve the ambiguity with §C8 before touching it in either direction** — which is a weaker
+recommendation than "keep it prominent," deliberately.
 
 **One defect in this tab: the `SEQ — view_item then generate_lead` column is broken.** It reports
 **492 sessions** for a sequence that is by construction a subset of the 58 sessions that generated a
@@ -173,7 +203,7 @@ not completing it. n=15, small, but it is the only checkout-error category that 
 | Parameter | URLs carrying it | Sessions |
 |---|---:|---:|
 | `eventId` | 1,533 (100%) | 1,687 |
-| **`fbclid`** | **1,521 (99.2%)** | **1,617 (95.9%)** |
+| **`fbclid`** | **1,521 (99.2%)** | **1,617 (95.9% of the 1,687 that rows sum to; 95.7% of the 1,690 stated grand total)** |
 | `event` | 144 | 183 |
 
 `fbclid` is Meta's per-click identifier — unique per click by design, which is exactly why 93.6% of
@@ -509,7 +539,21 @@ Google Ads status, and the Marion Court venue/ad-set decision — are **not re-a
    which is what §A7 does. **Recommend (b) plus (c).** Nobody should spend more time hunting for a
    toggle.
 
-7. **Should the homepage follow `/lp`'s headline rewrite? — third ask.** `public/index.html` still
+8. **Cross-tab `select_promotion` against `generate_lead` at session level — new ask, and it is the
+   one that actually closes open question 1.** §A1 answers the question as posed, but the question as
+   posed cannot distinguish a rescued bounce from a visitor who filled the form *instead of* tapping
+   Get Tickets. Both show as "lead, no item view."
+
+   A session-scoped breakdown of the 58 lead-generating sessions by whether they also fired
+   `select_promotion` separates them: **tapped the ticket CTA and still filled the form** is
+   cannibalisation-shaped; **never tapped it** is rescue-shaped. `select_promotion` is already
+   collected (61 events) and needs no registration — it is in `download (9)`, `(11)`, `(13)` and
+   `(33)`, but against browser, `In_App_Browser` and date, never against `generate_lead`.
+
+   One tab on the existing Waitlist exploration. *Re-check:* the share of the 58 that fired
+   `select_promotion`, currently unknown.
+
+9. **Should the homepage follow `/lp`'s headline rewrite? — third ask.** `public/index.html` still
    says "Your app matched you" in the H1 (line 1109), meta description (8), `og:description` (12),
    JSON-LD (42) and footer (1281); `about.html` and `signup.html` carry it too. `/lp` moved to "You
    show up. We handle the rest." on 2026-08-22 because **no ad mentions an app and four of nine sell
@@ -635,7 +679,9 @@ inline.
   Lancaster off by 7 (§A12), `/lp` A + B off by 2 (§A13). The waitlist partition summed exactly
   (§A1).
 - §3b settled questions → four asks deliberately not re-raised (§C preamble).
-- §4 open question 1 → **answered** (§A1). Question 2 → still blocked, and why (§A15).
+- §4 open question 1 → **half-answered, and the shortfall named** (§A1): the pre-registered rule
+  cannot separate a rescued bounce from a form filled instead of the CTA. Question 2 → still
+  blocked, and why (§A15).
 - §5 small samples → every count below the top of the funnel stated alongside its percentage.
 
 **Where tonight's numbers contradict `ANALYTICS_CONTEXT.md`:** §1's two-day finalisation rule is
@@ -711,9 +757,15 @@ Three consequences:
    women's creative, all-genders creative and retargeting are indistinguishable in GA4.
 3. **Capitalised `Facebook`/`Instagram` may not match GA4's default channel grouping**, which keys on
    lowercase, pushing this traffic toward Referral/Unassigned. Marked *likely* by the auditor, not
-   confirmed — but `download (30).csv` gives it circumstantial support: **`Unassigned` is the largest
-   single channel group in the waitlist tab at 189 sessions**, ahead of Paid Social's 77. Worth one
-   query before it is believed.
+   confirmed. `download (30).csv` gives it weak circumstantial support: in that tab's
+   lead-generating-session column, **`Unassigned` is the largest single channel group at 16 sessions,
+   ahead of Paid Social's 12** — which is odd for a property that is two-thirds Meta paid.
+
+   **An earlier revision of this section cited 189 and 77 here. Both came from that tab's `SEQ`
+   column — the one §A1 declares impossible and unusable — and citing it after discarding it was
+   wrong.** The corrected figures above come from the `L — generated a lead` column. The direction
+   survives; the magnitude does not, and 16 against 12 is thin. Worth one query before it is
+   believed.
 
 **The two unreadable ads are unreadable for a structural reason:** both sit in "Campaign 1 Event 3
 Good Good Campaign", built with Meta's guided setup, which does not expose a destination-URL field in
