@@ -16,7 +16,25 @@ framing were refreshed.
 **Paste everything between the lines below into Claude Code, unedited:**
 
 ---
-BEFORE ANALYSING ANYTHING, read
+BEFORE ANALYSING ANYTHING, read BOTH of these in full and apply their
+caveats to every number you compute:
+
+  1. `reports/ANALYTICS_METHOD.md` -- TRACKED IN GIT, so your copy is
+     always current. Measurement traps only.
+  2. `Business Plan\files\Night Tasks\ANALYTICS_CONTEXT.md` -- gitignored,
+     synced by hand, holds the commercial context.
+
+STALENESS CHECK, FIRST THING, AND SAY IT OUT LOUD: state the `Last
+updated:` date you find at the top of ANALYTICS_CONTEXT.md in your
+report's first paragraph. If that date is OLDER than the newest report in
+`reports/`, your copy has forked -- say so prominently and treat its
+commercial claims as possibly already answered. Not hypothetical: that
+file forked from its Cowork copy twice in two days, and one run re-asked
+three questions the current file had already answered.
+`reports/ANALYTICS_METHOD.md` CANNOT fork, so where the two disagree on a
+measurement question, the tracked one wins.
+
+Then, per the original instruction, read
 `C:\Users\penns\source\repos\sparkdate\Business Plan\files\Night Tasks\ANALYTICS_CONTEXT.md`
 IN FULL and apply its caveats to every number you compute. It is a STANDING file — not dated
 nightly, not regenerated — so do not skip it because it looks old or because you did not
