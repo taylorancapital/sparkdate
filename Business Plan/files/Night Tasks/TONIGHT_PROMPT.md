@@ -16,6 +16,17 @@ framing were refreshed.
 **Paste everything between the lines below into Claude Code, unedited:**
 
 ---
+BEFORE ANALYSING ANYTHING, read
+`C:\Users\penns\source\repos\sparkdate\Business Plan\files\Night Tasks\ANALYTICS_CONTEXT.md`
+IN FULL and apply its caveats to every number you compute. It is a STANDING file — not dated
+nightly, not regenerated — so do not skip it because it looks old or because you did not
+expect it in the folder listing. Several metrics mean something different from what they
+appear to mean. The sharpest trap: `begin_checkout` CHANGED MEANING on 2026-08-21 (PRs #204,
+#229), so any date range spanning that date mixes two incompatible definitions and a volume
+change across it is measuring the deploy, not user behaviour. Getting this wrong produces a
+confident, wrong conclusion. Where a caveat in that file contradicts a number you compute,
+say so explicitly rather than silently trusting either.
+
 I drop GA4 Analytics CSV exports into the Night Tasks folder
 (C:\Users\penns\source\repos\sparkdate\Business Plan\files\Night Tasks\).
 Read whatever GA4 CSV(s) are currently in that folder — do NOT assume a
