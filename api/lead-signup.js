@@ -609,6 +609,31 @@ async function enrollEventbriteOne({ email, name, gender, eventId, eventName, pr
     console.error(`[enroll-eventbrite] leads doc creation failed for ${norm}:`, e.message);
   }
 
+  // Backfill a missing email onto a users doc that already existed. A Firebase
+  // Auth account can predate enrollment -- check-in creates one -- and when it
+  // does, the users doc is written without an email field. Nothing downstream
+  // repairs it, and cron-send-emails.js:498 drops those people on the floor:
+  //   if (u.profileCompleted === true || !u.email) { skipped++; continue; }
+  // That is a `continue` with a counter, not an error, so a buyer who never
+  // receives a single nurture email looks identical to one who opted out.
+  //
+  // Re-read outside the transaction rather than trusting the snapshot taken
+  // inside it: enrollment is not the only writer, and the only case being
+  // repaired here is the one where the field is still genuinely absent.
+  // Best-effort, like the leads doc above -- a failure here must not cost the
+  // enrollment that already succeeded.
+  if (!wasNewUserDoc && norm) {
+    try {
+      const freshSnap = await db.collection('users').doc(uid).get();
+      if (freshSnap.exists && !freshSnap.data().email) {
+        await db.collection('users').doc(uid).update({ email: norm });
+        console.log(`[enroll-${chan.prefix}] backfilled missing email on users/${uid}`);
+      }
+    } catch (e) {
+      console.error(`[enroll-${chan.prefix}] email backfill failed for ${uid}:`, e.message);
+    }
+  }
+
   // 4. Magic profile link + welcome email (best-effort). New SparkDate users
   // get account-creation copy + a set-password link; users who already had a
   // doc get a ticket-confirmation only (no "we made you an account", no reset
