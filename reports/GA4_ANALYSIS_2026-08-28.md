@@ -52,11 +52,11 @@ their outcome rather than deleted, so the ask history stays legible.)*
 |---|---|
 | D1 — static social tags on `/event` | **APPLIED in this PR.** Verified by curl and in-browser |
 | §F5 — `lp.html` stops forwarding `fbclid` and a duplicate event id | **DONE — PR #309**, open separately |
-| D3 — strip `fbclid` in the GA4 data stream | Not done. GA4 config, and **check first whether it can be scoped to named parameters** — redacting `eventId` would be worse than the problem |
+| D3 — strip `fbclid` in the GA4 data stream | **DONE 2026-08-28 §G7.** One key, `fbclid`, verified persisted. `eventId` untouched, Email still ON. Not retroactive |
 | D4 — rebuild the Meta ad URLs | Not done. Ads Manager. Now a sharper ask than "fix the casing": `utm_source` is hardcoded `Instagram` on every Marion Court ad regardless of placement, and `utm_content=proof_rsa1` is on all four read |
 | §F2 — Marion Court Traffic ads have **no pixel dataset selected** | Not done. Check before scoping the CAPI work in `META_CAPI_PROMPT.md` |
 | §G6 — fire `view_promotion` alongside `select_promotion` | Not done. **Code**, 4 call sites. Without it the sticky bar's 3 clicks have no denominator |
-| D3 note | **Now known scopeable** (§G7): GA4 takes up to 30 named keys, case-insensitive. `fbclid` alone is safe; `eventId` survives |
+| §G7 gotcha | The redaction field is a **chip input** — press Enter to commit the key before Save, or it errors as empty |
 | D5 — rebuild the `SEQ` segment | **WITHDRAWN §G3.** The segment was not broken; my reading was. It is user-scoped, and GA4 has no session-scoped sequences at all, so the fix I prescribed does not exist. `L+V` already carries the answer |
 | D6 — reconcile the **$82.50** revenue gap | Not done. Two GA4 tabs, one export, both internally consistent |
 | D2 — find what writes `get_tickets_block` into `utm_source` | Not done. **Producer is not in this repo** — whole-repo search incl. build output. One real $27.49 sale has an unrecoverable channel |
@@ -665,8 +665,13 @@ users.
 ### D3. Strip `fbclid` in the GA4 data stream settings (§A5)
 
 Repeated from 08-26, now with the exact parameter named: `fbclid` on 99.2% of landing URLs and 95.9%
-of paid sessions. GA4 configuration, not code, so not applied here. *Re-check:* distinct landing-page
-rows for paid traffic, currently 1,533; should drop to a few dozen.
+of paid sessions. **APPLIED 2026-08-28 — see §G7 for the verification and the chip-input gotcha.**
+
+*Re-check in ~1 week:* distinct landing-page rows for paid traffic, currently 1,533. **An earlier
+draft of this line said they "should drop to a few dozen." That was wrong** — redaction is
+collection-time only, so the 1,533 existing rows are permanent and no number in a trailing 100-day
+window will fall. What should happen is that the count **stops climbing**, and a window starting
+2026-08-29 shows the two rows §A5 says it should. Measure it on a forward window, not on this one.
 
 ### D4. Rebuild the Meta ad URLs with consistent lowercase `utm_source` (§A7)
 
@@ -1049,11 +1054,11 @@ dimension is safe and non-destructive; changing its parameter is not.
 - **Investigate the 9 users with 492 sessions** (§G3) and the **`(not set)` region's 84 key events**
   (§G4). Both look like the same class of thing — traffic that fires events and never buys.
 
-### G7. `fbclid` redaction — read, not applied, and the caution can be lifted
+### G7. `fbclid` redaction — APPLIED 2026-08-28, and the caution was discharged first
 
 §D3 and §0 both warned that redaction had to be checked for scoping before anyone touched it,
-because a blanket strip would take `eventId` with it. **It can be scoped, so that caution is
-discharged.** Read on screen, nothing saved:
+because a blanket strip would take `eventId` with it. It was read read-only first, the caution was
+discharged, and **it is now live.** What the read established:
 
 | Question | Answer |
 |---|---|
@@ -1080,3 +1085,21 @@ not do:
 **What it will not do:** fix anything already collected. §A5's 1,533 rows are permanent. The value of
 doing it is entirely in the next 100 days, which is also why doing it sooner is worth more than doing
 it carefully later.
+
+**APPLIED and verified, 2026-08-28.** The stream row badge flipped from *"URL query parameter keys
+inactive"* to **"Email active · 1 URL query parameter key"**. The panel was reopened after saving —
+with Save greyed out, confirming persisted rather than unsaved state — and the key field read back
+**`fbclid`, one entry, lowercase, nothing else**. Chip elements were counted in the DOM to rule out a
+second key below the fold: four exist on the page, three of which are the Enhanced-measurement badges
+behind the panel. **`eventId` is not present**, and the field was empty before the change, so nothing
+was displaced. Email remains ON.
+
+**A GA4 UI fact worth not rediscovering** — the kind `ANALYTICS_CONTEXT.md` §2 collects. **That field
+is a chip input, not a text box.** Typing `fbclid` and pressing Save fails with *"The URL parameter
+keys must not be empty"*, because the text has not been committed to a token yet. **Press Enter to
+commit it to a chip first, then Save.** The Enter is the commit gesture, not a second key.
+
+*Re-check in ~1 week:* distinct landing-page rows for paid traffic, currently 1,533. New hits arrive
+as `/lp?eventId=…&fbclid=(redacted)` — the key stays, the value goes — so the row count should stop
+growing almost immediately, while the report itself looks unchanged for a day or two as old and new
+data mix. **The existing rows never collapse; only the bleeding stops.**
