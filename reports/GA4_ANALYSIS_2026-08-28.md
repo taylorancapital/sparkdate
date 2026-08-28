@@ -17,6 +17,59 @@ engaged-sessions series' final value at 0100 is the §A5 artifact.
 
 ---
 
+## §0. Decision sheet
+
+Everything in this report that wants a human, on one screen. Section references are plain text rather
+than links on purpose — this report has been revised three times and heading anchors break silently.
+Search for `§A1`, `§C3` and so on.
+
+### ⚠️ Do this first
+
+**Check `MC All Genders - Video Ad` in Ads Manager for a pending draft and discard it if one exists.**
+During the read-only console audit the editor flipped to "Unpublished edits" with an active Publish
+button while the auditor was *reading* the destination URL. It reports publishing nothing but could
+not verify the account is clean. §F.
+
+### Needs your call — 7 open, 1 resolved
+
+| # | Ask | Age | The number behind it |
+|---|---|---|---|
+| C1 | Try an iOS webview escape, or accept the webview? | new | iOS fallback converts **0.6%** (7 of 1,121). Android's escape: **33.2%**. iOS is 68% of trapped traffic |
+| C2 | Is `/getaways` meant to sell tickets? | new | **207** interest events — 2.4× `generate_lead` — and no purchase path on the page |
+| C3 | Build a region grouping | 2nd | Lancaster **15.2%** key-event rate vs Philadelphia **1.5%** — but borough vs metro, so unquotable |
+| C4 | Register `reason` + `page_started_hidden` | new | #299's diagnostic is collected but **unreadable** without it |
+| C5 | Add `promotion_name` to the exploration set | 2nd | `select_promotion` 35 → 54 → **61**; the sticky bar's share is still unknown |
+| C6 | GA4 bot/datacenter filtering | **RESOLVED** | **No such control exists.** Confirmed on screen. Use a city segment and state the ~8–12% inflation |
+| C7 | Cross-tab `select_promotion` × `generate_lead` | new | **The one that closes open question 1.** One tab, no registration needed |
+| C8 | Should the homepage follow `/lp`'s headline? | 3rd | `/` is the **largest** lead landing page, 15 of 58, and still says "Your app matched you" |
+
+### Fixes
+
+| Fix | State |
+|---|---|
+| D1 — static social tags on `/event` | **APPLIED in this PR.** Verified by curl and in-browser |
+| §F5 — `lp.html` stops forwarding `fbclid` and a duplicate event id | **DONE — PR #309**, open separately |
+| D3 — strip `fbclid` in the GA4 data stream | Not done. GA4 config, and **check first whether it can be scoped to named parameters** — redacting `eventId` would be worse than the problem |
+| D4 — rebuild the Meta ad URLs | Not done. Ads Manager. Now a sharper ask than "fix the casing": `utm_source` is hardcoded `Instagram` on every Marion Court ad regardless of placement, and `utm_content=proof_rsa1` is on all four read |
+| §F2 — Marion Court Traffic ads have **no pixel dataset selected** | Not done. Check before scoping the CAPI work in `META_CAPI_PROMPT.md` |
+| D5 — rebuild the broken `SEQ` segment | Not done. GA4 config. Reports 492 for something that cannot exceed 58 |
+| D6 — reconcile the **$82.50** revenue gap | Not done. Two GA4 tabs, one export, both internally consistent |
+| D2 — find what writes `get_tickets_block` into `utm_source` | Not done. **Producer is not in this repo** — whole-repo search incl. build output. One real $27.49 sale has an unrecoverable channel |
+
+### The three things worth reading if you read nothing else
+
+1. **Open question 1 is half-answered, not answered** (§A1). 43 of 58 lead sessions never viewed an
+   item, which points away from cannibalisation — but the pre-registered rule cannot separate a
+   rescued bounce from a form filled *instead of* tapping Get Tickets. Leave the waitlist alone;
+   settle it with C7.
+2. **The freshness rule is two rules** (§A2), and only one is a lag. The other is an artifact of what
+   time the export was pulled, which no waiting period fixes. Replacement wording is in §A2.
+3. **Eventbrite returns 48.7× Meta paid's revenue per user** (§A7), widened for the third report
+   running, and still 43.7× after adjusting for datacenter traffic. Meta added 157 users and **$0.00**
+   in two days.
+
+---
+
 ## Headline: the waitlist question is half-answered, and the freshness rule needs splitting in two
 
 Open question 1 — *is the waitlist rescuing or cannibalising?* — has been open across at least four
@@ -28,7 +81,7 @@ pre-registered says that means rescue.
 rescued bounce *and* a visitor who filled the form instead of tapping Get Tickets equally well —
 the rule cannot tell them apart, and I did not notice that when I first wrote this section. The
 finding is strong enough to say **leave the waitlist alone**, and not strong enough to say it is
-purely rescuing. §C8 is the one-tab addition that would settle it.
+purely rescuing. §C7 is the one-tab addition that would settle it.
 
 Second: the finalisation rule added to `ANALYTICS_CONTEXT.md` after the 08-26 report is **directionally
 right and mechanically wrong**. It treats "the last two days are unreliable" as one phenomenon. It is
@@ -89,11 +142,11 @@ Both produce a lead session with no `view_item`. The 43 therefore cannot be read
 `generate_lead` in the same session. A visitor who tapped Get Tickets *and* filled the form is a
 different animal from one who filled the form having never tapped. **No file in this 38-CSV export
 cross-tabs the two at session level** (`select_promotion` appears in `download (9)`, `(11)`, `(13)`
-and `(33)`, in none of them against `generate_lead`), so this could not be resolved tonight. → §C8.
+and `(33)`, in none of them against `generate_lead`), so this could not be resolved tonight. → §C7.
 
 **What the finding does support:** the waitlist is not obviously taking sales, and there is no
 evidence here for making it *less* prominent than #248 already did. **Recommendation: leave it as it
-is and resolve the ambiguity with §C8 before touching it in either direction** — which is a weaker
+is and resolve the ambiguity with §C7 before touching it in either direction** — which is a weaker
 recommendation than "keep it prominent," deliberately.
 
 **One defect in this tab: the `SEQ — view_item then generate_lead` column is broken.** It reports
@@ -539,7 +592,7 @@ Google Ads status, and the Marion Court venue/ad-set decision — are **not re-a
    which is what §A7 does. **Recommend (b) plus (c).** Nobody should spend more time hunting for a
    toggle.
 
-8. **Cross-tab `select_promotion` against `generate_lead` at session level — new ask, and it is the
+7. **Cross-tab `select_promotion` against `generate_lead` at session level — new ask, and it is the
    one that actually closes open question 1.** §A1 answers the question as posed, but the question as
    posed cannot distinguish a rescued bounce from a visitor who filled the form *instead of* tapping
    Get Tickets. Both show as "lead, no item view."
@@ -553,7 +606,7 @@ Google Ads status, and the Marion Court venue/ad-set decision — are **not re-a
    One tab on the existing Waitlist exploration. *Re-check:* the share of the 58 that fired
    `select_promotion`, currently unknown.
 
-9. **Should the homepage follow `/lp`'s headline rewrite? — third ask.** `public/index.html` still
+8. **Should the homepage follow `/lp`'s headline rewrite? — third ask.** `public/index.html` still
    says "Your app matched you" in the H1 (line 1109), meta description (8), `og:description` (12),
    JSON-LD (42) and footer (1281); `about.html` and `signup.html` carry it too. `/lp` moved to "You
    show up. We handle the rest." on 2026-08-22 because **no ad mentions an app and four of nine sell
