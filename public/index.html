@@ -51,8 +51,13 @@
         // impressions with scrolling alone and report a CTR far below the truth.
         //
         // Global rather than scoped because /lp fires its two promotions from two
-        // different <script> blocks. Duplicated per page -- no shared bundle, the
-        // 12-function Vercel Hobby cap is why -- so keep the four copies in step.
+        // different <script> blocks. Duplicated per page because these are
+        // standalone static HTML with inline scripts and no bundler -- a shared
+        // /promo.js would add a blocking request to every page and a new way for
+        // the analytics to fail. It is NOT the Vercel function cap: that governs
+        // serverless routes in api/, a static file in public/ costs zero of them,
+        // and the account moved to Pro on 2026-08-24 so the cap is gone anyway.
+        // Four copies, kept in step by tests/view-promotion.test.js.
         window.sdViewPromotion = (function () {
           var seen = {};
           return function (name, slot) {
