@@ -30,15 +30,18 @@ During the read-only console audit the editor flipped to "Unpublished edits" wit
 button while the auditor was *reading* the destination URL. It reports publishing nothing but could
 not verify the account is clean. §F.
 
-### Needs your call — 7 open, 1 resolved
+### Needs your call — 4 open, 1 resolved, 3 done since
+
+*(C3, C4 and C5 were closed by the 2026-08-28 configuration session — §G. Left in the table with
+their outcome rather than deleted, so the ask history stays legible.)*
 
 | # | Ask | Age | The number behind it |
 |---|---|---|---|
 | C1 | Try an iOS webview escape, or accept the webview? | new | iOS fallback converts **0.6%** (7 of 1,121). Android's escape: **33.2%**. iOS is 68% of trapped traffic |
 | C2 | Is `/getaways` meant to sell tickets? | new | **207** interest events — 2.4× `generate_lead` — and no purchase path on the page |
-| C3 | Build a region grouping | 2nd | Lancaster **15.2%** key-event rate vs Philadelphia **1.5%** — but borough vs metro, so unquotable |
-| C4 | Register `reason` + `page_started_hidden` | new | #299's diagnostic is collected but **unreadable** without it |
-| C5 | Add `promotion_name` to the exploration set | 2nd | `select_promotion` 35 → 54 → **61**; the sticky bar's share is still unknown |
+| C3 | Build a region grouping | **DONE §G4** | Lancaster County converts at **6.6×** Philadelphia's key-event rate, **5.0×** revenue/user. Smaller than the 10× quoted on mismatched rows, as predicted |
+| C4 | Register `reason` + `page_started_hidden` | **DONE §G5** | Both created. Autocomplete already offered them — **#299 is live and firing**, confirmed from the opposite direction |
+| C5 | Add `promotion_name` to the exploration set | **DONE §G1** | Open question 2 answered: sticky bar is **3 of 61** clicks (4.9%). But `view_promotion` never fires, so there is no denominator — §G2 |
 | C6 | GA4 bot/datacenter filtering | **RESOLVED** | **No such control exists.** Confirmed on screen. Use a city segment and state the ~8–12% inflation |
 | C7 | Cross-tab `select_promotion` × `generate_lead` | new | **The one that closes open question 1.** One tab, no registration needed |
 | C8 | Should the homepage follow `/lp`'s headline? | 3rd | `/` is the **largest** lead landing page, 15 of 58, and still says "Your app matched you" |
@@ -52,7 +55,9 @@ not verify the account is clean. §F.
 | D3 — strip `fbclid` in the GA4 data stream | Not done. GA4 config, and **check first whether it can be scoped to named parameters** — redacting `eventId` would be worse than the problem |
 | D4 — rebuild the Meta ad URLs | Not done. Ads Manager. Now a sharper ask than "fix the casing": `utm_source` is hardcoded `Instagram` on every Marion Court ad regardless of placement, and `utm_content=proof_rsa1` is on all four read |
 | §F2 — Marion Court Traffic ads have **no pixel dataset selected** | Not done. Check before scoping the CAPI work in `META_CAPI_PROMPT.md` |
-| D5 — rebuild the broken `SEQ` segment | Not done. GA4 config. Reports 492 for something that cannot exceed 58 |
+| §G6 — fire `view_promotion` alongside `select_promotion` | Not done. **Code**, 4 call sites. Without it the sticky bar's 3 clicks have no denominator |
+| D3 note | **Now known scopeable** (§G7): GA4 takes up to 30 named keys, case-insensitive. `fbclid` alone is safe; `eventId` survives |
+| D5 — rebuild the `SEQ` segment | **WITHDRAWN §G3.** The segment was not broken; my reading was. It is user-scoped, and GA4 has no session-scoped sequences at all, so the fix I prescribed does not exist. `L+V` already carries the answer |
 | D6 — reconcile the **$82.50** revenue gap | Not done. Two GA4 tabs, one export, both internally consistent |
 | D2 — find what writes `get_tickets_block` into `utm_source` | Not done. **Producer is not in this repo** — whole-repo search incl. build output. One real $27.49 sale has an unrecoverable channel |
 
@@ -149,10 +154,11 @@ evidence here for making it *less* prominent than #248 already did. **Recommenda
 is and resolve the ambiguity with §C7 before touching it in either direction** — which is a weaker
 recommendation than "keep it prominent," deliberately.
 
-**One defect in this tab: the `SEQ — view_item then generate_lead` column is broken.** It reports
-**492 sessions** for a sequence that is by construction a subset of the 58 sessions that generated a
-lead. It cannot exceed 58. Do not use that column; the segment definition needs rebuilding before it
-means anything.
+**On the `SEQ — view_item then generate_lead` column reporting 492: I called this broken. It is
+not — my reading of it was.** See §G3. It is a **USER** segment matching 9 users, and the Sessions
+column then counts every session those 9 people ever had, including sessions containing neither
+event. 492 is internally consistent; "it cannot exceed 58" assumed a session scope the segment never
+had. Still do not read it as a sequence count, but the segment definition was not the fault.
 
 *Re-check in ~1 week:* the same three segments on a window starting 2026-08-25, which removes the
 internal contamination entirely rather than bounding it.
@@ -442,10 +448,13 @@ small to quote as a rate, and this report does not.
 | Philadelphia | 549 | 8 | 1.5% | $87.47 | $0.159 | 33.1% |
 | Lancaster | 105 | 16 | **15.2%** | $108.96 | **$1.038** | **52.6%** |
 
-**Same structural caveat as 08-26, and it is not resolved:** "Lancaster" is the borough row while
-"Philadelphia" is the whole metro, so this compares a town against a metro. The direction is almost
-certainly real — a 10× key-event rate does not come from row definitions alone — but the *magnitude*
-cannot be quoted until a region grouping exists. → §C3.
+**Superseded by §G2 — and my framing of the caveat was itself wrong.** I repeated
+`ANALYTICS_CONTEXT.md` §1's claim that "Philadelphia is the whole metro row." It is not: GA4's
+`City = Philadelphia` is the **city proper**, with King of Prussia, West Chester, Norristown and
+~25 more sitting as their own rows. **Both** sides were undercounted, not just Lancaster — Lancaster
+just loses proportionally far more, because the borough is exactly half its county. The region
+grouping has now been built; §G2 has the corrected figures, and the direction survives at a smaller
+magnitude, as predicted.
 
 **Segment sum check, per §2: it fails.** 549 + 105 = 654 against a grand total of 647 — **off by 7.**
 Disclosed rather than reconciled; the 08-26 export was off by 5 on the same tab.
@@ -507,11 +516,10 @@ producer in this codebase, so it may well be external. 10 users, $0.00, no key e
 `select_promotion` reads **61** events, against 54 on 08-26 and 35 two days before that. From
 `download (11).csv` its `In_App_Browser` split is (not set) 21, `true` 20, `false` 20.
 
-But `promotion_name` **does not exist as a dimension anywhere in this 38-file export.** I searched
-every file: `sticky_ticket_bar` appears only as a bogus session *source* (§A14), never as a promotion
-name. So `ANALYTICS_CONTEXT.md` §4's open question 2 — *did the CTA move work?* — **cannot be answered
-for the third consecutive export**, and the metric the context file itself nominates is still not
-exportable. → §C5.
+`promotion_name` did not exist as a dimension anywhere in this 38-file export — `sticky_ticket_bar`
+appears only as a bogus session *source* (§A14), never as a promotion name. **That has since been
+fixed and open question 2 is now ANSWERED: see §G1.** The short version is that the sticky bar
+carries 3 of 61 promotion clicks, 4.9%.
 
 ---
 
@@ -889,3 +897,186 @@ analytics of ours at all. Two unrelated numbers that happen to be close. Do not 
   the field at all.
 - **Check the Marion Court Traffic ads' missing pixel dataset** (§F2) before scoping the CAPI work in
   `reports/META_CAPI_PROMPT.md`.
+
+---
+
+## G. GA4 configuration session, 2026-08-28 — results, and three more corrections to me
+
+Run in Claude-in-Chrome after the audit, this time **writing**. §C4 and §C5 are now done, §C3 is
+built, and three further claims in this report turn out to be wrong. Each is corrected in place above
+and explained here.
+
+### G1. Open question 2, ANSWERED: the sticky bar carries 4.9% of promotion clicks
+
+`promotion_name` is now in the exploration set. §C5 closed.
+
+| Promotion name | Items clicked in promotion | Share |
+|---|---:|---:|
+| `lp_get_tickets` | 37 | 60.7% |
+| `get_tickets_block` | 18 | 29.5% |
+| **`lp_sticky_bar`** | **3** | **4.9%** |
+| `sticky_ticket_bar` | 2 | 3.3% |
+| `careers_events_callout` | 1 | 1.6% |
+| **Total** | **61** | |
+
+Total 61 matches `download (33).csv` exactly, which is a good cross-check that the right metric is
+being read.
+
+**`ANALYTICS_CONTEXT.md` §4's open question 2 — *did the CTA move work?* — is answerable now.** The
+sticky bar added on 2026-08-22 (#243) produces **3 of 61 promotion clicks**. Taking the two
+sticky-bar-shaped values together (`lp_sticky_bar` + `sticky_ticket_bar`) gives 5 of 61, 8.2%. The
+main in-page CTA still does the overwhelming majority of the work.
+
+**n = 3.** Per §5 this is far too small to call the sticky bar a success or a failure, and this report
+does neither. What it does close is the *measurability* question: the number exists now and can be
+watched.
+
+**A UI disagreement worth recording,** since `ANALYTICS_CONTEXT.md` §2 collects these: **GA4 will not
+allow `Event count` against `Item promotion name`.** Event count, Transactions, Key events, Total
+revenue and Purchase revenue are all greyed out as incompatible with that item-scoped dimension. Use
+`Items clicked in promotion`, which is the `select_promotion` metric.
+
+### G2. `view_promotion` has never fired, so promotion CTR is not computable
+
+`Items viewed in promotion` reads **0 on every row.** I checked the source: **`view_promotion`
+appears nowhere in `public/`.** We fire the click half of the promotion pair and never the impression
+half.
+
+So there is no denominator. "3 sticky-bar clicks" cannot become "3 clicks from N impressions", which
+is the number that would actually say whether the bar works — a bar shown 40 times and clicked 3 is a
+success; shown 1,800 times and clicked 3 is not. **§G1's answer is a numerator without a
+denominator,** and that is a code gap, not a configuration one. → §G6.
+
+### G3. The `SEQ` segment was not broken. My reading of it was.
+
+This report called that column "broken" and said 492 "cannot exceed 58." Read in the segment editor,
+the definition is:
+
+- **Segment type: USER**, not session.
+- Sequence: `view_item` → indirectly followed by → `generate_lead`. Scoping: across all sessions.
+- **Users in segment: 9.** Total sessions: 492.
+
+The sequence logic is fine. **492 is the number of sessions belonging to the 9 users who ever
+performed that sequence** — including their sessions containing neither event. My "cannot exceed 58"
+assumed a session scope the segment never had.
+
+**And the fix I prescribed does not exist.** §D5 said to rebuild it "as a session-scoped SEQUENCE
+segment." GA4 offers sequences **only** in User segments; the Session segment builder has no "Add
+sequence to include" at all. Rebuilding it with scoping changed to *within the same session* returned
+**the identical 492 and the identical 9 users** — every one of those 9 did the sequence inside a
+single session already.
+
+**The correct session-scoped answer was already in the table**: `L+V — lead AND viewed item`. It
+lacks only ordering, and a lead form submitted *before* viewing an item is not a plausible path on
+this site.
+
+**9 users owning 492 sessions is ~55 sessions each, and that is its own red flag** — plausibly
+internal traffic from before the 2026-08-25 filter, or automation. Not chased here.
+
+**Two side effects to know about.** An exploration caps at **10 segments** and this one was full, so
+the operator deleted the old `SEQ` segment to free a slot before building the replacement. `L`,
+`L only` and `L+V` were untouched.
+
+**And the partition has moved since the export.** The live UI now reads **L = 59, L only = 43,
+L+V = 16** against this report's 58 / 43 / 15. Still an exact partition (43 + 16 = 59). §A1's figures
+are correct *for the 2026-08-27 export* and are not restated; the drift is one additional lead
+session and one additional L+V in the days since.
+
+### G4. Region grouping built — and "Philadelphia is the metro" was wrong
+
+§C3 is built. Two new tabs on *Philly vs Lancaster*; no Audience created.
+
+**The correction first.** `ANALYTICS_CONTEXT.md` §1 says "Philadelphia is the whole metro row" and
+this report repeated it. **It is the city proper.** King of Prussia (28), West Chester (52),
+Coatesville (11), Exton (7), Norristown (7), Drexel Hill (6) and ~20 more sit as their own rows. So
+**both** sides of the regex were undercounted — Lancaster simply loses proportionally far more,
+because the borough is half its county.
+
+| Grouping | Active users | Key events | Rate | Revenue | Revenue/user |
+|---|---:|---:|---:|---:|---:|
+| Philadelphia (city proper) | 557 | 9 | 1.6% | $87.47 | $0.157 |
+| Lancaster borough only *(the old row)* | 104 | 16 | 15.4% | $108.96 | $1.048 |
+| **Lancaster County (16 towns)** | **208** | **22** | **10.6%** | **$163.94** | **$0.788** |
+
+**§A12's direction survives and its magnitude drops, exactly as §A12 predicted it would.** Properly
+grouped, Lancaster County converts at **6.6× Philadelphia's key-event rate** and **5.0×** its revenue
+per user — against the 10× and 6.5× this report quoted on mismatched rows.
+
+**The county classification is manual.** GA4 has no county dimension, so this has to live as a
+maintained city-list regex. Two mechanical notes from the operator: scope any such regex with
+`Region = Pennsylvania`, because a bare `Lancaster` also matches Lancaster CA/NY/OH/TX (one user
+tonight), and `Columbia` is far more exposed to that than `Lancaster` is.
+
+**Separate finding from the same tab, and it is a big one:** the **`(not set)` region carries 84 of
+220 key events — 38% — on $0.00 revenue.** Traffic GA4 cannot place is generating well over a third
+of all key-event volume and none of the money. That is consistent with §A7's Google Ads family (94
+key events, $0.00, all `ads_conversion_About_Us_1`), but it is not obviously the same rows and is
+worth its own look.
+
+### G5. Custom dimensions created, and #299 is confirmed live
+
+§C4 closed. Both created event-scoped, verified on screen:
+
+| Dimension | Parameter | Created |
+|---|---|---|
+| Fetch failure reason | `reason` | 2026-08-28 |
+| Page started hidden | `page_started_hidden` | 2026-08-28 |
+
+Quota after: 4 of 50 event-scoped. No pressure.
+
+**The detail that matters most is incidental:** both parameter names were **already offered in GA4's
+autocomplete**, which means the property is already receiving them. **PR #299 is live and firing** —
+independent confirmation of §A3, arrived at from the opposite direction. GA4 simply was not
+registering the values into anything reportable.
+
+**Not retroactive, restated because it will look like a fault tomorrow:** the ~62 existing
+`next_event_fetch_failed` events read `(not set)` on both dimensions permanently, and GA4 typically
+takes 24–48 hours to populate a new dimension. Seeing nothing on 2026-08-29 is expected.
+
+**One naming overlap now live:** *Fetch failure reason* sits next to the existing *Checkout Error
+Category*, whose description also amounts to "failure reason". Different events, different
+parameters, no technical collision — but two similar names in every report picker. Renaming a custom
+dimension is safe and non-destructive; changing its parameter is not.
+
+### G6. What this adds to the fix list
+
+- **Fire `view_promotion`** wherever `select_promotion` is fired (§G2). Four call sites:
+  `index.html:1103`, `events.html:2744`, `about.html:664`, and the `/lp` CTA. Without it the sticky
+  bar's 3 clicks have no denominator and open question 2 stays half-closed. **Code, not config** —
+  and it is the kind of small additive change that wants its own PR.
+- **Scope any Lancaster County regex with `Region = Pennsylvania`** (§G4), or it will silently collect
+  Lancaster CA/NY/OH/TX.
+- **Investigate the 9 users with 492 sessions** (§G3) and the **`(not set)` region's 84 key events**
+  (§G4). Both look like the same class of thing — traffic that fires events and never buys.
+
+### G7. `fbclid` redaction — read, not applied, and the caution can be lifted
+
+§D3 and §0 both warned that redaction had to be checked for scoping before anyone touched it,
+because a blanket strip would take `eventId` with it. **It can be scoped, so that caution is
+discharged.** Read on screen, nothing saved:
+
+| Question | Answer |
+|---|---|
+| Does it take named keys? | **Yes** — up to **30**, case-insensitive |
+| Would it affect `eventId`? | **No.** Only the keys you name. `eventId` survives untouched |
+| Which fields does it cover? | `page_location`, `page_referrer`, `page_path`, `link_url`, `video_url`, `form_destination` — flagged in bold in the UI |
+| Retroactive? | **No.** Collection-time. The existing 1,521 fragmented rows stay fragmented permanently |
+| Removes the key or the value? | **The value.** URLs become `…&fbclid=(redacted)`, which still collapses all 1,521 variants into one row per `eventId` |
+
+`page_location` is in the covered list, and that is what `Landing page + query string` derives from,
+so it does hit the report §A5 is about.
+
+**Recommendation: enable it, with `fbclid` as the only key.** Three reasons, and one thing it does
+not do:
+
+1. The `eventId` risk that justified the caution is gone — the field is a named allow-list.
+2. It is the **only** half of §A5 that helps traffic arriving with `fbclid` on the landing page
+   itself. PR #309 stops `/lp` *forwarding* it to `/events`; it cannot stop Meta putting it on the
+   inbound URL.
+3. **It does not touch the Meta pixel.** Redaction applies to the payload sent to GA4, not to the
+   browser's URL bar — `fbq` still reads the real `fbclid` and still writes `_fbc`. No attribution
+   is lost on either side.
+
+**What it will not do:** fix anything already collected. §A5's 1,533 rows are permanent. The value of
+doing it is entirely in the next 100 days, which is also why doing it sooner is worth more than doing
+it carefully later.
