@@ -671,13 +671,42 @@
                 });
             }
 
+            // Funnel visibility: fires once per page load on first interaction
+            // with ANY notify form, mirroring lp.html / events.html so GA4 can
+            // measure true abandonment (started-but-never-submitted).
+            //
+            // Until now getaways was the ONE lead surface that fired
+            // generate_lead (lead_type: 'getaway_notify', in submitNotifyMe
+            // above) with no matching start event. That is the identified
+            // cause of the documented pairing gap -- 30 of 51 completed leads
+            // having no recorded form start -- since getaway_interest appears
+            // in 18 of 59 lead-generating sessions.
+            //
+            // The flag is PAGE-level, not per-card, and that is deliberate:
+            // this page has seven notify forms where every other lead page
+            // has one. A per-form flag would let getaways fire up to 7x per
+            // page load while lp.html fires 1x, which would make the event
+            // mean something different here than everywhere else and break
+            // cross-page comparison. Once per page load keeps the semantic
+            // identical across all eight call sites.
+            var leadStartTracked = false;
+
             // Wire the static cards.
             document.querySelectorAll('.getaway-card').forEach(function (card) {
                 var id = card.getAttribute('data-package-id');
                 var btn = card.querySelector('.getaway-btn');
                 var form = card.querySelector('.getaway-notify form');
                 if (btn) btn.addEventListener('click', function () { vote(id, card); });
-                if (form) form.addEventListener('submit', function (e) { submitNotifyMe(e, id, card); });
+                if (form) {
+                    form.addEventListener('focusin', function () {
+                        if (leadStartTracked) return;
+                        leadStartTracked = true;
+                        // package_id names which card started it, matching the
+                        // parameter generate_lead and getaway_interest carry.
+                        if (typeof gtag === 'function') gtag('event', 'lead_form_started', { lead_type: 'getaway_notify', package_id: id });
+                    });
+                    form.addEventListener('submit', function (e) { submitNotifyMe(e, id, card); });
+                }
             });
 
             hydrateCounts();
