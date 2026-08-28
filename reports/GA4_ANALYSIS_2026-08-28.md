@@ -184,6 +184,35 @@ path × eventId combinations, a few dozen.
 Unchanged in ratio from 08-26 (1,386 URLs / 1,530 sessions, 0.91) — this is a standing configuration
 issue that accumulates, not a regression.
 
+**Half of this is our code, not GA4 configuration — found after the console audit flagged duplicate
+parameters.** Re-parsed for repeated keys: **1,527 of 1,533 rows (99.6%) carry a duplicated
+parameter** — `fbclid` twice on 1,521 rows, `eventId` twice on 145, plus `checkout`, `ai` and `ct`.
+
+The producer is `public/lp.html:533` and `:834`:
+
+```js
+var carry = (function () {
+  var qs = location.search;
+  var s = (qs && qs.indexOf('utm_') !== -1) ? '&' + qs.replace(/^\?/, '') : '';   // the WHOLE query string
+  ...
+})();
+...
+btn.href = '/events?event=' + encodeURIComponent(ev.id) + '&checkout=1' + carry;
+```
+
+`carry` appends the **entire** inbound query string whenever it contains `utm_` anywhere — so
+`fbclid` rides along, and the event id arrives a second time as `eventId=` on a URL that already
+names it `event=`. The intent (documented in the comment above it) was to stop `ref` and `utm_*`
+being dropped on the hop to `/events`, which is right; carrying *everything* is the overreach.
+
+The triple-`eventId` rows the audit saw (`/events?event=X&eventId=X&eventId=X`) imply a second hop I
+could not isolate — `events.html:2044` reads the query string and never appends, so it is not the
+one. **One producer proven, at least one more suspected.**
+
+**This changes the fix.** §D3's "strip `fbclid` in GA4" is still worth doing, but it cleans up
+reporting *after* the fact. Not re-appending the query string is the upstream half, and it is a code
+change in a checkout path — which puts it outside this run's zero-risk bar. → §F5.
+
 ### A6. iOS webview visitors have no working way out; Android does
 
 `download (7).csv`, 1,828 in-app-browser events:
@@ -239,6 +268,13 @@ and the direct/email rows carry internal-traffic contamination for most of this 
 `Instagram / paid_social` 313, `fb / paid_social` 88, `Facebook / paid` 22. Reading only the top row
 gives 40.4% against a true 68.8%. The lowercase, `fb` and `Facebook / paid` rows still show **$0.00
 across 100 days.**
+
+**Superseded in part — see §F2.** "Case fragmentation" is the wrong name for what is happening. The
+console audit read four ads directly and found **two different capitalised values, not a casing
+mix**: `Facebook` on the Good Good ad and **`Instagram` hardcoded on all three Marion Court ads,
+regardless of which placements those ad sets actually run.** The sum above is unaffected — every
+variant is included — but **the Facebook-versus-Instagram split within it is fiction** and no
+per-platform reading of Meta traffic should be attempted until the ad URLs are rebuilt.
 
 ### A8. Datacenter traffic: confirmed, marginally grown, same shape
 
@@ -421,9 +457,17 @@ Google Ads status, and the Marion Court venue/ad-set decision — are **not re-a
 1. **iOS webview escape — new ask.** 1,121 iOS webview detections, and the only iOS affordance
    (copy-link) fires 7 times: **0.6%.** Android's `intent://` escape fires 33.2%. iOS is 68% of
    trapped traffic. The current code is deliberate and its reasoning is good, so this is a product
-   call, not a bug fix: is it worth trying an iOS path (an `x-safari-https://` attempt, or clearer
-   copy telling people to tap the ⋯ menu), or is the in-app experience now good enough post-#243
-   that escaping no longer matters? *Re-check:* `in_app_browser_copy_link` on iOS, currently 7.
+   call, not a bug fix.
+
+   **Correction, added after the console audit:** an earlier draft of this ask suggested trying
+   `x-safari-https://` as an iOS escape. That suggestion is dead on arrival and this codebase already
+   says so — `lp.html:552–556`: *"iOS deliberately has no equivalent — Apple gives a webview no
+   supported way to pass a URL to Safari, and the old `x-safari-https://` trick no longer works in
+   current FB/IG webviews."* I proposed something the code had already ruled out. **There is no
+   technical iOS escape to build.** The real question is narrower and entirely about copy: the iOS
+   fallback is the copy-link instruction, it converts at 0.6%, and the only lever is making that
+   instruction clearer or accepting that two thirds of webview traffic stays in the webview.
+   *Re-check:* `in_app_browser_copy_link` on iOS, currently 7.
 
 2. **`/getaways` has no ticket path — new ask.** 207 `getaway_interest` events, 2.4× `generate_lead`,
    and nothing on the page can be bought. If getaway packages are not bookable this is correct and
@@ -448,14 +492,22 @@ Google Ads status, and the Marion Court venue/ad-set decision — are **not re-a
    §3 nominates `promotion_name: lp_sticky_bar` as the metric for open question 2 and it is still not
    exportable. One free-form tab. *Re-check:* open question 2 becomes answerable.
 
-6. **GA4 bot/datacenter filtering — correcting the ask itself.** The 08-26 report called this "a GA4
-   Admin setting, not code." **I do not believe that setting exists.** GA4 excludes known bots
-   automatically with no user-facing control, and Data filters support only Developer and Internal
-   (IP-based) traffic. So the realistic options are: (a) an IP-range internal-traffic-style filter,
-   which requires datacenter IP ranges you would have to source and maintain; (b) handle it at
-   analysis time with a city-exclusion segment, which costs nothing and is honest; or (c) accept the
-   ~8–12% denominator inflation and state it, which is what §A7 does. **Recommend (b) plus (c).**
-   Please confirm before anyone spends time hunting for a toggle.
+6. **GA4 bot/datacenter filtering — RESOLVED by the console audit; no such setting exists.** The
+   08-26 report called this "a GA4 Admin setting, not code." It is not one. Confirmed on screen: the
+   data-filter type radio group offers exactly **Developer traffic, Internal traffic, Web hostname
+   traffic** — no bot or datacenter option — and Google's documentation states known bots and spiders
+   are excluded automatically via the IAB list with no way to disable it or see how much was
+   excluded.
+
+   **A correction to my own framing while I am here:** I wrote that data filters "support only
+   Developer and Internal traffic." There are **three** types, not two — Web hostname is the third.
+   The conclusion held; the supporting detail was wrong.
+
+   So the realistic options are: (a) an IP-range internal-traffic-style filter, which needs
+   datacenter ranges someone would have to source and maintain; (b) a city-exclusion segment at
+   analysis time, which costs nothing; or (c) accept the ~8–12% denominator inflation and state it,
+   which is what §A7 does. **Recommend (b) plus (c).** Nobody should spend more time hunting for a
+   toggle.
 
 7. **Should the homepage follow `/lp`'s headline rewrite? — third ask.** `public/index.html` still
    says "Your app matched you" in the H1 (line 1109), meta description (8), `og:description` (12),
@@ -603,3 +655,132 @@ CSVs were read in place and not moved, renamed or modified.
 on the 13 remaining GA4 pages, but it merged at 2026-08-28 04:00 UTC — **after this export was pulled
 at 2026-08-28 03:19 UTC.** The 88.6% `(not set)` rate in `download (11).csv` covers 100 days of which
 95 predate even #265. Neither figure measures #304. The next export is the first one that can.
+
+---
+
+## F. Console audit, 2026-08-28 — what was confirmed on screen
+
+Run separately in Claude-in-Chrome, read-only, against GA4 Admin, Meta Ads Manager, Google Ads and
+Eventbrite. Recorded here because it answers five of §C's asks with on-screen evidence rather than
+inference, and because it **corrects two things this report got wrong** — §C1 and §C6, both amended
+in place above.
+
+**Two view-only side effects the auditor named, neither a config change:** opening a GA4 exploration
+stamps its *Last modified* date, so several now carry 2026-08-28 timestamps with no content change;
+and the Ads Manager list was re-sorted and set to Last 7 days. GA4 change history shows no entries
+after Aug 25.
+
+**⚠️ One thing needing Taylor's eyes, not mine.** While the auditor was *reading* the destination URL
+on **MC All Genders - Video Ad**, the editor flipped to "Unpublished edits" with an active Publish
+button. The auditor reports typing nothing and publishing nothing — only Home/End/arrow keys inside a
+URL field, then Escape — and says Review-and-publish stayed greyed out elsewhere throughout. It could
+not verify the account is clean. **Check that ad for a pending draft and discard it if one exists.**
+Nothing here should reach live ads without a human deciding it does.
+
+### F1. Asks answered
+
+| § | Ask | Result |
+|---|---|---|
+| C4 | Register `reason` / `page_started_hidden` | **NOT DONE** — confirmed |
+| C5 | `promotion_name` in the exploration set | **NOT DONE** — all 19 saved explorations checked individually; none loads it into Variables, and Variables is the shared dimension pool, so no tab can use it |
+| C3 | Region grouping | **NOT DONE** — 2 audiences (both GA4 defaults), 9 comparisons (all built-ins), zero geographic. `Region` sits in the Philly-vs-Lancaster Variables panel and is used in neither tab |
+| C6 | Bot filtering | **No such control exists** — see the amended §C6 |
+| — | Internal traffic filter | **DONE, both halves** — filter Active (not Testing), rule `internal_traffic` with the IPv4 exact match and the IPv6 /64. Matches `ANALYTICS_CONTEXT.md` §1 exactly |
+| — | Query-parameter stripping | **NOT DONE** — Redact data: Email ON, **URL query parameters OFF**; "No modifications yet" under Modify events |
+
+### F2. Meta ad URLs — the finding that supersedes "case fragmentation"
+
+Four of six ads read directly. Verbatim destination URL on the Marion Court ads:
+
+    https://sparkdate.date/lp?eventId=WUaooYvOq0eC0D1QVCvQ&utm_source=Instagram&utm_medium=paid_social&utm_campaign=Augweek3_lancaster&utm_content=proof_rsa1
+
+| Ad | Campaign | `utm_source` | `utm_content` |
+|---|---|---|---|
+| Good Good Retargeting | Event 4 Good Good | `Facebook` | `proof_rsa1` |
+| MC Retargeting - Image Ad | Marion Court Retargeting | `Instagram` | `proof_rsa1` |
+| MC Women - Video Ad | Marion Court \| Traffic | `Instagram` | `proof_rsa1` |
+| MC All Genders - Video Ad | Marion Court \| Traffic | `Instagram` | not read |
+| GG Women - Traffic | Event 3 Good Good | **can't tell** | — |
+| Campaign 1 Event 3 Good Good Ad | Event 3 Good Good | **can't tell** | — |
+
+Three consequences:
+
+1. **Every Marion Court ad is hardcoded `utm_source=Instagram`** regardless of placement. Any
+   Facebook-versus-Instagram split for Marion Court in GA4 is fiction. §A7's *sum* is unaffected.
+2. **`utm_content=proof_rsa1` is identical on all four**, confirming `ANALYTICS_CONTEXT.md` §3 —
+   women's creative, all-genders creative and retargeting are indistinguishable in GA4.
+3. **Capitalised `Facebook`/`Instagram` may not match GA4's default channel grouping**, which keys on
+   lowercase, pushing this traffic toward Referral/Unassigned. Marked *likely* by the auditor, not
+   confirmed — but `download (30).csv` gives it circumstantial support: **`Unassigned` is the largest
+   single channel group in the waitlist tab at 189 sessions**, ahead of Paid Social's 77. Worth one
+   query before it is believed.
+
+**The two unreadable ads are unreadable for a structural reason:** both sit in "Campaign 1 Event 3
+Good Good Campaign", built with Meta's guided setup, which does not expose a destination-URL field in
+the normal ad editor.
+
+**Separately, and not previously known:** the two Marion Court **Traffic** ads have **Website events
+unchecked — no pixel dataset selected** — while the retargeting ads carry Sparkdate's pixel. That is
+a plausible contributor to the zero-conversion picture in `reports/META_CAPI_PROMPT.md` and is worth
+checking before that document's CAPI work is scoped.
+
+### F3. Marion Court — the §3b thread can now be advanced
+
+`ANALYTICS_CONTEXT.md` §3b keeps exactly one thread open on Marion Court: cart-to-purchase. §E of
+this report said that could not be advanced without current Meta data. The audit supplies it.
+
+| Campaign | Status | Budget | Last 7d | Reach | Frequency | Purchases |
+|---|---|---|---:|---:|---:|---:|
+| Marion Court \| Traffic | Active | $6.00/day | $23.91 | 1,862 | 1.97 | — |
+| Marion Court Retargeting | Active | $3.00/day | **$29.32** | **113** | **12.52** | **0** |
+
+**The retargeting campaign is the larger line item — $29.32 of $53.23 — and it is showing the same
+113 people the ad about twice a day, to zero purchases.** Frequency 12.52 against a reach of 113 is
+the number here, and it is not a small-sample artifact: it is arithmetic on 1,415 impressions.
+
+This is a *delivery* observation, not a re-opening of the venue decision §3b marks as settled. But it
+bears directly on the 6-carts-to-0-purchases thread: the audience being retargeted is 113 people who
+have already seen the ad a dozen times each.
+
+Also worth noting: Marion Court | Traffic's 30-day spend equals its 7-day spend ($23.91 at audit
+time; $30.73 read later at Last-30-days). Every dollar it has spent is recent — exactly the
+rolling-window trap `ANALYTICS_CONTEXT.md` §1 warns about, so **no trend should be read from it.**
+
+### F4. Google Ads and Eventbrite
+
+**Google Ads — confirmed dark, on screen.** Banner: *"None of your ads are running."* Last 30 days
+$0.00 / 0 impressions / 0 clicks. Three campaigns: one PMax Removed, one Search Paused (*"All ads
+disapproved, Conversion tracking setup is incomplete"*), one Search Removed. All-time $37.91 / 509
+impressions / 114 clicks / 1 conversion / $27.49. Matches `ANALYTICS_CONTEXT.md` exactly, and the 114
+all-time clicks are almost certainly the 114 GA4 users. **No money is going out.**
+
+**Eventbrite — being run deliberately.** Three events, all published and On Sale:
+
+| Event | Date | Sold | Gross |
+|---|---|---:|---:|
+| Good Good Night @ Good Good Things | Aug 31 | 6 / 30 | $139.95 |
+| Real People, Real Drinks, Real Court | Sep 8 | 6 / 30 | $101.94 |
+| The Loxley's Social | Sep 22 | 2 / 30 | $49.98 |
+| | | **14** | **$291.87** |
+
+Not idle. This supports §A7's reading: Eventbrite is a checkout, not a discovery channel, which is
+why it converts 48.7× better per GA4 user.
+
+**A coincidence to defuse before it becomes a finding.** Eventbrite gross reads **$291.87** and GA4's
+`eventbrite / listing` row reads **$290.39** — $1.48 apart, and **they are not the same quantity.**
+GA4's row is people who clicked an Eventbrite listing and then bought **on our own site**;
+Eventbrite's gross is tickets sold **on Eventbrite**, which per `ANALYTICS_CONTEXT.md` §1 fires no
+analytics of ours at all. Two unrelated numbers that happen to be close. Do not reconcile them.
+
+### F5. What this adds to the fix list
+
+- **`lp.html`'s `carry` should stop forwarding the whole query string** (§A5). Filter it to `utm_*`
+  and `ref` — which is what its own comment says it was for — instead of everything including
+  `fbclid` and a duplicate event id. Not applied here: it is a code change in the path to checkout,
+  above this run's zero-risk bar, and it wants its own PR and its own review.
+- **Rebuilding the Meta ad URLs** (§D4) is now a sharper ask than "fix the casing": set `utm_source`
+  per placement rather than hardcoding `Instagram`, and give each ad a distinct `utm_content`. The
+  two Good Good ads in the guided-setup campaign may need rebuilding outside guided setup to expose
+  the field at all.
+- **Check the Marion Court Traffic ads' missing pixel dataset** (§F2) before scoping the CAPI work in
+  `reports/META_CAPI_PROMPT.md`.
