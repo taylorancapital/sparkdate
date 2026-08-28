@@ -14,8 +14,14 @@
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
+      // in_app_browser rides at CONFIG level so it tags EVERY event from this
+      // page. #265 did this for lp/event/events only, which is why 182 events
+      // on a finalised day still recorded the dimension as (not set) -- the
+      // registration was never the problem, the parameter was simply absent.
+      // Keep this UA test identical to the one in lp.html.
       gtag('config', 'G-21YLCC35F1', {
-        'page_path': window.location.pathname + window.location.search
+        'page_path': window.location.pathname + window.location.search,
+        'in_app_browser': /FBAN|FBAV|Instagram|Line\/|TikTok|BytedanceWebview|Twitter/i.test(navigator.userAgent)
       });
     </script>
     <style>
