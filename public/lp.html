@@ -591,12 +591,41 @@
         // refOf() through (see the lead-signup POST below), but a referred
         // visitor who clicked straight to Get Tickets, skipping that form,
         // silently lost attribution.
+        // Carry ONLY what this hop is for: campaign attribution (utm_*) and the
+        // referral id. This used to append the ENTIRE inbound query string
+        // whenever it contained `utm_` anywhere, which dragged two passengers
+        // along with it.
+        //
+        //   fbclid -- Meta stamps a unique click id on every ad click, so
+        //   carrying it made the destination a distinct URL for every single
+        //   visitor. Measured over the 100 days to 2026-08-27: 1,521 of 1,533
+        //   paid landing-page rows carried fbclid and 93.6% of those rows held
+        //   exactly ONE session, which is why the landing-page report was
+        //   unreadable -- one row per click. Dropping it costs no Meta
+        //   attribution: the pixel initialised above has already read fbclid
+        //   from this page's own URL and written _fbc as a first-party cookie
+        //   on this domain before this link can be clicked.
+        //
+        //   eventId -- /lp names the event `eventId`, /events names it `event`,
+        //   and `event` is the one events.html actually reads. Carrying the /lp
+        //   spelling put the same id on the URL twice under two names.
+        //
+        // Filtering per key also fixes a quieter bug: the old
+        // `s.indexOf('ref=') === -1` guard matched any parameter ENDING in
+        // `ref=` -- `pref=`, `xref=` -- and silently dropped a real referral
+        // when one was present.
         var carry = (function () {
-          var qs = location.search;
-          var s = (qs && qs.indexOf('utm_') !== -1) ? '&' + qs.replace(/^\?/, '') : '';
+          var out = [];
+          try {
+            new URLSearchParams(location.search).forEach(function (v, k) {
+              if (k.indexOf('utm_') === 0) {
+                out.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
+              }
+            });
+          } catch (_) {}
           var ref = refOf();
-          if (ref && s.indexOf('ref=') === -1) s += '&ref=' + encodeURIComponent(ref);
-          return s;
+          if (ref) out.push('ref=' + encodeURIComponent(ref));
+          return out.length ? '&' + out.join('&') : '';
         })();
 
         // In-app browser (Instagram/Facebook/TikTok/etc.) detection. Their
