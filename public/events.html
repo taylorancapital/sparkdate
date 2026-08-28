@@ -41,7 +41,68 @@
         'page_path': window.location.pathname + window.location.search,
         'in_app_browser': /FBAN|FBAV|Instagram|Line\/|TikTok|BytedanceWebview|Twitter/i.test(navigator.userAgent)
       });
-    </script>
+          // view_promotion -- the impression half of the promotion pair.
+      //
+      // Until now this site fired select_promotion (the click) and never
+      // view_promotion (the impression), so GA4's "Items viewed in promotion"
+      // read 0 on every row while "Items clicked in promotion" read 61. The
+      // 2026-08-28 report could say the /lp sticky bar took 3 of 61 promotion
+      // clicks and could NOT say whether that was 3 from 40 impressions (a good
+      // bar) or 3 from 1,800 (a useless one). A numerator with no denominator.
+      // This supplies the denominator.
+      //
+      // Deduped per promotion per page load, and that guard is load-bearing: a
+      // sticky bar that appears, scrolls out of view and reappears is ONE
+      // impression, not three. Without it an IntersectionObserver would inflate
+      // impressions with scrolling alone and report a CTR far below the truth.
+      //
+      // Global rather than scoped because /lp fires its two promotions from two
+      // different <script> blocks. Duplicated per page because these are
+      // standalone static HTML with inline scripts and no bundler -- a shared
+      // /promo.js would add a blocking request to every page and a new way for
+      // the analytics to fail. It is NOT the Vercel function cap: that governs
+      // serverless routes in api/, a static file in public/ costs zero of them,
+      // and the account moved to Pro on 2026-08-24 so the cap is gone anyway.
+      // Four copies, kept in step by tests/view-promotion.test.js.
+      window.sdViewPromotion = (function () {
+        // seen[] is set the moment the impression HAPPENS, not when it is
+        // successfully reported. Those are different events and conflating
+        // them was the bug: the old guard returned early when gtag was not a
+        // function WITHOUT marking the promotion seen, so the impression was
+        // dropped and only retried if the observer happened to fire again --
+        // which on /lp it may never do for a visitor who lands, reads and
+        // clicks without scrolling the CTA past the threshold. That is a
+        // click with no impression, understating the denominator this helper
+        // exists to build.
+        //
+        // Small in practice: gtag is declared synchronously in the head of all
+        // four pages, before this helper, so it is nearly always ready. This
+        // covers the case where it is not -- and costs one array.
+        var seen = {}, queued = [];
+        function flush() {
+          if (typeof gtag !== 'function') return;
+          while (queued.length) {
+            var q = queued.shift();
+            gtag('event', 'view_promotion', { promotion_name: q.n, creative_slot: q.s });
+          }
+        }
+        // One more attempt once everything has loaded, in case gtag arrived
+        // after an impression was queued. Guarded because the helper is also
+        // run headless by tests/view-promotion.test.js, where window is a stub.
+        if (window && typeof window.addEventListener === 'function') window.addEventListener('load', flush);
+      return function (name, slot) {
+        // Queue the impression at most once, but ALWAYS try to flush -- so a
+        // later sighting of an already-seen promotion is what delivers one that
+        // was queued while gtag was still missing. Returning early here instead
+        // is what tests/view-promotion.test.js's late-gtag case catches.
+        if (!seen[name]) {
+          seen[name] = 1;
+          queued.push({ n: name, s: slot });
+        }
+        flush();
+      };
+      })();
+</script>
     <!-- Referral capture — same convention as index.html/lp.html. This page
          is one of the most-linked-to (nav, footers, share buttons), but
          previously never captured an incoming ?ref= itself, silently
@@ -2738,7 +2799,8 @@
       // the session, and the channel that really acquired the visit loses the
       // credit (tests/internal-links.test.js).
       (function () {
-        document.querySelectorAll('a[href="/careers"]').forEach(function (a) {
+        var links = document.querySelectorAll('a[href="/careers"]');
+        links.forEach(function (a) {
           a.addEventListener('click', function () {
             if (typeof gtag !== 'function') return;
             gtag('event', 'select_promotion', {
@@ -2747,6 +2809,19 @@
             });
           });
         });
+
+        // Impression side. Unobserve on first sight: one link scrolled past
+        // twice is one impression, and several links can share a promo name,
+        // which the helper's own dedupe also absorbs.
+        if (typeof IntersectionObserver === 'undefined') return;
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (!e.isIntersecting) return;
+            io.unobserve(e.target);
+            window.sdViewPromotion(e.target.dataset.promo || 'careers_link', 'events');
+          });
+        });
+        links.forEach(function (a) { io.observe(a); });
       })();
     </script>
 </body>
