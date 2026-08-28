@@ -38,7 +38,33 @@
         'page_path': window.location.pathname + window.location.search,
         'in_app_browser': /FBAN|FBAV|Instagram|Line\/|TikTok|BytedanceWebview|Twitter/i.test(navigator.userAgent)
       });
-    </script>
+          // view_promotion -- the impression half of the promotion pair.
+      //
+      // Until now this site fired select_promotion (the click) and never
+      // view_promotion (the impression), so GA4's "Items viewed in promotion"
+      // read 0 on every row while "Items clicked in promotion" read 61. The
+      // 2026-08-28 report could say the /lp sticky bar took 3 of 61 promotion
+      // clicks and could NOT say whether that was 3 from 40 impressions (a good
+      // bar) or 3 from 1,800 (a useless one). A numerator with no denominator.
+      // This supplies the denominator.
+      //
+      // Deduped per promotion per page load, and that guard is load-bearing: a
+      // sticky bar that appears, scrolls out of view and reappears is ONE
+      // impression, not three. Without it an IntersectionObserver would inflate
+      // impressions with scrolling alone and report a CTR far below the truth.
+      //
+      // Global rather than scoped because /lp fires its two promotions from two
+      // different <script> blocks. Duplicated per page -- no shared bundle, the
+      // 12-function Vercel Hobby cap is why -- so keep the four copies in step.
+      window.sdViewPromotion = (function () {
+        var seen = {};
+        return function (name, slot) {
+          if (seen[name] || typeof gtag !== 'function') return;
+          seen[name] = 1;
+          gtag('event', 'view_promotion', { promotion_name: name, creative_slot: slot });
+        };
+      })();
+</script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root { --navy: #0a0e27; --coral: #ff6b6b; --cream: #f5f3f0; --white: #fff; --success: #4ade80; --danger: #f87171; }
@@ -983,6 +1009,12 @@
       var visible = entries[0].isIntersecting;
       bar.classList.toggle('show', !visible);
       document.body.classList.toggle('has-sticky', !visible);
+      // Both /lp promotions get their impression from this one observer: the
+      // main CTA is on screen, or the bar it triggers is. They are mutually
+      // exclusive by construction, which is exactly the denominator each of
+      // them needs -- and it costs no extra observer.
+      if (visible) window.sdViewPromotion('lp_get_tickets', 'lp');
+      else window.sdViewPromotion('lp_sticky_bar', 'lp_sticky');
     }, { threshold: 0.5 }).observe(cta);
 
     document.getElementById('lpStickyBtn').addEventListener('click', function () {

@@ -41,7 +41,33 @@
         'page_path': window.location.pathname + window.location.search,
         'in_app_browser': /FBAN|FBAV|Instagram|Line\/|TikTok|BytedanceWebview|Twitter/i.test(navigator.userAgent)
       });
-    </script>
+          // view_promotion -- the impression half of the promotion pair.
+      //
+      // Until now this site fired select_promotion (the click) and never
+      // view_promotion (the impression), so GA4's "Items viewed in promotion"
+      // read 0 on every row while "Items clicked in promotion" read 61. The
+      // 2026-08-28 report could say the /lp sticky bar took 3 of 61 promotion
+      // clicks and could NOT say whether that was 3 from 40 impressions (a good
+      // bar) or 3 from 1,800 (a useless one). A numerator with no denominator.
+      // This supplies the denominator.
+      //
+      // Deduped per promotion per page load, and that guard is load-bearing: a
+      // sticky bar that appears, scrolls out of view and reappears is ONE
+      // impression, not three. Without it an IntersectionObserver would inflate
+      // impressions with scrolling alone and report a CTR far below the truth.
+      //
+      // Global rather than scoped because /lp fires its two promotions from two
+      // different <script> blocks. Duplicated per page -- no shared bundle, the
+      // 12-function Vercel Hobby cap is why -- so keep the four copies in step.
+      window.sdViewPromotion = (function () {
+        var seen = {};
+        return function (name, slot) {
+          if (seen[name] || typeof gtag !== 'function') return;
+          seen[name] = 1;
+          gtag('event', 'view_promotion', { promotion_name: name, creative_slot: slot });
+        };
+      })();
+</script>
     <!-- Referral capture — same convention as index.html/lp.html. This page
          is one of the most-linked-to (nav, footers, share buttons), but
          previously never captured an incoming ?ref= itself, silently
@@ -2738,7 +2764,8 @@
       // the session, and the channel that really acquired the visit loses the
       // credit (tests/internal-links.test.js).
       (function () {
-        document.querySelectorAll('a[href="/careers"]').forEach(function (a) {
+        var links = document.querySelectorAll('a[href="/careers"]');
+        links.forEach(function (a) {
           a.addEventListener('click', function () {
             if (typeof gtag !== 'function') return;
             gtag('event', 'select_promotion', {
@@ -2747,6 +2774,19 @@
             });
           });
         });
+
+        // Impression side. Unobserve on first sight: one link scrolled past
+        // twice is one impression, and several links can share a promo name,
+        // which the helper's own dedupe also absorbs.
+        if (typeof IntersectionObserver === 'undefined') return;
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (!e.isIntersecting) return;
+            io.unobserve(e.target);
+            window.sdViewPromotion(e.target.dataset.promo || 'careers_link', 'events');
+          });
+        });
+        links.forEach(function (a) { io.observe(a); });
       })();
     </script>
 </body>
