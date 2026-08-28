@@ -12,6 +12,28 @@
       }
     </script>
     <title>Event Tickets - SparkDate</title>
+    <!-- Static social/SEO fallback. Everything here is overwritten per-event by
+         setMeta()/setLink() once the event loads (see the block near line 1439),
+         which is the right behaviour for a browser -- but link scrapers do not
+         run JavaScript. Facebook, Instagram, iMessage, WhatsApp, LinkedIn and
+         Twitter all fetch the raw HTML, so before this block a shared /event
+         link previewed with a generic title, no description and no image.
+         That is the page the entire email nurture sequence links to AND the
+         page the in-app share button (line ~1540) hands people.
+         Keep the JS upserts: they still win for real visitors, and they are
+         what makes the preview event-specific once a crawler does render. -->
+    <meta name="description" content="Reserve your spot at a SparkDate singles mixer in Philadelphia or Lancaster, PA. Real venues, real conversations — our take on speed dating, without the scorecard.">
+    <meta property="og:type" content="event">
+    <meta property="og:title" content="Event Tickets — SparkDate">
+    <meta property="og:description" content="Reserve your spot at a SparkDate singles mixer in Philadelphia or Lancaster, PA. Real venues, real conversations.">
+    <meta property="og:image" content="https://sparkdate.date/og-image.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="SparkDate — Real people. Real venues. Philadelphia &amp; Lancaster.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Event Tickets — SparkDate">
+    <meta name="twitter:description" content="Reserve your spot at a SparkDate singles mixer in Philadelphia or Lancaster, PA.">
+    <meta name="twitter:image" content="https://sparkdate.date/og-image.jpg">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
