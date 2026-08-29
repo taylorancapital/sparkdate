@@ -17,6 +17,7 @@
     "ads:traffic": "node scripts/meta-restore-traffic.js",
     "ads:lint": "node scripts/lint-ad-copy.js",
     "ads:utm-sync": "python scripts/sync-utm-content.py",
+    "ads:creative": "node scripts/meta-set-ad-creative.js",
     "ads:plan": "node scripts/build-paid-campaign.js",
     "ads:handoff": "node scripts/build-paid-campaign.js --handoff",
     "social:plan": "node scripts/social.js plan",
