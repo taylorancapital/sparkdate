@@ -1221,6 +1221,18 @@
 
         /* Priority intro list */
         .prio-list { display: flex; flex-direction: column; }
+        /* Run of show — read at arm's length, in a dark room, on a phone */
+        .run-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px 0 12px; border-bottom:1px solid rgba(255,255,255,0.08); }
+        .run-step { font-size:15px; font-weight:600; color:var(--white); flex:1; min-width:140px; }
+        .run-clock { font-size:44px; font-weight:700; letter-spacing:1px; color:var(--white); font-variant-numeric:tabular-nums; line-height:1; }
+        .run-clock.over { color:var(--coral); }
+        .run-btns { display:flex; gap:8px; flex-wrap:wrap; }
+        .run-btns .action-btn { font-size:14px; padding:9px 16px; }
+        .run-tables { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; margin-top:12px; }
+        .run-table { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:9px; padding:9px 11px; }
+        .run-table-n { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:rgba(245,243,240,0.45); margin-bottom:5px; }
+        @media (max-width: 640px) { .run-clock { font-size:56px; } .run-step { min-width:100%; } }
+
         /* Tables view */
         .table-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
         .table-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 12px 14px; }
@@ -2122,6 +2134,7 @@
                 <button class="chem-toggle-btn" id="viewIntrosBtn" onclick="switchChemView('intros')">Intro order</button>
                 <button class="chem-toggle-btn" id="viewScheduleBtn" onclick="switchChemView('schedule')">Priority Intros</button>
                 <button class="chem-toggle-btn" id="viewTablesBtn" onclick="switchChemView('tables')">Tables</button>
+                <button class="chem-toggle-btn" id="viewRunBtn" onclick="switchChemView('run')">Run of show</button>
             </div>
             <div id="chemView">
                 <div class="chem-cards" id="candidateTable"></div>
@@ -2136,6 +2149,7 @@
             </div>
             <div id="scheduleView" style="display:none;"></div>
             <div id="tablesView" style="display:none;"></div>
+            <div id="runView" style="display:none;"></div>
         </div>
     </div>
 
@@ -3320,6 +3334,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         };
 
         window.closeCandidates = () => {
+            // A 1s interval left running behind a closed modal repaints a
+            // hidden node forever and keeps the whole chemistry dataset alive.
+            if (_runTimer) { clearInterval(_runTimer); _runTimer = null; }
             document.getElementById('candidateModal').classList.remove('show');
             _introsDone = new Set();
             _priorityDone = new Set();
@@ -3331,13 +3348,16 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             document.getElementById('introsView').style.display    = view === 'intros'    ? '' : 'none';
             document.getElementById('scheduleView').style.display  = view === 'schedule'  ? '' : 'none';
             document.getElementById('tablesView').style.display    = view === 'tables'    ? '' : 'none';
+            document.getElementById('runView').style.display        = view === 'run'       ? '' : 'none';
             document.getElementById('viewChemBtn').classList.toggle('active',     view === 'chemistry');
             document.getElementById('viewIntrosBtn').classList.toggle('active',   view === 'intros');
             document.getElementById('viewScheduleBtn').classList.toggle('active', view === 'schedule');
             document.getElementById('viewTablesBtn').classList.toggle('active',   view === 'tables');
+            document.getElementById('viewRunBtn').classList.toggle('active',      view === 'run');
             if (view === 'intros')    renderIntros();
             if (view === 'schedule')  renderPriorityIntros();
             if (view === 'tables')    renderTables();
+            if (view === 'run')       renderRunOfShow();
         };
 
         // ── Intro cheat sheet state ───────────────────────────
@@ -3484,6 +3504,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // (that is all scorePair produces), so within-table chemistry is the
         // sum of cross-gender pair scores.
         let _tableSize = 6;
+        let _tableRound = 1;
 
         function buildTables(size) {
             const women = [..._chemWomen], men = [..._chemMen];
@@ -3589,6 +3610,98 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             return tables;
         }
 
+        // ── Round 2: rotate, so nobody repeats a face ──────────────────
+        //
+        // Women hold their seats, men move one table along (wrapping at the
+        // end). With T tables that is the classic speed-dating rotation and it
+        // has a property worth stating plainly: every man meets an ENTIRELY
+        // NEW set of women in round two. Not "mostly new" -- zero repeats,
+        // guaranteed by construction rather than by scoring, because table
+        // membership is disjoint and every man leaves the table he was at.
+        //
+        // Why not re-run buildTables() with the met-pairs penalised? Because
+        // greedy re-optimisation gives no guarantee: it would usually produce
+        // fresh pairings and occasionally repeat one, and a host cannot see
+        // which. A rotation is checkable at a glance -- table 1's men are now
+        // at table 2 -- which matters more at 6:30pm in a loud room than a
+        // few points of chemistry.
+        //
+        // One table means no rotation is possible; the caller says so rather
+        // than silently showing the same seating twice.
+        function rotateTables(tables) {
+            if (tables.length < 2) return null;
+            const menBy = tables.map(t => t.men);
+            return tables.map((t, i) => ({
+                women: t.women,
+                men: menBy[(i - 1 + tables.length) % tables.length],
+                pairs: [],
+            }));
+        }
+
+        // Every (woman, man) who shared a table in either round -- used so the
+        // 1-on-1s that follow do not re-pair two people who have already had
+        // fifteen minutes together.
+        function metInRounds(rounds) {
+            const met = new Set();
+            rounds.forEach(rnd => rnd.forEach(t => t.women.forEach(w => t.men.forEach(m => {
+                met.add(w.id + '|' + m.id);
+            }))));
+            return met;
+        }
+
+        // ── 1-on-1s: rounds of simultaneous pairs ──────────────────────
+        //
+        // Each round is a matching: every person in at most one pair. Built
+        // greedily from the highest-scoring pair down, skipping anyone already
+        // paired this round, anyone who already sat with them, and any pair
+        // used in an earlier 1-on-1 round.
+        //
+        // Greedy, not optimal, for the same reason as the seating: at this
+        // size the difference is small and the host has to be able to read it
+        // off a phone screen while the room waits.
+        function buildOneOnOnes(rounds, maxRounds) {
+            const met = metInRounds(rounds);
+            const sorted = [..._chemPairs].sort((a, b) => b.score - a.score);
+
+            const pack = (skipMet) => {
+                const usedPairs = new Set();
+                const out = [];
+                for (let r = 0; r < maxRounds; r++) {
+                    const busy = new Set();
+                    const round = [];
+                    for (const p of sorted) {
+                        const key = p.a.id + '|' + p.b.id;
+                        if (usedPairs.has(key)) continue;
+                        if (skipMet && met.has(key)) continue;
+                        if (busy.has(p.a.id) || busy.has(p.b.id)) continue;
+                        busy.add(p.a.id); busy.add(p.b.id);
+                        usedPairs.add(key);
+                        round.push(p);
+                    }
+                    if (!round.length) break;
+                    out.push(round);
+                }
+                return out;
+            };
+
+            // Prefer pairs who have NOT already shared a table.
+            const fresh = pack(true);
+            if (fresh.length) return { rounds: fresh, revisiting: false };
+
+            // A small room runs out: with 13 people and two tables, everyone
+            // has met everyone by the end of round two, and the strict version
+            // returns nothing at all -- which would have shown the host an
+            // empty screen on the night. Measured on the real Good Good roster
+            // (4 women, 9 men, 36 possible pairs): 22 pairs met at 4 seats a
+            // table, but ALL 36 at the default 6.
+            //
+            // So fall back to the strongest pairs regardless of whether they
+            // already sat together, and tell the host that is what these are.
+            // "Five more minutes with your best match" is a real format; a
+            // blank panel is not.
+            return { rounds: pack(false), revisiting: true };
+        }
+
         function renderTables() {
             const container = document.getElementById('tablesView');
             if (!_chemWomen.length && !_chemMen.length) {
@@ -3596,8 +3709,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 return;
             }
             const tables = buildTables(_tableSize);
+            const round2 = rotateTables(tables);
+            const roundsForCards = _tableRound === 2 && round2 ? round2 : tables;
 
-            const cards = tables.map((t, i) => {
+            const cards = roundsForCards.map((t, i) => {
                 const avg = t.pairs.length
                     ? Math.round(t.pairs.reduce((s2, p) => s2 + p.score, 0) / t.pairs.length)
                     : null;
@@ -3606,6 +3721,17 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 // Conversation starters: the interests shared by the most
                 // pairs at this table -- what the group actually has in
                 // common, which is the point of seating them together.
+                // Round 2 arrives with an empty pairs list (rotateTables only
+                // moves people); fill it from the scored pairs so the average
+                // and the topics describe the round actually on screen.
+                if (!t.pairs.length) {
+                    const byKey = new Map();
+                    _chemPairs.forEach(p => { byKey.set(p.a.id + '|' + p.b.id, p); byKey.set(p.b.id + '|' + p.a.id, p); });
+                    t.women.forEach(w => t.men.forEach(m => {
+                        const pr = byKey.get(w.id + '|' + m.id);
+                        if (pr) t.pairs.push(pr);
+                    }));
+                }
                 const tally = {};
                 t.pairs.forEach(p => (p.sharedInterests || []).forEach(tag => { tally[tag] = (tally[tag] || 0) + 1; }));
                 const topics = Object.entries(tally).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([tag]) => tag);
@@ -3627,9 +3753,15 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
                     <span style="font-size:12px;color:rgba(245,243,240,0.55);">Seats per table</span>
                     ${[4, 6, 8].map(n => `<button class="chem-toggle-btn${n === _tableSize ? ' active' : ''}" onclick="setTableSize(${n})">${n}</button>`).join('')}
+                    <span style="margin-left:14px;font-size:12px;color:rgba(245,243,240,0.55);">Round</span>
+                    <button class="chem-toggle-btn${_tableRound === 1 ? ' active' : ''}" onclick="setTableRound(1)">1</button>
+                    <button class="chem-toggle-btn${_tableRound === 2 ? ' active' : ''}" onclick="setTableRound(2)"${round2 ? '' : ' disabled title="Needs at least two tables to rotate"'}>2</button>
                     <span style="flex:1"></span>
                     <button class="action-btn" onclick="printTables()">&#9046; Print seating</button>
                 </div>
+                ${_tableRound === 2 && round2
+                    ? '<div style="font-size:12px;color:var(--gold);margin-bottom:10px;">Round 2 &middot; women stay, men move one table along &mdash; every pairing here is new.</div>'
+                    : (round2 ? '' : '<div style="font-size:12px;color:rgba(245,243,240,0.45);margin-bottom:10px;">Only one table, so there is no round 2 to rotate into.</div>')}
                 <div class="table-cards">${cards}</div>
                 <div style="font-size:11px;color:rgba(245,243,240,0.4);margin-top:10px;">
                     Tables are seeded from the strongest unseated pair, then filled with whoever has the
@@ -3639,18 +3771,148 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         }
 
         window.setTableSize = (n) => { _tableSize = n; renderTables(); };
+        window.setTableRound = (n) => { _tableRound = n; renderTables(); };
 
         window.printTables = () => {
             const tables = buildTables(_tableSize);
-            const lines = tables.map((t, i) => {
+            const r2 = rotateTables(tables);
+            const fmt = (arr, label) => label + '\n\n' + arr.map((t, i) => {
                 const names = [...t.women, ...t.men].map(u => '  ' + _chemShortName(u)).join('\n');
                 return `Table ${i + 1} (${t.women.length}W/${t.men.length}M)\n${names}`;
             }).join('\n\n');
+            const lines = fmt(tables, 'ROUND 1 - 15 minutes')
+                + (r2 ? '\n\n\n' + fmt(r2, 'ROUND 2 - 15 minutes (women stay, men move one table along)') : '');
             const w = window.open('', '_blank');
             w.document.write(`<pre style="font-family:monospace;font-size:14px;padding:24px;white-space:pre-wrap;">${lines}</pre>`);
             w.document.close();
             w.print();
         };
+
+        // ── Run of show — the view the host actually holds at 6:30 ─────
+        //
+        // Two 15-minute table rounds, then 1-on-1s. This is the only view
+        // used DURING an event rather than before one, and that changes what
+        // it has to be: big type, one instruction at a time, readable at
+        // arm's length in a dark loud room, on a phone. Everything that is a
+        // dense table elsewhere is a single line here.
+        //
+        // The timer is wall-clock based (an end timestamp), not a decrementing
+        // counter. A setInterval that subtracts one second per tick drifts and
+        // stops entirely when a phone screen sleeps -- which it will, in a
+        // pocket, mid-round. Storing the end time means the display is correct
+        // the instant the screen comes back, however long it was away.
+        let _runTimer = null;         // interval handle for the 1s repaint
+        let _runEndsAt = null;        // epoch ms the running segment ends
+        let _runPaused = null;        // ms remaining when paused, else null
+        let _runStep = 0;             // index into the built plan
+
+        const ROUND_MS = 15 * 60 * 1000;
+        const ONE_ON_ONE_MS = 5 * 60 * 1000;
+
+        function buildRunPlan() {
+            const r1 = buildTables(_tableSize);
+            const r2 = rotateTables(r1);
+            const rounds = r2 ? [r1, r2] : [r1];
+            const ones = buildOneOnOnes(rounds, 6);
+            const plan = [
+                { kind: 'round', label: 'Round 1', ms: ROUND_MS, tables: r1 },
+            ];
+            if (r2) plan.push({ kind: 'round', label: 'Round 2', ms: ROUND_MS, tables: r2 });
+            ones.rounds.forEach((pairs, i) => plan.push({
+                kind: 'ones', label: `1-on-1s · round ${i + 1}`, ms: ONE_ON_ONE_MS, pairs,
+                revisiting: ones.revisiting,
+            }));
+            return plan;
+        }
+
+        function fmtClock(ms) {
+            if (ms < 0) ms = 0;
+            const t = Math.round(ms / 1000);
+            return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+        }
+
+        window.runStart = () => {
+            const plan = buildRunPlan();
+            if (!plan.length) return;
+            _runEndsAt = Date.now() + plan[_runStep].ms;
+            _runPaused = null;
+            if (_runTimer) clearInterval(_runTimer);
+            _runTimer = setInterval(renderRunOfShow, 1000);
+            renderRunOfShow();
+        };
+        window.runPause = () => {
+            if (_runPaused === null && _runEndsAt) { _runPaused = _runEndsAt - Date.now(); }
+            else if (_runPaused !== null) { _runEndsAt = Date.now() + _runPaused; _runPaused = null; }
+            renderRunOfShow();
+        };
+        window.runNext = () => {
+            const plan = buildRunPlan();
+            if (_runStep < plan.length - 1) _runStep++;
+            _runEndsAt = Date.now() + plan[_runStep].ms;
+            _runPaused = null;
+            renderRunOfShow();
+        };
+        window.runReset = () => {
+            if (_runTimer) { clearInterval(_runTimer); _runTimer = null; }
+            _runStep = 0; _runEndsAt = null; _runPaused = null;
+            renderRunOfShow();
+        };
+
+        function renderRunOfShow() {
+            const c = document.getElementById('runView');
+            if (!c) return;
+            if (!_chemWomen.length && !_chemMen.length) {
+                c.innerHTML = '<div class="empty" style="padding:24px;text-align:center;">No attendees scored yet.</div>';
+                return;
+            }
+            const plan = buildRunPlan();
+            const step = plan[Math.min(_runStep, plan.length - 1)];
+            const running = _runEndsAt !== null;
+            const remain = _runPaused !== null ? _runPaused : (running ? _runEndsAt - Date.now() : step.ms);
+            const over = running && _runPaused === null && remain <= 0;
+
+            // Body: what the host reads out for this segment.
+            let body;
+            if (step.kind === 'round') {
+                body = `<div class="run-tables">` + step.tables.map((t, i) => `
+                    <div class="run-table">
+                        <div class="run-table-n">Table ${i + 1}</div>
+                        <div>${[...t.women, ...t.men].map(u => `<span class="table-chip ${t.women.includes(u) ? 'w' : 'm'}">${safe(_chemShortName(u))}</span>`).join('')}</div>
+                    </div>`).join('') + `</div>`;
+            } else {
+                body = `<div class="run-tables">` + step.pairs.map((p, i) => `
+                    <div class="run-table">
+                        <div class="run-table-n">${i + 1}</div>
+                        <div><span class="table-chip w">${safe(_chemShortName(p.a))}</span>
+                             <span style="opacity:0.4;">+</span>
+                             <span class="table-chip m">${safe(_chemShortName(p.b))}</span>
+                             <span class="intro-score ${p.score >= 70 ? 'high' : p.score < 45 ? 'low' : ''}" style="margin-left:6px;">${p.score}</span></div>
+                    </div>`).join('') + `</div>`;
+                if (!step.pairs.length) body = '<div class="empty" style="padding:18px;">Everyone has already met everyone available.</div>';
+            }
+
+            c.innerHTML = `
+                <div class="run-head">
+                    <div class="run-step">${safe(step.label)} <span style="opacity:0.45;font-weight:400;">${_runStep + 1} of ${plan.length}</span></div>
+                    <div class="run-clock ${over ? 'over' : ''}">${over ? "TIME" : fmtClock(remain)}</div>
+                    <div class="run-btns">
+                        ${!running
+                            ? `<button class="action-btn" onclick="runStart()">Start</button>`
+                            : `<button class="action-btn" onclick="runPause()">${_runPaused !== null ? 'Resume' : 'Pause'}</button>`}
+                        <button class="action-btn" onclick="runNext()"${_runStep >= plan.length - 1 ? ' disabled' : ''}>Next &rsaquo;</button>
+                        <button class="action-btn" onclick="runReset()">Reset</button>
+                    </div>
+                </div>
+                ${step.kind === 'round' && _runStep === 1
+                    ? '<div style="font-size:13px;color:var(--gold);margin:8px 0 2px;">Women stay seated. Men move one table along.</div>' : ''}
+                ${step.kind === 'ones' && step.revisiting
+                    ? '<div style="font-size:13px;color:var(--gold);margin:8px 0 2px;">Small room &mdash; everyone has already met. These are the strongest matches, five minutes each.</div>' : ''}
+                ${body}
+                <div style="font-size:11px;color:rgba(245,243,240,0.4);margin-top:12px;">
+                    Two 15-minute rounds, then 5-minute 1-on-1s. The clock runs on wall time, so it stays
+                    correct if the screen sleeps. 1-on-1 pairs never repeat someone you already sat with.
+                </div>`;
+        }
 
         window.togglePrio = (wId, mId) => {
             const key = wId + '|' + mId;
