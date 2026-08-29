@@ -13,11 +13,12 @@
     "_pulled_images_note": "These are pulled from every use, organic and paid. NO REASON IS RECORDED. The source (SparkDate_Brand_Source_of_Truth_1_Multi_Event.md) says only that they are pulled and that substitutes must come from the confirmed-consent list. Do not state or infer a cause -- an earlier generated brief asserted \"consent withdrawn\", which was never established and is a claim about a real person's decision. The rule is absolute; the reason is unknown.",
     "pulled_images": ["IMG_9203", "IMG_9204", "IMG_9207"],
     "consented_images": ["IMG_8859", "IMG_8861", "IMG_8862", "IMG_8865", "IMG_9001", "IMG_9004", "IMG_9005"],
-    "_testimonials_note": "Supplied 2026-08-22. Until then only the Quang quote existed, so both testimonial posts (MC-08, LX-20) ran it and the carousels split one quote across three frames. With six, a 3-slide testimonial post can show three different people -- which is what that beat is for. Short ones (Alex, James, Jeff) work best on a quote frame; they read at a glance. Note the CAPTIONS on MC-08 and LX-20 still quote only Quang; the slides now show more.",
+    "_testimonials_note": "Supplied 2026-08-22. Until then only the Quang quote existed, so both testimonial posts (MC-08, LX-20) ran it and the carousels split one quote across three frames. With six, a 3-slide testimonial post can show three different people -- which is what that beat is for. Short ones (Alex, James, Jeff) work best on a quote frame; they read at a glance. Note the CAPTIONS on MC-08 and LX-20 still quote only Quang; the slides now show more. UPDATED 2026-08-29: Alex, Luke and James supplied newer quotes, which the site now shows (#316); the superseded text is kept per-entry as previous_quote. Replaced in place rather than added under new ids because pickTestimonials() in scripts/build-campaign-export.js dedupes by id to keep one person off a slide wall twice -- a second id for the same person would defeat that. If both quotes per person are ever wanted, change that dedupe to key on attribution first. Note the short-quote guidance above still holds, but the shortest three are now Alex, Jeff and James.",
     "approved_testimonials": [
       {
         "id": "alex",
-        "quote": "A night to remember!",
+        "quote": "Greater People, Greater Vibes!",
+        "previous_quote": "A night to remember!",
         "attribution": "Alex",
         "reusable_across_events": true
       },
@@ -41,13 +42,15 @@
       },
       {
         "id": "luke",
-        "quote": "Fantastic people & fantastic vibes. Great fun.",
+        "quote": "Truly a lot more fun than any other dating event I attended!",
+        "previous_quote": "Fantastic people & fantastic vibes. Great fun.",
         "attribution": "Luke",
         "reusable_across_events": true
       },
       {
         "id": "james",
-        "quote": "Cool Atmosphere!",
+        "quote": "Relaxed rooftop bar and easy conversations!",
+        "previous_quote": "Cool Atmosphere!",
         "attribution": "James",
         "reusable_across_events": true
       }
