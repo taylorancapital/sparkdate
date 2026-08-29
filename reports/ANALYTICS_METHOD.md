@@ -167,7 +167,48 @@ Re-check the account rather than reading a stale table.
 | 2026-08-28 | `view_promotion` introduced (#310) — a brand-new event, so all of its "growth" is instrumentation arriving. |
 | 2026-08-28 | `fbclid` no longer carried to `/events` (#309) — distinct landing URLs collapse sharply. 93.6% of paid rows previously held exactly one session because every visitor had a unique URL. **Cleanup, not a traffic drop.** |
 
-## 11. Sample sizes
+## 11. Ads Manager drops video when you EDIT an ad, and keeps it when you CREATE one
+
+Measured across seven attempts on 2026-08-29, building four video ads.
+
+**Swapping the creative on an existing ad silently reverts to a still.** The
+composer accepts the video, appears to save, and writes a creative with
+`link_data` and no `video_id`. Text changes on the same save DO commit, which is
+what makes it convincing: the caption, headline and URL are all correct, so the
+ad looks updated. Three consecutive attempts on the Good Good retargeting ad
+failed this way, and one of them left a **900x496 landscape image from a
+previous campaign** on a 4:5 placement.
+
+**Creating a new ad works first time.** Both new Marion Court ads attached video
+on the first attempt. The one Marion Court ad that failed was, again, an edit of
+the existing ad.
+
+**So: to change an ad's video, duplicate it and pause the original.** Do not
+edit in place. Pausing rather than deleting keeps the original's delivery
+history.
+
+**Two related traps from the same session:**
+
+- **A duplicated ad inherits the source ad's destination URL**, `utm_content`
+  included. Two Marion Court ads briefly reported as the same creative because
+  V2 was duplicated from the Quang ad and kept `utm_content=mc_rt_quang`.
+  Change the URL immediately after duplicating.
+- **A thumbnail added as *media* replaces the video.** It has to be set as the
+  video's cover/poster frame. Adding the PNG alongside is what produced the
+  still-image ads above.
+
+**Verify from the API, not the preview.** None of the above is visible in the
+composer preview -- a still-image ad with the right caption previews exactly
+like the video ad you meant to build. The check is whether the creative's
+`object_story_spec` has `video_data` with a real `video_id`, and whether the
+thumbnail is 1080x1350 rather than something inherited.
+
+**When checking, treat `IN_PROCESS` and `PENDING_REVIEW` as live.** A check that
+filters on `effective_status == 'ACTIVE'` silently skips the ad you just built,
+which is exactly when you are looking. That produced a false "all clear" on the
+duplicate `utm_content` above.
+
+## 12. Sample sizes
 
 Most cells below the top of the funnel are single digits. **Do not convert
 small counts into percentages without stating the count.** Anything at or
