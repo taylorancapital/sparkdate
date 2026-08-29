@@ -179,6 +179,10 @@ async function main() {
   // failed run -- the creative step is what fails when the app is in
   // development mode -- so a retry should not re-transcode a video Meta already
   // has. Both come from a previous run's output.
+  // --headline sets the creative's headline outright. Needed to REPAIR an ad
+  // whose headline was already lost, where there is nothing left to carry
+  // forward.
+  const overrideHeadline = arg('headline');
   const reuseVideoId = arg('video-id');
   const reuseImageHash = arg('image-hash');
   const execute = flag('execute');
@@ -187,7 +191,7 @@ async function main() {
     console.error('Required: --ad=<id>, then either');
     console.error('  --video=<path> --thumb=<path>        (upload fresh)');
     console.error('  --video-id=<id> --image-hash=<hash>  (reuse a previous upload)');
-    console.error('Optional: --url=<destination> --message=<body> --creative-name=<name> --execute');
+    console.error('Optional: --url=<destination> --message=<body> --headline=<text> --creative-name=<name> --execute');
     process.exit(1);
   }
   for (const f of [videoPath, thumbPath]) {
@@ -210,6 +214,13 @@ async function main() {
   });
   const spec = current.object_story_spec || {};
   const src = spec.link_data || spec.video_data || {};
+  // The headline lives under a DIFFERENT KEY in each shape: link_data calls it
+  // `name`, video_data calls it `title`. Reading only `name` silently dropped
+  // the headline whenever the source was already a video creative -- which is
+  // every re-run against an ad this script has touched before. Caught in
+  // production on the Good Good retargeting ad, which lost "31 people came to
+  // our last one" on a no-op re-run.
+  const srcHeadline = src.title || src.name;
   const wasVideo = Boolean(spec.video_data);
 
   // A link ad keeps the destination at link_data.link; a video ad keeps it at
@@ -221,7 +232,8 @@ async function main() {
 
   console.log(`\ncurrent creative : ${current.id}`);
   console.log(`  shape          : ${wasVideo ? 'video_data' : 'link_data'} -> video_data`);
-  console.log(`  headline       : ${src.name || '(none)'}`);
+  console.log(`  headline       : ${srcHeadline || '(none)'}`);
+  if (overrideHeadline !== undefined) console.log(`  headline NEW   : ${overrideHeadline}`);
   console.log(`  description    : ${src.description || src.link_description || '(none)'}`);
   console.log(`  cta            : ${(src.call_to_action && src.call_to_action.type) || '(none)'}`);
   console.log(`  destination    : ${currentUrl || '(none)'}`);
@@ -284,12 +296,13 @@ async function main() {
   };
   const message = overrideMessage !== undefined ? overrideMessage : src.message;
   if (message) videoData.message = message;
-  if (src.name) videoData.title = src.name;
+  const headline = overrideHeadline !== undefined ? overrideHeadline : srcHeadline;
+  if (headline) videoData.title = headline;
   const desc = src.description || src.link_description;
   if (desc) videoData.link_description = desc;
 
   const payload = {
-    name: overrideName || `${src.name || ad.name} ${new Date().toISOString().slice(0, 10)}`,
+    name: overrideName || `${srcHeadline || ad.name} ${new Date().toISOString().slice(0, 10)}`,
     object_story_spec: {
       page_id: spec.page_id,
       ...(spec.instagram_user_id ? { instagram_user_id: spec.instagram_user_id } : {}),
