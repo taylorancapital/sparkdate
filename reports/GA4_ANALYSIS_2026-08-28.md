@@ -50,12 +50,12 @@ their outcome rather than deleted, so the ask history stays legible.)*
 
 | Fix | State |
 |---|---|
-| D1 — static social tags on `/event` | **APPLIED in this PR.** Verified by curl and in-browser |
+| D1 — static social tags on `/event` | **RETRACTED §D1.** Never shipped, and shouldn't — `/event` is server-rendered and the tags would have degraded every shared link. The curl check tested the template, not the route |
 | §F5 — `lp.html` stops forwarding `fbclid` and a duplicate event id | **DONE — PR #309**, open separately |
 | D3 — strip `fbclid` in the GA4 data stream | **DONE 2026-08-28 §G7.** One key, `fbclid`, verified persisted. `eventId` untouched, Email still ON. Not retroactive |
 | D4 — rebuild the Meta ad URLs | Not done. Ads Manager. Now a sharper ask than "fix the casing": `utm_source` is hardcoded `Instagram` on every Marion Court ad regardless of placement, and `utm_content=proof_rsa1` is on all four read |
 | §F2 — Marion Court Traffic ads have **no pixel dataset selected** | Not done. Check before scoping the CAPI work in `META_CAPI_PROMPT.md` |
-| §G6 — fire `view_promotion` alongside `select_promotion` | Not done. **Code**, 4 call sites. Without it the sticky bar's 3 clicks have no denominator |
+| §G6 — fire `view_promotion` alongside `select_promotion` | **DONE — PR #310**, merged before this report was written. See corrected §G2 |
 | §G7 gotcha | The redaction field is a **chip input** — press Enter to commit the key before Save, or it errors as empty |
 | D5 — rebuild the `SEQ` segment | **WITHDRAWN §G3.** The segment was not broken; my reading was. It is user-scoped, and GA4 has no session-scoped sequences at all, so the fix I prescribed does not exist. `L+V` already carries the answer |
 | D6 — reconcile the **$82.50** revenue gap | Not done. Two GA4 tabs, one export, both internally consistent |
@@ -626,32 +626,35 @@ Google Ads status, and the Marion Court venue/ad-set decision — are **not re-a
 
 ## D. Zero-risk fixes
 
-### D1. APPLIED — static social/SEO tags on `/event`, the page every email links to
+### D1. RETRACTED — the `/event` social-tag fix was wrong, and it was right to strip it
 
-`public/event.html` had **zero** static `og:` or `twitter:` tags and no `<meta name="description">`.
-Everything was injected by `setMeta()` once the event loaded (line ~1439). That is correct for a
-browser and **invisible to link scrapers**, which do not execute JavaScript. Facebook, Instagram,
-iMessage, WhatsApp, LinkedIn and Twitter all fetch raw HTML.
+**This section originally read "APPLIED" and described adding static `og:`/`twitter:` tags to
+`public/event.html`. The change was removed before #308 merged, and it should have been.** The
+merged PR is report-only. Nothing shipped, and nothing should have.
 
-Two things point at that page constantly: the **entire email nurture sequence** links to
-`/event?id=…` (`api/cron-send-emails.js`, six separate call sites), and the page has its **own share
-button** (`event.html:~1540`) that hands people a URL to post. Every one of those shares has been
-rendering as a bare card — generic title, no description, no image.
+**Why it was wrong.** `/event` is **server-rendered**. `vercel.json` rewrites it to
+`api/next-event.js?render=page`, so `public/event.html` is a template, not what is served. A live
+fetch already returns a complete, event-specific head injected server-side. The premise — "a shared
+`/event` link previews generically" — was never checked and is false.
 
-Added a static fallback block mirroring the one `events.html` already has, using the same
-`og-image.jpg`. **The existing JS still wins for real visitors:** `setMeta()` upserts by selector, so
-it finds these tags and overwrites them with event-specific copy.
+**And it would have caused harm, not merely been redundant.** `render=page` injects by **appending**
+before `</head>`, not replacing. The static tags would have been served *alongside* the injected
+ones, generic-first. Scrapers take the first occurrence, so **every shared event link would have
+degraded** from the real event title to "Event Tickets - SparkDate". Running the real injection
+against the modified file produced `og:title` ×2, `og:image` ×2, `twitter:card` ×2.
 
-**Verified, not assumed:**
-- `curl` against the served page confirms all 13 tags are now in the raw HTML; before, a scraper saw
-  only `<title>Event Tickets - SparkDate</title>`.
-- Ran the page's real `setMeta()` logic against the real served HTML in a browser: tag counts stay at
-  **1** for `description`, `og:title` and `og:image` — it overwrites in place, no duplicates — and the
-  content becomes the per-event value.
-- 332 tests pass.
+**Why the verification passed anyway, which is the part worth keeping.** The `curl` check ran against
+`npx serve public`, a static file server that maps `/event` straight to `public/event.html`.
+Production does not. The check tested the template and was reported as proof about the route — it was
+structurally incapable of detecting the error while looking rigorous, because it exercised the right
+idea against the wrong server.
 
-*Re-check in ~1 week:* paste an `/event?id=…` URL into Facebook's Sharing Debugger; it should show
-title, description and image with no JS execution.
+**The rule that came out of it** is now `reports/ANALYTICS_METHOD.md` §2, which lists all seven
+server-rendered routes and says to fetch the live URL before proposing any change to a page's
+`<head>`. Note the branches are not symmetric: `render=city` *does* replace title/description/canonical
+in place; `render=page` appends. Do not reason from one to the other.
+
+*Nothing to re-check.* There is no change in flight.
 
 ### D2. Find the producer of `get_tickets_block` / `sticky_ticket_bar` as `utm_source` (§A14)
 
@@ -941,16 +944,23 @@ allow `Event count` against `Item promotion name`.** Event count, Transactions, 
 revenue and Purchase revenue are all greyed out as incompatible with that item-scoped dimension. Use
 `Items clicked in promotion`, which is the `select_promotion` metric.
 
-### G2. `view_promotion` has never fired, so promotion CTR is not computable
+### G2. `view_promotion` had never fired — CORRECTED, it shipped the same day
 
-`Items viewed in promotion` reads **0 on every row.** I checked the source: **`view_promotion`
-appears nowhere in `public/`.** We fire the click half of the promotion pair and never the impression
-half.
+`Items viewed in promotion` read **0 on every row** in the 2026-08-27 export, and the promotion
+clicks in §G1 therefore had no denominator: a bar shown 40 times and clicked 3 is a success, shown
+1,800 times and clicked 3 is not.
 
-So there is no denominator. "3 sticky-bar clicks" cannot become "3 clicks from N impressions", which
-is the number that would actually say whether the bar works — a bar shown 40 times and clicked 3 is a
-success; shown 1,800 times and clicked 3 is not. **§G1's answer is a numerator without a
-denominator,** and that is a code gap, not a configuration one. → §G6.
+**This section originally said `view_promotion` "appears nowhere in `public/`" and filed it as an
+open code gap. That was true of the branch this report was written on and false of `main`.** PR #310
+— *"Fire view_promotion, so the promotion clicks finally have a denominator"* — merged **2026-08-28
+at 16:53 UTC**, hours before this report, and covers `about.html`, `events.html`, `index.html` and
+`lp.html`, including the sticky bar via `sdViewPromotion('lp_sticky_bar', 'lp_sticky')`.
+
+The grep behind the original claim ran against a branch cut from `main` *before* #310 landed. **The
+denominator is being collected now**, and the first export that can show it is the next one.
+
+*Re-check in ~1 week:* `Items viewed in promotion` against `lp_sticky_bar`, currently 0 for want of
+data rather than for want of instrumentation. §G1's 3 clicks become a rate the moment it is non-zero.
 
 ### G3. The `SEQ` segment was not broken. My reading of it was.
 
@@ -1045,10 +1055,9 @@ dimension is safe and non-destructive; changing its parameter is not.
 
 ### G6. What this adds to the fix list
 
-- **Fire `view_promotion`** wherever `select_promotion` is fired (§G2). Four call sites:
-  `index.html:1103`, `events.html:2744`, `about.html:664`, and the `/lp` CTA. Without it the sticky
-  bar's 3 clicks have no denominator and open question 2 stays half-closed. **Code, not config** —
-  and it is the kind of small additive change that wants its own PR.
+- ~~**Fire `view_promotion`** wherever `select_promotion` is fired (§G2).~~ **DONE — PR #310**,
+  merged 2026-08-28 16:53 UTC, before this report was written. Covers all four call sites including
+  the `/lp` sticky bar. See the corrected §G2.
 - **Scope any Lancaster County regex with `Region = Pennsylvania`** (§G4), or it will silently collect
   Lancaster CA/NY/OH/TX.
 - **Investigate the 9 users with 492 sessions** (§G3) and the **`(not set)` region's 84 key events**
