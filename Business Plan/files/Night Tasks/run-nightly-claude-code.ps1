@@ -1,24 +1,27 @@
 # run-nightly-claude-code.ps1
 #
-# Nightly local prep for the Cowork review. Four jobs, in order:
+# Nightly local prep for the Cowork review. Five jobs, in order:
 #
 #   1. Pull Meta Ads insights into the Night Tasks folder, so the Cowork
 #      scheduled task finds them sitting next to the manually-exported GA4
 #      files. Cowork cannot do this itself -- it runs in a cloud sandbox with
 #      no access to this machine and no Meta token -- so it has to happen here.
 #
-#   2. Refresh the "Paid Ad UTMs" sheet in the campaign workbook from the
+#   2. Pull the core GA4 tables from the Data API, so the review has its own
+#      data on disk whether or not anyone exported CSVs by hand that day.
+#
+#   3. Refresh the "Paid Ad UTMs" sheet in the campaign workbook from the
 #      live Meta ads, so a GA4 utm_content row can be traced back to the ad
 #      and creative that carries it. Also flags two serving ads sharing one
 #      utm_content, which is what made per-ad attribution impossible until
 #      2026-08-29.
 #
-#   3. Open PRs for any claude/* branch that was pushed without one. Cowork
+#   4. Open PRs for any claude/* branch that was pushed without one. Cowork
 #      CANNOT do this itself -- its sandbox blocks api.github.com, so `gh pr
 #      create` fails there after the push succeeds, leaving the report on a
 #      branch nobody is watching. This machine has working gh credentials.
 #
-#   4. If a fresh TONIGHT_PROMPT.md exists, run it through the local Claude
+#   5. If a fresh TONIGHT_PROMPT.md exists, run it through the local Claude
 #      Code CLI (the one with working git/gh credentials). This is the older
 #      half of the job and is now usually a no-op: Cowork writes its reports
 #      directly as PRs rather than queuing a prompt for this script.
@@ -113,7 +116,52 @@ try {
     Log "WARN (meta): pull threw '$_'. Continuing -- this does not block the review."
 }
 
-# ── Step 2: refresh the paid-UTM map in the campaign workbook ──────────
+# ── Step 2: pull the core GA4 tables ─────────────────────────────────────
+# The review used to depend on someone exporting 38 CSVs by hand, so a missed
+# export was a missed night. These nine tables come straight from the Data API
+# and were verified against the 2026-08-27 manual export: revenue by source 35
+# transactions / $946.16 and revenue by item $863.66, both exact, and the daily
+# series matching day for day.
+#
+# Running on a SCHEDULE is half the point. The manual numbers depended on what
+# time the export was pulled -- the same day read 54 sessions at 13:12 and 172
+# at 23:19 -- and a fixed hour removes that variable rather than documenting it.
+# Every file still records its own pull time in the header.
+#
+# Does NOT replace the Explorations (funnel steps, the webview A/B segments,
+# cohort retention). Those use hand-built segments the Data API cannot express
+# and still need exporting by hand when a report needs them.
+#
+# Writes ga4-api-*.csv, never download*.csv -- an automated job must not
+# overwrite a file a human put there.
+#
+# Non-fatal like the steps around it: yesterday's tables are better than none,
+# and the log says which it is.
+try {
+    if (-not $env:GOOGLE_APPLICATION_CREDENTIALS) {
+        Log "SKIP (ga4): GOOGLE_APPLICATION_CREDENTIALS is not set for this user. It must point at the service account JSON, and the account needs Viewer on the GA4 property -- see scripts/fetch-ga4-tables.js."
+    } elseif (-not (Test-Path $env:GOOGLE_APPLICATION_CREDENTIALS)) {
+        Log "SKIP (ga4): GOOGLE_APPLICATION_CREDENTIALS points at '$env:GOOGLE_APPLICATION_CREDENTIALS' but nothing exists there."
+    } else {
+        Log "Pulling core GA4 tables..."
+        Push-Location $RepoPath
+        try {
+            $ga4Output = & node "scripts\fetch-ga4-tables.js" 2>&1
+            Write-ProcessOutputToLog $ga4Output
+            if ($LASTEXITCODE -eq 0) {
+                Log "GA4 tables written to Night Tasks."
+            } else {
+                Log "WARN (ga4): fetch-ga4-tables.js exited $LASTEXITCODE -- see output above. Continuing."
+            }
+        } finally {
+            Pop-Location
+        }
+    }
+} catch {
+    Log "WARN (ga4): pull threw '$_'. Continuing -- this does not block the review."
+}
+
+# ── Step 3: refresh the paid-UTM map in the campaign workbook ──────────
 # Writes a "Paid Ad UTMs" sheet mapping every utm_content back to the ad, ad
 # set, campaign and creative carrying it, and reports any two SERVING ads that
 # share a utm_content -- which is the state the account was in until
@@ -162,7 +210,7 @@ try {
     Log "WARN (utm): sync threw '$_'. Continuing -- this does not block the review."
 }
 
-# ── Step 3: open PRs Cowork could not open ───────────────────────────────
+# ── Step 4: open PRs Cowork could not open ───────────────────────────────
 # Cowork's sandbox blocks api.github.com, so `gh pr create` cannot run there.
 # It commits the report and pushes the branch, and the PR never appears. That
 # is not hypothetical: GA4_ANALYSIS_2026-08-23.md (393 lines) and
@@ -271,7 +319,7 @@ try {
     Log "WARN (pr-sweep): threw '$_'. Continuing."
 }
 
-# ── Step 4: queued Claude Code prompt (usually absent) ───────────────────
+# ── Step 5: queued Claude Code prompt (usually absent) ───────────────────
 if (-not (Test-Path $PromptFile)) {
     Log "No TONIGHT_PROMPT.md -- nothing queued for the local CLI. Done."
     exit 0
