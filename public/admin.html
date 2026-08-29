@@ -1245,6 +1245,14 @@
         .prio-sep { color: rgba(245,243,240,0.3); font-weight: 400; margin: 0 3px; }
         .prio-details { font-size: 11px; color: rgba(245,243,240,0.4); margin-top: 2px; }
 
+        /* Freshness strip — the dashboard says how old its own data is */
+        .freshness-strip { display:flex; flex-wrap:wrap; gap:14px; align-items:center; font-size:11.5px; color:rgba(245,243,240,0.5); padding:6px 2px 12px; }
+        .freshness-strip .fs-item { display:flex; align-items:center; gap:5px; }
+        .freshness-strip .fs-dot { width:7px; height:7px; border-radius:50%; background:var(--success); flex:0 0 auto; }
+        .freshness-strip .fs-item.warn .fs-dot { background: var(--gold, #c9a227); }
+        .freshness-strip .fs-item.stale .fs-dot { background: var(--coral, #ff6b6b); }
+        .freshness-strip .fs-item.warn, .freshness-strip .fs-item.stale { color: rgba(245,243,240,0.75); }
+
         /* Grouped chemistry cards */
         .chem-cards {
             display: flex;
@@ -1502,6 +1510,7 @@
 
         <!-- Full Report Tab -->
         <div class="tab-content" id="tab-report">
+            <div class="freshness-strip"></div>
             <div class="kpi-grid kpi-grid-4" id="reportKpis" style="margin-bottom:18px;">
                 <div class="spinner"></div>
             </div>
@@ -1663,6 +1672,7 @@
 
         <!-- Revenue Tab -->
         <div class="tab-content" id="tab-revenue">
+            <div class="freshness-strip"></div>
             <!-- The five KPIs trimmed off the Overview live here now. They are
                  the same ids renderKPIs() has always written to — moved, not
                  rebuilt — so every one of them still updates. -->
@@ -2475,6 +2485,26 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             return face * (EB_FEE_RATE + EB_PAYMENT_RATE) + ebTix.length * EB_FEE_FLAT;
         }
 
+        // Stripe's card fee on DIRECT sales: 2.9% + $0.30 per charge,
+        // estimated the same way ebFeesFor estimates Eventbrite's cut.
+        // Until 2026-08-29 no processing fee appeared anywhere in the P&L,
+        // so every direct margin was overstated ~4% on a $32.49 ticket --
+        // Eventbrite's fees were estimated while Stripe's were not even that.
+        //
+        // Per-charge is approximated per PAID ticket: each paying direct
+        // ticket is its own PaymentIntent except a 2-for-1's plus-one, which
+        // rides the primary's charge and carries amount 0 -- the amount>0
+        // filter therefore counts exactly one $0.30 per real charge. Meetup
+        // and Eventbrite tickets settle on their platforms; Stripe never
+        // touches them.
+        const STRIPE_FEE_RATE = 0.029;
+        const STRIPE_FEE_FLAT = 0.30;
+        function stripeFeesFor(directTix) {
+            const charged = directTix.filter(t => num(t.amount) > 0);
+            const face = charged.reduce((s, p) => s + num(p.amount), 0) / 100;
+            return face * STRIPE_FEE_RATE + charged.length * STRIPE_FEE_FLAT;
+        }
+
         function recurringTotal(rec, onlyAcq) {
             if (!rec) return 0;
             return RECURRING_FIELDS.reduce((s, f) => (onlyAcq && !f.acq) ? s : s + num(rec[f.key]), 0);
@@ -2629,6 +2659,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 // ahead of it would flash a too-rosy number and then correct it.
                 await Promise.all([loadUsers(), loadActivity(), loadPayments(), loadAdminEvents(), loadRecurring(), loadAdSpend(), loadTrendTickets()]);
                 renderKPIs();
+                renderFreshness();
                 renderHero();
                 renderSparklines();
                 renderMetric();
@@ -3939,6 +3970,67 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 adSpendDays = [];
                 metaSpendByEvent = {};
             }
+        }
+
+        // ── Freshness: a source of truth must disclose its own staleness ──
+        //
+        // This week the P&L showed ads as free for a month and nothing on
+        // screen distinguished "no spend" from "not synced". Three sources,
+        // three honest signals -- each derived from data already loaded, no
+        // extra reads:
+        //
+        //   Meta      newest syncedAt across ad_spend docs. The sync runs
+        //             every 4h, so >8h is a missed run (warn), >24h stale.
+        //   EB import newest createdAt among eventbrite_import tickets -- a
+        //             PROXY for the last import run, which is exactly the
+        //             ritual it measures. >7d warns: sales made on Eventbrite
+        //             since then are invisible everywhere on this page.
+        //   Manual $  whether recurring_costs has a doc for the CURRENT
+        //             month. The cost fields carry no edit timestamps, so
+        //             coverage is the only staleness signal that can be shown
+        //             truthfully -- and an unfilled month is the exact trap
+        //             that understates CAC (it reads as free).
+        function renderFreshness() {
+            const strips = document.querySelectorAll('.freshness-strip');
+            if (!strips.length) return;
+            const now = Date.now();
+            const ago = (ms) => {
+                if (ms == null) return 'never';
+                const h = (now - ms) / 3600000;
+                if (h < 1) return Math.max(1, Math.round(h * 60)) + 'm ago';
+                if (h < 48) return Math.round(h) + 'h ago';
+                return Math.round(h / 24) + 'd ago';
+            };
+            const item = (label, text, cls, tip) =>
+                `<span class="fs-item ${cls}" title="${safe(tip)}"><span class="fs-dot"></span>${safe(label)}: ${safe(text)}</span>`;
+
+            let metaMs = null;
+            adSpendDays.forEach(d => {
+                const t = d.syncedAt && d.syncedAt.toMillis ? d.syncedAt.toMillis() : null;
+                if (t && (!metaMs || t > metaMs)) metaMs = t;
+            });
+            const metaH = metaMs ? (now - metaMs) / 3600000 : Infinity;
+            const metaCls = metaH > 24 ? 'stale' : metaH > 8 ? 'warn' : '';
+
+            let ebMs = null;
+            allPayments.forEach(t2 => {
+                if (t2._type !== 'ticket' || t2.source !== 'eventbrite_import') return;
+                const c = t2.createdAt && t2.createdAt.toMillis ? t2.createdAt.toMillis() : null;
+                if (c && (!ebMs || c > ebMs)) ebMs = c;
+            });
+            const ebD = ebMs ? (now - ebMs) / 86400000 : Infinity;
+            const ebCls = ebD > 14 ? 'stale' : ebD > 7 ? 'warn' : '';
+
+            const mk = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+            const hasMonth = !!allRecurring[mk];
+
+            const html = item('Meta spend', metaMs ? 'synced ' + ago(metaMs) : 'never synced', metaCls,
+                    'Newest syncedAt in ad_spend. The GitHub Actions sync runs every 4 hours; older than 8h means a missed run.')
+                + item('Eventbrite', ebMs ? 'last import ' + ago(ebMs) : 'no imports', ebCls,
+                    'Newest eventbrite_import ticket. Sales made on Eventbrite after this moment are NOT in any number on this page.')
+                + item('Manual costs', hasMonth ? mk + ' filled' : mk + ' NOT filled', hasMonth ? '' : 'warn',
+                    'Whether recurring_costs has a document for the current month. An unfilled month reads as free and understates CAC.');
+            strips.forEach(el => { el.innerHTML = html; });
         }
 
         async function loadRecurring() {
@@ -5452,15 +5544,16 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const liveMeta = metaSpendFor(ev);
             if (liveMeta !== null) acq.costFacebook = liveMeta;
             const ebFees = ebFeesFor(byChannel.eventbrite);
+            const stripeFees = stripeFeesFor(byChannel.direct);
             const other = num(ev.costOther);
             const allocated = allocatedRecurringFor(ev, false);
             const acqTotal = AD_COST_FIELDS.reduce((s, f) => s + acq[f.key], 0);
             return {
-                byChannel, acq, acqTotal, ebFees, other, allocated,
+                byChannel, acq, acqTotal, ebFees, stripeFees, other, allocated,
                 metaSynced: liveMeta !== null,
                 paidCount: paid.length,
                 compCount: evTix.length - paid.length,
-                total: acqTotal + ebFees + other + allocated,
+                total: acqTotal + ebFees + stripeFees + other + allocated,
                 gross: paid.reduce((s, p) => s + num(p.amount), 0) / 100,
             };
         }
@@ -5511,7 +5604,8 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     ...AD_COST_FIELDS.map(f => [
                         f.key === 'costFacebook' && c.metaSynced ? f.label + ' (synced)' : f.label,
                         c.acq[f.key]]),
-                    ['Eventbrite fees', c.ebFees],
+                    ['Eventbrite fees (est.)', c.ebFees],
+                    ['Stripe fees (est.)', c.stripeFees],
                     ['Venue / other', c.other],
                     ['Allocated monthly', c.allocated],
                 ].filter(([, v]) => v > 0);
@@ -5579,7 +5673,11 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 const tix = all.filter(t => !t.isComp);
                 const comps = all.length - tix.length;
                 const gross = tix.reduce((s, t) => s + num(t.amount), 0) / 100;
-                const fees = k === 'eventbrite' ? ebFeesFor(tix) : 0;
+                // Meetup stays 0: those tickets settle on Meetup's side and
+                // Stripe never touches them.
+                const fees = k === 'eventbrite' ? ebFeesFor(tix)
+                           : k === 'direct'     ? stripeFeesFor(tix)
+                           : 0;
                 const acq = acqByChannel[k];
                 const net = gross - fees - acq;
                 const marginPct = gross > 0 ? (net / gross * 100) : 0;
