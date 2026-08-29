@@ -23,25 +23,41 @@ not mean what it looks like."
 
 ---
 
-## 1. The last two days of every export are not final — drop them
+## 1. The tail of every export is unreliable — for TWO separate reasons
 
-In any GA4 export from this property, the **most recent day** is missing its
-engagement metrics entirely and undercounts sessions by roughly 30%; the
-**second-most-recent day** reports engagement near zero and is not usable.
-Only days **three or more back** from the export date are final.
+An earlier version of this section treated the unreliable tail as one
+phenomenon. It is two, with different causes and different remedies, and only
+one of them is a processing lag.
 
-Drop the last two days from any trend, and never read a single-day engagement
-figure off the tail of an export.
+**(a) Engagement lags one to two days.** The most recent day reports engagement
+near zero or not at all. The second-most-recent day is *sometimes* fine and
+sometimes not. Drop two days to be safe; if you need the second day, say that
+you used it.
 
-Measured, not inferred: an export showed 2026-08-24 as 96 sessions / 3 engaged
-(3.1%); one export later the same day read 135 / 62 (45.9%) — an ordinary day.
-The artifact then reproduced on the next export's tail. **Control:** days two
-or more back read identically across both exports, so the lag is bounded at
-two days, not general drift.
+Measured: an export showed 2026-08-24 as 96 sessions / 3 engaged (3.1%); one
+export later the same day read 135 / 62 (45.9%) — an ordinary day. In the
+2026-08-27 export the artifact was confined to a **single** day (08-27 read 142
+sessions / 2 engaged, 1.4%) while 08-26 read an ordinary 42.4%. So the two-day
+drop is **safe but conservative**, not wrong.
+
+**(b) The final day's session and user counts are incomplete in proportion to
+how much of that day had elapsed when the export was pulled.** This is NOT a
+GA4 lag and no waiting period fixes it. **Record the export's pull time.**
+
+This is where the old "undercounts sessions by roughly 30%" figure came from,
+and it was an artifact of one pull time rather than a property of the data. The
+08-26 export was pulled ~13:12 and recorded that day as **54** sessions; the
+08-27 export, pulled ~23:19, reads the same day as **172**. That is a 69%
+shortfall, not 30% — because the first export captured about half the day. An
+export pulled at 13:00 captures roughly half the final day; one pulled at 23:15
+captures nearly all of it. **Comparing the same day across two exports pulled at
+different clock times will show "growth" that is only elapsed time.**
+
+**Control, and it holds.** Days three or more back do not move: 2026-08-24 read
+135 sessions / 62 engaged identically in both the 08-26 and 08-27 exports.
 
 This single trap caused three retractions in one report: a phantom engagement
-collapse, a phantom `in_app_browser` regression, and a premature retention
-read.
+collapse, a phantom `in_app_browser` regression, and a premature retention read.
 
 ## 2. Seven routes are server-rendered — the file in `public/` is not what ships
 
