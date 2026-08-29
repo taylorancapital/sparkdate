@@ -133,7 +133,17 @@ async function waitForVideo(videoId, timeoutMs = 180000) {
   }
 }
 
-/** Image-only Advantage+ features cannot apply to a video creative. */
+/**
+ * Features to strip when carrying a creative's degrees_of_freedom_spec forward.
+ *
+ * Two different reasons, kept separate because they age differently: the first
+ * group cannot apply to video, the second Meta has retired outright and now
+ * REJECTS rather than ignores. `standard_enhancements` is the retired one --
+ * "Including standard enhancements field in creative has been deprecated.
+ * Please choose to set individual features instead." Older creatives in this
+ * account still carry it, so copying one forward fails on a field the source
+ * creative is perfectly happy with.
+ */
 const IMAGE_ONLY_FEATURES = [
   'image_animation',
   'image_brightness_and_contrast',
@@ -141,12 +151,14 @@ const IMAGE_ONLY_FEATURES = [
   'image_touchups',
   'cv_transformation',
 ];
+const DEPRECATED_FEATURES = ['standard_enhancements'];
+const DROP_FEATURES = [...IMAGE_ONLY_FEATURES, ...DEPRECATED_FEATURES];
 
 function videoSafeDof(dof) {
   if (!dof || !dof.creative_features_spec) return undefined;
   const kept = {};
   for (const [k, v] of Object.entries(dof.creative_features_spec)) {
-    if (!IMAGE_ONLY_FEATURES.includes(k)) kept[k] = v;
+    if (!DROP_FEATURES.includes(k)) kept[k] = v;
   }
   return Object.keys(kept).length ? { creative_features_spec: kept } : undefined;
 }
