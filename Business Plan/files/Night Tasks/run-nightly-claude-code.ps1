@@ -1,18 +1,24 @@
 # run-nightly-claude-code.ps1
 #
-# Nightly local prep for the Cowork review. Three jobs, in order:
+# Nightly local prep for the Cowork review. Four jobs, in order:
 #
 #   1. Pull Meta Ads insights into the Night Tasks folder, so the Cowork
 #      scheduled task finds them sitting next to the manually-exported GA4
 #      files. Cowork cannot do this itself -- it runs in a cloud sandbox with
 #      no access to this machine and no Meta token -- so it has to happen here.
 #
-#   2. Open PRs for any claude/* branch that was pushed without one. Cowork
+#   2. Refresh the "Paid Ad UTMs" sheet in the campaign workbook from the
+#      live Meta ads, so a GA4 utm_content row can be traced back to the ad
+#      and creative that carries it. Also flags two serving ads sharing one
+#      utm_content, which is what made per-ad attribution impossible until
+#      2026-08-29.
+#
+#   3. Open PRs for any claude/* branch that was pushed without one. Cowork
 #      CANNOT do this itself -- its sandbox blocks api.github.com, so `gh pr
 #      create` fails there after the push succeeds, leaving the report on a
 #      branch nobody is watching. This machine has working gh credentials.
 #
-#   3. If a fresh TONIGHT_PROMPT.md exists, run it through the local Claude
+#   4. If a fresh TONIGHT_PROMPT.md exists, run it through the local Claude
 #      Code CLI (the one with working git/gh credentials). This is the older
 #      half of the job and is now usually a no-op: Cowork writes its reports
 #      directly as PRs rather than queuing a prompt for this script.
@@ -107,7 +113,56 @@ try {
     Log "WARN (meta): pull threw '$_'. Continuing -- this does not block the review."
 }
 
-# ── Step 2: open PRs Cowork could not open ───────────────────────────────
+# ── Step 2: refresh the paid-UTM map in the campaign workbook ──────────
+# Writes a "Paid Ad UTMs" sheet mapping every utm_content back to the ad, ad
+# set, campaign and creative carrying it, and reports any two SERVING ads that
+# share a utm_content -- which is the state the account was in until
+# 2026-08-29, when every ad carried proof_rsa1 and GA4 could not tell one
+# creative from another.
+#
+# Placed HERE, not at the end, because Step 4 exits 0 in three places when no
+# fresh TONIGHT_PROMPT.md is queued -- which its own comment calls the steady
+# state. Anything after it would almost never run.
+#
+# Read-only against Meta. The only write is one regenerated sheet in the
+# workbook; the hand-maintained "UTM Links" sheet is never touched.
+#
+# Non-fatal like Step 1: a stale sheet is worse than no sheet only if nobody
+# knows it is stale, and the log says so either way.
+try {
+    if (-not $env:META_ADS_ACCESS_TOKEN) {
+        Log "SKIP (utm): META_ADS_ACCESS_TOKEN is not set for this user. The sheet needs a token carrying ads_read -- see scripts/sync-utm-content.py."
+    } else {
+        Log "Refreshing the Paid Ad UTMs sheet..."
+        Push-Location $RepoPath
+        try {
+            # Excel holds an exclusive lock while the workbook is open, and
+            # openpyxl would fail late, after the API calls. Checking the lock
+            # file first turns that into a clean skip. Note a CRASHED Excel
+            # leaves the lock behind for weeks -- one sat stale from 2026-07-23
+            # -- so the message says how to tell the two apart.
+            $wb   = Join-Path $RepoPath ("Business Plan" + [char]92 + "files" + [char]92 + "Marketing & GTM" + [char]92 + "Content Calendar & UTM Links.xlsb.xlsx")
+            $lock = Join-Path (Split-Path $wb) ("~$" + (Split-Path $wb -Leaf))
+            if (Test-Path $lock) {
+                Log "SKIP (utm): lock file present next to the workbook. If Excel is not running this lock is stale -- delete it and the next run will write."
+            } else {
+                $utmOutput = & python "scripts\sync-utm-content.py" 2>&1
+                Write-ProcessOutputToLog $utmOutput
+                if ($LASTEXITCODE -eq 0) {
+                    Log "Paid Ad UTMs sheet refreshed."
+                } else {
+                    Log "WARN (utm): sync-utm-content.py exited $LASTEXITCODE -- see output above. Continuing."
+                }
+            }
+        } finally {
+            Pop-Location
+        }
+    }
+} catch {
+    Log "WARN (utm): sync threw '$_'. Continuing -- this does not block the review."
+}
+
+# ── Step 3: open PRs Cowork could not open ───────────────────────────────
 # Cowork's sandbox blocks api.github.com, so `gh pr create` cannot run there.
 # It commits the report and pushes the branch, and the PR never appears. That
 # is not hypothetical: GA4_ANALYSIS_2026-08-23.md (393 lines) and
@@ -216,7 +271,7 @@ try {
     Log "WARN (pr-sweep): threw '$_'. Continuing."
 }
 
-# ── Step 3: queued Claude Code prompt (usually absent) ───────────────────
+# ── Step 4: queued Claude Code prompt (usually absent) ───────────────────
 if (-not (Test-Path $PromptFile)) {
     Log "No TONIGHT_PROMPT.md -- nothing queued for the local CLI. Done."
     exit 0
