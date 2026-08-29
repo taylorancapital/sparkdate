@@ -159,6 +159,8 @@ Re-check the account rather than reading a stale table.
 | date | what changed |
 |---|---|
 | 2026-08-21 | `begin_checkout` redefined; `add_payment_info` introduced |
+| 2026-08-21 | **Items-sold rises without more sales** (#205). A 2-for-1 delivers two seats on one payment, and `purchase` previously sent no `quantity`, so GA4 counted it as one unit. It now sends the real seat count. Roughly one in five own-site purchases is a 2-for-1, so items-purchased steps up by about that much at the cutover. **Not demand.** Revenue is unaffected — `value` was always the amount charged. |
+| 2026-08-21 | **Sold-out events start appearing where they did not before** (#207). `events.html` and `city.html` used to read sold-out from the hand-typed `status === 'full'` label, which nobody sets in practice; they now compute it from real capacity, as `event.html` always did. A fall in Reserve clicks or event-page traffic after an event fills is **that fix working, not demand falling** — cross-check the event's `confirmed` against `spots` before reading it as a decline. |
 | 2026-08-22 | site changes shipped (see PR history) |
 | 2026-08-25 | GA4 internal-traffic filter went **Active** — users/sessions/engagement step down because internal visits stopped counting. **Not a traffic decline.** |
 | 2026-08-28 | `lead_form_started` added to getaways (#311) — volume steps **up** because a whole surface began reporting, and the pairing gap above improves for that reason alone. **Not a funnel improvement.** |
