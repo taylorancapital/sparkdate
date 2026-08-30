@@ -1264,6 +1264,22 @@
         .freshness-strip .fs-item.warn .fs-dot { background: var(--gold, #c9a227); }
         .freshness-strip .fs-item.stale .fs-dot { background: var(--coral, #ff6b6b); }
         .freshness-strip .fs-item.warn, .freshness-strip .fs-item.stale { color: rgba(245,243,240,0.75); }
+        /* Sync-now button, one per source that has a job behind it. Sits
+           inside the strip on purpose: the staleness and the thing that fixes
+           it belong in the same place, not in a toolbar somewhere else. */
+        .fs-sync {
+            margin-left: 2px; padding: 2px 8px; font: inherit; font-size: 10.5px;
+            line-height: 1.6; color: rgba(245,243,240,0.75);
+            background: rgba(245,243,240,0.06);
+            border: 1px solid rgba(245,243,240,0.18); border-radius: 3px;
+            cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .fs-sync:hover:not(:disabled) { background: rgba(245,243,240,0.12); border-color: rgba(245,243,240,0.35); color: #fff; }
+        .fs-sync:disabled { cursor: default; opacity: 0.75; }
+        .fs-sync.busy { color: var(--gold, #c9a227); border-color: rgba(201,162,39,0.45); }
+        .fs-sync.ok { color: var(--success); border-color: rgba(74,222,128,0.45); }
+        .fs-sync.failed { color: var(--coral, #ff6b6b); border-color: rgba(255,107,107,0.45); }
+        .fs-runlink { color: inherit; text-decoration: underline; margin-left: 6px; }
 
         /* Grouped chemistry cards */
         .chem-cards {
@@ -2721,6 +2737,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 renderPaymentHistory();
                 renderAdminEvents();
                 loadEbLive();
+                loadSyncStatus();
                 renderRecurringCosts();
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
             } catch (err) {
@@ -4388,6 +4405,147 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         //             coverage is the only staleness signal that can be shown
         //             truthfully -- and an unfilled month is the exact trap
         //             that understates CAC (it reads as free).
+        // ─── Sync now ───────────────────────────────────────
+        //
+        // The freshness strip has always been able to say "Eventbrite: last
+        // import 2d ago" and leave the admin with nothing to do about it but
+        // wait for the 6-hour cron. These buttons dispatch the SAME GitHub
+        // workflow that cron runs (see api/admin-sync.js for why dispatching
+        // beats re-implementing), then poll it to completion and refresh the
+        // dashboard so the number the admin was staring at actually moves.
+        //
+        // syncConfigured is tri-state: null until the first status call comes
+        // back, so the strip renders without buttons rather than flashing
+        // buttons that might turn out to be unprovisioned.
+        let syncConfigured = null;
+        let syncRuns = {};   // job -> latest run from the API
+        let syncBusy = {};   // job -> true while we are polling one we started
+        let syncNote = {};   // job -> transient 'ok' | 'failed' + message
+
+        const SYNC_JOBS = {
+            eventbrite: {
+                label: 'Eventbrite',
+                // Enrolls attendees AND emails each new one. That is an
+                // outward-facing side effect on real people, so this job
+                // confirms first. Meta spend does not: it overwrites its own
+                // per-day documents with numbers and touches nothing outside
+                // Firestore, and a confirm there would be friction for its
+                // own sake.
+                confirm: 'Run the Eventbrite sync now?\n\nThis enrolls any unsynced Eventbrite attendees and sends each new one a welcome email.',
+            },
+            meta: { label: 'Meta spend', confirm: null },
+        };
+
+        async function loadSyncStatus() {
+            try {
+                const token = await auth.currentUser.getIdToken();
+                const resp = await fetch('/api/admin-sync', { headers: { Authorization: `Bearer ${token}` } });
+                if (!resp.ok) return;
+                const data = await resp.json();
+                syncConfigured = !!data.configured;
+                if (data.jobs) {
+                    Object.keys(data.jobs).forEach(k => { syncRuns[k] = data.jobs[k].run; });
+                }
+                renderFreshness();
+            } catch (_) {
+                // Same posture as loadEbLive: a status call that fails leaves
+                // the strip exactly as it was rather than showing an error the
+                // admin can do nothing with.
+            }
+        }
+
+        // Poll one job to completion. `since` is the dispatch time from the
+        // POST: workflow_dispatch returns no run id, so "our" run is the first
+        // one created at or after we asked (less 30s, for clock skew between
+        // Vercel and GitHub).
+        async function pollSync(job, since) {
+            const started = new Date(since).getTime() - 30000;
+            const deadline = Date.now() + 15 * 60 * 1000;
+            const t0 = Date.now();
+            let seen = false;
+            while (Date.now() < deadline) {
+                // Tight at first so a fast Meta sync feels immediate, then
+                // backed off: every poll is a Vercel invocation AND two GitHub
+                // API calls, and an Eventbrite run spends its first minute on
+                // npm ci regardless of how often we ask.
+                await new Promise(r => setTimeout(r, Date.now() - t0 < 60000 ? 5000 : 15000));
+                let data;
+                try {
+                    const token = await auth.currentUser.getIdToken();
+                    const resp = await fetch('/api/admin-sync', { headers: { Authorization: `Bearer ${token}` } });
+                    if (!resp.ok) continue;
+                    data = await resp.json();
+                } catch (_) { continue; }
+
+                const run = data.jobs && data.jobs[job] && data.jobs[job].run;
+                if (!run || !run.createdAt) continue;
+                syncRuns[job] = run;
+                // Ignore whatever ran yesterday until ours shows up.
+                if (new Date(run.createdAt).getTime() < started) { renderFreshness(); continue; }
+                seen = true;
+                renderFreshness();
+                if (run.status === 'completed') return run;
+            }
+            // Timed out watching. The workflow itself is unaffected -- it runs
+            // on a GitHub runner, not here -- so the caller reports "still
+            // running" and links the log rather than claiming a failure.
+            void seen;
+            return null;
+        }
+
+        window.adminSyncNow = async (job) => {
+            const meta = SYNC_JOBS[job];
+            if (!meta || syncBusy[job]) return;
+            if (meta.confirm && !confirm(meta.confirm)) return;
+
+            syncBusy[job] = true;
+            delete syncNote[job];
+            renderFreshness();
+
+            try {
+                const token = await auth.currentUser.getIdToken();
+                const resp = await fetch('/api/admin-sync', {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ job }),
+                });
+                const data = await resp.json().catch(() => ({}));
+
+                if (resp.status === 409) {
+                    // Already running -- not an error, just follow the one
+                    // that is already going.
+                    syncRuns[job] = data.run || syncRuns[job];
+                    const run409 = await pollSync(job, (data.run && data.run.createdAt) || new Date().toISOString());
+                    syncNote[job] = run409 && run409.conclusion === 'success'
+                        ? { kind: 'ok', text: 'synced' }
+                        : { kind: 'failed', text: run409 ? run409.conclusion : 'still running' };
+                } else if (!resp.ok) {
+                    syncNote[job] = { kind: 'failed', text: data.error || `HTTP ${resp.status}` };
+                } else {
+                    const run = await pollSync(job, data.dispatchedAt);
+                    if (!run) {
+                        syncNote[job] = { kind: 'failed', text: 'still running — check the run log' };
+                    } else if (run.conclusion === 'success') {
+                        syncNote[job] = { kind: 'ok', text: 'synced' };
+                        // The whole point: pull the numbers the sync just
+                        // wrote, so the stale figure the admin clicked on
+                        // actually updates.
+                        await refreshDashboardNow();
+                    } else {
+                        syncNote[job] = { kind: 'failed', text: run.conclusion || 'failed' };
+                    }
+                }
+            } catch (e) {
+                syncNote[job] = { kind: 'failed', text: e.message };
+            } finally {
+                syncBusy[job] = false;
+                renderFreshness();
+                // Clear the ✓/✕ after a while so the strip goes back to being
+                // a status line rather than a log of what was clicked.
+                setTimeout(() => { delete syncNote[job]; renderFreshness(); }, 30000);
+            }
+        };
+
         function renderFreshness() {
             const strips = document.querySelectorAll('.freshness-strip');
             if (!strips.length) return;
@@ -4401,6 +4559,23 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             };
             const item = (label, text, cls, tip) =>
                 `<span class="fs-item ${cls}" title="${safe(tip)}"><span class="fs-dot"></span>${safe(label)}: ${safe(text)}</span>`;
+
+            // Nothing until the status call confirms a token is configured --
+            // an unprovisioned dashboard shows the strip exactly as it did
+            // before this feature existed.
+            const syncBtn = (job) => {
+                if (!syncConfigured) return '';
+                const run = syncRuns[job];
+                const note = syncNote[job];
+                const running = syncBusy[job] || (run && (run.status === 'queued' || run.status === 'in_progress'));
+                let cls = '', label = 'Sync now', dis = '';
+                if (running) { cls = 'busy'; label = 'Syncing…'; dis = 'disabled'; }
+                else if (note) { cls = note.kind; label = note.kind === 'ok' ? '✓ ' + note.text : '✕ ' + note.text; }
+                const link = run && run.runUrl && (running || (note && note.kind === 'failed'))
+                    ? `<a class="fs-runlink" href="${safe(run.runUrl)}" target="_blank" rel="noopener" title="Open the GitHub Actions run">log</a>`
+                    : '';
+                return `<button type="button" class="fs-sync ${cls}" ${dis} onclick="adminSyncNow('${job}')">${safe(label)}</button>${link}`;
+            };
 
             let metaMs = null;
             adSpendDays.forEach(d => {
@@ -4424,8 +4599,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
             const html = item('Meta spend', metaMs ? 'synced ' + ago(metaMs) : 'never synced', metaCls,
                     'Newest syncedAt in ad_spend. The GitHub Actions sync runs every 4 hours; older than 8h means a missed run.')
+                + syncBtn('meta')
                 + item('Eventbrite', ebMs ? 'last import ' + ago(ebMs) : 'no imports', ebCls,
                     'Newest eventbrite_import ticket. Sales made on Eventbrite after this moment are NOT in any number on this page.')
+                + syncBtn('eventbrite')
                 + item('Manual costs', hasMonth ? mk + ' filled' : mk + ' NOT filled', hasMonth ? '' : 'warn',
                     'Whether recurring_costs has a document for the current month. An unfilled month reads as free and understates CAC.');
             strips.forEach(el => { el.innerHTML = html; });
