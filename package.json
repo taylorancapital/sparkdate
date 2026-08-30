@@ -24,6 +24,7 @@
     "social:approve": "node scripts/social.js approve",
     "social:run": "node scripts/social.js run",
     "social:prep": "python scripts/prep-social-assets.py",
+    "social:crop": "python scripts/crop-photo.py",
     "email:check": "node scripts/check-email-dns.js",
     "social:handoff": "node scripts/design-handoff.js",
     "social:design-setup": "node scripts/design-project-setup.js",
