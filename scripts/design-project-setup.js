@@ -255,7 +255,12 @@ function main() {
   P(`"28" is banned — unsourced. "${u.approved_stat.proposed_revision}" is proposed but **not approved**. If a brief asks for`);
   P('any other number, stop and ask.');
   P('');
-  P(`**Never use these photos:** ${u.pulled_images.join(', ')} — consent withdrawn.`);
+  // NO REASON, deliberately. brand.json's _pulled_images_note records that an
+  // earlier generated brief asserted "consent withdrawn" -- a claim about a
+  // real person's decision that was never established. This generator was
+  // still printing it into a document handed to a third party. The rule is
+  // absolute; the reason is unknown and must not be invented here.
+  P(`**Never use these photos:** ${u.pulled_images.join(', ')}. No reason is recorded, and none should be inferred — the rule is absolute.`);
   P(`**Cleared:** ${u.consented_images.join(', ')}.`);
   P('');
   P(`**Hashtags must match the city.** This project covers **${markets.map((m) => m.toUpperCase()).join(' and ')}**.`);
