@@ -2813,21 +2813,22 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     const el = document.getElementById(`eb-live-${row.eventId}`);
                     if (!el) return;
                     if (row.error) { el.textContent = ''; return; }
-                    // Prefer the server's email-matched enrolled count: it mirrors
-                    // the sync's dedupe (any-source ticket counts), so a buyer who
-                    // registered directly AND on Eventbrite doesn't read as a
-                    // permanent "+1 unsynced". Fall back to the old source-filtered
-                    // count when the endpoint couldn't fetch attendees.
-                    const ourEb = typeof row.enrolled === 'number'
-                        ? row.enrolled
-                        : allPayments.filter(t =>
-                            t._type === 'ticket' && t.eventId === row.eventId && t.source === 'eventbrite_import').length;
-                    const unsynced = Math.max(0, row.sold - ourEb);
+                    // Prefer the server's unsynced count: it replays the
+                    // sync's own fresh-filter (email-matched against tickets
+                    // from ANY source, count-aware, email-less attendees
+                    // excluded), so the badge answers "would the next sync
+                    // run enroll anyone?" and nothing else. Fall back to the
+                    // old source-filtered arithmetic when the endpoint
+                    // couldn't fetch attendees.
+                    const unsynced = typeof row.unsynced === 'number'
+                        ? row.unsynced
+                        : Math.max(0, row.sold - allPayments.filter(t =>
+                            t._type === 'ticket' && t.eventId === row.eventId && t.source === 'eventbrite_import').length);
                     const capTxt = row.capacity != null ? `/${row.capacity}` : '';
                     el.innerHTML = `EB live ${row.sold}${capTxt}` +
                         (unsynced > 0
-                            ? ` <span style="color:var(--gold);font-weight:600;" title="Eventbrite reports ${row.sold} sold but only ${ourEb} are matched to tickets here. Usually the 6-hour sync just hasn't run yet — but a sale the sync can never auto-enroll (attendee has no email, or a repeat purchase under an email that already holds a ticket) stays flagged until it's added by hand on the Enroll tab.">+${unsynced} unsynced</span>`
-                            : ` <span style="color:var(--success);" title="Every Eventbrite sale is enrolled — the sync is current.">✓ synced</span>`);
+                            ? ` <span style="color:var(--gold);font-weight:600;" title="${unsynced} Eventbrite attendee(s) aren't enrolled here yet — the next sync run (every 6h) will add them. If this number survives a sync run, check that run's log.">+${unsynced} unsynced</span>`
+                            : ` <span style="color:var(--success);" title="Every Eventbrite attendee the sync can enroll is enrolled — the sync is current. (Organizer-added or hidden-email attendees without an email can't be auto-enrolled and aren't counted.)">✓ synced</span>`);
                 });
             } catch (_) { /* deliberately silent — see comment above */ }
         }

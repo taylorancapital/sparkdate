@@ -76,21 +76,29 @@ module.exports = async function handler(req, res) {
           else cap += Number(tc.quantity_total) || 0;
         }
 
-        // "Enrolled" mirrors the sync's dedupe, which matches attendee
-        // emails against the event's tickets from ANY source — a buyer who
-        // registered directly on SparkDate and then also bought on Eventbrite
-        // is deliberately never given a second (eventbrite_import) ticket.
-        // Counting only eventbrite_import tickets therefore left a permanent
-        // phantom "+1 unsynced" for exactly that person.
+        // "Unsynced" answers exactly one question: WOULD THE NEXT SYNC RUN
+        // ENROLL ANYONE? That is the sync's fresh-filter, replayed: a live
+        // (non-cancelled, non-refunded) attendee WITH an email that matches
+        // no ticket for this event, from ANY source. Two deliberate
+        // exclusions, both learned from production data, not theory:
         //
-        // The match is count-aware, not set membership: each ticket can
-        // stand for ONE attendee. Two EB sales under a single buyer email
-        // backed by one ticket doc is a real sale missing from the dashboard
-        // and must keep reading unsynced — a Set would let every duplicate
-        // claim the same ticket. Attendees with no email also stay unsynced:
-        // the sync can never auto-enroll them, and the badge's tooltip says
-        // those need the Enroll tab, not another sync run.
-        let enrolled = null;
+        //  - Attendees with NO profile email do not count. The live lists
+        //    carry attendee records with no email at all (organizer-added
+        //    comps, hidden-email registrations — 6 of them across 3 events
+        //    the day this shipped). The sync's fresh filter skips them
+        //    (`em && ...`), so no run can ever clear them; counting them
+        //    made three events read permanently gold. Notably EB's own
+        //    quantity_sold doesn't count them as sales either.
+        //
+        //  - The match is count-aware, not set membership: each ticket can
+        //    stand for ONE attendee, so a second EB sale under a buyer email
+        //    that already holds a ticket stays flagged instead of vanishing
+        //    into a Set.
+        //
+        // sold stays EB's quantity_sold — the number the organizer sees on
+        // Eventbrite itself. Deriving it from attendee records instead was
+        // tried and inflated it with those same email-less comps.
+        let unsynced = null;
         if (attendeesR.status === 'fulfilled' && tixR.status === 'fulfilled') {
           const live = attendeesR.value.filter((a) => !a.cancelled && !a.refunded);
           const ticketCount = new Map();
@@ -98,28 +106,27 @@ module.exports = async function handler(req, res) {
             const em = normalizeEmail(d.data().email);
             if (em) ticketCount.set(em, (ticketCount.get(em) || 0) + 1);
           });
-          // Live attendee count is also the honest "sold": EB keeps the
-          // attendee record for cancelled orders, quantity_sold may not.
-          sold = live.length;
-          enrolled = 0;
+          unsynced = 0;
           for (const a of live) {
             const em = normalizeEmail(a.profile && a.profile.email);
-            const n = em ? ticketCount.get(em) || 0 : 0;
-            if (n > 0) { ticketCount.set(em, n - 1); enrolled++; }
+            if (!em) continue; // sync can never enroll them; see above
+            const n = ticketCount.get(em) || 0;
+            if (n > 0) ticketCount.set(em, n - 1);
+            else unsynced++;
           }
         } else {
           // Not fatal, but not silent either: a broken Firestore rule or an
           // EB hiccup should be findable in the logs, not just a badge that
           // quietly reverted to the source-filtered count.
           const why = attendeesR.status === 'rejected' ? attendeesR.reason : tixR.reason;
-          console.error(`[eventbrite-live] enrolled fallback for ${ev.id}:`, why && why.message);
+          console.error(`[eventbrite-live] unsynced fallback for ${ev.id}:`, why && why.message);
         }
 
         return {
           eventId: ev.id,
           ebEventId: String(ev.eventbriteEventId),
           sold,
-          enrolled,
+          unsynced,
           capacity: uncapped ? null : cap,
           status: e.status || null,
           url: e.url || null,
