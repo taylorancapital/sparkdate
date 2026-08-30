@@ -486,110 +486,14 @@
             color: rgba(245, 243, 240, 0.6);
         }
 
-        /* Typing caret, shared by every quote rotator on this page.
-           A caret is the whole reason a typewriter reads as an animation
-           rather than as truncated text -- see the .typing rules below and
-           on .event-cta-quote. Kept as one keyframe so both rotators blink
-           on the same rhythm. */
+        /* Typing caret for the .event-cta-quote rotator. A caret is the whole
+           reason a typewriter reads as an animation rather than as truncated
+           text -- see the .typing rules on .event-cta-quote below. Declared
+           up here, away from that block, because the quote band under the
+           hero shared it until this page dropped the band. */
         @keyframes sdCaretBlink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0; }
-        }
-
-        /* Attributed-quote band under the hero.
-
-           Restyled off the coral wash it used to carry: coral is this page's
-           ACTION colour (the ticket block, the closing CTA band, the sticky
-           bar), and a coral strip that is not clickable dilutes that. Gold
-           already means "attribution" here -- it is what .testimonial-attribution
-           and the 2-for-1 toggle use -- so the band takes gold hairlines, a
-           Playfair quote mark and a gold letterspaced name, which puts it in
-           the same editorial family as the section titles instead of reading
-           as a notification bar. */
-        .proof-bar {
-            background: linear-gradient(135deg, #1a1f3a 0%, #10152b 100%);
-            border-top: 1px solid rgba(212, 175, 55, 0.22);
-            border-bottom: 1px solid rgba(212, 175, 55, 0.22);
-            /* Fixed height: the typing animation must never reflow the page. */
-            height: 74px;
-            display: flex;
-            align-items: center;
-            overflow: hidden;
-        }
-        .proof-bar-inner {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 0 24px;
-            display: flex;
-            align-items: baseline;
-            justify-content: center;
-            gap: 10px;
-            width: 100%;
-            /* One line, never wrapped, so height stays constant. The rotator
-               is fed only the short quotes (see the script) precisely so this
-               never needs to clip -- an ellipsis on a quote is the same
-               "truncated" read the caret exists to prevent. */
-            white-space: nowrap;
-            overflow: hidden;
-        }
-        .proof-bar-mark {
-            font-family: 'Playfair Display', serif;
-            font-weight: 900;
-            font-size: 34px;
-            line-height: 0;
-            position: relative;
-            top: 8px;
-            color: var(--gold);
-            opacity: 0.75;
-            flex: 0 0 auto;
-        }
-        .proof-bar-text {
-            font-family: 'Playfair Display', serif;
-            font-weight: 700;
-            font-size: 19px;
-            letter-spacing: -0.2px;
-            color: var(--cream);
-            min-width: 0;
-        }
-        /* The caret exists only while characters are arriving. A quote caught
-           mid-type with no cursor beside it is indistinguishable from a quote
-           that was cut off -- which is exactly how this bar read before. */
-        .proof-bar.typing .proof-bar-text::after {
-            content: '';
-            display: inline-block;
-            width: 2px;
-            height: 0.95em;
-            margin-left: 3px;
-            vertical-align: -0.12em;
-            background: var(--gold);
-            animation: sdCaretBlink 1s step-end infinite;
-        }
-        .proof-bar-who {
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            color: var(--gold);
-            flex: 0 0 auto;
-        }
-        @media (max-width: 700px) {
-            /* Two text lines plus the name on its own, all inside a fixed
-               height -- wrapping rather than clipping, so the longest short
-               quote still arrives whole on a phone. */
-            .proof-bar { height: 86px; }
-            .proof-bar-inner {
-                padding: 0 18px;
-                gap: 4px 8px;
-                flex-wrap: wrap;
-                white-space: normal;
-                text-align: center;
-            }
-            .proof-bar-mark { font-size: 26px; top: 5px; }
-            .proof-bar-text { font-size: 15px; }
-            .proof-bar-who { font-size: 10px; letter-spacing: 1.2px; flex-basis: 100%; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-            .proof-bar.typing .proof-bar-text::after { animation: none; }
         }
 
         /* Testimonials — set as a typeset quote wall, not a card grid.
@@ -1217,7 +1121,8 @@
           // Tickets button, and a quote that wraps past two lines outgrows
           // the box's min-height and shoves the section around on phones at
           // every rotation. Molly's and Quang's longer quotes are set
-          // properly in the testimonials section further down.
+          // properly in the testimonials section further down, which is now
+          // the only other place on this page that shows a testimonial.
           { q: "Good networking opportunities!", who: "Jeff" },
           { q: "Truly a lot more fun than any other dating event I attended!", who: "Luke" },
           { q: "Relaxed rooftop bar and easy conversations!", who: "James" },
@@ -1275,96 +1180,6 @@
           setTimeout(tickStatic, HOLD_MS);
         }
         if (reduceMotion) { tickStatic(); } else { typeNext(); }
-      })();
-    </script>
-    <script>
-      // Quote band under the hero. Kept as its own IIFE rather than folded
-      // into the CTA rotator above so the two run INDEPENDENTLY: sharing one
-      // timer would make both show the same quote at the same moment, which
-      // reads as one duplicated element rather than two pieces of proof. It
-      // starts on a different quote for the same reason.
-      (function () {
-        // SHORT quotes only, and the split is deliberate. The band is a
-        // fixed-height single line (two on a phone), so a long quote could
-        // only be clipped -- and an ellipsis mid-sentence is the same
-        // "truncated" read the caret exists to prevent. Molly's and Quang's
-        // longer quotes are the substantive ones, and they carry the
-        // testimonials section, where there is room to set them properly.
-        var TESTIMONIALS = [
-          { q: "Good networking opportunities!", who: "Jeff" },
-          { q: "Truly a lot more fun than any other dating event I attended!", who: "Luke" },
-          { q: "Relaxed rooftop bar and easy conversations!", who: "James" },
-          { q: "Greater People, Greater Vibes!", who: "Alex" }
-        ];
-        // This script sits ABOVE the bar's markup in the document, so at
-        // parse time the elements do not exist yet and getElementById returns
-        // null -- which silently early-returned and left the bar blank. Wait
-        // for the document rather than relying on script position, so moving
-        // either one later cannot break it again.
-        function start() {
-        var textEl = document.getElementById('pbText');
-        var whoEl = document.getElementById('pbWho');
-        var boxEl = document.querySelector('.proof-bar');
-        if (!textEl || !whoEl || !boxEl) return;
-        var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        // Start two along so the bar and the CTA quote are never in step.
-        var idx = 2, TYPE_MS = 34, HOLD_MS = 4200, ERASE_MS = 14;
-
-        function typeNext() {
-          var item = TESTIMONIALS[idx];
-          // Two things move together here: the name is withheld until the
-          // sentence lands, and .typing puts a blinking caret where the name
-          // will go. A name beside a half-typed quote reads as a bug; a
-          // half-typed quote with NOTHING beside it reads as a quote that was
-          // cut off. The caret is what makes it read as neither.
-          whoEl.textContent = '';
-          boxEl.classList.add('typing');
-          var i = 0;
-          (function type() {
-            if (i <= item.q.length) {
-              textEl.textContent = item.q.slice(0, i);
-              i++;
-              setTimeout(type, TYPE_MS);
-            } else {
-              boxEl.classList.remove('typing');
-              whoEl.textContent = '— ' + item.who;
-              setTimeout(erase, HOLD_MS);
-            }
-          })();
-        }
-        // Erasing rather than fading: in a one-line band a fade leaves an
-        // empty strip for the whole transition, which looks broken. Backspacing
-        // keeps the bar occupied and makes the next quote feel typed by the
-        // same hand. The caret comes back for the erase -- text disappearing
-        // with no cursor beside it is the truncation read all over again.
-        function erase() {
-          var cur = textEl.textContent;
-          whoEl.textContent = '';
-          boxEl.classList.add('typing');
-          (function back() {
-            if (cur.length) {
-              cur = cur.slice(0, -1);
-              textEl.textContent = cur;
-              setTimeout(back, ERASE_MS);
-            } else {
-              idx = (idx + 1) % TESTIMONIALS.length;
-              typeNext();
-            }
-          })();
-        }
-        function tickStatic() {
-          var item = TESTIMONIALS[idx];
-          boxEl.classList.remove('typing');
-          textEl.textContent = item.q;
-          whoEl.textContent = '— ' + item.who;
-          idx = (idx + 1) % TESTIMONIALS.length;
-          setTimeout(tickStatic, HOLD_MS);
-        }
-        if (reduceMotion) { tickStatic(); } else { typeNext(); }
-        }
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', start);
-        } else { start(); }
       })();
     </script>
     <script>
@@ -1471,29 +1286,6 @@
             </div>
         </div>
     </section>
-
-    <!-- Attributed-quote band.
-
-         It sits HERE, above the fold's fold, because the testimonials section
-         is four sections down: a visitor who bounces from the hero never
-         reaches it. One line of a real attendee's words is the cheapest proof
-         available at the moment the page is deciding whether it is worth
-         scrolling.
-
-         The band is fixed-height and the text is a single unwrapped line, so
-         the type-on animation cannot reflow the page beneath it -- the
-         layout-shift trap that a growing string in normal flow always causes.
-         It is fed only the short quotes for the same reason: the alternative
-         to wrapping is clipping, and a quote ending in an ellipsis undoes the
-         proof it was placed here to deliver. prefers-reduced-motion swaps
-         typing for a plain rotation. -->
-    <div class="proof-bar" aria-live="off">
-        <div class="proof-bar-inner">
-            <span class="proof-bar-mark">&ldquo;</span>
-            <span class="proof-bar-text" id="pbText"></span>
-            <span class="proof-bar-who" id="pbWho"></span>
-        </div>
-    </div>
 
     <!-- How It Works -->
     <section class="section how-it-works" id="how-it-works">
