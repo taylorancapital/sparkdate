@@ -315,7 +315,18 @@
     "caption_rules": {
       "per_ad_set": true,
       "_note": "Every ad set needs its own caption. Male and female audiences are not reading the same pitch, and the 2-for-1 restriction makes a shared caption unsafe by construction. Retargeting copy assumes prior exposure -- it should not re-introduce the event from scratch.",
-      "utm": { "medium": "paid_social", "campaign_format": "{event_key}_{YYYYMM}", "content": "{ad_set_key}" },
+      "utm": {
+        "medium": "paid_social",
+        "source": "{{site_source_name}}",
+        "campaign_format": "{event_key}_{YYYYMM}",
+        "content_format": "{event_key}_{phase_key}_{ad_set_key}_{creative_slug}",
+        "content_case": "lowercase snake_case",
+        "_source_why": "Meta fills {{site_source_name}} per placement, lowercase (fb/ig/msg/an). Hardcoding it is how four ads spelled it 'facebook' and fourteen 'Facebook', which GA4 counts as two channels.",
+        "_content_why": "This was '{ad_set_key}' until 2026-08-30, which names the AUDIENCE and not the AD. Two creatives in one ad set then share a utm_content and neither can be attributed -- the identical defect as 'proof_rsa1' on 11 ads, which scripts/lint-ad-copy.js raises as the account-wide 'utm-content-shared' ERROR. It also collided across events by construction: every future female prime ad would emit utm_content=female. Naming the event, phase, ad set and creative makes the value unique for the life of the account and readable as one GA4 row.",
+        "_examples": ["lx_prime_female_showup", "lx_prime_male_noplan", "mc_rt_quang", "mc_rt_scorecards"],
+        "_immutability": "url_tags is settable only when an AdCreative is CREATED (subcode 1815573). Getting this wrong at build time costs a new creative -- and a new dark post, forfeiting the running ad's likes, comments and shares. See scripts/check-meta-ad-tags.js.",
+        "_never_both": "UTMs live in url_tags OR in the destination link, never both. Meta appends url_tags, so an ad carrying both sends two utm_source values and our code reads the first."
+      },
       "banned_outside_female_ad_set": ["2-for-1", "2 for 1", "two-for-one"]
     }
   },
