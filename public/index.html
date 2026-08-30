@@ -486,13 +486,32 @@
             color: rgba(245, 243, 240, 0.6);
         }
 
-        /* Thin proof bar under the hero */
+        /* Typing caret, shared by every quote rotator on this page.
+           A caret is the whole reason a typewriter reads as an animation
+           rather than as truncated text -- see the .typing rules below and
+           on .event-cta-quote. Kept as one keyframe so both rotators blink
+           on the same rhythm. */
+        @keyframes sdCaretBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Attributed-quote band under the hero.
+
+           Restyled off the coral wash it used to carry: coral is this page's
+           ACTION colour (the ticket block, the closing CTA band, the sticky
+           bar), and a coral strip that is not clickable dilutes that. Gold
+           already means "attribution" here -- it is what .testimonial-attribution
+           and the 2-for-1 toggle use -- so the band takes gold hairlines, a
+           Playfair quote mark and a gold letterspaced name, which puts it in
+           the same editorial family as the section titles instead of reading
+           as a notification bar. */
         .proof-bar {
-            background: rgba(255, 107, 107, 0.07);
-            border-top: 1px solid rgba(255, 107, 107, 0.18);
-            border-bottom: 1px solid rgba(255, 107, 107, 0.18);
+            background: linear-gradient(135deg, #1a1f3a 0%, #10152b 100%);
+            border-top: 1px solid rgba(212, 175, 55, 0.22);
+            border-bottom: 1px solid rgba(212, 175, 55, 0.22);
             /* Fixed height: the typing animation must never reflow the page. */
-            height: 52px;
+            height: 74px;
             display: flex;
             align-items: center;
             overflow: hidden;
@@ -503,83 +522,151 @@
             padding: 0 24px;
             display: flex;
             align-items: baseline;
-            gap: 8px;
+            justify-content: center;
+            gap: 10px;
             width: 100%;
-            /* One line, clipped -- never wraps, so height stays constant. */
+            /* One line, never wrapped, so height stays constant. The rotator
+               is fed only the short quotes (see the script) precisely so this
+               never needs to clip -- an ellipsis on a quote is the same
+               "truncated" read the caret exists to prevent. */
             white-space: nowrap;
             overflow: hidden;
         }
         .proof-bar-mark {
-            font-family: Georgia, serif;
-            font-size: 26px;
-            line-height: 1;
-            color: var(--coral, #ff6b6b);
-            opacity: 0.55;
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            font-size: 34px;
+            line-height: 0;
+            position: relative;
+            top: 8px;
+            color: var(--gold);
+            opacity: 0.75;
             flex: 0 0 auto;
         }
         .proof-bar-text {
-            font-size: 15px;
-            color: #f5f3f0;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            font-size: 19px;
+            letter-spacing: -0.2px;
+            color: var(--cream);
             min-width: 0;
         }
+        /* The caret exists only while characters are arriving. A quote caught
+           mid-type with no cursor beside it is indistinguishable from a quote
+           that was cut off -- which is exactly how this bar read before. */
+        .proof-bar.typing .proof-bar-text::after {
+            content: '';
+            display: inline-block;
+            width: 2px;
+            height: 0.95em;
+            margin-left: 3px;
+            vertical-align: -0.12em;
+            background: var(--gold);
+            animation: sdCaretBlink 1s step-end infinite;
+        }
         .proof-bar-who {
-            font-size: 13px;
-            color: rgba(245, 243, 240, 0.55);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--gold);
             flex: 0 0 auto;
         }
-        @media (max-width: 600px) {
-            .proof-bar { height: 46px; }
-            .proof-bar-inner { padding: 0 16px; gap: 6px; }
-            .proof-bar-text { font-size: 13.5px; }
-            .proof-bar-who { font-size: 12px; }
+        @media (max-width: 700px) {
+            /* Two text lines plus the name on its own, all inside a fixed
+               height -- wrapping rather than clipping, so the longest short
+               quote still arrives whole on a phone. */
+            .proof-bar { height: 86px; }
+            .proof-bar-inner {
+                padding: 0 18px;
+                gap: 4px 8px;
+                flex-wrap: wrap;
+                white-space: normal;
+                text-align: center;
+            }
+            .proof-bar-mark { font-size: 26px; top: 5px; }
+            .proof-bar-text { font-size: 15px; }
+            .proof-bar-who { font-size: 10px; letter-spacing: 1.2px; flex-basis: 100%; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .proof-bar.typing .proof-bar-text::after { animation: none; }
         }
 
-        /* Testimonials */
-        .testimonials-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 40px;
-        }
+        /* Testimonials — set as a typeset quote wall, not a card grid.
 
-        .testimonial-card {
-            background: rgba(255, 107, 107, 0.05);
-            border: 1px solid rgba(255, 107, 107, 0.2);
-            padding: 40px;
-            border-radius: 4px;
-            transition: all 0.3s ease;
-            text-align: left;
-        }
+           The six bordered, coral-tinted, hover-lifting boxes this replaces
+           were the most off-theme block on the page: generic product-site
+           furniture sitting between a Playfair hero and a hand-scattered
+           polaroid collage. Nothing about them was SparkDate. These are the
+           same six quotes with the packaging taken off -- Playfair at
+           pull-quote size, a gold rule above and a letterspaced gold name
+           below, which is the vocabulary the section titles and the
+           .sp-proof-eyebrow / .event-cta-eyebrow labels already speak.
 
-        .testimonial-card:hover {
-            background: rgba(255, 107, 107, 0.1);
-            border-color: var(--coral);
-            transform: translateY(-5px);
-        }
+           Coral is spent deliberately here: on this page it means ACTION (the
+           ticket block, the closing band, the sticky bar), so a wall of
+           coral-tinted boxes that cannot be clicked was diluting it. Gold is
+           what already means attribution -- .testimonial-attribution used it
+           even inside the old cards.
 
-        .testimonial-mark {
-            font-family: 'Playfair Display', serif;
-            font-weight: 900;
-            font-size: 40px;
+           CSS columns rather than a grid because these quotes run 30 to 117
+           characters: a grid gives every cell the height of the tallest and
+           leaves four of them half empty, while columns let short quotes
+           pack under long ones and balance themselves. */
+        .testimonials-eyebrow {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
             color: var(--coral);
-            line-height: 0.6;
-            opacity: 0.5;
-            margin-bottom: 6px;
+            margin-bottom: 10px;
+        }
+
+        .testimonials-wall {
+            columns: 3;
+            column-gap: 56px;
+        }
+
+        .testimonial-item {
+            break-inside: avoid;
+            -webkit-column-break-inside: avoid;
+            page-break-inside: avoid;
+            border-top: 1px solid rgba(212, 175, 55, 0.45);
+            padding-top: 22px;
+            margin-bottom: 44px;
         }
 
         .testimonial-quote {
-            font-size: 16px;
-            font-style: italic;
-            color: rgba(245, 243, 240, 0.85);
-            line-height: 1.7;
-            margin-bottom: 16px;
+            font-family: 'Playfair Display', serif;
+            /* Upright, not italic. Only Playfair's 700 and 900 weights are
+               loaded and neither has an italic cut, so font-style: italic
+               here would render a synthesised slant -- which is exactly what
+               the old card did. The quote marks carry the quotation. */
+            font-weight: 700;
+            font-size: 21px;
+            line-height: 1.4;
+            letter-spacing: -0.3px;
+            color: var(--cream);
+            margin-bottom: 14px;
         }
+        .testimonial-quote::before { content: '\201C'; }
+        .testimonial-quote::after { content: '\201D'; }
 
         .testimonial-attribution {
-            font-size: 13px;
+            font-size: 11px;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.6px;
             color: var(--gold);
+        }
+
+        @media (max-width: 1024px) {
+            .testimonials-wall { columns: 2; column-gap: 44px; }
+        }
+        @media (max-width: 700px) {
+            .testimonials-wall { columns: 1; }
+            .testimonial-quote { font-size: 19px; }
+            .testimonial-item { margin-bottom: 36px; }
         }
 
         /* CTA Section */
@@ -867,15 +954,37 @@
             margin: 18px auto 0;
             max-width: 480px;
             text-align: left;
-            transition: opacity 0.4s ease;
         }
-        .event-cta-quote.fade-out { opacity: 0; }
         .event-cta-quote p {
             font-size: 14px; line-height: 1.55; color: #ffffff;
             font-style: italic; margin: 0 0 6px;
-            min-height: 2.4em;
+            /* Two lines' worth, reserved: the longest quote in this box wraps
+               to two on a phone, and without the reservation every rotation
+               would shove the section below it up and down. */
+            min-height: 3.1em;
         }
-        .event-cta-quote p::before, .event-cta-quote p::after { content: '"'; }
+        .event-cta-quote p::before { content: '"'; }
+        /* Two states on ONE pseudo-element, and that is the whole fix. The
+           closing quote mark is what turned a mid-type quote into a truncated
+           one -- a glance caught "Everyo" with a closing mark and a name
+           already beside it, which reads as content that was cut, not as an
+           animation in progress. While .typing, that exact slot holds a
+           blinking caret instead, so the cursor the reader watches advance
+           simply BECOMES the closing mark the moment the sentence lands. */
+        .event-cta-quote p::after { content: '"'; }
+        .event-cta-quote.typing p::after {
+            content: '';
+            display: inline-block;
+            width: 2px;
+            height: 1.05em;
+            margin-left: 2px;
+            vertical-align: -0.18em;
+            background: currentColor;
+            animation: sdCaretBlink 1s step-end infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .event-cta-quote.typing p::after { animation: none; }
+        }
         .event-cta-quote .who {
             font-size: 12px; font-weight: 700; color: #ffffff;
             font-style: normal; opacity: 0.85;
@@ -1052,8 +1161,13 @@
         <div class="event-cta-inner">
             <div class="event-cta-eyebrow" id="eventCtaEyebrow">Upcoming Mixer</div>
             <h2 class="event-cta-title" id="eventCtaTitle">SparkDate Mixer</h2>
+            <!-- Fallback copy only: /api/next-event replaces this with the
+                 real venue and date. Market-neutral, because Lancaster
+                 carries as many events as Philadelphia does -- the old
+                 "A real Philly venue" wrote one of the two markets out of
+                 the first screen. -->
             <div class="event-cta-meta" id="eventCtaMeta">
-                <span>📍 A real Philly venue</span>
+                <span>Lancaster &amp; Philadelphia</span>
             </div>
             <a class="event-cta-button" id="eventCtaBtn" href="/events">
                 Get Tickets
@@ -1071,17 +1185,35 @@
         </div>
     </section>
     <script>
-      // Rotating testimonial — cycles through live testimonials as complete
-      // quotes with a crossfade. Same rotator pattern duplicated on lp.html/
-      // event.html/events.html/city.html/signup.html, each adapted to that
-      // file's own quote-box markup.
+      // Rotating testimonial, typed. This is the canonical copy of the
+      // pattern; lp.html/event.html/events.html/city.html/signup.html each
+      // carry the same three functions against their own quote-box markup.
+      //
+      // The typewriter was pulled from these boxes once because a glance
+      // caught "Everyo" — Molly beside the buy button and read it as a
+      // truncated quote. That was never the typewriter's fault: the old
+      // version set the attribution BEFORE typing and left the CSS closing
+      // quote mark permanently in place, so a half-typed sentence arrived
+      // fully punctuated and signed. Three rules put it right, and they are
+      // the same three in every copy:
+      //
+      //   1. The name is withheld until the last character lands.
+      //   2. The closing quote mark is withheld with it -- while typing, a
+      //      blinking caret occupies that slot instead (see the CSS above).
+      //   3. Erase and retype rather than crossfade, so the box is never
+      //      empty and the next quote reads as the same hand still typing.
+      //
+      // A caret is doing most of the work here. Text that stops mid-sentence
+      // with a cursor after it is universally read as text still being
+      // written; the identical text with nothing after it is read as text
+      // that was cut off. The bug was punctuation, not motion.
       (function () {
         var TESTIMONIALS = [
           // Short quotes only, on purpose: this box sits right under the Get
           // Tickets button, and a quote that wraps past two lines outgrows
           // the box's min-height and shoves the section around on phones at
-          // every rotation. Molly's and Quang's longer quotes still run in
-          // the proof bar below the hero and in the testimonials grid.
+          // every rotation. Molly's and Quang's longer quotes are set
+          // properly in the testimonials section further down.
           { q: "Good networking opportunities!", who: "Jeff" },
           { q: "Truly a lot more fun than any other dating event I attended!", who: "Luke" },
           { q: "Relaxed rooftop bar and easy conversations!", who: "James" },
@@ -1089,79 +1221,19 @@
         ];
         var textEl = document.getElementById('ctaQuoteText');
         var whoEl = document.getElementById('ctaQuoteWho');
-        var fadeEl = document.getElementById('ctaQuote');
-        if (!textEl || !whoEl || !fadeEl) return;
+        var boxEl = document.getElementById('ctaQuote');
+        if (!textEl || !whoEl || !boxEl) return;
         var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        var idx = 0, HOLD_MS = 4500, FADE_MS = 400;
-
-        // Complete quotes crossfade; nothing types. The typewriter this
-        // replaces spent longer half-typed than whole on the long quotes
-        // (32ms/char against a 3.4s hold), with the attribution and the CSS
-        // closing quote mark already in place -- so a glance caught
-        // "Everyo" — Molly beside the buy button: a truncated quote, not an
-        // animation in progress. The proof bar under the hero keeps its
-        // typewriter; it earns it by holding the name back until the
-        // sentence lands.
-        function show(item) {
-          textEl.textContent = item.q;
-          whoEl.textContent = '— ' + item.who;
-        }
-        function advance() {
-          fadeEl.classList.add('fade-out');
-          setTimeout(function () {
-            idx = (idx + 1) % TESTIMONIALS.length;
-            // Swap while invisible so the fade-in always raises a finished
-            // quote. The fade-in race the old snap-back hack guarded
-            // against (characters appearing in a still-transparent box)
-            // died with the typing.
-            show(TESTIMONIALS[idx]);
-            fadeEl.classList.remove('fade-out');
-            setTimeout(advance, FADE_MS + HOLD_MS);
-          }, FADE_MS);
-        }
-        function tickStatic() {
-          var item = TESTIMONIALS[idx];
-          textEl.textContent = item.q;
-          whoEl.textContent = '— ' + item.who;
-          idx = (idx + 1) % TESTIMONIALS.length;
-          setTimeout(tickStatic, HOLD_MS);
-        }
-        if (reduceMotion) { tickStatic(); } else { show(TESTIMONIALS[0]); setTimeout(advance, HOLD_MS); }
-      })();
-    </script>
-    <script>
-      // Thin proof bar under the hero — the same rotator again, third copy on
-      // this page's own markup. Kept as its own IIFE rather than folded into
-      // the CTA rotator above so the two run INDEPENDENTLY: sharing one timer
-      // would make both boxes show the same quote at the same moment, which
-      // reads as one duplicated element rather than two pieces of proof.
-      //
-      // It starts on a different quote for the same reason.
-      (function () {
-        var TESTIMONIALS = [
-          { q: "Everyone was so lively and some of us connected so well we chatted well into the evening.", who: "Molly" },
-          { q: "Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!", who: "Quang" },
-          { q: "Good networking opportunities!", who: "Jeff" },
-          { q: "Truly a lot more fun than any other dating event I attended!", who: "Luke" },
-          { q: "Relaxed rooftop bar and easy conversations!", who: "James" },
-          { q: "Greater People, Greater Vibes!", who: "Alex" }
-        ];
-        // This script sits ABOVE the bar's markup in the document, so at
-        // parse time the elements do not exist yet and getElementById returns
-        // null -- which silently early-returned and left the bar blank. Wait
-        // for the document rather than relying on script position, so moving
-        // either one later cannot break it again.
-        function start() {
-        var textEl = document.getElementById('pbText');
-        var whoEl = document.getElementById('pbWho');
-        if (!textEl || !whoEl) return;
-        var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        // Start three along so the bar and the CTA quote are never in step.
-        var idx = 3, TYPE_MS = 34, HOLD_MS = 4200, ERASE_MS = 14;
+        // HOLD_MS is comfortably longer than the longest quote takes to type
+        // (60 chars x 28ms = 1.7s). When the hold is shorter than the typing,
+        // a quote spends more of its life half-written than whole -- which is
+        // the other half of why this box read badly before.
+        var idx = 0, TYPE_MS = 28, ERASE_MS = 12, HOLD_MS = 3600;
 
         function typeNext() {
           var item = TESTIMONIALS[idx];
           whoEl.textContent = '';
+          boxEl.classList.add('typing');
           var i = 0;
           (function type() {
             if (i <= item.q.length) {
@@ -1169,20 +1241,16 @@
               i++;
               setTimeout(type, TYPE_MS);
             } else {
-              // Attribution appears only once the sentence is complete —
-              // a name sitting beside a half-typed quote reads as a bug.
+              boxEl.classList.remove('typing');
               whoEl.textContent = '— ' + item.who;
               setTimeout(erase, HOLD_MS);
             }
           })();
         }
-        // Erasing rather than fading: in a one-line band a fade leaves an
-        // empty strip for the whole transition, which looks broken. Backspacing
-        // keeps the bar occupied and makes the next quote feel typed by the
-        // same hand.
         function erase() {
           var cur = textEl.textContent;
           whoEl.textContent = '';
+          boxEl.classList.add('typing');
           (function back() {
             if (cur.length) {
               cur = cur.slice(0, -1);
@@ -1196,6 +1264,93 @@
         }
         function tickStatic() {
           var item = TESTIMONIALS[idx];
+          boxEl.classList.remove('typing');
+          textEl.textContent = item.q;
+          whoEl.textContent = '— ' + item.who;
+          idx = (idx + 1) % TESTIMONIALS.length;
+          setTimeout(tickStatic, HOLD_MS);
+        }
+        if (reduceMotion) { tickStatic(); } else { typeNext(); }
+      })();
+    </script>
+    <script>
+      // Quote band under the hero. Kept as its own IIFE rather than folded
+      // into the CTA rotator above so the two run INDEPENDENTLY: sharing one
+      // timer would make both show the same quote at the same moment, which
+      // reads as one duplicated element rather than two pieces of proof. It
+      // starts on a different quote for the same reason.
+      (function () {
+        // SHORT quotes only, and the split is deliberate. The band is a
+        // fixed-height single line (two on a phone), so a long quote could
+        // only be clipped -- and an ellipsis mid-sentence is the same
+        // "truncated" read the caret exists to prevent. Molly's and Quang's
+        // longer quotes are the substantive ones, and they carry the
+        // testimonials section, where there is room to set them properly.
+        var TESTIMONIALS = [
+          { q: "Good networking opportunities!", who: "Jeff" },
+          { q: "Truly a lot more fun than any other dating event I attended!", who: "Luke" },
+          { q: "Relaxed rooftop bar and easy conversations!", who: "James" },
+          { q: "Greater People, Greater Vibes!", who: "Alex" }
+        ];
+        // This script sits ABOVE the bar's markup in the document, so at
+        // parse time the elements do not exist yet and getElementById returns
+        // null -- which silently early-returned and left the bar blank. Wait
+        // for the document rather than relying on script position, so moving
+        // either one later cannot break it again.
+        function start() {
+        var textEl = document.getElementById('pbText');
+        var whoEl = document.getElementById('pbWho');
+        var boxEl = document.querySelector('.proof-bar');
+        if (!textEl || !whoEl || !boxEl) return;
+        var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        // Start two along so the bar and the CTA quote are never in step.
+        var idx = 2, TYPE_MS = 34, HOLD_MS = 4200, ERASE_MS = 14;
+
+        function typeNext() {
+          var item = TESTIMONIALS[idx];
+          // Two things move together here: the name is withheld until the
+          // sentence lands, and .typing puts a blinking caret where the name
+          // will go. A name beside a half-typed quote reads as a bug; a
+          // half-typed quote with NOTHING beside it reads as a quote that was
+          // cut off. The caret is what makes it read as neither.
+          whoEl.textContent = '';
+          boxEl.classList.add('typing');
+          var i = 0;
+          (function type() {
+            if (i <= item.q.length) {
+              textEl.textContent = item.q.slice(0, i);
+              i++;
+              setTimeout(type, TYPE_MS);
+            } else {
+              boxEl.classList.remove('typing');
+              whoEl.textContent = '— ' + item.who;
+              setTimeout(erase, HOLD_MS);
+            }
+          })();
+        }
+        // Erasing rather than fading: in a one-line band a fade leaves an
+        // empty strip for the whole transition, which looks broken. Backspacing
+        // keeps the bar occupied and makes the next quote feel typed by the
+        // same hand. The caret comes back for the erase -- text disappearing
+        // with no cursor beside it is the truncation read all over again.
+        function erase() {
+          var cur = textEl.textContent;
+          whoEl.textContent = '';
+          boxEl.classList.add('typing');
+          (function back() {
+            if (cur.length) {
+              cur = cur.slice(0, -1);
+              textEl.textContent = cur;
+              setTimeout(back, ERASE_MS);
+            } else {
+              idx = (idx + 1) % TESTIMONIALS.length;
+              typeNext();
+            }
+          })();
+        }
+        function tickStatic() {
+          var item = TESTIMONIALS[idx];
+          boxEl.classList.remove('typing');
           textEl.textContent = item.q;
           whoEl.textContent = '— ' + item.who;
           idx = (idx + 1) % TESTIMONIALS.length;
@@ -1234,8 +1389,12 @@
               var diff = Math.ceil((d.getTime() - Date.now()) / 86400000);
               daysAway = diff <= 0 ? 'Today' : (diff === 1 ? 'Tomorrow' : 'in ' + diff + ' days');
             }
-            var venue = ev.venue ? ('📍 ' + ev.venue + (ev.neighborhood ? ', ' + ev.neighborhood : '')) : '';
-            var meta = [venue, dateLabel ? ('📅 ' + dateLabel + (daysAway ? ' · ' + daysAway : '')) : '']
+            // No emoji: content/brand.json's voice rule for every piece of
+            // SparkDate copy is "No exclamation marks, no hype, no emoji",
+            // and the pin/calendar glyphs were the page's only breach of it.
+            // The flex gap already separates these two facts.
+            var venue = ev.venue ? (ev.venue + (ev.neighborhood ? ', ' + ev.neighborhood : '')) : '';
+            var meta = [venue, dateLabel ? (dateLabel + (daysAway ? ' · ' + daysAway : '')) : '']
               .filter(Boolean).map(function (t) { return '<span>' + t + '</span>'; }).join('');
             if (meta && $('eventCtaMeta')) $('eventCtaMeta').innerHTML = meta;
 
@@ -1309,20 +1468,21 @@
         </div>
     </section>
 
-    <!-- Thin proof bar. Same typing rotator the checkout uses (event.html's
-         .checkout-testimonial), moved to the homepage directly under the
-         hero, in a single-line band rather than a box.
+    <!-- Attributed-quote band.
 
-         It sits HERE, above the fold's fold, because the testimonials grid is
-         four sections down: a visitor who bounces from the hero never reaches
-         it. One line of a real attendee's words is the cheapest proof
+         It sits HERE, above the fold's fold, because the testimonials section
+         is four sections down: a visitor who bounces from the hero never
+         reaches it. One line of a real attendee's words is the cheapest proof
          available at the moment the page is deciding whether it is worth
          scrolling.
 
-         The band is fixed-height and the text is a single clamped line, so
+         The band is fixed-height and the text is a single unwrapped line, so
          the type-on animation cannot reflow the page beneath it -- the
          layout-shift trap that a growing string in normal flow always causes.
-         prefers-reduced-motion swaps typing for a plain rotation. -->
+         It is fed only the short quotes for the same reason: the alternative
+         to wrapping is clipping, and a quote ending in an ellipsis undoes the
+         proof it was placed here to deliver. prefers-reduced-motion swaps
+         typing for a plain rotation. -->
     <div class="proof-bar" aria-live="off">
         <div class="proof-bar-inner">
             <span class="proof-bar-mark">&ldquo;</span>
@@ -1348,7 +1508,7 @@
             <div class="step-card">
                 <div class="step-number">3</div>
                 <h3>Meet In Person</h3>
-                <p>Show up at a real Philly venue. Cocktail bar, rooftop, dinner—somewhere memorable. Real conversations, in person.</p>
+                <p>Show up at a real venue in Lancaster or Philadelphia. Cocktail bar, rooftop, dinner — somewhere memorable. Real conversations, in person.</p>
             </div>
             <div class="step-card">
                 <div class="step-number">4</div>
@@ -1365,7 +1525,7 @@
             <div class="benefit-content">
                 <h3>Where Dating Apps Stop</h3>
                 <ul class="benefit-list">
-                    <li>78% of users report burnout</li>
+                    <li>78% of dating app users report burnout</li>
                     <li>Matches that never become dates</li>
                     <li>Matches ghost before meeting</li>
                     <li>Chemistry doesn't survive the screen</li>
@@ -1393,39 +1553,38 @@
         </div>
     </section>
 
-    <!-- Testimonials -->
+    <!-- Testimonials. All six approved quotes from content/brand.json, in
+         full -- this is the canonical listing, and the two rotators above it
+         are the teasers. Long and short are interleaved rather than sorted so
+         the three balanced columns each get one of each; the browser balances
+         the exact split. -->
     <section class="section testimonials" id="testimonials">
+        <div class="testimonials-eyebrow">In Their Words</div>
         <h2 class="section-title">What People Are <span class="highlight">Saying</span></h2>
-        <div class="testimonials-grid">
-            <div class="testimonial-card">
-                <div class="testimonial-mark">&ldquo;</div>
-                <p class="testimonial-quote">Greater People, Greater Vibes!</p>
-                <div class="testimonial-attribution">— Alex</div>
-            </div>
-            <div class="testimonial-card">
-                <div class="testimonial-mark">&ldquo;</div>
+        <div class="testimonials-wall">
+            <div class="testimonial-item">
                 <p class="testimonial-quote">Everyone was so lively and some of us connected so well we chatted well into the evening.</p>
-                <div class="testimonial-attribution">— Molly</div>
+                <div class="testimonial-attribution">Molly</div>
             </div>
-            <div class="testimonial-card">
-                <div class="testimonial-mark">&ldquo;</div>
-                <p class="testimonial-quote">Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!</p>
-                <div class="testimonial-attribution">— Quang</div>
-            </div>
-            <div class="testimonial-card">
-                <div class="testimonial-mark">&ldquo;</div>
+            <div class="testimonial-item">
                 <p class="testimonial-quote">Good networking opportunities!</p>
-                <div class="testimonial-attribution">— Jeff</div>
+                <div class="testimonial-attribution">Jeff</div>
             </div>
-            <div class="testimonial-card">
-                <div class="testimonial-mark">&ldquo;</div>
+            <div class="testimonial-item">
+                <p class="testimonial-quote">Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!</p>
+                <div class="testimonial-attribution">Quang</div>
+            </div>
+            <div class="testimonial-item">
+                <p class="testimonial-quote">Greater People, Greater Vibes!</p>
+                <div class="testimonial-attribution">Alex</div>
+            </div>
+            <div class="testimonial-item">
                 <p class="testimonial-quote">Truly a lot more fun than any other dating event I attended!</p>
-                <div class="testimonial-attribution">— Luke</div>
+                <div class="testimonial-attribution">Luke</div>
             </div>
-            <div class="testimonial-card">
-                <div class="testimonial-mark">&ldquo;</div>
+            <div class="testimonial-item">
                 <p class="testimonial-quote">Relaxed rooftop bar and easy conversations!</p>
-                <div class="testimonial-attribution">— James</div>
+                <div class="testimonial-attribution">James</div>
             </div>
         </div>
     </section>
@@ -1607,7 +1766,7 @@
 <div class="sticky-ticket-bar" id="stickyTicketBar" role="complementary" aria-label="Next mixer ticket bar">
     <div>
         <div class="sticky-ticket-bar-eyebrow">Next mixer</div>
-        <div class="sticky-ticket-bar-line" id="stickyBarLine">SparkDate Mixer · A real Philly venue</div>
+        <div class="sticky-ticket-bar-line" id="stickyBarLine">SparkDate Mixer · Lancaster &amp; Philadelphia</div>
     </div>
     <a class="sticky-ticket-bar-btn" id="stickyBarBtn" href="/events">Get Tickets</a>
 </div>
