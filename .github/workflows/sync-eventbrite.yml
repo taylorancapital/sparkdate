@@ -1,0 +1,83 @@
+name: sync eventbrite
+
+# Pulls Eventbrite attendees and enrolls the new ones through lib/enroll.js --
+# the same code path the admin Enroll tab uses -- so the largest sales channel
+# stops depending on a manual CSV ritual. This is P1 item 3 of the
+# single-source-of-truth review; the dashboard's freshness strip reads the
+# newest eventbrite_import ticket, and this schedule is what keeps that green.
+#
+# Every 6 hours, offset from sync-ad-spend's */4 so the two rarely collide on
+# runner minutes. Idempotent twice over: the script pre-checks existing ticket
+# emails per event, and enrollEventbriteOne itself keys tickets by uid+eventId.
+#
+# GRACEFUL WHEN UNPROVISIONED: if EVENTBRITE_TOKEN is not yet an Actions
+# secret, the run exits green with a notice instead of a red X -- this
+# workflow can merge before the secret exists. Add the secret and the next
+# scheduled run goes live. (The same pattern the maintenance workflow uses
+# for STRIPE_SECRET_KEY.)
+
+on:
+  schedule:
+    - cron: '41 1,7,13,19 * * *'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'How many days back to look (default 45)'
+        default: '45'
+      execute:
+        description: 'Actually enroll (unchecked = dry run)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: sync-eventbrite
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Sync Eventbrite attendees
+        env:
+          EVENTBRITE_TOKEN: ${{ secrets.EVENTBRITE_TOKEN }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          DAYS: ${{ github.event.inputs.days || '45' }}
+          EXECUTE: ${{ github.event.inputs.execute }}
+        run: |
+          if [ -z "$EVENTBRITE_TOKEN" ]; then
+            echo "::notice::EVENTBRITE_TOKEN is not set -- sync skipped. Add it as an Actions secret to go live."
+            exit 0
+          fi
+          MISSING=""
+          [ -z "$FIREBASE_PROJECT_ID" ]   && MISSING="$MISSING FIREBASE_PROJECT_ID"
+          [ -z "$FIREBASE_CLIENT_EMAIL" ] && MISSING="$MISSING FIREBASE_CLIENT_EMAIL"
+          [ -z "$FIREBASE_PRIVATE_KEY" ]  && MISSING="$MISSING FIREBASE_PRIVATE_KEY"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing repo secret(s):$MISSING"
+            exit 1
+          fi
+          if [ -z "$RESEND_API_KEY" ]; then
+            echo "::warning::RESEND_API_KEY not set -- new enrollees will not receive welcome emails."
+          fi
+
+          # Scheduled runs EXECUTE (that is the point of a sync); manual
+          # dispatches default to dry run unless the box is checked, matching
+          # the other workflows' safety posture.
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "$EXECUTE" = "true" ]; then
+            node scripts/sync-eventbrite.js --days="$DAYS" --execute
+          else
+            node scripts/sync-eventbrite.js --days="$DAYS"
+          fi
