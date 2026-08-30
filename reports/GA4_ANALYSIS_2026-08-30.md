@@ -247,6 +247,10 @@ only; do not build a budget on it.
 **Re-check in ~1 week:** `targeted_event_landing` on the `facebook / paid_social` row.
 If the destination URLs are corrected it moves off zero; if it is still 0 of N, the ads
 are still sending traffic to a generic landing page.
+*(Updated same day by the §H3 audit: the offending ads are all archived, so the
+expectation flips — the row should read near-zero **sessions** going forward because
+its source is gone. New sessions appearing on this row would mean a new ad
+re-introduced the lowercase-no-eventId URL shape, which is the thing to catch.)*
 
 ---
 
@@ -434,6 +438,18 @@ path.
    435; the rest is 13 `/admin` sessions from one user and 3 `/event`), so the
    defect is proven — the destinations point at `/lp` without the parameter. The
    only remaining question is *which ads*, and that lives in Ads Manager.
+   **RESOLVED same day, and the answer closes the item without an Ads Manager
+   change.** A read-only audit of the full account (43 ads, every status, Graph API)
+   found every ad missing the `eventId` is **ARCHIVED**: the row is three Event 2-era
+   ads pointing at bare `/lp` with lowercase `utm_source=facebook` — "Event 2 -
+   Women Awareness — Carousel 1" (`week3_Women`), "Format A — Landing Page" and
+   "SparkDate Summer Nights — Ad Set B Landing Page" (both `week2_Solution`) — and
+   `Facebook / paid` is the archived 6/6 boosted post whose destination still
+   contains a literal `<campaign-name>` placeholder. `ga4-api-daily-by-source`
+   agrees: the row's traffic runs mid-June to late July, stragglers to 08-11, then
+   zero, and `Facebook / paid` is June 6–9 only. **Every ACTIVE and PAUSED ad
+   carries a proper `eventId`.** Nothing is leaking spend today; this was June's
+   hand-typed-URL failure surfacing in a summed window.
 4. **Marion Court checkout stage: 9 carts, 1 sale (11.1%) against 22–27% everywhere
    else.** *(2nd ask — the 08-28 report raised the trigger; the number has since moved
    further.)* §3b named this as the only thing that reopens the discussion. Explicitly
