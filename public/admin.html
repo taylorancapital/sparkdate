@@ -2688,6 +2688,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 renderAllMembers();
                 renderPaymentHistory();
                 renderAdminEvents();
+                loadEbLive();
                 renderRecurringCosts();
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
             } catch (err) {
@@ -2755,6 +2756,43 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             return `<span style="font-size:12px;color:${col};font-weight:600;" title="${w} women, ${men} men${unk ? ', ' + unk + ' unknown' : ''} among confirmed registrations (comps included — the cell answers who is in the room)">${w}W/${men}M · ${share}%W</span>`;
         }
 
+        // ── Live Eventbrite counts under each event's Registered cell ──
+        //
+        // The sync enrolls every 6 hours, so between runs the dashboard
+        // trails Eventbrite. This fills "EB live 9/30" per mapped event
+        // straight from the EB API -- and when EB's sold count exceeds our
+        // enrolled eventbrite_import tickets, shows "+N unsynced" in gold:
+        // both a live inventory read and a health check on the sync itself.
+        //
+        // Fails to NOTHING by design: endpoint unprovisioned (no
+        // EVENTBRITE_TOKEN in Vercel), no mapped events, auth hiccup, or a
+        // fetch error all leave the row exactly as it was. A live nicety
+        // must never break the table that works without it.
+        async function loadEbLive() {
+            try {
+                const token = await auth.currentUser.getIdToken();
+                const resp = await fetch('/api/eventbrite-live', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!resp.ok) return;
+                const data = await resp.json();
+                if (!data.configured || !Array.isArray(data.events)) return;
+                data.events.forEach(row => {
+                    const el = document.getElementById(`eb-live-${row.eventId}`);
+                    if (!el) return;
+                    if (row.error) { el.textContent = ''; return; }
+                    const ourEb = allPayments.filter(t =>
+                        t._type === 'ticket' && t.eventId === row.eventId && t.source === 'eventbrite_import').length;
+                    const unsynced = Math.max(0, row.sold - ourEb);
+                    const capTxt = row.capacity != null ? `/${row.capacity}` : '';
+                    el.innerHTML = `EB live ${row.sold}${capTxt}` +
+                        (unsynced > 0
+                            ? ` <span style="color:var(--gold);font-weight:600;" title="Eventbrite reports ${row.sold} sold but only ${ourEb} are enrolled here — the 6-hour sync has not ingested them yet (or the last run failed).">+${unsynced} unsynced</span>`
+                            : ` <span style="color:var(--success);" title="Every Eventbrite sale is enrolled — the sync is current.">✓ synced</span>`);
+                });
+            } catch (_) { /* deliberately silent — see comment above */ }
+        }
+
         function renderAdminEvents() {
             const tbody = document.getElementById('eventsTable');
             const countEl = document.getElementById('eventCount');
@@ -2793,7 +2831,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <td style="color: rgba(245,243,240,0.7);">${spots}</td>
                         <td>${mixCell(ev)}</td>
                         <td style="color: rgba(245,243,240,0.85); font-size: 12px;">${fmtPrice(ev.price)}${tierLabel}</td>
-                        <td><button class="action-btn" data-act="open-roster" data-id="${safe(ev.id)}" data-title="${safe(ev.title)}" style="color:var(--gold);border-color:rgba(212,175,55,0.4);">${regCount} · Roster</button></td>
+                        <td><button class="action-btn" data-act="open-roster" data-id="${safe(ev.id)}" data-title="${safe(ev.title)}" style="color:var(--gold);border-color:rgba(212,175,55,0.4);">${regCount} · Roster</button><div id="eb-live-${safe(ev.id)}" style="font-size:11px;margin-top:3px;color:rgba(245,243,240,0.5);"></div></td>
                         <td><span class="badge ${safe(statusClass)}">${safe(ev.status || 'open')}</span></td>
                         <td style="font-size: 12px;">
                             <button class="action-btn" data-act="score-candidates" data-id="${safe(ev.id)}" title="Chemistry score between every pair of registered attendees">Chemistry</button>
@@ -6516,7 +6554,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             if (id === 'ads') { renderCampaigns(); renderCptChart(); }
             if (id === 'venues') loadVenues();
             if (id === 'leads')  loadLeads();
-            if (id === 'events') populateVenuePicker();
+            if (id === 'events') { populateVenuePicker(); loadEbLive(); }
             if (id === 'retention') loadRetention();
             if (id === 'funnel') loadFunnel();
             if (id === 'enroll') populateEventDropdown();
