@@ -1866,6 +1866,17 @@
                     <code>eventId=</code> link convention. It is real money and not a defect.
                 </div>
             </div>
+
+            <!-- The "is marketing getting better" line -- P2 item 6 of the
+                 SSOT review. Spend and ticket windows both exist on this page;
+                 nothing plotted them AGAINST each other over time. -->
+            <div class="card" style="margin-top:24px;">
+                <div class="card-header">
+                    <h2 class="card-title">Cost per ticket — trailing 7 days</h2>
+                    <span style="font-size:12px;color:rgba(245,243,240,0.5);">Meta spend ÷ paid tickets (all channels), each day summing its trailing week. Gaps = no tickets sold in that window.</span>
+                </div>
+                <div class="rc-chart" id="chartCostPerTicket"></div>
+            </div>
         </div>
 
         <!-- P&L Tab (Finance › P&L). Channel P&L, Recurring costs and Event
@@ -2157,6 +2168,12 @@
                     <h2 class="card-title">Venue Outreach Pipeline</h2>
                     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                         <span id="venueCount" style="font-size:12px;color:rgba(245,243,240,0.5);"></span>
+                        <select id="venueSortBy" class="form-input" style="width: 150px; height: 36px; font-size: 13px;" title="Stars predicted the venue problem before the funnel did — every venue Taylor rated well or poorly, the field agreed. Default: best first.">
+                            <option value="stars">Stars (best first)</option>
+                            <option value="name">Name A–Z</option>
+                            <option value="status">Status</option>
+                            <option value="added">Recently added</option>
+                        </select>
                         <select id="venueStatusFilter" class="form-input" style="width: 150px; height: 36px; font-size: 13px;">
                             <option value="">All Statuses</option>
                             <option value="not_contacted">Not Contacted</option>
@@ -4696,7 +4713,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const W = 760, H = 250, PL = 54, PR = 58, PT = 14, PB = 30;
             const iw = W - PL - PR, ih = H - PT - PB;
 
-            const peak = Math.max(...series.flatMap(s => s.values), 0);
+            // NaN marks "undefined on this day" (e.g. cost-per-ticket in a
+            // week with no sales -- infinite, not zero). Filter them out of
+            // the scale and break the line there instead of plotting a lie.
+            const peak = Math.max(...series.flatMap(s => s.values).filter(Number.isFinite), 0);
             const top = niceMax(peak);
             const TICKS = 5;
             const x = i => PL + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
@@ -4725,16 +4745,27 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 axis.push(`<text x="${x(i)}" y="${H - 9}" text-anchor="middle">${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</text>`);
             }
 
-            const paths = series.map(s =>
-                `<path class="rc-line" stroke="${s.color}" d="${s.values.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ')}"></path>`
-            ).join('');
+            const paths = series.map(s => {
+                // Segment the path at gaps: after a non-finite value the next
+                // finite point starts a new 'M' rather than drawing a line
+                // through data that does not exist.
+                let d2 = '', pen = false;
+                s.values.forEach((v, i) => {
+                    if (!Number.isFinite(v)) { pen = false; return; }
+                    d2 += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1) + ' ';
+                    pen = true;
+                });
+                return `<path class="rc-line" stroke="${s.color}" d="${d2.trim()}"></path>`;
+            }).join('');
 
             // Direct labels at the right end -- the secondary encoding the
             // palette check requires, and the fastest way to tell two lines
             // apart without hunting for the legend.
             // Nudge apart if two series end at nearly the same value, so the
             // labels never sit on top of each other.
-            const endYs = series.map(s => y(s.values[n - 1]));
+            // Label at the last FINITE value -- the series may end in a gap.
+            const lastFinite = (vals) => { for (let i = vals.length - 1; i >= 0; i--) if (Number.isFinite(vals[i])) return vals[i]; return 0; };
+            const endYs = series.map(s => y(lastFinite(s.values)));
             for (let i = 1; i < endYs.length; i++) {
                 for (let j = 0; j < i; j++) {
                     if (Math.abs(endYs[i] - endYs[j]) < 12) endYs[i] = endYs[j] + (endYs[i] >= endYs[j] ? 12 : -12);
@@ -4770,12 +4801,14 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i));
                 cross.style.opacity = 1;
                 dots.forEach((c, k) => {
-                    c.setAttribute('cx', x(i)); c.setAttribute('cy', y(series[k].values[i]));
+                    const v = series[k].values[i];
+                    if (!Number.isFinite(v)) { c.style.opacity = 0; return; }
+                    c.setAttribute('cx', x(i)); c.setAttribute('cy', y(v));
                     c.style.opacity = 1;
                 });
                 const d = new Date(Date.now() - (n - 1 - i) * 86400000);
                 tip.innerHTML = `<div class="d">${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>` +
-                    series.map(s => `<div class="r"><i class="sw" style="display:inline-block;width:10px;height:3px;border-radius:2px;background:${s.color}"></i>${safe(s.label)}<b>${safe(fmt(s.values[i]))}</b></div>`).join('');
+                    series.map(s => `<div class="r"><i class="sw" style="display:inline-block;width:10px;height:3px;border-radius:2px;background:${s.color}"></i>${safe(s.label)}<b>${Number.isFinite(s.values[i]) ? safe(fmt(s.values[i])) : '—'}</b></div>`).join('');
                 tip.style.opacity = 1;
                 const leftPx = (x(i) / W) * r.width;
                 tip.style.left = Math.min(Math.max(leftPx - tip.offsetWidth / 2, 0), r.width - tip.offsetWidth) + 'px';
@@ -4802,6 +4835,43 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             rcChart('chartTickets', [
                 { label: 'Tickets', color: '#4ade80', values: tickets },
             ], (v) => String(Math.round(v)));
+            renderCptChart();
+        }
+
+        // ── Cost per ticket, trailing 7 days ────────────────────────────
+        //
+        // A single day's spend ÷ that day's tickets is unreadable noise at
+        // this volume (most days sell 0-2 tickets), so each point is the
+        // trailing week: spend over 7 days ÷ paid tickets over the same 7.
+        // 36 days of raw data produce 30 chart points, each with a full
+        // window behind it.
+        //
+        // A window with ZERO tickets has an UNDEFINED cost per ticket --
+        // infinite, not zero -- so it charts as a gap (NaN), which rcChart
+        // now renders as a broken line. Plotting $0 there would show the
+        // marketing at its most efficient in exactly the weeks it sold
+        // nothing.
+        //
+        // Numerator is Meta spend only (the same day-totals costSeries uses,
+        // unattributed included -- the money left either way). Denominator is
+        // paid tickets from ALL channels, matching how blended CAC reads on
+        // the KPI card: ads build the brand that Eventbrite then converts,
+        // so crediting tickets only to their last click would overstate the
+        // cost of every channel at once.
+        function renderCptChart() {
+            if (!document.getElementById('chartCostPerTicket')) return;
+            const RAW = 36, POINTS = 30, WIN = 7;
+            const spend = costSeries(RAW);
+            const tix = dailySeries(RAW, t => t.isComp ? 0 : 1);
+            const values = [];
+            for (let i = RAW - POINTS; i < RAW; i++) {
+                let sp = 0, tk = 0;
+                for (let j = i - WIN + 1; j <= i; j++) { sp += spend[j] || 0; tk += tix[j] || 0; }
+                values.push(tk > 0 ? sp / tk : NaN);
+            }
+            rcChart('chartCostPerTicket', [
+                { label: '$ / ticket', color: '#e05555', values },
+            ], (v) => '$' + (Math.round(v * 100) / 100).toFixed(2));
         }
 
         function renderReport() {
@@ -6443,7 +6513,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             // other tabs while entering Revenue repainted nothing. The hook
             // follows the markup.
             if (id === 'revenue') renderReportCharts();
-            if (id === 'ads') renderCampaigns();
+            if (id === 'ads') { renderCampaigns(); renderCptChart(); }
             if (id === 'venues') loadVenues();
             if (id === 'leads')  loadLeads();
             if (id === 'events') populateVenuePicker();
@@ -6695,6 +6765,22 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
             const filtered = filter ? allVenues.filter(v => v.status === filter) : allVenues;
 
+            // Sort -- stars-first by default. The stars field predicted the
+            // venue problem before the funnel did (4.5 Good Good vs 3.8
+            // Marion Court matched Taylor's own reads exactly), yet 445 rows
+            // sat in creation order with the one ranking signal invisible.
+            // Rows WITHOUT a rating sort below every rated row in stars mode
+            // rather than interleaving as fake zeroes.
+            const sortBy = document.getElementById('venueSortBy')?.value || 'stars';
+            const starVal = (v) => (typeof v.stars === 'number' && isFinite(v.stars)) ? v.stars : -1;
+            const createdMs = (v) => v.createdAt && v.createdAt.toMillis ? v.createdAt.toMillis() : 0;
+            const sorted = [...filtered].sort((a, b) => {
+                if (sortBy === 'name')   return String(a.name || '').localeCompare(String(b.name || ''));
+                if (sortBy === 'status') return String(a.status || '').localeCompare(String(b.status || '')) || starVal(b) - starVal(a);
+                if (sortBy === 'added')  return createdMs(b) - createdMs(a);
+                return starVal(b) - starVal(a) || String(a.name || '').localeCompare(String(b.name || ''));
+            });
+
             // The table is capped and scrolls now (it rendered 445 rows at
             // 51,275px -- forty viewports). Say what the cap is hiding.
             const countEl = document.getElementById('venueCount');
@@ -6707,7 +6793,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 return;
             }
 
-            tbody.innerHTML = filtered.map(v => {
+            tbody.innerHTML = sorted.map(v => {
                 const contacted = v.contacted_at ? new Date(v.contacted_at).toLocaleDateString() : '—';
                 const statusBadgeClass = {
                     'not_contacted': 'badge-active',
@@ -7113,6 +7199,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const venueFilterSelect = document.getElementById('venueStatusFilter');
             if (venueFilterSelect) {
                 venueFilterSelect.addEventListener('change', renderVenues);
+            }
+            const venueSortSelect = document.getElementById('venueSortBy');
+            if (venueSortSelect) {
+                venueSortSelect.addEventListener('change', renderVenues);
             }
 
             // ─── Event-form pricing wiring ─────────────────
