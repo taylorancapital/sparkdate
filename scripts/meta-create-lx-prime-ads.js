@@ -20,7 +20,17 @@
  *   - url_tags: utm_source={{site_source_name}} fills per placement,
  *     lowercase (fb/ig/msg/an) -- ends both the hardcoded-Instagram problem
  *     and the Facebook/facebook case split. utm_campaign=LX_202609 and
- *     utm_content=<ad set> follow brand.json caption_rules.utm.
+ *     utm_content={event}_{phase}_{ad set}_{creative} follow brand.json
+ *     paid_template.caption_rules.utm.
+ *
+ *     utm_content was the bare ad set key ("female"/"male") when these ads
+ *     first shipped on 2026-08-30, which names the AUDIENCE and not the AD:
+ *     a second creative in the same ad set would have shared the value and
+ *     neither could be attributed, and every future event's female prime ad
+ *     would have emitted "female" too. Both are the account-wide
+ *     'utm-content-shared' ERROR in lint-ad-copy.js, the same defect as
+ *     proof_rsa1 on 11 ads. The slug names the hook, so a GA4 row reads
+ *     lx_prime_female_showup rather than female.
  *   - The destination link is CLEAN (eventId only). UTMs live in url_tags
  *     alone -- six live ads carry both and send two utm_source values per
  *     click (lint-ad-copy finding #3).
@@ -83,7 +93,9 @@ const ADS = [
     ].join('\n'),
     headline: 'Lancaster, PA · Sep 22',
     description: 'Doors 6:30 PM',
-    utmContent: 'female',
+    // {event}_{phase}_{ad set}_{creative}. The slug is the hook, so the GA4
+    // row says which ad ran, not just who saw it -- see the note below.
+    utmContent: 'lx_prime_female_showup',
   },
   {
     key: 'male',
@@ -100,7 +112,7 @@ const ADS = [
     ].join('\n'),
     headline: 'Lancaster, PA · Sep 22',
     description: 'Doors 6:30 PM',
-    utmContent: 'male',
+    utmContent: 'lx_prime_male_noplan',
   },
 ];
 

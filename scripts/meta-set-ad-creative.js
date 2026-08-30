@@ -18,10 +18,25 @@
  * WHAT IT PRESERVES, AND WHY THAT MATTERS
  *
  * A creative is not just its media. The existing one carries page_id,
- * instagram_user_id, the message body, headline, description and the
- * call_to_action type -- and losing any of those silently changes the ad.
- * This reads the current creative and carries all of it forward, overriding
- * only what you pass on the command line.
+ * instagram_user_id, the message body, headline, description, the
+ * call_to_action type and its url_tags -- and losing any of those silently
+ * changes the ad. This reads the current creative and carries all of it
+ * forward, overriding only what you pass on the command line.
+ *
+ * URL_TAGS IS THE ONE FIELD THIS SCRIPT IS ALSO THE ONLY WAY TO CHANGE.
+ *
+ * AdCreative is immutable apart from name, status and adlabels (subcode
+ * 1815573 -- see the header of check-meta-ad-tags.js for the full account of
+ * what was tried). So url_tags can only be set when a creative is CREATED,
+ * which makes building a new creative and repointing the ad -- exactly what
+ * this script already does -- the only route to retagging a live ad.
+ *
+ * Until 2026-08-30 this script did not read url_tags at all, so a plain video
+ * swap on a tagged ad silently DROPPED its UTMs and the ad went back to
+ * recording as "direct" in Stripe. It now carries them forward by default;
+ * --url-tags= sets a new value, and --url-tags= with an empty value clears
+ * them (correct when the destination link already carries its own UTMs --
+ * Meta APPENDS url_tags, so both together send two utm_source values).
  *
  * IMAGE -> VIDEO IS A SHAPE CHANGE, NOT A FIELD SWAP. A still ad uses
  * `link_data` with the destination at `link`. A video ad uses `video_data`
@@ -42,6 +57,11 @@
  *   node scripts/meta-set-ad-creative.js --ad=<id> --video=<path> --thumb=<path>
  *   node scripts/meta-set-ad-creative.js --ad=<id> --video=... --thumb=... --url=<destination>
  *   node scripts/meta-set-ad-creative.js --ad=<id> ... --execute
+ *
+ *   # retag a live ad without re-uploading its media: reuse the ids the
+ *   # current creative already points at, and change only url_tags.
+ *   node scripts/meta-set-ad-creative.js --ad=<id> --video-id=<id> \
+ *     --image-hash=<hash> --url-tags='utm_source={{site_source_name}}&...'
  *
  * DRY RUN IS THE DEFAULT, same convention as meta-restore-traffic.js and
  * social.js. Nothing uploads and nothing changes without --execute.
@@ -183,6 +203,9 @@ async function main() {
   // whose headline was already lost, where there is nothing left to carry
   // forward.
   const overrideHeadline = arg('headline');
+  // undefined = carry the current creative's url_tags forward.
+  // '' (--url-tags=) = deliberately clear them.
+  const overrideUrlTags = arg('url-tags');
   const reuseVideoId = arg('video-id');
   const reuseImageHash = arg('image-hash');
   const execute = flag('execute');
@@ -191,7 +214,9 @@ async function main() {
     console.error('Required: --ad=<id>, then either');
     console.error('  --video=<path> --thumb=<path>        (upload fresh)');
     console.error('  --video-id=<id> --image-hash=<hash>  (reuse a previous upload)');
-    console.error('Optional: --url=<destination> --message=<body> --headline=<text> --creative-name=<name> --execute');
+    console.error('Optional: --url=<destination> --message=<body> --headline=<text> --creative-name=<name>');
+    console.error('          --url-tags=<query string>  (omit to keep the current tags; empty to clear)');
+    console.error('          --execute');
     process.exit(1);
   }
   for (const f of [videoPath, thumbPath]) {
@@ -210,7 +235,7 @@ async function main() {
   console.log(`campaign: ${ad.campaign && ad.campaign.name}`);
 
   const current = await api(ad.creative.id, {
-    params: { fields: 'id,name,object_story_spec,degrees_of_freedom_spec,call_to_action_type' },
+    params: { fields: 'id,name,url_tags,object_story_spec,degrees_of_freedom_spec,call_to_action_type' },
   });
   const spec = current.object_story_spec || {};
   const src = spec.link_data || spec.video_data || {};
@@ -238,6 +263,22 @@ async function main() {
   console.log(`  cta            : ${(src.call_to_action && src.call_to_action.type) || '(none)'}`);
   console.log(`  destination    : ${currentUrl || '(none)'}`);
   if (overrideUrl) console.log(`  destination NEW: ${overrideUrl}`);
+
+  const urlTags = overrideUrlTags === undefined ? (current.url_tags || '') : overrideUrlTags;
+  console.log(`  url_tags       : ${current.url_tags || '(none)'}`);
+  if (overrideUrlTags !== undefined) {
+    console.log(`  url_tags NEW   : ${urlTags || '(cleared)'}`);
+  }
+  // Meta APPENDS url_tags to the destination, so a link that already carries
+  // its own utm_source ends up sending two. Our code reads the FIRST, which
+  // means the url_tags quietly do nothing -- the failure mode that put six
+  // ads in lint-ad-copy's `duplicate-utm` bucket. Refuse rather than ship it.
+  if (urlTags && /utm_source=/i.test(urlTags) && /utm_source=/i.test(link)) {
+    throw new Error(
+      'Both the destination URL and url_tags carry a utm_source. Meta appends them, '
+      + 'so this ad would send two. Pass a clean --url=, or --url-tags= (empty) to drop the tags.'
+    );
+  }
   if (overrideMessage !== undefined) {
     console.log('');
     console.log('  message NEW:');
@@ -256,7 +297,9 @@ async function main() {
 
   if (!execute) {
     console.log('\nWould then:');
-    console.log('  1. POST advideos + adimages');
+    console.log(reuseVideoId && reuseImageHash
+      ? '  1. (nothing to upload -- both are reused)'
+      : '  1. POST advideos + adimages');
     console.log('  2. POST adcreatives with video_data carrying the fields above');
     console.log(`  3. POST ${ad.id} pointing it at the new creative`);
     console.log('\nDry run. Re-run with --execute.\n');
@@ -309,6 +352,9 @@ async function main() {
       video_data: videoData,
     },
   };
+  // Set at creation or never -- see the header. An empty string is omitted
+  // rather than sent, which is how a creative is deliberately left untagged.
+  if (urlTags) payload.url_tags = urlTags;
   const dof = videoSafeDof(current.degrees_of_freedom_spec);
   if (dof) payload.degrees_of_freedom_spec = dof;
 
@@ -319,12 +365,21 @@ async function main() {
   console.log(`  ad updated     : ${ad.id} -> creative ${created.id}`);
 
   const after = await api(ad.id, {
-    params: { fields: 'id,name,status,effective_status,creative{id,name,video_id}' },
+    params: { fields: 'id,name,status,effective_status,creative{id,name,video_id,url_tags}' },
   });
   console.log('\nverified:');
   console.log(`  ${after.name}`);
   console.log(`  status   : ${after.status} / ${after.effective_status}`);
   console.log(`  creative : ${after.creative.id} (video ${after.creative.video_id || 'none'})`);
+  // Read back from the API, not from our own payload: a 200 on the creative
+  // call is not evidence the field landed, and url_tags cannot be repaired
+  // afterwards if it did not.
+  const landed = after.creative.url_tags || '';
+  console.log(`  url_tags : ${landed || '(none)'}`);
+  if (landed !== urlTags) {
+    console.log(`  !! EXPECTED: ${urlTags || '(none)'} -- the new creative is NOT tagged as asked.`);
+    process.exitCode = 1;
+  }
   console.log('\nThe previous creative is not deleted -- it is detached and still readable.\n');
 }
 
