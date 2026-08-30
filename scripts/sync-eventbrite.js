@@ -132,11 +132,27 @@ async function main() {
   if (!org) throw new Error('No Eventbrite organization on this token');
   console.log(`Eventbrite org: ${org.name} (${org.id})`);
 
-  const since = new Date(Date.now() - DAYS * 86400000).toISOString().slice(0, 19) + 'Z';
-  const ebEvents = await ebAll(
-    `/organizations/${org.id}/events/?order_by=start_desc&start_date.range_start=${since}`,
-    'events'
-  );
+  // /organizations/{id}/events/ does NOT accept start_date.range_start --
+  // that is a search-endpoint parameter, and passing it here 400s (found the
+  // hard way on the first live dispatch). So: order newest-first and stop
+  // paginating as soon as a page's oldest event falls before the cutoff.
+  // Client-side filtering costs one extra page at worst.
+  const sinceMs = Date.now() - DAYS * 86400000;
+  const ebEvents = [];
+  let continuation = null;
+  do {
+    const page = await eb(`/organizations/${org.id}/events/?order_by=start_desc&time_filter=all`
+      + (continuation ? `&continuation=${continuation}` : ''));
+    const batch = page.events || [];
+    for (const e of batch) {
+      const t = e.start && e.start.utc ? new Date(e.start.utc).getTime() : null;
+      if (t !== null && t >= sinceMs) ebEvents.push(e);
+    }
+    const last = batch.length ? batch[batch.length - 1] : null;
+    const oldest = last && last.start && last.start.utc ? new Date(last.start.utc).getTime() : 0;
+    continuation = (page.pagination && page.pagination.has_more_items && oldest >= sinceMs)
+      ? page.pagination.continuation : null;
+  } while (continuation);
   console.log(`${ebEvents.length} Eventbrite event(s) in the last ${DAYS} days\n`);
 
   let totalNew = 0, totalExisting = 0, totalSkippedEvents = 0, totalCancelled = 0;
