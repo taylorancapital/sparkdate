@@ -21,7 +21,7 @@
 // first.
 
 import { describe, it, expect } from 'vitest';
-import { normalizeGender } from '../lib/eventbrite.js';
+import { normalizeGender, attendeeGender } from '../lib/eventbrite.js';
 
 describe('normalizeGender — female must never be read as male', () => {
   it.each(['Female', 'female', 'FEMALE', 'Female Ticket', 'Female - Early Bird', 'FREE FEMALE TICKET'])(
@@ -42,9 +42,12 @@ describe('normalizeGender — the spellings Eventbrite actually uses', () => {
     ['Women', 'woman'],
     ['W', 'woman'],
     ['F', 'woman'],
-    // The shape the sync now passes through from a gendered ticket class.
-    ['Male Ticket - General Admission', 'man'],
-    ['Female Ticket - General Admission', 'woman'],
+    // THE REAL TICKET CLASSES on these listings, confirmed 2026-08-30. Note
+    // "General Admission" contains an m; without the \b anchors the male
+    // pattern's bare `m` alternative matches it and files every buyer,
+    // including every woman, as a man.
+    ['General Admission - Male', 'man'],
+    ['General Admission - Female', 'woman'],
   ])('%s -> %s', (raw, want) => expect(normalizeGender(raw)).toBe(want));
 });
 
@@ -84,5 +87,60 @@ describe('normalizeGender — shape', () => {
 
   it('is case- and whitespace-insensitive', () => {
     expect(normalizeGender('  fEmAlE  ')).toBe('woman');
+  });
+});
+
+describe('attendeeGender — reading a real Eventbrite attendee', () => {
+  it.each([
+    ['General Admission - Male', 'man'],
+    ['General Admission - Female', 'woman'],
+  ])('takes the gender off the %s ticket class', (cls, want) => {
+    // The listings ask no gender question, so the ticket class is the only
+    // record of it. Ignoring it is what left both 2026-08-30 buyers blank.
+    expect(attendeeGender({ ticket_class_name: cls })).toBe(want);
+  });
+
+  it('leaves an ungendered class alone', () => {
+    expect(attendeeGender({ ticket_class_name: 'General Admission' })).toBeNull();
+  });
+
+  it('prefers an explicit profile field over the ticket class', () => {
+    expect(attendeeGender({
+      profile: { gender: 'Female' },
+      ticket_class_name: 'General Admission - Male',
+    })).toBe('woman');
+  });
+
+  it('prefers a gender question over the ticket class', () => {
+    expect(attendeeGender({
+      answers: [{ question: 'Your gender?', answer: 'Female' }],
+      ticket_class_name: 'General Admission - Male',
+    })).toBe('woman');
+  });
+
+  it('falls through a source that answers something unusable', () => {
+    // The precedence bug: returning the first NON-EMPTY raw value let
+    // "Prefer not to say" in the profile shadow a perfectly good ticket
+    // class. Each source is normalised before it is accepted.
+    expect(attendeeGender({
+      profile: { gender: 'Prefer not to say' },
+      ticket_class_name: 'General Admission - Male',
+    })).toBe('man');
+    expect(attendeeGender({
+      answers: [{ question: 'Gender', answer: 'Other' }],
+      ticket_class_name: 'General Admission - Female',
+    })).toBe('woman');
+  });
+
+  it.each([[{}], [null], [undefined], [{ profile: {} }], [{ answers: [] }]])(
+    'answers null for %s rather than throwing',
+    (a) => expect(attendeeGender(a)).toBeNull(),
+  );
+
+  it('ignores a non-gender question', () => {
+    expect(attendeeGender({
+      answers: [{ question: 'Dietary requirements', answer: 'Female friendly' }],
+      ticket_class_name: 'General Admission',
+    })).toBeNull();
   });
 });
