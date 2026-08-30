@@ -64,10 +64,53 @@ module.exports = async function handler(req, res) {
           if (tc.quantity_total == null) uncapped = true;
           else cap += Number(tc.quantity_total) || 0;
         }
+
+        // "Enrolled" must mirror the sync's dedupe, which matches attendee
+        // emails against the event's tickets from ANY source — a buyer who
+        // registered directly on SparkDate and then also bought on Eventbrite
+        // is deliberately never given a second (eventbrite_import) ticket.
+        // Counting only eventbrite_import tickets therefore leaves a
+        // permanent phantom "+1 unsynced" for exactly that person. So compute
+        // the gap the way the sync would: live (non-cancelled, non-refunded)
+        // attendees whose email is NOT on any ticket here are the truly
+        // unsynced ones. Attendee fetch is paginated; on any failure fall
+        // back to the raw quantity_sold badge rather than erroring the row.
+        let enrolled = null;
+        try {
+          const attendees = [];
+          let continuation = null;
+          do {
+            const ar = await fetch(
+              `${EB}/events/${ev.eventbriteEventId}/attendees/?token=${token}` +
+                (continuation ? `&continuation=${continuation}` : ''),
+              { signal: AbortSignal.timeout(8000) }
+            );
+            if (!ar.ok) throw new Error(`EB ${ar.status}`);
+            const page = await ar.json();
+            attendees.push(...(page.attendees || []));
+            continuation = page.pagination && page.pagination.has_more_items
+              ? page.pagination.continuation : null;
+          } while (continuation);
+
+          const live = attendees.filter((a) => !a.cancelled && !a.refunded);
+          const tixSnap = await db.collection('tickets').where('eventId', '==', ev.id).get();
+          const ourEmails = new Set(
+            tixSnap.docs.map((d) => String(d.data().email || '').toLowerCase().trim()).filter(Boolean)
+          );
+          // Live attendee count is also the honest "sold": EB keeps the
+          // attendee record for cancelled orders, quantity_sold may not.
+          sold = live.length;
+          enrolled = live.filter((a) => {
+            const em = String((a.profile && a.profile.email) || '').toLowerCase().trim();
+            return em && ourEmails.has(em);
+          }).length;
+        } catch (_) { /* keep quantity_sold; dashboard falls back to source-count */ }
+
         return {
           eventId: ev.id,
           ebEventId: String(ev.eventbriteEventId),
           sold,
+          enrolled,
           capacity: uncapped ? null : cap,
           status: e.status || null,
           url: e.url || null,
