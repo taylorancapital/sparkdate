@@ -23,7 +23,7 @@
  *
  * WHAT IT DOES NOT REPLACE
  *
- * Nine tables, not 38. The Explorations -- funnel steps, the A/B webview
+ * Twelve tables, not 38. The Explorations -- funnel steps, the A/B webview
  * segments, cohort retention -- are built from hand-made segments the Data API
  * cannot express, and pretending otherwise would produce files that look right
  * and mean something different. Those still need exporting by hand when a
@@ -65,7 +65,7 @@ const iso = (d) => d.toISOString().slice(0, 10);
 const compact = (s) => s.replace(/-/g, '');
 
 /**
- * The nine tables. Each mirrors something the nightly report reads, and the
+ * The twelve tables. Each mirrors something the nightly report reads, and the
  * `title` matches the manual export's naming closely enough that a reader
  * recognises it.
  */
@@ -115,6 +115,45 @@ const TABLES = [
     dimensions: ['eventName', 'sessionSourceMedium'],
     metrics: ['eventCount', 'totalUsers'],
     orderBy: { metric: { metricName: 'eventCount' }, desc: true },
+  },
+  {
+    // The sticky-bar CTR question (ANALYTICS_CONTEXT.md section 4, open
+    // question 2) -- asked as the #1 item by three consecutive reports.
+    // select_promotion (click) and view_promotion (impression) both fire with
+    // an event-level promotion_name and creative_slot and NO items array; GA4
+    // still populates the item-scoped promotion fields from those params (the
+    // UI's "Items clicked in promotion" read 61 off exactly these events), so
+    // itemPromotionName / itemsViewedInPromotion / itemsClickedInPromotion is
+    // the pairing that comes back non-zero. This is numerator and denominator
+    // per promotion per slot -- the CTR table itself.
+    file: 'promotions',
+    title: 'Promotions - views and clicks by promotion name and slot',
+    dimensions: ['itemPromotionName', 'itemPromotionCreativeSlot'],
+    metrics: ['itemsViewedInPromotion', 'itemsClickedInPromotion'],
+    orderBy: { metric: { metricName: 'itemsViewedInPromotion' }, desc: true },
+  },
+  {
+    // date x source: lets a report test whether a traffic-mix change (e.g. a
+    // traffic-objective campaign turning on) explains a property-wide
+    // engagement move, instead of refusing the question -- the 08-30 report's
+    // section E had to. Same metrics as daily-trend so the two reconcile.
+    file: 'daily-by-source',
+    title: 'Daily trend by session source / medium',
+    dimensions: ['date', 'sessionSourceMedium'],
+    metrics: ['sessions', 'engagedSessions', 'totalUsers', 'engagementRate'],
+    orderBy: { dimension: { dimensionName: 'date' } },
+  },
+  {
+    // landingPage x source: settles which page each source's sessions actually
+    // arrive on. The 08-30 report's section C could prove only 11 of 435
+    // facebook/paid_social sessions reached /lp (via /lp-only events) and had
+    // to leave the other 424 undecided; this table is the decider it asks for
+    // in section H2. Path-only for the same fbclid reason as landing-pages.
+    file: 'landing-by-source',
+    title: 'Landing pages by session source / medium (path only)',
+    dimensions: ['landingPage', 'sessionSourceMedium'],
+    metrics: ['sessions', 'totalUsers', 'keyEvents', 'totalRevenue'],
+    orderBy: { metric: { metricName: 'sessions' }, desc: true },
   },
   {
     file: 'revenue-by-source',
