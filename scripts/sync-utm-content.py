@@ -5,6 +5,13 @@ scripts/sync-utm-content.py
 Reads every servable Meta ad and writes a "Paid Ad UTMs" sheet mapping each
 utm_content value to the ad, ad set, campaign and creative that carries it.
 
+An ad tags itself in one of two places -- parameters baked into the destination
+link, or the creative's `url_tags`, which Meta appends at click time -- and this
+reads BOTH, reporting which one an ad uses in the `tagged_via` column. Reading
+only the link (the behaviour until 2026-08-30) inverted the whole sheet: ads
+tagged the correct way came back "(none)" while ads tagged the wrong way listed
+perfectly. See effective() for the full account.
+
 WHY THIS EXISTS
 
 Until 2026-08-29 every ad in the account carried utm_content=proof_rsa1, so GA4
@@ -75,19 +82,64 @@ def account_id(token):
     raise SystemExit(f"{len(data)} ad accounts visible -- set META_AD_ACCOUNT_ID.")
 
 
+def qparam(query, key):
+    """Read one key from a BARE query string, tolerating {{dynamic}} placeholders."""
+    if not query:
+        return ""
+    q = urllib.parse.parse_qs(query, keep_blank_values=True)
+    return (q.get(key) or [""])[0]
+
+
 def param(url, key):
-    """Read one query parameter, tolerating Meta's {{dynamic}} placeholders."""
+    """Read one query parameter from a full URL."""
     if not url or "?" not in url:
         return ""
-    q = urllib.parse.parse_qs(url.split("?", 1)[1], keep_blank_values=True)
-    return (q.get(key) or [""])[0]
+    return qparam(url.split("?", 1)[1], key)
+
+
+def effective(link, tags, key):
+    """
+    What our code actually records for `key`, given BOTH places an ad can
+    carry it.
+
+    An ad tags itself in one of two ways: parameters baked into the
+    destination link, or the creative's `url_tags`, which Meta APPENDS to
+    that link at click time. This script read only the link until
+    2026-08-30, so the ads tagged the CORRECT way -- url_tags, with a clean
+    destination -- came back as "(none)" and were even reported as colliding
+    with each other, while the six proof_rsa1 ads tagged the wrong way
+    listed perfectly. The registry that exists to trace a GA4 row back to an
+    ad was blind to exactly the convention brand.json mandates, so every
+    correctly-built ad from here on would have been invisible to it.
+
+    Link wins when both carry the key: Meta appends, so the parameter appears
+    twice and the link's copy comes first -- and first is the one our code
+    reads. That is a defect, not a preference (see `tagged_via` == "both"),
+    but the sheet must report what an ad ACTUALLY sends, not what it should.
+    """
+    return param(link, key) or qparam(tags, key)
+
+
+def tagged_via(link, tags):
+    """Where an ad's utm_source lives -- the field that made this bug invisible."""
+    in_link = bool(param(link, "utm_source"))
+    in_tags = bool(qparam(tags, "utm_source"))
+    if in_link and in_tags:
+        return "both"          # sends two utm_source values; the link's wins
+    if in_link:
+        return "link"
+    if in_tags:
+        return "url_tags"
+    return "none"
 
 
 def collect(token, act):
     fields = (
         "id,name,status,effective_status,updated_time,"
         "campaign{name},adset{name},"
-        "creative{id,name,video_id,image_hash,object_story_spec}"
+        # url_tags is half of how an ad tags itself. Omitting it is what made
+        # the two correctly-tagged Loxleys ads read as untagged.
+        "creative{id,name,video_id,image_hash,url_tags,object_story_spec}"
     )
     rows = []
     resp = api(f"{act}/ads", token, fields=fields, limit=200)
@@ -97,11 +149,14 @@ def collect(token, act):
         data = spec.get("video_data") or spec.get("link_data") or {}
         cta = data.get("call_to_action") or {}
         link = (cta.get("value") or {}).get("link") or data.get("link") or ""
+        tags = cre.get("url_tags") or ""
         media = "video" if spec.get("video_data") else ("image" if data.get("image_hash") else "none")
         rows.append({
-            "utm_content": param(link, "utm_content"),
-            "utm_source": param(link, "utm_source"),
-            "utm_campaign": param(link, "utm_campaign"),
+            "utm_content": effective(link, tags, "utm_content"),
+            "utm_source": effective(link, tags, "utm_source"),
+            "utm_campaign": effective(link, tags, "utm_campaign"),
+            "tagged_via": tagged_via(link, tags),
+            "url_tags": tags,
             "ad": ad.get("name", ""),
             "adset": (ad.get("adset") or {}).get("name", ""),
             "campaign": (ad.get("campaign") or {}).get("name", ""),
@@ -120,10 +175,10 @@ def collect(token, act):
 
 
 COLUMNS = [
-    ("utm_content", 26), ("serving", 9), ("media", 8), ("ad", 34), ("adset", 30),
-    ("campaign", 34), ("creative", 30), ("utm_source", 14), ("utm_campaign", 22),
-    ("eventId", 24), ("video_id", 20), ("status", 16), ("ad_id", 20),
-    ("updated", 22), ("url", 60),
+    ("utm_content", 26), ("tagged_via", 11), ("serving", 9), ("media", 8),
+    ("ad", 34), ("adset", 30), ("campaign", 34), ("creative", 30),
+    ("utm_source", 22), ("utm_campaign", 22), ("eventId", 24), ("video_id", 20),
+    ("status", 16), ("ad_id", 20), ("updated", 22), ("url", 60), ("url_tags", 70),
 ]
 
 
@@ -167,10 +222,11 @@ def main():
     serving = [r for r in rows if r["serving"] == "yes"]
 
     print(f"account {act} -- {len(rows)} ad(s), {len(serving)} serving\n")
-    print(f"{'utm_content':26} {'media':6} {'ad':34} status")
+    print(f"{'utm_content':26} {'via':9} {'media':6} {'ad':34} status")
     for r in rows:
         mark = " " if r["serving"] == "yes" else "."
-        print(f"{mark}{(r['utm_content'] or '(none)'):25} {r['media']:6} {r['ad'][:34]:34} {r['status']}")
+        print(f"{mark}{(r['utm_content'] or '(none)'):25} {r['tagged_via']:9} "
+              f"{r['media']:6} {r['ad'][:34]:34} {r['status']}")
 
     # Two ads sharing a utm_content is the exact failure this sheet exists to
     # surface, so it is reported loudly rather than left to be noticed.
@@ -184,6 +240,21 @@ def main():
             print(f"  {k} -> {', '.join(v)}")
     else:
         print("\nutm_content distinct across all serving ads.")
+
+    # An ad tagged in BOTH places sends two utm_source values per click. It is
+    # not a reporting gap -- it is a live defect, and the sheet is where it is
+    # cheapest to notice. lint-ad-copy.js raises the same thing as an error.
+    both = [r for r in serving if r["tagged_via"] == "both"]
+    if both:
+        print("\nTAGGED TWICE -- url_tags AND link params, so each sends two utm_source values:")
+        for r in both:
+            print(f"  {r['ad']}")
+
+    untagged = [r for r in serving if r["tagged_via"] == "none"]
+    if untagged:
+        print("\nUNTAGGED among SERVING ads -- these record as \"direct\" in Stripe:")
+        for r in untagged:
+            print(f"  {r['ad']}")
 
     if args.dry_run:
         print("\nDry run -- workbook not written.")

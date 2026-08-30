@@ -145,10 +145,24 @@ function lint(ads, brand, today) {
       else ev = hit;
     }
 
-    // Money burning on a night that already happened.
+    // Money burning on a night that already happened -- but ONLY if the ad can
+    // still deliver.
+    //
+    // `effective_status: ACTIVE` on an ad means "nobody paused it", NOT "it is
+    // running". Delivery stops at the AD SET's end_time, and nobody archives a
+    // campaign once its event is over, so every finished event leaves ads
+    // reading ACTIVE forever. Judging on status alone reported the three Tellus
+    // campaigns as errors four days after they stopped: their ad sets ended
+    // 2026-08-26 and they had spent $0 since. Five permanent errors for
+    // something costing nothing is how a linter teaches people to ignore it --
+    // the failure this file's own header argues against.
     if (ev && ev.date && ev.date < today) {
-      add(ad.effective_status === 'ACTIVE' ? 'error' : 'warning', ad, 'past-event',
-        `points at ${ev.name} (${ev.date}), which has already happened`);
+      const endsAt = ((ad.adset || {}).end_time) || '';
+      const ended = endsAt && new Date(endsAt) < new Date();
+      const live = ad.effective_status === 'ACTIVE' && !ended;
+      add(live ? 'error' : 'warning', ad, 'past-event',
+        `points at ${ev.name} (${ev.date}), which has already happened`
+        + (ended ? ` -- ad set ended ${String(endsAt).slice(0, 10)}, no longer delivering` : ''));
     }
 
     // --- prices match what the event actually sells -------------------
@@ -234,7 +248,9 @@ async function main() {
   if (!account) throw new Error('No ad account visible -- set META_AD_ACCOUNT_ID.');
 
   const res = await get(`${account}/ads`, {
-    fields: 'id,name,effective_status,creative{id,url_tags,object_story_spec,asset_feed_spec}',
+    // adset{end_time} is what actually stops delivery -- effective_status only
+    // says whether somebody paused it. See the past-event check.
+    fields: 'id,name,effective_status,adset{end_time},creative{id,url_tags,object_story_spec,asset_feed_spec}',
     filtering: JSON.stringify([{ field: 'ad.effective_status', operator: 'IN', value: statuses }]),
     limit: 500,
   });
