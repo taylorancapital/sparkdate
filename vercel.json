@@ -8,6 +8,9 @@
     },
     "api/eventbrite-live.js": {
       "maxDuration": 30
+    },
+    "api/admin-sync.js": {
+      "maxDuration": 30
     }
   },
   "crons": [
