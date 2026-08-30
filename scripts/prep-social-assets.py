@@ -94,9 +94,13 @@ def suffix_for(src_path, fname, dims):
     if not src_path:
         return ""
 
-    from PIL import Image
+    from PIL import Image, ImageOps
     with Image.open(src_path) as im:
-        shape = classify(im.size, dims)
+        # Phone photos carry the rotation in EXIF rather than in the pixels, and
+        # PIL does NOT apply it on open. Without this a portrait shot reports
+        # its stored landscape size and classifies into the wrong format bucket
+        # -- a 1512x2016 portrait reads as 2016x1512 and is filed as feed.
+        shape = classify(ImageOps.exif_transpose(im).size, dims)
     return "_story" if shape in ("story", "reel") else ""
 
 
@@ -168,7 +172,7 @@ def main():
     args = ap.parse_args()
 
     try:
-        from PIL import Image
+        from PIL import Image, ImageOps
     except ImportError:
         sys.exit("ERROR: Pillow not installed. pip install Pillow")
 
@@ -279,6 +283,14 @@ def main():
                 continue
 
             im = Image.open(src)
+            # Same EXIF trap as suffix_for(), but here it is worse: this `im` is
+            # what gets saved, so an untransposed phone photo is published
+            # SIDEWAYS. Instagram and Facebook honour the EXIF tag, which is why
+            # the source looks fine everywhere except after this script touches
+            # it. exif_transpose bakes the rotation into the pixels and drops
+            # the now-redundant tag, so the JPEG is correct with or without a
+            # reader that understands EXIF.
+            im = ImageOps.exif_transpose(im)
             shape = classify(im.size, dims)
             if shape is None:
                 warnings.append(
