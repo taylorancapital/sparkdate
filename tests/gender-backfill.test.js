@@ -21,6 +21,8 @@
 // helps if somebody reads it. These rules hold whether or not anyone does.
 
 import { describe, it, expect } from 'vitest';
+import fs from 'fs';
+import path from 'path';
 import { hasGender, genderByEmail } from '../lib/eventbrite.js';
 
 // `profile` is built LAST so an `extra.profile` override cannot clobber the
@@ -122,5 +124,46 @@ describe('genderByEmail — resolving attendees', () => {
     const { byEmail, conflicts } = genderByEmail(input);
     expect(byEmail.size).toBe(0);
     expect(conflicts.size).toBe(0);
+  });
+});
+
+// The same only-fill-blanks rule is enforced in a SECOND place: lib/enroll.js
+// now fills users.gender on an EXISTING member doc when it is blank. Before
+// that, the profile's gender was written only at doc creation, so anyone whose
+// account predated our knowing their gender kept a null profile permanently no
+// matter how many gendered tickets they bought. The backfill found exactly two
+// of those and could only repair them after the fact.
+//
+// These assertions are structural rather than behavioural because lib/enroll.js
+// requires lib/auth, which initialises firebase-admin with real credentials at
+// import — the same wall that put hasGender and genderByEmail in lib/eventbrite
+// in the first place. What they protect is narrow but worth protecting: the
+// gender being written may have been INFERRED from a ticket class, so an
+// unguarded write would overwrite a value the member set themselves, or one an
+// admin corrected by hand.
+describe('lib/enroll.js — filling a blank profile gender', () => {
+  const src = fs.readFileSync(path.join(process.cwd(), 'lib', 'enroll.js'), 'utf8');
+
+  it('fills users.gender on an existing member doc', () => {
+    expect(src).toContain('txn.update(userRef, { gender })');
+  });
+
+  it('only ever does so when the profile gender is blank', () => {
+    // The guard and the write, with the explanatory comment allowed between.
+    expect(src).toMatch(
+      /!hasGender\(userSnap\.data\(\)\.gender\)[\s\S]{0,1200}txn\.update\(userRef, \{ gender \}\)/,
+    );
+  });
+
+  it('has exactly one such write, so no unguarded copy can creep in', () => {
+    const writes = src.match(/txn\.update\(userRef, \{ gender \}\)/g) || [];
+    expect(writes).toHaveLength(1);
+  });
+
+  it('shares the backfill predicate rather than re-deriving one', () => {
+    // Two definitions of "already answered" would drift, and the drift would
+    // be invisible until one of them overwrote something.
+    expect(src).toMatch(/require\('\.\/eventbrite'\)/);
+    expect(src).toContain('hasGender');
   });
 });
