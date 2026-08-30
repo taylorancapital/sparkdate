@@ -54,6 +54,12 @@ jobs:
           FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
           FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          # lib/profile-link signs the profile/unsubscribe link with this
+          # and THROWS without it, which fails the welcome email after the
+          # attendee is already enrolled. It must hold the same value as
+          # Vercel's: a link signed with one key does not verify against
+          # the other, so a mismatch is worse than the omission was.
+          UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
           DAYS: ${{ github.event.inputs.days || '45' }}
           EXECUTE: ${{ github.event.inputs.execute }}
         run: |
@@ -71,6 +77,13 @@ jobs:
           fi
           if [ -z "$RESEND_API_KEY" ]; then
             echo "::warning::RESEND_API_KEY not set -- new enrollees will not receive welcome emails."
+          fi
+          # Not fatal -- enrollment succeeds and only the email fails -- but it
+          # failed SILENTLY until 2026-08-30, when two buyers were enrolled and
+          # neither got a welcome email. A green run is not evidence that mail
+          # went out unless this is set.
+          if [ -z "$UNSUBSCRIBE_SECRET" ]; then
+            echo "::warning::UNSUBSCRIBE_SECRET not set -- attendees will be ENROLLED but every welcome email will fail in lib/profile-link. Add it as an Actions secret with the same value as Vercel's."
           fi
 
           # Scheduled runs EXECUTE (that is the point of a sync); manual
