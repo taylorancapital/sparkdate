@@ -71,15 +71,18 @@ const { admin } = require('../lib/auth');
 // Pagination and email normalization are shared with api/eventbrite-live.js
 // through lib/eventbrite — the dashboard's unsynced badge only stays honest
 // while it matches attendees exactly the way this sync does.
-const { EB, normalizeEmail, ebGetAll } = require('../lib/eventbrite');
+const { EB, normalizeEmail, ebFetch, ebGetAll } = require('../lib/eventbrite');
 const db = admin.firestore();
 
+// Every single-shot EB call in this script. Retries matter MORE here than on
+// the paged calls below: /users/me/organizations/ and the event listing run in
+// the setup phase, upstream of the per-event try/catch, so one transient blip
+// there kills the whole sync before a single event is touched -- which is
+// exactly what happened on 2026-08-30. No timeout and a fuller retry budget,
+// because an Actions runner has six hours and nothing is waiting on it.
 async function eb(path) {
-  const r = await fetch(`${EB}${path}${path.includes('?') ? '&' : '?'}token=${EB_TOKEN}`);
-  if (!r.ok) {
-    const body = await r.text().catch(() => '');
-    throw new Error(`Eventbrite ${r.status} on ${path}: ${body.slice(0, 200)}`);
-  }
+  const r = await ebFetch(`${EB}${path}${path.includes('?') ? '&' : '?'}token=${EB_TOKEN}`,
+    { label: path, timeoutMs: 0, retries: 3 });
   return r.json();
 }
 
@@ -181,7 +184,7 @@ async function main() {
     // Attendees hang off /events/{id}/, NOT under /organizations/ -- the
     // nested spelling 404s (second lesson from live dispatches; the first
     // was start_date.range_start).
-    const attendees = await ebGetAll(`/events/${ebe.id}/attendees/`, 'attendees', EB_TOKEN, { timeoutMs: 0 });
+    const attendees = await ebGetAll(`/events/${ebe.id}/attendees/`, 'attendees', EB_TOKEN, { timeoutMs: 0, retries: 3 });
     const live = attendees.filter((a) => !a.cancelled && !a.refunded);
     totalCancelled += attendees.length - live.length;
 
