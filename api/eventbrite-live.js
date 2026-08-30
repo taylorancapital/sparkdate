@@ -20,7 +20,7 @@
 'use strict';
 
 const { admin, requireAdmin } = require('../lib/auth');
-const { EB, normalizeEmail, ebGetAll } = require('../lib/eventbrite');
+const { EB, normalizeEmail, ebFetch, ebGetAll } = require('../lib/eventbrite');
 const db = admin.firestore();
 
 module.exports = async function handler(req, res) {
@@ -54,18 +54,26 @@ module.exports = async function handler(req, res) {
         // two degrade to the raw quantity_sold badge. Parallelism matters
         // here: sequentially their 8s timeouts stack toward the function's
         // duration cap (vercel.json pins maxDuration for this route).
+        //
+        // Both EB calls retry once, briefly. ONE retry, not the default two:
+        // the three run in parallel, so a row's worst case is the slowest leg
+        // at 8s + 0.3s + 8s = 16.3s, which fits inside maxDuration 30. A third
+        // attempt would not. A 404 here (event deleted on Eventbrite) is a
+        // normal outcome and is not retried -- see RETRYABLE in lib/eventbrite.
+        const RETRY = { timeoutMs: 8000, retries: 1, retryBaseMs: 300 };
         const [detailR, attendeesR, tixR] = await Promise.allSettled([
-          fetch(
+          ebFetch(
             `${EB}/events/${ev.eventbriteEventId}/?expand=ticket_classes&token=${token}`,
-            { signal: AbortSignal.timeout(8000) }
+            { label: `/events/${ev.eventbriteEventId}/`, ...RETRY },
           ),
-          ebGetAll(`/events/${ev.eventbriteEventId}/attendees/`, 'attendees', token, { timeoutMs: 8000 }),
+          ebGetAll(`/events/${ev.eventbriteEventId}/attendees/`, 'attendees', token, RETRY),
           db.collection('tickets').where('eventId', '==', ev.id).get(),
         ]);
+        // ebFetch throws on a non-ok response, so the old `if (!r.ok)` branch
+        // here is now unreachable -- the rejection carries the status and the
+        // body, and the catch at the bottom turns it into the row's error.
         if (detailR.status === 'rejected') throw detailR.reason;
-        const r = detailR.value;
-        if (!r.ok) return { eventId: ev.id, error: `EB ${r.status}` };
-        const e = await r.json();
+        const e = await detailR.value.json();
         // Sum across ticket classes: sold and total. quantity_total can be
         // null on donation/unlimited classes; treat null as "uncapped" and
         // report capacity only when every class is capped.
