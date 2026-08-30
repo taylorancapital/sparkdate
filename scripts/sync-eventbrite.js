@@ -71,7 +71,7 @@ const { admin } = require('../lib/auth');
 // Pagination and email normalization are shared with api/eventbrite-live.js
 // through lib/eventbrite — the dashboard's unsynced badge only stays honest
 // while it matches attendees exactly the way this sync does.
-const { EB, normalizeEmail, ebFetch, ebGetAll } = require('../lib/eventbrite');
+const { EB, normalizeEmail, ebFetch, ebGetAll, attendeeGender } = require('../lib/eventbrite');
 const db = admin.firestore();
 
 // Every single-shot EB call in this script. Retries matter MORE here than on
@@ -84,15 +84,6 @@ async function eb(path) {
   const r = await ebFetch(`${EB}${path}${path.includes('?') ? '&' : '?'}token=${EB_TOKEN}`,
     { label: path, timeoutMs: 0, retries: 3 });
   return r.json();
-}
-
-function attendeeGender(a) {
-  const p = (a.profile && a.profile.gender) || '';
-  if (p) return p;
-  for (const ans of a.answers || []) {
-    if (/gender/i.test(ans.question || '')) return ans.answer || null;
-  }
-  return null;
 }
 
 function attendeePriceCents(a) {
