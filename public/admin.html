@@ -2813,8 +2813,15 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     const el = document.getElementById(`eb-live-${row.eventId}`);
                     if (!el) return;
                     if (row.error) { el.textContent = ''; return; }
-                    const ourEb = allPayments.filter(t =>
-                        t._type === 'ticket' && t.eventId === row.eventId && t.source === 'eventbrite_import').length;
+                    // Prefer the server's email-matched enrolled count: it mirrors
+                    // the sync's dedupe (any-source ticket counts), so a buyer who
+                    // registered directly AND on Eventbrite doesn't read as a
+                    // permanent "+1 unsynced". Fall back to the old source-filtered
+                    // count when the endpoint couldn't fetch attendees.
+                    const ourEb = typeof row.enrolled === 'number'
+                        ? row.enrolled
+                        : allPayments.filter(t =>
+                            t._type === 'ticket' && t.eventId === row.eventId && t.source === 'eventbrite_import').length;
                     const unsynced = Math.max(0, row.sold - ourEb);
                     const capTxt = row.capacity != null ? `/${row.capacity}` : '';
                     el.innerHTML = `EB live ${row.sold}${capTxt}` +
