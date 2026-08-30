@@ -2498,9 +2498,27 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         }
 
         // Eventbrite's cut on a set of EB tickets. Face values are stored in cents.
+        // Actual fee where the sync captured it (ticket.ebFeeCents, written
+        // by scripts/sync-eventbrite.js from the attendee's real costs),
+        // estimate only for tickets that predate capture. As the sync
+        // backfills fees onto old tickets, the estimate share shrinks to
+        // zero on its own -- no migration, no flag day.
         function ebFeesFor(ebTix) {
-            const face = ebTix.reduce((s, p) => s + num(p.amount), 0) / 100;
-            return face * (EB_FEE_RATE + EB_PAYMENT_RATE) + ebTix.length * EB_FEE_FLAT;
+            let actual = 0, estFace = 0, estCount = 0;
+            ebTix.forEach(t => {
+                if (t.ebFeeCents != null && Number.isFinite(Number(t.ebFeeCents))) actual += Number(t.ebFeeCents) / 100;
+                else { estFace += num(t.amount) / 100; estCount++; }
+            });
+            return actual + estFace * (EB_FEE_RATE + EB_PAYMENT_RATE) + estCount * EB_FEE_FLAT;
+        }
+
+        // How much of an event's EB fee figure is measured vs estimated --
+        // drives the (actual)/(est.) label so the P&L never presents an
+        // estimate as a measurement.
+        function ebFeeLabel(ebTix) {
+            const withActual = ebTix.filter(t => t.ebFeeCents != null && Number.isFinite(Number(t.ebFeeCents))).length;
+            if (!ebTix.length || withActual === 0) return 'est.';
+            return withActual === ebTix.length ? 'actual' : 'actual+est.';
         }
 
         // Stripe's card fee on DIRECT sales: 2.9% + $0.30 per charge,
@@ -5767,7 +5785,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     ...AD_COST_FIELDS.map(f => [
                         f.key === 'costFacebook' && c.metaSynced ? f.label + ' (synced)' : f.label,
                         c.acq[f.key]]),
-                    ['Eventbrite fees (est.)', c.ebFees],
+                    [`Eventbrite fees (${ebFeeLabel(c.byChannel.eventbrite)})`, c.ebFees],
                     ['Stripe fees (est.)', c.stripeFees],
                     ['Venue / other', c.other],
                     ['Allocated monthly', c.allocated],
