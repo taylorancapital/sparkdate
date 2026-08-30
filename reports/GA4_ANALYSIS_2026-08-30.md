@@ -194,6 +194,16 @@ Whether all 435 sessions did the same, or some landed on `/events`/`/event` inst
 needs the `landingPage × sessionSourceMedium` table this report already asks for in
 §H2 — either answer is a destination-URL defect on these ads.
 
+> **Addendum, same day.** Taylor approved the §H2 dimensions, PR #342 added the
+> table, and `ga4-api-landing-by-source-2026-08-30.csv` (pulled 12:51 UTC) answers
+> the question: `facebook / paid_social` landed **419 sessions on `/lp`, 13 on
+> `/admin`** (a single user carrying 5 key events — reads as internal traffic, worth
+> its own look), **3 on `/event`, and zero on `/events`** — 435 exactly. All of the
+> row's real traffic reached `/lp` and still fired `targeted_event_landing` zero
+> times, so the strong reading this section scoped back to 11 proven users now holds
+> for the whole row: **these ads' destination URLs carry no `eventId`.**
+> `Facebook / paid` has the same shape, 21 of its 26 sessions on `/lp`.
+
 **This partially answers standing open question 3** (`ANALYTICS_CONTEXT.md` §4:
 *"Why is `targeted_event_landing` 64% in webview against 16% outside?"*, with the
 hypothesis that non-webview paid traffic arrives without the parameter). The split is
@@ -221,6 +231,13 @@ be landing on `/lp` at all. Destination mix explains the gap at least as well
 as behaviour does, and this export has no landing-page × source cross-tab to separate
 them. `ANALYTICS_CONTEXT.md` records that this exact event was "misread once already";
 **not reporting an Instagram click-through win.**
+
+> **Addendum, same day.** The cross-tab now exists (PR #342, 12:51 UTC pull) and
+> confirms destination mix as fact: Instagram landed **252 sessions on `/lp`** —
+> where `view_item` cannot fire — **and 190 on `/events`**, where it can. The
+> refusal above stands, no longer as caution but as the measured answer. One thing
+> the new table adds: Instagram's `/events` landings carry **4 key events and
+> $54.98** — i.e. both of its purchases came through the `/events` path, not `/lp`.
 
 What survives without depending on `view_item`: Instagram produced **$54.98 from 439
 sessions ($0.125/session)** against paid Facebook's **$97.47 from 1,975 ($0.049/session)**.
@@ -394,16 +411,29 @@ path.
    `scripts/fetch-ga4-tables.js:115` is one dimension away from answering a question
    that has now been open across three reports. **This is a config/scope decision, not
    a code fix I would make unilaterally.**
+   **RESOLVED same day:** approved, shipped in PR #342 as a dedicated `promotions`
+   table (`itemPromotionName × itemPromotionCreativeSlot`, views and clicks). First
+   pull: `lp_get_tickets` 159 views / 49 clicks. Caveat before anyone quotes a CTR:
+   two rows read clicks > views (`get_tickets_block` 22/19, `lp_sticky_bar` 10/8)
+   because `view_promotion` only began firing 2026-08-28 (§10 series break, #310) —
+   CTR is only computable on windows starting 2026-08-28 or later.
 2. **Two more dimensions worth the same decision, both of which blocked a conclusion
    tonight:** a `date × sessionSourceMedium` table (would have let §E test whether the
    traffic-objective campaign explains the engagement drop) and a
    `landingPage × sessionSourceMedium` table (would have settled §C's Instagram
    question instead of leaving it undecided). *(1st ask, new.)*
+   **RESOLVED same day:** both shipped in PR #342 and pulled at 12:51 UTC. The
+   landing-page table settled both §C questions — see the §C addenda. The
+   `date × sessionSourceMedium` table is banked for the next §E-style question.
 3. **The `facebook / paid_social` destination URLs — 435 sessions firing
    `targeted_event_landing` zero times, of which 11 users provably reached `/lp` with
    no `eventId` (§C).** *(1st ask, new.)* Which ads are they, and should their
    destinations carry the event? This is an ad-account change with money attached, so
    it is here and not in §I.
+   **Sharpened same day** by the §C addendum: the whole row landed on `/lp` (419 of
+   435; the rest is 13 `/admin` sessions from one user and 3 `/event`), so the
+   defect is proven — the destinations point at `/lp` without the parameter. The
+   only remaining question is *which ads*, and that lives in Ads Manager.
 4. **Marion Court checkout stage: 9 carts, 1 sale (11.1%) against 22–27% everywhere
    else.** *(2nd ask — the 08-28 report raised the trigger; the number has since moved
    further.)* §3b named this as the only thing that reopens the discussion. Explicitly
@@ -526,10 +556,12 @@ file was empty or malformed; nothing was guessed.
 - **§5 sample sizes** — every count below double digits is given as a count with its n:
   Instagram's 2 purchases, Marion Court's 9 carts and 1 sale, the $0-spend attributions.
 
-**Data gaps that blocked specific conclusions** (all in §H): no `promotion_name`
-breakdown, no `date × source` table, no `landingPage × source` table, no device or
-platform dimension, no daily Meta granularity since 2026-08-23, and no Search Console
-in the export (a gap the 08-29 report also named).
+**Data gaps that blocked specific conclusions** (all in §H): no device or platform
+dimension, no daily Meta granularity since 2026-08-23, and no Search Console in the
+export (a gap the 08-29 report also named). Three gaps the morning draft listed here —
+no `promotion_name` breakdown, no `date × source` table, no `landingPage × source`
+table — were approved and closed the same day (PR #342); their first pull, 12:51 UTC,
+is what the §C and §H addenda read from.
 
 **What I did not have.** No browser and no GA4 UI access, so §B's mechanism and §C's
 missing-`eventId` reading are inference from data plus source plus git history, and
