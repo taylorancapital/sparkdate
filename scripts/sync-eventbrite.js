@@ -255,20 +255,17 @@ async function main() {
         console.error(`    ERROR ${buyer.email}: ${e.message}`);
       }
     }
-    } catch (e) {
-      // Per-event isolation: one broken event (deleted on EB, permissions,
-      // API hiccup) is reported and the sync moves on. Killing the whole run
-      // over it would silently stop EVERY event's sync until someone read
-      // the Actions logs.
-      console.error(`  EVENT ERROR ${title}: ${e.message}`);
-      totalSkippedEvents++;
-    }
-
     // Fee backfill: attendees enrolled BEFORE fees were captured have
     // tickets with no ebFeeCents. Write the actual fee onto them once --
     // idempotent, because a ticket that already carries the field is left
     // alone. This is what converts the historical P&L from estimate to
     // actual without a separate migration.
+    //
+    // This block must live INSIDE the per-event try: `live`, `existing` and
+    // `ticketByEmail` are scoped to it. It originally landed after the catch,
+    // where the first executed event died on `live is not defined` -- thrown
+    // outside the isolation that exists to contain exactly that kind of
+    // failure, so one ReferenceError killed the whole run.
     let feesBackfilled = 0;
     for (const a of live) {
       const em = String((a.profile && a.profile.email) || '').toLowerCase().trim();
@@ -282,6 +279,14 @@ async function main() {
     }
     if (feesBackfilled) {
       console.log(`    ${EXECUTE ? 'backfilled' : 'would backfill'} actual EB fees onto ${feesBackfilled} existing ticket(s)`);
+    }
+    } catch (e) {
+      // Per-event isolation: one broken event (deleted on EB, permissions,
+      // API hiccup) is reported and the sync moves on. Killing the whole run
+      // over it would silently stop EVERY event's sync until someone read
+      // the Actions logs.
+      console.error(`  EVENT ERROR ${title}: ${e.message}`);
+      totalSkippedEvents++;
     }
   }
 
