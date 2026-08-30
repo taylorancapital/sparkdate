@@ -1071,13 +1071,17 @@
         </div>
     </section>
     <script>
-      // Rotating testimonial — cycles through all live testimonials instead of
-      // freezing on one. Same rotator pattern duplicated on lp.html/event.html/
-      // events.html, each adapted to that file's own quote-box markup.
+      // Rotating testimonial — cycles through live testimonials as complete
+      // quotes with a crossfade. Same rotator pattern duplicated on lp.html/
+      // event.html/events.html/city.html/signup.html, each adapted to that
+      // file's own quote-box markup.
       (function () {
         var TESTIMONIALS = [
-          { q: "Everyone was so lively and some of us connected so well we chatted well into the evening.", who: "Molly" },
-          { q: "Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!", who: "Quang" },
+          // Short quotes only, on purpose: this box sits right under the Get
+          // Tickets button, and a quote that wraps past two lines outgrows
+          // the box's min-height and shoves the section around on phones at
+          // every rotation. Molly's and Quang's longer quotes still run in
+          // the proof bar below the hero and in the testimonials grid.
           { q: "Good networking opportunities!", who: "Jeff" },
           { q: "Truly a lot more fun than any other dating event I attended!", who: "Luke" },
           { q: "Relaxed rooftop bar and easy conversations!", who: "James" },
@@ -1088,37 +1092,31 @@
         var fadeEl = document.getElementById('ctaQuote');
         if (!textEl || !whoEl || !fadeEl) return;
         var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        var idx = 0, TYPE_MS = 32, HOLD_MS = 3400, FADE_MS = 400;
+        var idx = 0, HOLD_MS = 4500, FADE_MS = 400;
 
-        function typeNext() {
-          var item = TESTIMONIALS[idx];
+        // Complete quotes crossfade; nothing types. The typewriter this
+        // replaces spent longer half-typed than whole on the long quotes
+        // (32ms/char against a 3.4s hold), with the attribution and the CSS
+        // closing quote mark already in place -- so a glance caught
+        // "Everyo" — Molly beside the buy button: a truncated quote, not an
+        // animation in progress. The proof bar under the hero keeps its
+        // typewriter; it earns it by holding the name back until the
+        // sentence lands.
+        function show(item) {
+          textEl.textContent = item.q;
           whoEl.textContent = '— ' + item.who;
-          textEl.textContent = '';
-          var i = 0;
-          (function type() {
-            if (i <= item.q.length) {
-              textEl.textContent = item.q.slice(0, i);
-              i++;
-              setTimeout(type, TYPE_MS);
-            } else {
-              setTimeout(advance, HOLD_MS);
-            }
-          })();
         }
         function advance() {
           fadeEl.classList.add('fade-out');
           setTimeout(function () {
             idx = (idx + 1) % TESTIMONIALS.length;
-            // Snap back to visible with no transition instead of letting
-            // opacity fade back in while new text is already typing -- that
-            // race (box still mostly transparent while characters were
-            // already appearing) is what read as testimonials "surfacing
-            // too soon" / overlapping.
-            fadeEl.style.transition = 'none';
+            // Swap while invisible so the fade-in always raises a finished
+            // quote. The fade-in race the old snap-back hack guarded
+            // against (characters appearing in a still-transparent box)
+            // died with the typing.
+            show(TESTIMONIALS[idx]);
             fadeEl.classList.remove('fade-out');
-            void fadeEl.offsetWidth;
-            fadeEl.style.transition = '';
-            typeNext();
+            setTimeout(advance, FADE_MS + HOLD_MS);
           }, FADE_MS);
         }
         function tickStatic() {
@@ -1128,7 +1126,7 @@
           idx = (idx + 1) % TESTIMONIALS.length;
           setTimeout(tickStatic, HOLD_MS);
         }
-        if (reduceMotion) { tickStatic(); } else { typeNext(); }
+        if (reduceMotion) { tickStatic(); } else { show(TESTIMONIALS[0]); setTimeout(advance, HOLD_MS); }
       })();
     </script>
     <script>
@@ -1685,7 +1683,12 @@
     modal.style.display='flex'; document.removeEventListener('mouseout',onOut); window.removeEventListener('scroll',onScroll); }
   function close(){ modal.style.display='none'; }
   function onOut(e){ if(e.clientY<=0) show(); }
-  function onScroll(){ var h=document.documentElement; if((h.scrollTop)/((h.scrollHeight-h.clientHeight)||1)>=0.5) show(); }
+  // The scroll trigger exists only because touch has no mouseout to catch a
+  // real exit, so it must not fire before the visitor is essentially done
+  // with the page. 0.9 means the footer; at the old 0.5 the "Before you go…"
+  // modal landed mid-testimonials and interrupted people still reading --
+  // the opposite of exit intent.
+  function onScroll(){ var h=document.documentElement; if((h.scrollTop)/((h.scrollHeight-h.clientHeight)||1)>=0.9) show(); }
   document.addEventListener('mouseout',onOut);
   window.addEventListener('scroll',onScroll,{passive:true});
   document.getElementById('sdExitClose').addEventListener('click',close);
