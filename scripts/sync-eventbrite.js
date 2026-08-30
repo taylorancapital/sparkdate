@@ -68,9 +68,11 @@ need('FIREBASE_PROJECT_ID'); need('FIREBASE_CLIENT_EMAIL'); need('FIREBASE_PRIVA
 // the FIREBASE_* env vars checked above.
 const { enrollEventbriteOne } = require('../lib/enroll');
 const { admin } = require('../lib/auth');
+// Pagination and email normalization are shared with api/eventbrite-live.js
+// through lib/eventbrite — the dashboard's unsynced badge only stays honest
+// while it matches attendees exactly the way this sync does.
+const { EB, normalizeEmail, ebGetAll } = require('../lib/eventbrite');
 const db = admin.firestore();
-
-const EB = 'https://www.eventbriteapi.com/v3';
 
 async function eb(path) {
   const r = await fetch(`${EB}${path}${path.includes('?') ? '&' : '?'}token=${EB_TOKEN}`);
@@ -79,18 +81,6 @@ async function eb(path) {
     throw new Error(`Eventbrite ${r.status} on ${path}: ${body.slice(0, 200)}`);
   }
   return r.json();
-}
-
-// Follow Eventbrite's continuation-token pagination to the end.
-async function ebAll(path, listKey) {
-  const out = [];
-  let continuation = null;
-  do {
-    const page = await eb(path + (continuation ? `${path.includes('?') ? '&' : '?'}continuation=${continuation}` : ''));
-    out.push(...(page[listKey] || []));
-    continuation = page.pagination && page.pagination.has_more_items ? page.pagination.continuation : null;
-  } while (continuation);
-  return out;
 }
 
 function attendeeGender(a) {
@@ -191,7 +181,7 @@ async function main() {
     // Attendees hang off /events/{id}/, NOT under /organizations/ -- the
     // nested spelling 404s (second lesson from live dispatches; the first
     // was start_date.range_start).
-    const attendees = await ebAll(`/events/${ebe.id}/attendees/`, 'attendees');
+    const attendees = await ebGetAll(`/events/${ebe.id}/attendees/`, 'attendees', EB_TOKEN, { timeoutMs: 0 });
     const live = attendees.filter((a) => !a.cancelled && !a.refunded);
     totalCancelled += attendees.length - live.length;
 
@@ -200,17 +190,17 @@ async function main() {
     // pre-check just keeps the dry run honest and the execute run quiet.)
     const tixSnap = await db.collection('tickets').where('eventId', '==', ours.id).get();
     const existing = new Set(
-      tixSnap.docs.map((d) => String(d.data().email || '').toLowerCase().trim()).filter(Boolean)
+      tixSnap.docs.map((d) => normalizeEmail(d.data().email)).filter(Boolean)
     );
     // Ticket docs by email, kept for the fee backfill below.
     const ticketByEmail = new Map();
     tixSnap.docs.forEach((d) => {
-      const em = String(d.data().email || '').toLowerCase().trim();
+      const em = normalizeEmail(d.data().email);
       if (em && !ticketByEmail.has(em)) ticketByEmail.set(em, d);
     });
 
     const fresh = live.filter((a) => {
-      const em = String((a.profile && a.profile.email) || '').toLowerCase().trim();
+      const em = normalizeEmail(a.profile && a.profile.email);
       return em && !existing.has(em);
     });
     totalExisting += live.length - fresh.length;
@@ -268,7 +258,7 @@ async function main() {
     // failure, so one ReferenceError killed the whole run.
     let feesBackfilled = 0;
     for (const a of live) {
-      const em = String((a.profile && a.profile.email) || '').toLowerCase().trim();
+      const em = normalizeEmail(a.profile && a.profile.email);
       if (!em || !existing.has(em)) continue;
       const doc = ticketByEmail.get(em);
       if (!doc) continue;

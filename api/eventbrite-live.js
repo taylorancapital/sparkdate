@@ -20,9 +20,8 @@
 'use strict';
 
 const { admin, requireAdmin } = require('../lib/auth');
+const { EB, normalizeEmail, ebGetAll } = require('../lib/eventbrite');
 const db = admin.firestore();
-
-const EB = 'https://www.eventbriteapi.com/v3';
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -49,10 +48,22 @@ module.exports = async function handler(req, res) {
 
     const out = await Promise.all(mapped.map(async (ev) => {
       try {
-        const r = await fetch(
-          `${EB}/events/${ev.eventbriteEventId}/?expand=ticket_classes&token=${token}`,
-          { signal: AbortSignal.timeout(8000) }
-        );
+        // Three independent reads per event, issued together: EB event
+        // details (capacity/status/url), the full EB attendee list, and our
+        // tickets. Only the details fetch is fatal to the row — the other
+        // two degrade to the raw quantity_sold badge. Parallelism matters
+        // here: sequentially their 8s timeouts stack toward the function's
+        // duration cap (vercel.json pins maxDuration for this route).
+        const [detailR, attendeesR, tixR] = await Promise.allSettled([
+          fetch(
+            `${EB}/events/${ev.eventbriteEventId}/?expand=ticket_classes&token=${token}`,
+            { signal: AbortSignal.timeout(8000) }
+          ),
+          ebGetAll(`/events/${ev.eventbriteEventId}/attendees/`, 'attendees', token, { timeoutMs: 8000 }),
+          db.collection('tickets').where('eventId', '==', ev.id).get(),
+        ]);
+        if (detailR.status === 'rejected') throw detailR.reason;
+        const r = detailR.value;
         if (!r.ok) return { eventId: ev.id, error: `EB ${r.status}` };
         const e = await r.json();
         // Sum across ticket classes: sold and total. quantity_total can be
@@ -64,10 +75,51 @@ module.exports = async function handler(req, res) {
           if (tc.quantity_total == null) uncapped = true;
           else cap += Number(tc.quantity_total) || 0;
         }
+
+        // "Enrolled" mirrors the sync's dedupe, which matches attendee
+        // emails against the event's tickets from ANY source — a buyer who
+        // registered directly on SparkDate and then also bought on Eventbrite
+        // is deliberately never given a second (eventbrite_import) ticket.
+        // Counting only eventbrite_import tickets therefore left a permanent
+        // phantom "+1 unsynced" for exactly that person.
+        //
+        // The match is count-aware, not set membership: each ticket can
+        // stand for ONE attendee. Two EB sales under a single buyer email
+        // backed by one ticket doc is a real sale missing from the dashboard
+        // and must keep reading unsynced — a Set would let every duplicate
+        // claim the same ticket. Attendees with no email also stay unsynced:
+        // the sync can never auto-enroll them, and the badge's tooltip says
+        // those need the Enroll tab, not another sync run.
+        let enrolled = null;
+        if (attendeesR.status === 'fulfilled' && tixR.status === 'fulfilled') {
+          const live = attendeesR.value.filter((a) => !a.cancelled && !a.refunded);
+          const ticketCount = new Map();
+          tixR.value.docs.forEach((d) => {
+            const em = normalizeEmail(d.data().email);
+            if (em) ticketCount.set(em, (ticketCount.get(em) || 0) + 1);
+          });
+          // Live attendee count is also the honest "sold": EB keeps the
+          // attendee record for cancelled orders, quantity_sold may not.
+          sold = live.length;
+          enrolled = 0;
+          for (const a of live) {
+            const em = normalizeEmail(a.profile && a.profile.email);
+            const n = em ? ticketCount.get(em) || 0 : 0;
+            if (n > 0) { ticketCount.set(em, n - 1); enrolled++; }
+          }
+        } else {
+          // Not fatal, but not silent either: a broken Firestore rule or an
+          // EB hiccup should be findable in the logs, not just a badge that
+          // quietly reverted to the source-filtered count.
+          const why = attendeesR.status === 'rejected' ? attendeesR.reason : tixR.reason;
+          console.error(`[eventbrite-live] enrolled fallback for ${ev.id}:`, why && why.message);
+        }
+
         return {
           eventId: ev.id,
           ebEventId: String(ev.eventbriteEventId),
           sold,
+          enrolled,
           capacity: uncapped ? null : cap,
           status: e.status || null,
           url: e.url || null,
