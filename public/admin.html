@@ -2826,7 +2826,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     const capTxt = row.capacity != null ? `/${row.capacity}` : '';
                     el.innerHTML = `EB live ${row.sold}${capTxt}` +
                         (unsynced > 0
-                            ? ` <span style="color:var(--gold);font-weight:600;" title="Eventbrite reports ${row.sold} sold but only ${ourEb} are enrolled here — the 6-hour sync has not ingested them yet (or the last run failed).">+${unsynced} unsynced</span>`
+                            ? ` <span style="color:var(--gold);font-weight:600;" title="Eventbrite reports ${row.sold} sold but only ${ourEb} are matched to tickets here. Usually the 6-hour sync just hasn't run yet — but a sale the sync can never auto-enroll (attendee has no email, or a repeat purchase under an email that already holds a ticket) stays flagged until it's added by hand on the Enroll tab.">+${unsynced} unsynced</span>`
                             : ` <span style="color:var(--success);" title="Every Eventbrite sale is enrolled — the sync is current.">✓ synced</span>`);
                 });
             } catch (_) { /* deliberately silent — see comment above */ }
