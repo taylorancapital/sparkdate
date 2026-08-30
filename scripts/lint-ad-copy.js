@@ -279,6 +279,17 @@ async function main() {
   process.exit(errors.length ? 1 : 0);
 }
 
-main().catch((e) => { console.error(`\nFAILED: ${e.message}`); process.exit(2); });
+// Guarded, like every other script here that exports (lint-content-queue.js,
+// design-handoff.js, build-campaign-export.js, validate-vercel-json.js). This
+// file exported a testable surface but ran main() on import anyway, so the
+// first test to require it killed the whole vitest process: with no
+// META_ADS_ACCESS_TOKEN, main() calls process.exit(2) synchronously. It went
+// unnoticed locally because a developer machine HAS the token, which sends
+// main() to the network instead -- the tests then finish before the exit
+// lands, and the suite passes for a reason that has nothing to do with the
+// code being right.
+if (require.main === module) {
+  main().catch((e) => { console.error(`\nFAILED: ${e.message}`); process.exit(2); });
+}
 
 module.exports = { lint, destinationUrls, copyOf };
