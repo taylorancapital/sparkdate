@@ -946,9 +946,12 @@
             background: rgba(74, 222, 128, 0.06); border: 1px solid rgba(74, 222, 128, 0.2);
             border-radius: 4px; padding: 12px 14px; margin-bottom: 14px; font-size: 12.5px;
             line-height: 1.5; color: var(--cream); font-style: italic;
-            /* Two lines at this size. This box sits DIRECTLY above the CTA,
-               so any growth pushes the button itself. */
-            min-height: 3em;
+            /* Two real lines, border-box included -- this box sits DIRECTLY
+               above the CTA, so any growth pushes the button itself. In px
+               because box-sizing: border-box makes min-height cover padding
+               and border, so the old 3em (37.5px) sat under a single line's
+               45px and never applied. */
+            min-height: 65px;
         }
         .checkout-testimonial #rqText::before { content: '"'; }
         /* Two states on ONE pseudo-element. The closing quote mark is what

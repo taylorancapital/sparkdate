@@ -627,6 +627,10 @@
         .signup-cta-quote .who {
             font-size: 12px; font-weight: 700; color: #ffffff;
             font-style: normal; opacity: 0.85;
+            /* Reserved, because the name is withheld while typing: an
+               empty line box would collapse and shrink the card by one line
+               at every rotation. */
+            min-height: 1.6em;
         }
     </style>
     <!-- Meta Pixel Code -->

@@ -210,7 +210,10 @@
         @media (prefers-reduced-motion: reduce) {
             .lp-quote.typing .lp-quote p::after { animation: none; }
         }
-        .lp-quote .who { font-size: 13px; font-weight: 600; color: var(--coral); font-style: normal; }
+        /* min-height reserved: the name is withheld while typing, and an
+           empty line box would collapse and shrink the card by one line at
+           every rotation. */
+        .lp-quote .who { font-size: 13px; font-weight: 600; color: var(--coral); font-style: normal; min-height: 1.6em; }
         /* In-app-browser mode: Stripe 3DS checkout physically breaks inside
            Instagram/Facebook webviews, so for that ~17% we steer to the email
            capture (which works fine — no Stripe) rather than a dead-end

@@ -482,11 +482,15 @@
             line-height: 1.5;
             color: var(--cream);
             font-style: italic;
-            /* Two lines at this size. This box sits DIRECTLY above the
-               CTA, so any growth pushes the button itself -- the reservation
-               is load-bearing here in a way it is not on the pages where the
-               quote sits below the button. */
-            min-height: 3em;
+            /* Two real lines, border-box included. This box sits DIRECTLY
+               above the CTA, so any growth pushes the button itself -- the
+               reservation is load-bearing here in a way it is not on the
+               pages where the quote sits below the button. It is sized in px
+               rather than em because * { box-sizing: border-box } makes
+               min-height cover the 12px padding and 1px border too, and the
+               old 3em (37.5px) was smaller than a single line's 45px, so it
+               never applied at all. */
+            min-height: 65px;
         }
         .checkout-testimonial #rqText::before { content: '"'; }
         /* Two states on ONE pseudo-element. The closing quote mark is what

@@ -129,7 +129,10 @@
         @media (prefers-reduced-motion: reduce) {
             .city-cta-quote.typing .city-cta-quote p::after { animation: none; }
         }
-        .city-cta-quote .who { font-size: 13px; font-weight: 600; color: var(--coral); font-style: normal; }
+        /* min-height reserved: the name is withheld while typing, and an
+           empty line box would collapse and shrink the card by one line at
+           every rotation. */
+        .city-cta-quote .who { font-size: 13px; font-weight: 600; color: var(--coral); font-style: normal; min-height: 1.6em; }
 
         /* Events section */
         .section { max-width: 1100px; margin: 0 auto; padding: 60px 40px; }
