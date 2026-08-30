@@ -86,13 +86,25 @@ async function eb(path) {
   return r.json();
 }
 
+// Three places Eventbrite might be holding a gender, in descending order of
+// how explicitly it was asked for. normalizeGender (lib/eventbrite) turns
+// whatever comes back into 'woman'/'man' or null, so each of these may return
+// Eventbrite's own spelling rather than ours.
 function attendeeGender(a) {
+  // 1. The profile field -- only populated when the order form collects it.
   const p = (a.profile && a.profile.gender) || '';
   if (p) return p;
+  // 2. A custom question with "gender" in its text.
   for (const ans of a.answers || []) {
     if (/gender/i.test(ans.question || '')) return ans.answer || null;
   }
-  return null;
+  // 3. The ticket class. SparkDate sells gendered ticket types, so when the
+  //    order form asks nothing this is the ONLY record of which pool the buyer
+  //    belongs to -- and until 2026-08-30 it was ignored, which is why two
+  //    tickets explicitly sold as male arrived with the gender column blank.
+  //    A non-gendered class ("General Admission", "Early Bird") contains no
+  //    gender word and normalizes to null, exactly as before.
+  return a.ticket_class_name || null;
 }
 
 function attendeePriceCents(a) {
