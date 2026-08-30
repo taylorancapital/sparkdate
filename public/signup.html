@@ -580,6 +580,13 @@
            same rotator pattern duplicated on index.html/lp.html/event.html/
            events.html/city.html, styled here to match this page's own
            coral CTA card (same treatment as index.html's .event-cta-quote). */
+        /* Typing caret for the rotating quote below. A caret is the whole
+           reason a typewriter reads as an animation rather than as truncated
+           text -- see the .typing rules, and index.html for the full note. */
+        @keyframes sdCaretBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
         .signup-cta-quote {
             background: rgba(255, 255, 255, 0.14);
             border: 1px solid rgba(255, 255, 255, 0.3);
@@ -588,18 +595,42 @@
             margin: 18px auto 0;
             max-width: 480px;
             text-align: left;
-            transition: opacity 0.4s ease;
         }
-        .signup-cta-quote.fade-out { opacity: 0; }
         .signup-cta-quote p {
             font-size: 14px; line-height: 1.55; color: #ffffff;
             font-style: italic; margin: 0 0 6px;
-            min-height: 2.4em;
+            /* Two lines reserved, so the card does not resize under the
+               button at every rotation. */
+            min-height: 3.1em;
         }
-        .signup-cta-quote p::before, .signup-cta-quote p::after { content: '"'; }
+        .signup-cta-quote p::before { content: '"'; }
+        /* Two states on ONE pseudo-element. The closing quote mark is what
+           turned a mid-type quote into a truncated one -- a half-typed
+           sentence arriving already punctuated and signed. While .typing that
+           exact slot holds a blinking caret instead, so the cursor the reader
+           watches advance simply BECOMES the closing mark when the sentence
+           lands. */
+        .signup-cta-quote p::after { content: '"'; }
+        .signup-cta-quote.typing .signup-cta-quote p::after {
+            content: '';
+            display: inline-block;
+            width: 2px;
+            height: 1.05em;
+            margin-left: 2px;
+            vertical-align: -0.18em;
+            background: currentColor;
+            animation: sdCaretBlink 1s step-end infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .signup-cta-quote.typing .signup-cta-quote p::after { animation: none; }
+        }
         .signup-cta-quote .who {
             font-size: 12px; font-weight: 700; color: #ffffff;
             font-style: normal; opacity: 0.85;
+            /* Reserved, because the name is withheld while typing: an
+               empty line box would collapse and shrink the card by one line
+               at every rotation. */
+            min-height: 1.6em;
         }
     </style>
     <!-- Meta Pixel Code -->
@@ -710,8 +741,12 @@
               // Rotating testimonial — see index.html for the canonical copy of this pattern.
               (function () {
                 var TESTIMONIALS = [
-                  { q: "Everyone was so lively and some of us connected so well we chatted well into the evening.", who: "Molly" },
-                  { q: "Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!", who: "Quang" },
+                  // Short quotes only. This is a small proof box beside a buy button: a
+                  // quote that wraps past two lines outgrows the reserved min-height and
+                  // shoves the CTA around at every rotation, and brand.json's own note says
+                  // the short ones are what read at a glance on a quote frame. Molly's and
+                  // Quang's longer quotes are set properly in the homepage testimonials
+                  // section, which has the room for them.
                   { q: "Good networking opportunities!", who: "Jeff" },
                   { q: "Truly a lot more fun than any other dating event I attended!", who: "Luke" },
                   { q: "Relaxed rooftop bar and easy conversations!", who: "James" },
@@ -719,36 +754,60 @@
                 ];
                 var textEl = document.getElementById('suQuoteText');
                 var whoEl = document.getElementById('suQuoteWho');
-                var fadeEl = document.getElementById('suQuote');
-                if (!textEl || !whoEl || !fadeEl) return;
+                var boxEl = document.getElementById('suQuote');
+                if (!textEl || !whoEl || !boxEl) return;
                 var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-                var idx = 0, HOLD_MS = 4500, FADE_MS = 400;
+                // HOLD_MS stays comfortably longer than the longest quote takes to type
+                // (60 chars x 28ms = 1.7s). A hold shorter than the typing leaves a quote
+                // half-written for more of its life than it is whole.
+                var idx = 0, TYPE_MS = 28, ERASE_MS = 12, HOLD_MS = 3600;
 
-                // Complete quotes crossfade; nothing types. See index.html
-                // for why the typewriter left: half-typed text with the
-                // attribution already beside it read as truncated content,
-                // not animation.
-                function show(item) {
-                  textEl.textContent = item.q;
-                  whoEl.textContent = '— ' + item.who;
+                function typeNext() {
+                  var item = TESTIMONIALS[idx];
+                  // Name and closing quote mark are both withheld until the last character
+                  // lands; .typing puts a caret in the closing mark's slot meanwhile.
+                  whoEl.textContent = '';
+                  boxEl.classList.add('typing');
+                  var i = 0;
+                  (function type() {
+                    if (i <= item.q.length) {
+                      textEl.textContent = item.q.slice(0, i);
+                      i++;
+                      setTimeout(type, TYPE_MS);
+                    } else {
+                      boxEl.classList.remove('typing');
+                      whoEl.textContent = '— ' + item.who;
+                      setTimeout(erase, HOLD_MS);
+                    }
+                  })();
                 }
-                function advance() {
-                  fadeEl.classList.add('fade-out');
-                  setTimeout(function () {
-                    idx = (idx + 1) % TESTIMONIALS.length;
-                    show(TESTIMONIALS[idx]);
-                    fadeEl.classList.remove('fade-out');
-                    setTimeout(advance, FADE_MS + HOLD_MS);
-                  }, FADE_MS);
+                // Erase and retype rather than crossfade: the box is never empty, the next
+                // quote reads as the same hand still typing, and there is no fade-in racing
+                // the characters the way the old snap-back hack existed to patch.
+                function erase() {
+                  var cur = textEl.textContent;
+                  whoEl.textContent = '';
+                  boxEl.classList.add('typing');
+                  (function back() {
+                    if (cur.length) {
+                      cur = cur.slice(0, -1);
+                      textEl.textContent = cur;
+                      setTimeout(back, ERASE_MS);
+                    } else {
+                      idx = (idx + 1) % TESTIMONIALS.length;
+                      typeNext();
+                    }
+                  })();
                 }
                 function tickStatic() {
                   var item = TESTIMONIALS[idx];
+                  boxEl.classList.remove('typing');
                   textEl.textContent = item.q;
                   whoEl.textContent = '— ' + item.who;
                   idx = (idx + 1) % TESTIMONIALS.length;
                   setTimeout(tickStatic, HOLD_MS);
                 }
-                if (reduceMotion) { tickStatic(); } else { show(TESTIMONIALS[0]); setTimeout(advance, HOLD_MS); }
+                if (reduceMotion) { tickStatic(); } else { typeNext(); }
               })();
             </script>
 
