@@ -172,36 +172,52 @@ anything. Both the event count and the user count are given.
 | `Instagram / paid_social` | 439 | 378 | 214 ev / 199 u | **52.6%** | 189 ev / 138 u | 36.5% | 3 |
 
 **The `facebook / paid_social` row is the finding.** 435 sessions — 22% of paid
-Facebook — fire `in_app_browser_detected` **353 times, on 81.1% of their sessions, the
-highest rate of any row**, so they are unambiguously arriving in a Meta webview on one
-of `/lp`, `/events` or `/event`. Yet they fire `targeted_event_landing` **zero** times.
+Facebook — fire `in_app_browser_detected` **353 times, from 232 of the row's 390 users
+(59.5%)**, so most are unambiguously arriving in a Meta webview on one of `/lp`,
+`/events` or `/event`. Yet they fire `targeted_event_landing` **zero** times.
 `Facebook / paid` (26 sessions) is at zero too, so **461 sessions / 412 users sit at a
 hard 0.0%** while the two neighbouring rows sit at 77.1% and 81.8%.
 
-Reading `public/lp.html:746-758` settles what that means. `targeted_event_missing_id`
+Reading `public/lp.html:746-758` narrows what that can mean. `targeted_event_missing_id`
 only fires when `?eventId=` is present *and blank*; `targeted_event_landing` only fires
-when it is present *and non-blank*. Property-wide `targeted_event_missing_id` is **1**.
-A hard zero on both, across 435 sessions, means these visits carry **no `eventId`
-parameter at all** — so they get `/lp`'s generic "soonest event" fallback rather than
-the event the ad was selling. Thirteen of them then hit `next_event_fetch_failed`.
+when it is present *and non-blank* — and **both fire only on `/lp`**, so a session that
+lands on `/events` or `/event` reads zero on both regardless of what its URL carried.
+(`view_item` = 0 does not close that hole: on `/events` it fires when the user opens an
+event's modal — a click, per the "moved to dialog-open" note in `public/events.html` —
+so an `/events` landing that never opened one also reads zero; only `/event`, 163
+landing sessions property-wide, fires it on load.) What the zeros DO establish:
+property-wide `targeted_event_missing_id` is **1**, and `next_event_fetch_failed` —
+also `/lp`-only — fires **13 events from 11 users** in this row. Those 11 users
+demonstrably reached `/lp` and carried **no `eventId` parameter at all**, so they got
+`/lp`'s generic "soonest event" fallback rather than the event the ad was selling.
+Whether all 435 sessions did the same, or some landed on `/events`/`/event` instead,
+needs the `landingPage × sessionSourceMedium` table this report already asks for in
+§H2 — either answer is a destination-URL defect on these ads.
 
 **This partially answers standing open question 3** (`ANALYTICS_CONTEXT.md` §4:
 *"Why is `targeted_event_landing` 64% in webview against 16% outside?"*, with the
 hypothesis that non-webview paid traffic arrives without the parameter). The split is
 **not** webview-vs-browser. It is **destination-URL-vs-destination-URL**: two Facebook
-rows fire it at 80.4% and 81.8% while a third fires it at 0.0%, and the 0.0% row has
-the *highest* webview rate of the three. The parameter is missing from a subset of ad
-destination URLs, and the case of `utm_source` happens to travel with it.
+rows fire it at 80.4% and 81.8% while a third fires it at 0.0%, and the 0.0% row is
+just as webview-bound as the other two (59.5% of its users against 68.8% and 67.0%).
+A subset of ad destination URLs is defective — provably missing the parameter for the
+11 users pinned to `/lp` above, or pointing somewhere other than `/lp` for the rest —
+and the case of `utm_source` happens to travel with the defect.
 
 **Hypothesis I tested and could NOT sustain — recorded so nobody re-runs it.** Instagram
 looks like it clicks through **10× better** than Facebook: `view_item` reaches 36.5% of
-Instagram's users (138 of 378) against 3.6% of paid Facebook's (66 of 1,809). Per
-`ANALYTICS_METHOD.md` §4, `view_item` does not fire on `/lp`, so that *would* be a
-click-through result. But Instagram fires `targeted_event_landing` for only **52.6%** of
-its users against paid Facebook's **59.8%** — and, more to the point, roughly half of
-Instagram's users are **not landing on `/lp` at all**. On `/events` or `/event`,
-`view_item` fires on page load, with no click involved. **179 of Instagram's 378 users never fired it**, against
-138 users observed firing `view_item`. Destination mix explains the gap at least as well
+Instagram's users (138 of 378) against 3.6% of paid Facebook's (66 of 1,809). And
+`view_item` is (mostly) a genuine click signal: on `/events` it fires when the user
+opens an event's modal — a click, per the "moved to dialog-open" note in
+`public/events.html` — and only `/event` (163 landing sessions property-wide) fires it
+on page load. The problem is the other direction: per `ANALYTICS_METHOD.md` §4,
+`view_item` **cannot fire on `/lp` at all**, so a `/lp` visitor contributes a zero
+however interested they were, and the comparison only measures behaviour if both rows
+put the same share of users on pages that *can* fire it. They do not appear to:
+Instagram fires `targeted_event_landing` for only **52.6%** of its users against paid
+Facebook's **59.8%**, and **179 of Instagram's 378 users never fired it**, against
+138 users observed firing `view_item` — so roughly half of Instagram's users may not
+be landing on `/lp` at all. Destination mix explains the gap at least as well
 as behaviour does, and this export has no landing-page × source cross-tab to separate
 them. `ANALYTICS_CONTEXT.md` records that this exact event was "misread once already";
 **not reporting an Instagram click-through win.**
@@ -383,10 +399,11 @@ path.
    traffic-objective campaign explains the engagement drop) and a
    `landingPage × sessionSourceMedium` table (would have settled §C's Instagram
    question instead of leaving it undecided). *(1st ask, new.)*
-3. **The `facebook / paid_social` destination URLs — 435 sessions arriving with no
-   `eventId`.** *(1st ask, new.)* Which ads are they, and should their destinations
-   carry the event? This is an ad-account change with money attached, so it is here and
-   not in §I.
+3. **The `facebook / paid_social` destination URLs — 435 sessions firing
+   `targeted_event_landing` zero times, of which 11 users provably reached `/lp` with
+   no `eventId` (§C).** *(1st ask, new.)* Which ads are they, and should their
+   destinations carry the event? This is an ad-account change with money attached, so
+   it is here and not in §I.
 4. **Marion Court checkout stage: 9 carts, 1 sale (11.1%) against 22–27% everywhere
    else.** *(2nd ask — the 08-28 report raised the trigger; the number has since moved
    further.)* §3b named this as the only thing that reopens the discussion. Explicitly
@@ -489,8 +506,9 @@ file was empty or malformed; nothing was guessed.
   outlier is now at $0.00 spend — is a presence/absence check, not a rate.
 - **§1 GA4 revenue is own-site only** — stated at the top of §F; $978.65 is never
   presented as business revenue.
-- **§1 `view_item` is a click-through measurement** — this is what killed the Instagram
-  finding in §C rather than letting it into the headline.
+- **§4 `view_item` does not fire on `/lp`** — this is what killed the Instagram finding
+  in §C rather than letting it into the headline: the opportunity to fire the event
+  differs by landing page, so a cross-row rate is destination mix before it is behaviour.
 - **§1 `lead_form_started` pairing gap** — stated in §D; `generate_lead` used for every
   actual lead count.
 - **§1 datacenter denominators** — the cities table shows a floor of **~304 users** in
