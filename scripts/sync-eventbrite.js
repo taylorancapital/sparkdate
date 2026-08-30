@@ -108,6 +108,17 @@ function attendeePriceCents(a) {
   return Number.isFinite(v) ? v : 0;
 }
 
+// The attendee's ACTUAL Eventbrite cut: platform fee + payment processing.
+// This is the number the P&L estimates today; capturing it at sync replaces
+// the estimate with truth, one ticket at a time. null when EB omits costs.
+function attendeeFeeCents(a) {
+  const c = a.costs || {};
+  const eb = c.eventbrite_fee && c.eventbrite_fee.value;
+  const pay = c.payment_fee && c.payment_fee.value;
+  if (!Number.isFinite(eb) && !Number.isFinite(pay)) return null;
+  return (Number.isFinite(eb) ? eb : 0) + (Number.isFinite(pay) ? pay : 0);
+}
+
 const dayKey = (d) => new Date(d).toISOString().slice(0, 10);
 
 async function main() {
@@ -187,10 +198,16 @@ async function main() {
     // Who is already enrolled: emails on existing tickets for this event.
     // (The real idempotency inside enrollEventbriteOne is uid+eventId; this
     // pre-check just keeps the dry run honest and the execute run quiet.)
+    const tixSnap = await db.collection('tickets').where('eventId', '==', ours.id).get();
     const existing = new Set(
-      (await db.collection('tickets').where('eventId', '==', ours.id).get())
-        .docs.map((d) => String(d.data().email || '').toLowerCase().trim()).filter(Boolean)
+      tixSnap.docs.map((d) => String(d.data().email || '').toLowerCase().trim()).filter(Boolean)
     );
+    // Ticket docs by email, kept for the fee backfill below.
+    const ticketByEmail = new Map();
+    tixSnap.docs.forEach((d) => {
+      const em = String(d.data().email || '').toLowerCase().trim();
+      if (em && !ticketByEmail.has(em)) ticketByEmail.set(em, d);
+    });
 
     const fresh = live.filter((a) => {
       const em = String((a.profile && a.profile.email) || '').toLowerCase().trim();
@@ -208,6 +225,7 @@ async function main() {
         eventId: ours.id,
         eventName: ours.title || '',
         priceCents: attendeePriceCents(a),
+        ebFeeCents: attendeeFeeCents(a),
         channel: 'eventbrite',
       };
       if (!EXECUTE) {
@@ -234,6 +252,26 @@ async function main() {
       // the Actions logs.
       console.error(`  EVENT ERROR ${title}: ${e.message}`);
       totalSkippedEvents++;
+    }
+
+    // Fee backfill: attendees enrolled BEFORE fees were captured have
+    // tickets with no ebFeeCents. Write the actual fee onto them once --
+    // idempotent, because a ticket that already carries the field is left
+    // alone. This is what converts the historical P&L from estimate to
+    // actual without a separate migration.
+    let feesBackfilled = 0;
+    for (const a of live) {
+      const em = String((a.profile && a.profile.email) || '').toLowerCase().trim();
+      if (!em || !existing.has(em)) continue;
+      const doc = ticketByEmail.get(em);
+      if (!doc) continue;
+      const fee = attendeeFeeCents(a);
+      if (fee === null || doc.data().ebFeeCents != null) continue;
+      if (EXECUTE) await doc.ref.update({ ebFeeCents: fee });
+      feesBackfilled++;
+    }
+    if (feesBackfilled) {
+      console.log(`    ${EXECUTE ? 'backfilled' : 'would backfill'} actual EB fees onto ${feesBackfilled} existing ticket(s)`);
     }
   }
 
