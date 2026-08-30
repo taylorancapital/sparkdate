@@ -1988,6 +1988,7 @@
                                         <th>Date</th>
                                         <th>Venue</th>
                                         <th>Spots</th>
+                                        <th title="Women/Men among confirmed registrations. For past events with a door count: who actually showed.">Mix</th>
                                         <th>Price (M / W)</th>
                                         <th>Registrations</th>
                                         <th>Status</th>
@@ -2697,6 +2698,46 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             }
         }
 
+        // ── The Mix cell: the number this business is actually selling ──
+        //
+        // Three times in one week the W/M balance of an upcoming event was
+        // invisible until someone ran a query -- the "male skew" scare, the
+        // Good Good 4W/8M discovery, and the comp planning all began as
+        // manual Firestore pulls. The mix IS the product; it gets a column.
+        //
+        // Gender is normalized case-insensitively because the Eventbrite
+        // import wrote "Woman"/"Man" for months (see lib/seat-model.js) and
+        // a renderer should not bet on the backfill having run.
+        //
+        // Thresholds: women under 35% coral, under 45% gold, else green --
+        // the same three-band shape marginColor uses, so the dashboard keeps
+        // one colour language. Counts include comps: the cell answers who is
+        // IN THE ROOM, not who paid.
+        //
+        // Past events with a doorCount switch to attendance: door count vs
+        // confirmed, the show rate. Check-ins undercount (attended.txt
+        // records 31 real heads against 26 registered at Event 1), so the
+        // hand-counted door figure is the only honest attendance number.
+        function mixCell(ev) {
+            const g = (v) => String(v || '').trim().toLowerCase();
+            const regs = allRegistrations.filter(r => r.eventId === ev.id);
+            const w = regs.filter(r => g(r.gender) === 'woman').length;
+            const men = regs.filter(r => g(r.gender) === 'man').length;
+            const d = ev.date && ev.date.toDate ? ev.date.toDate() : (ev.date ? new Date(ev.date) : null);
+            const isPast = d && d.getTime() < Date.now();
+
+            if (isPast && Number(ev.doorCount) > 0) {
+                const showPct = regs.length ? Math.round(100 * Number(ev.doorCount) / regs.length) : 0;
+                const col = showPct >= 85 ? 'var(--success)' : showPct >= 70 ? 'var(--gold)' : 'var(--coral)';
+                return `<span style="font-size:12px;color:${col};" title="${Number(ev.doorCount)} counted at the door against ${regs.length} confirmed — the hand count beats check-ins, which undercount">door ${Number(ev.doorCount)} · ${showPct}% show</span>`;
+            }
+            if (!w && !men) return '<span style="font-size:12px;color:rgba(245,243,240,0.35);">—</span>';
+            const share = Math.round(100 * w / (w + men));
+            const col = share < 35 ? 'var(--coral)' : share < 45 ? 'var(--gold)' : 'var(--success)';
+            const unk = regs.length - w - men;
+            return `<span style="font-size:12px;color:${col};font-weight:600;" title="${w} women, ${men} men${unk ? ', ' + unk + ' unknown' : ''} among confirmed registrations (comps included — the cell answers who is in the room)">${w}W/${men}M · ${share}%W</span>`;
+        }
+
         function renderAdminEvents() {
             const tbody = document.getElementById('eventsTable');
             const countEl = document.getElementById('eventCount');
@@ -2704,7 +2745,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             countEl.textContent = `${allEvents.length} event${allEvents.length !== 1 ? 's' : ''}`;
 
             if (allEvents.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="empty">No events yet. Create one using the form.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="empty">No events yet. Create one using the form.</td></tr>';
                 return;
             }
 
@@ -2733,6 +2774,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <td style="color: rgba(245,243,240,0.7);">${safe(dateStr)}${timeStr ? ' · ' + safe(timeStr) : ''}</td>
                         <td style="color: rgba(245,243,240,0.7);">${safe(venueLine)}</td>
                         <td style="color: rgba(245,243,240,0.7);">${spots}</td>
+                        <td>${mixCell(ev)}</td>
                         <td style="color: rgba(245,243,240,0.85); font-size: 12px;">${fmtPrice(ev.price)}${tierLabel}</td>
                         <td><button class="action-btn" data-act="open-roster" data-id="${safe(ev.id)}" data-title="${safe(ev.title)}" style="color:var(--gold);border-color:rgba(212,175,55,0.4);">${regCount} · Roster</button></td>
                         <td><span class="badge ${safe(statusClass)}">${safe(ev.status || 'open')}</span></td>
@@ -2757,6 +2799,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                                 <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(245,243,240,0.7);">
                                     Venue / other $
                                     <input type="number" min="0" step="0.01" id="cost-other-${safe(ev.id)}" value="${Number(ev.costOther)||0}" style="width:72px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,107,107,0.2);border-radius:4px;padding:4px 8px;color:var(--white);font-size:12px;">
+                                </label>
+                                <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:rgba(245,243,240,0.55);">
+                                    Door count
+                                    <input type="number" min="0" step="1" id="door-count-${safe(ev.id)}" value="${Number(ev.doorCount)||''}" placeholder="—" title="People actually counted at the door — the morning-after number. Check-ins undercount; this is the honest one. Drives the show-rate in the Mix column." style="width:72px;background:rgba(255,255,255,0.06);border:1px solid rgba(212,175,55,0.25);border-radius:4px;padding:4px 8px;color:var(--white);font-size:12px;">
                                 </label>
                                 <span style="font-size:11px;color:rgba(245,243,240,0.4);" id="cost-eb-label-${safe(ev.id)}">EB fees: calculated</span>
                                 <button class="action-btn" data-act="save-costs" data-id="${safe(ev.id)}" style="padding:4px 12px;">Save</button>
@@ -2803,6 +2849,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         patch[f.key] = parseFloat(document.getElementById(`cost-${f.key}-${id}`)?.value) || 0;
                     });
                     patch.costOther = parseFloat(document.getElementById(`cost-other-${id}`)?.value) || 0;
+                    // Blank door count means "not counted", stored as null so
+                    // the Mix cell can tell unmeasured apart from zero people.
+                    const dcRaw = document.getElementById(`door-count-${id}`)?.value;
+                    patch.doorCount = dcRaw === '' || dcRaw == null ? null : Math.max(0, parseInt(dcRaw, 10) || 0);
                     try {
                         await updateDoc(doc(db, 'events', id), patch);
                         // Update local cache so KPIs recalc without reload
@@ -2811,6 +2861,11 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         renderKPIs();
                         renderEventPnl();
                         renderChannelPnl();
+                        // Repaint the events table so the Mix/show cell picks
+                        // up a new door count -- but AFTER the saved-tick has
+                        // been seen: an instant repaint rebuilds the row and
+                        // swallows the tick, which makes saving feel broken.
+                        setTimeout(renderAdminEvents, 1400);
                         const saved = document.getElementById(`cost-saved-${id}`);
                         if (saved) { saved.style.display = ''; setTimeout(() => saved.style.display = 'none', 2000); }
                     } catch (e) {
