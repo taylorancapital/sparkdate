@@ -200,6 +200,16 @@ async function main() {
 
     console.log(`✓ ${title} → "${ours.title}" [${how}]  ${live.length} attending, ${fresh.length} new`);
 
+    // A same-day match that survives to execution becomes an EXPLICIT
+    // mapping: write eventbriteEventId back to the event doc. Matching is
+    // then exact forever (dates can move; the id cannot), and it is what
+    // lights up api/eventbrite-live's live-count column on the dashboard.
+    if (EXECUTE && how === 'same-day' && !ours.eventbriteEventId) {
+      await db.collection('events').doc(ours.id).update({ eventbriteEventId: String(ebe.id) });
+      ours.eventbriteEventId = String(ebe.id);
+      console.log(`    mapped: events/${ours.id}.eventbriteEventId = ${ebe.id}`);
+    }
+
     for (const a of fresh) {
       const buyer = {
         email: a.profile.email,
