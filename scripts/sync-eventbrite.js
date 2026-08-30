@@ -175,8 +175,12 @@ async function main() {
       totalSkippedEvents++;
       continue;
     }
+    try {
 
-    const attendees = await ebAll(`/organizations/${org.id}/events/${ebe.id}/attendees/`, 'attendees');
+    // Attendees hang off /events/{id}/, NOT under /organizations/ -- the
+    // nested spelling 404s (second lesson from live dispatches; the first
+    // was start_date.range_start).
+    const attendees = await ebAll(`/events/${ebe.id}/attendees/`, 'attendees');
     const live = attendees.filter((a) => !a.cancelled && !a.refunded);
     totalCancelled += attendees.length - live.length;
 
@@ -222,6 +226,14 @@ async function main() {
       } catch (e) {
         console.error(`    ERROR ${buyer.email}: ${e.message}`);
       }
+    }
+    } catch (e) {
+      // Per-event isolation: one broken event (deleted on EB, permissions,
+      // API hiccup) is reported and the sync moves on. Killing the whole run
+      // over it would silently stop EVERY event's sync until someone read
+      // the Actions logs.
+      console.error(`  EVENT ERROR ${title}: ${e.message}`);
+      totalSkippedEvents++;
     }
   }
 
