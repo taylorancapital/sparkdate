@@ -37,6 +37,10 @@
  * Env:
  *   GOOGLE_APPLICATION_CREDENTIALS   path to the service account JSON
  *   GA4_PROPERTY_ID                  optional -- defaults to 536859339
+ *   GA4_TIMEZONE                     optional -- the PROPERTY's zone, which is
+ *                                    what decides "today". Defaults to
+ *                                    America/New_York. Change it only if the
+ *                                    property's reporting timezone changes.
  *
  * Usage:
  *   node scripts/fetch-ga4-tables.js --dry-run
@@ -48,12 +52,32 @@
 
 const fs = require('fs');
 const path = require('path');
-const { GoogleAuth } = require('google-auth-library');
+// google-auth-library is required lazily, inside token(). It is the only thing
+// here that reaches the network, and it is not a declared dependency -- it
+// resolves transitively through firebase-admin. Requiring it at module load
+// would make importing this file for a unit test depend on that accident.
 
 const REPO = path.join(__dirname, '..');
 const OUTDIR = path.join(REPO, 'Business Plan', 'files', 'Night Tasks');
 const PROPERTY = process.env.GA4_PROPERTY_ID || '536859339';
 const API = 'https://analyticsdata.googleapis.com/v1beta';
+
+// GA4 buckets every event into a calendar day using the PROPERTY's timezone,
+// which for 536859339 is US Eastern. "Today" therefore has to be resolved in
+// that zone, not in the machine's -- and not in UTC, which is where an earlier
+// `new Date().toISOString()` put it. Verified rather than assumed: at
+// 2026-08-31 03:26 UTC the Data API still returned no row for 20260831, because
+// in the property it was 23:26 on 08-30.
+//
+// The nightly never tripped over this (02:00 Eastern is 06:00 UTC, same date),
+// but any hand-run after 20:00 Eastern did: it stamped every file with
+// TOMORROW's date and asked for a day that had not started, so the file was
+// named for a day it contained nothing about.
+//
+// Not read from the Admin API on purpose -- that API is disabled on this
+// project (`analyticsadmin.googleapis.com` returns SERVICE_DISABLED for
+// 330206052938), so a lookup would fail the whole run to learn a constant.
+const TZ = process.env.GA4_TIMEZONE || 'America/New_York';
 
 const arg = (n, d) => {
   const hit = process.argv.find((a) => a.startsWith(`--${n}=`));
@@ -61,7 +85,12 @@ const arg = (n, d) => {
 };
 const flag = (n) => process.argv.includes(`--${n}`);
 
-const iso = (d) => d.toISOString().slice(0, 10);
+// en-CA formats as YYYY-MM-DD, which is the shape the Data API wants, and the
+// timeZone option makes the DST switch someone else's problem.
+const isoIn = (tz, d = new Date()) =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d);
 const compact = (s) => s.replace(/-/g, '');
 
 /**
@@ -188,6 +217,7 @@ async function token() {
       'Note a User environment variable is NOT visible to shells opened before it was set.'
     );
   }
+  const { GoogleAuth } = require('google-auth-library');
   const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/analytics.readonly'] });
   const { token: t } = await (await auth.getClient()).getAccessToken();
   return t;
@@ -239,7 +269,7 @@ function toCsv(spec, report, start, end, pulledAt) {
     // The pull time is the point. ANALYTICS_METHOD section 1: the final day's
     // counts are short in proportion to how much of that day had elapsed when
     // the data was pulled, and that is not a lag any waiting period fixes.
-    `# pulled ${pulledAt} -- source: GA4 Data API, property ${PROPERTY}`,
+    `# pulled ${pulledAt} -- source: GA4 Data API, property ${PROPERTY} (dates in ${TZ})`,
     `# NOTE: the last two dates in any daily series are not final. See reports/ANALYTICS_METHOD.md section 1.`,
     '# ----------------------------------------',
     '',
@@ -262,12 +292,12 @@ function toCsv(spec, report, start, end, pulledAt) {
 }
 
 async function main() {
-  const end = arg('end', iso(new Date()));
+  const end = arg('end', isoIn(TZ));
   const start = arg('start', '2026-05-19');
   const dry = flag('dry-run');
   const pulledAt = new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
 
-  console.log(`GA4 property ${PROPERTY}  ${start} .. ${end}`);
+  console.log(`GA4 property ${PROPERTY}  ${start} .. ${end}  (${TZ}; now ${pulledAt})`);
   console.log(dry ? 'DRY RUN -- nothing will be written\n' : `writing to ${OUTDIR}\n`);
 
   const t = await token();
@@ -289,4 +319,8 @@ async function main() {
   console.log(dry ? '\nDry run. Re-run without --dry-run to write.' : `\nWrote ${wrote} file(s).`);
 }
 
-main().catch((e) => { console.error(`\nFAILED: ${e.message}`); process.exit(1); });
+if (require.main === module) {
+  main().catch((e) => { console.error(`\nFAILED: ${e.message}`); process.exit(1); });
+}
+
+module.exports = { isoIn, TZ };
