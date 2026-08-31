@@ -56,7 +56,8 @@ function lift(name) {
 }
 
 const NAMES = ['ROUND_CHOICES', 'movesLabel', 'tableCount', 'quotas', 'fillTablePairs',
-               'pairLookup', 'buildTables', 'rotateTables', 'maxRoundsFor', 'buildRounds',
+               'pairLookup', 'buildTables', 'rotateTables', 'maxRoundsFor', 'rehydratePin',
+               'seatingTables', 'buildRounds',
                'seatedRoundOf', 'metInRounds', 'itineraryFor', 'buildOneOnOnes',
                'topMatchesFor'];
 
@@ -73,7 +74,10 @@ function seating(women, men, scoreOf) {
       intentLabel: '', ageGap: null, limitedProfile: false,
     });
   }
-  const sandbox = { _chemWomen: women, _chemMen: men, _chemPairs: pairs, console };
+  // _pinnedPlan is a sandbox global, not lifted: these cases test the pure
+  // solver, so the pin stays null and seatingTables() falls through to it.
+  const sandbox = { _chemWomen: women, _chemMen: men, _chemPairs: pairs,
+                    _pinnedPlan: null, _chemEventId: null, console };
   vm.createContext(sandbox);
   vm.runInContext(NAMES.map(lift).join('\n\n'), sandbox);
   // `function` declarations land on the sandbox object; `const` ones stay in

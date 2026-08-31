@@ -43,11 +43,13 @@ function lift(name) {
 
 const LIFTED = ['INTENT_LABELS', 'ROUND_CHOICES', '_chemShortName', '_chemInitials',
                 'movesLabel', 'tableCount', 'quotas', 'fillTablePairs', 'pairLookup',
-                'buildTables', 'rotateTables', 'maxRoundsFor', 'buildRounds', 'seatedRoundOf',
+                'buildTables', 'rotateTables', 'maxRoundsFor', 'rehydratePin', 'seatingTables',
+                'buildRounds', 'seatedRoundOf', 'rosterDrift', 'driftNote', 'pinSeating',
+                'chemStoreWrite',
                 'metInRounds', 'itineraryFor', 'buildOneOnOnes', 'introRowsFor',
                 'topMatchesFor', 'shortlistControl', 'prioRows', 'renderChemistryCards',
                 'renderIntros', 'renderPriorityIntros', 'renderTables', 'renderRunOfShow',
-                'renderFindPanel', 'findAttendees', 'buildRunPlan', 'fmtClock', 'safe'];
+                'renderFindPanel', 'findAttendees', 'runPlanKey', 'computeRunPlan', 'buildRunPlan', 'fmtClock', 'safe'];
 
 // Element ids the chemistry modal actually declares. Rendering into an id
 // that is not in the markup is the exact bug this file exists to catch, so
@@ -109,6 +111,9 @@ function view(W = 12, M = 12, size = 6) {
     console, setInterval: () => 1, clearInterval: () => {}, Date,
     document: dom.document,
     _chemWomen: women, _chemMen: men, _chemPairs: pairs,
+    // Pinning is covered in chemistry-persistence; these render against a
+    // fresh solve, so the pin stays null.
+    _pinnedPlan: null, _chemEventId: null, _runPlanCache: null,
     _introsDone: new Set(), _priorityDone: new Set(), _prioMode: 'all', _shortlistN: 3,
     _tableSize: size, _tableRound: 1, _tableRounds: 4, _roundMinutes: 15,
     _runTimer: null, _runEndsAt: null, _runPaused: null, _runStep: 0, _runFind: '',
@@ -203,6 +208,42 @@ describe('renderTables', () => {
     const { sandbox, nodes } = view(12, 12, 4);
     sandbox.renderTables();
     expect(nodes.get('tablesView').innerHTML).toMatch(/pairs never share a table/);
+  });
+
+  it('says the seating is pinned, and offers a rebuild', () => {
+    const { sandbox, nodes } = view();
+    sandbox.pinSeating(6);
+    sandbox.renderTables();
+    const html = nodes.get('tablesView').innerHTML;
+    expect(html).toContain('Seating pinned at');
+    expect(html).toContain('will not change on its own');
+    expect(html).toContain('rebuildSeating()');
+    expect(html).not.toContain('pin-note drift');
+  });
+
+  it('names the late arrivals and offers to seat them without moving anyone', () => {
+    // The banner is the safety net for the failure this whole change exists
+    // to remove: a walk-in silently re-seeding the seating after the host
+    // has already read the tables out.
+    const { sandbox, nodes } = view();
+    sandbox.pinSeating(6);
+    sandbox._chemWomen = [...sandbox._chemWomen, {
+      id: 'late1', firstName: 'Nadia', lastName: 'Okafor', email: 'l@example.com',
+      gender: 'woman', age: 31, interests: [], vibes: [], intent: null,
+    }];
+    sandbox.renderTables();
+    const html = nodes.get('tablesView').innerHTML;
+    expect(html).toContain('pin-note drift');
+    expect(html).toContain('has arrived since');
+    expect(html).toContain('seatLateArrivals()');
+    expect(html).toContain('Seat 1 new');
+    expect(html).toContain('Nadia O.');
+  });
+
+  it('says nothing about pinning before a plan is pinned', () => {
+    const { sandbox, nodes } = view();
+    sandbox.renderTables();
+    expect(nodes.get('tablesView').innerHTML).not.toContain('pin-note');
   });
 
   it('says so when the rotation covers the entire room', () => {
@@ -461,6 +502,34 @@ describe('renderRunOfShow', () => {
     const html = nodes.get('runView').innerHTML;
     expect(html).toContain('1-on-1s');
     expect(html).toContain('05:00');
+  });
+
+  it('does not re-solve the night on every clock tick', () => {
+    // renderRunOfShow is on a 1-second interval. This used to rebuild the
+    // seating, the rotation and the 1-on-1 packing sixty times a minute.
+    const { sandbox } = view();
+    const first = sandbox.buildRunPlan();
+    expect(sandbox.buildRunPlan()).toBe(first);       // same object, not a rebuild
+  });
+
+  it('does re-solve when something the plan depends on changes', () => {
+    const { sandbox } = view();
+    const first = sandbox.buildRunPlan();
+    sandbox._tableRounds = 2;
+    const second = sandbox.buildRunPlan();
+    expect(second).not.toBe(first);
+    expect(second.filter(s => s.kind === 'round')).toHaveLength(2);
+
+    sandbox._roundMinutes = 10;
+    expect(sandbox.buildRunPlan()).not.toBe(second);
+  });
+
+  it('re-solves after a re-pin, so a rebuild reaches the run of show', () => {
+    const { sandbox } = view();
+    sandbox.pinSeating(6);
+    const first = sandbox.buildRunPlan();
+    sandbox.pinSeating(6);                            // stamps a new builtAt
+    expect(sandbox.buildRunPlan()).not.toBe(first);
   });
 
   it('shows the lookup box on every render — it is the point of the view', () => {
