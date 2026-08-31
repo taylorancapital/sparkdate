@@ -2275,8 +2275,8 @@
                     </div>
                 </div>
                 <p style="font-size: 13px; color: rgba(245,243,240,0.55); margin: -6px 0 16px; line-height: 1.6;">
-                    Signups from the site's lead-capture forms (newsletter, blog, exit-intent, etc). Welcome email + the 4-touch nurture sequence (day 2, 5, 14, 25) auto-fire from <code>/api/cron-send-emails</code>; engagement flows back from the Resend webhook. Ticks: <span style="color:rgba(245,243,240,0.5);font-weight:600;">✓</span> believed sent, no delivery record · <span style="color:var(--success);opacity:0.45;">✓</span> delivered · <span style="color:var(--success);">✓</span> opened · <span style="color:var(--gold);">✓</span> clicked · <span style="color:#f87171;">✕</span> bounced. Unsubscribes dim the row and turn its last cell red.
-                    <br><strong style="color:var(--gold);">Opens and clicks read as absent because Resend is not sending them.</strong> The webhook is healthy — 299 events since 2026-08-25 — but every one is <code>delivered</code> or <code>bounced</code>. Engagement tracking needs a tracking subdomain configured in Resend plus a matching CNAME in Cloudflare, and that is not set up, so no tick can currently reach the opened or clicked state. Enabling it only affects mail sent afterwards; everything already delivered stays dark for good.
+                    Signups from the site's lead-capture forms (newsletter, blog, exit-intent, etc). Welcome email + the 4-touch nurture sequence (day 2, 5, 14, 25) auto-fire from <code>/api/cron-send-emails</code>; engagement flows back from the Resend webhook. Ticks: <span style="color:rgba(245,243,240,0.5);font-weight:600;">✓</span> believed sent, no delivery record · <span style="color:var(--success);opacity:0.45;">✓</span> delivered · <span style="color:var(--gold);">✓</span> clicked · <span style="color:#f87171;">✕</span> bounced. Unsubscribes dim the row and turn its last cell red.
+                    <br><strong style="color:var(--gold);">There is no "opened" tick, on purpose.</strong> Click tracking went live on <code>mail.sparkdate.date</code> on 2026-08-31 (via <code>links.mail.sparkdate.date</code>); open tracking was deliberately left off. Apple Mail pre-fetches the tracking pixel for every recipient whether or not they read anything, so an opened tick would go green for people who never looked — a false positive on the one column built to trust evidence over flags. A click is the honest signal and it still implies an open. Only mail sent after 2026-08-31 carries click data; everything already delivered stays dark for good.
                 </p>
                 <div class="table-scroll is-capped">
                     <table>
@@ -7206,9 +7206,16 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         return `<span style="color:#f87171; font-weight:600;" title="Bounced ${safe(when('bounced_at'))}">✕</span>`;
                     if (l[`${key}_clicked_at`])
                         return `<span style="color: var(--gold); font-weight: 600;" title="Clicked ${safe(when('clicked_at'))}">✓</span>`;
+                    // UNREACHABLE while open tracking is off, and kept anyway.
+                    // Nothing sets `_opened_at` except the open pixel (off) and
+                    // api/resend-events.js's click handler, which sets
+                    // `_clicked_at` in the same write -- and the clicked branch
+                    // above wins. So this only lights up if open tracking is
+                    // ever switched on, at which point it works with no further
+                    // change. Deleting it would just mean rewriting it then.
                     if (l[`${key}_opened_at`])
                         return `<span style="color: var(--success); font-weight: 600;" title="Opened ${safe(when('opened_at'))}">✓</span>`;
-                    return `<span style="color: var(--success); font-weight: 600; opacity: 0.45;" title="Sent ${safe(when('sent_at') || 'delivery confirmed by Resend')} — no open recorded yet (opens only tracked from the webhook's install date)">✓</span>`;
+                    return `<span style="color: var(--success); font-weight: 600; opacity: 0.45;" title="Sent ${safe(when('sent_at') || 'delivery confirmed by Resend')} — delivered, no click recorded. Opens are deliberately not tracked, so this never becomes an 'opened' tick; only a click moves it on.">✓</span>`;
                 }
                 if (!l.subscribed) return `<span style="color: rgba(245,243,240,0.3);" title="Unsubscribed — will not be sent">—</span>`;
                 if (l[`${key}_sent`] === true) {
