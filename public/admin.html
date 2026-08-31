@@ -2275,7 +2275,8 @@
                     </div>
                 </div>
                 <p style="font-size: 13px; color: rgba(245,243,240,0.55); margin: -6px 0 16px; line-height: 1.6;">
-                    Signups from the site's lead-capture forms (newsletter, blog, exit-intent, etc). Welcome email + the 4-touch nurture sequence (day 2, 5, 14, 25) auto-fire from <code>/api/cron-send-emails</code>; engagement flows back from the Resend webhook. Ticks: <span style="color:var(--success);opacity:0.45;">✓</span> sent · <span style="color:var(--success);">✓</span> opened · <span style="color:var(--gold);">✓</span> clicked · <span style="color:#f87171;">✕</span> bounced. Unsubscribes dim the row and turn its last cell red.
+                    Signups from the site's lead-capture forms (newsletter, blog, exit-intent, etc). Welcome email + the 4-touch nurture sequence (day 2, 5, 14, 25) auto-fire from <code>/api/cron-send-emails</code>; engagement flows back from the Resend webhook. Ticks: <span style="color:rgba(245,243,240,0.5);font-weight:600;">✓</span> believed sent, no delivery record · <span style="color:var(--success);opacity:0.45;">✓</span> delivered · <span style="color:var(--success);">✓</span> opened · <span style="color:var(--gold);">✓</span> clicked · <span style="color:#f87171;">✕</span> bounced. Unsubscribes dim the row and turn its last cell red.
+                    <br><strong style="color:var(--gold);">Opens and clicks read as absent because Resend is not sending them.</strong> The webhook is healthy — 299 events since 2026-08-25 — but every one is <code>delivered</code> or <code>bounced</code>. Open and click tracking are per-domain toggles in the Resend dashboard and are off, so no tick can currently reach the opened or clicked state. Turning them on only affects mail sent afterwards.
                 </p>
                 <div class="table-scroll is-capped">
                     <table>
@@ -7214,7 +7215,18 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     // Flag set with no delivery record. Either another system
                     // sent it, or creation set the flag purely to suppress.
                     if (key === 'welcome' && seq.welcomeElsewhere) {
-                        return `<span style="color: rgba(74,222,128,0.45); font-weight:600;" title="${safe(seq.welcomeElsewhere)}">✓</span>`;
+                        // GREY, not green. This branch means "a flag says an
+                        // email happened and we have no delivery record of it";
+                        // the branch above means "Resend confirmed delivery".
+                        // Both used to render green at 45% -- rgba(74,222,128,
+                        // 0.45) here, var(--success) + opacity:0.45 there --
+                        // which composite to the same colour over the same
+                        // background. Two opposite meanings, pixel-identical,
+                        // in the one column whose entire design principle is
+                        // that evidence outranks flags. Measured on live data
+                        // that was 72 unverified ticks sitting indistinguishable
+                        // from 43 verified ones.
+                        return `<span style="color: rgba(245,243,240,0.5); font-weight:600;" title="${safe(seq.welcomeElsewhere)}">✓</span>`;
                     }
                     return `<span style="color: rgba(245,243,240,0.3); font-size: 10px;" title="Not sent — suppressed at signup for a ${safe(seq.label)} lead">n/a</span>`;
                 }
