@@ -1250,7 +1250,15 @@
         }
         .rotation-note strong { color: var(--white); }
         .rotation-warn { display: block; margin-top: 5px; color: var(--coral); }
-        .rotation-live { color: var(--gold); }
+        .rotation-live { display: block; margin-top: 5px; color: var(--gold); }
+        .prio-modes { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+        .shortlist-ctl {
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+            font-size: 12px; color: rgba(245,243,240,0.5);
+            margin-left: 8px; padding-left: 12px;
+            border-left: 1px solid rgba(255,255,255,0.1);
+        }
+        .chem-cards > .shortlist-ctl { margin: 0 0 4px; padding-left: 0; border-left: none; }
         .table-move {
             font-size: 11px;
             color: var(--gold);
@@ -3554,16 +3562,53 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 return;
             }
 
-            const shortName = (u) => {
-                const fn = u.firstName || '';
-                const li = (u.lastName || '').charAt(0);
-                return (`${fn}${li ? ' ' + li + '.' : ''}`).trim() || u.email || '—';
-            };
-            const initials = (u) => {
-                const fn = (u.firstName || '').charAt(0).toUpperCase();
-                const ln = (u.lastName || '').charAt(0).toUpperCase();
-                return (fn + ln) || (u.email || '?').charAt(0).toUpperCase();
-            };
+            renderChemistryCards();
+            document.getElementById('candidateModal').classList.add('show');
+        };
+
+        // ── Shortlist size — how many matches per person is "the answer" ──
+        //
+        // The Chemistry cards used to show a hardcoded top 3, and the intro
+        // lists showed every pair. Neither number is right for every room:
+        // three is a shortlist a host can actually work, and on a big roster
+        // the full list is 150+ rows nobody reads. So the count is one
+        // setting, shared by the Chemistry cards and the Top-N intro mode,
+        // rather than a constant in one view and an absence in the other.
+        let _shortlistN = 3;
+
+        window.setShortlistN = (n) => {
+            _shortlistN = n;
+            renderChemistryCards();
+            renderPriorityIntros();
+        };
+
+        // Each woman's matches, strongest first. The one place that decides
+        // what "her top N" means, so the cards and the intro shortlist can
+        // never disagree about it.
+        function topMatchesFor(w, n) {
+            const ranked = _chemPairs
+                .filter(p => p.a.id === w.id || p.b.id === w.id)
+                .map(p => ({ man: p.a.id === w.id ? p.b : p.a, score: p.score, p }))
+                .sort((a, b) => b.score - a.score);
+            return n === 0 ? ranked : ranked.slice(0, n);
+        }
+
+        function shortlistControl(onchange) {
+            return `<div class="shortlist-ctl">
+                <span>Show per person</span>
+                ${[3, 5, 0].map(n => `<button class="chem-toggle-btn${n === _shortlistN ? ' active' : ''}"
+                    onclick="${onchange}(${n})">${n === 0 ? 'All' : 'Top ' + n}</button>`).join('')}
+            </div>`;
+        }
+
+        function renderChemistryCards() {
+            const container = document.getElementById('candidateTable');
+            if (!container) return;
+            if (!_chemPairs.length) {
+                container.innerHTML = '<div class="empty" style="padding:24px;text-align:center;">No opposite-gender pairs yet — add attendees on both sides.</div>';
+                return;
+            }
+
             const intentText = (a, b) => {
                 const al = INTENT_LABELS[a.intent] || '';
                 const bl = INTENT_LABELS[b.intent] || '';
@@ -3573,15 +3618,8 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 return al || bl;
             };
 
-            // Group by woman, each with her top-3 men sorted by score
-            container.innerHTML = women.map(w => {
-                const herPairs = pairs
-                    .filter(p => p.a.id === w.id || p.b.id === w.id)
-                    .map(p => ({ man: p.a.id === w.id ? p.b : p.a, score: p.score, p }))
-                    .sort((a, b) => b.score - a.score)
-                    .slice(0, 3);
-
-                const matchRows = herPairs.map(({ man, score, p }) => {
+            const cards = _chemWomen.map(w => {
+                const matchRows = topMatchesFor(w, _shortlistN).map(({ man, score, p }) => {
                     const cls = score >= 70 ? 'high' : score < 40 ? 'low' : '';
                     const interestParts = [
                         ...p.sharedInterests.slice(0, 2),
@@ -3597,7 +3635,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <div class="chem-match-row">
                             <div class="chem-match-score ${cls}">${score}</div>
                             <div>
-                                <div class="chem-match-name">${safe(shortName(man))}</div>
+                                <div class="chem-match-name">${safe(_chemShortName(man))}</div>
                                 ${details ? `<div class="chem-match-detail">${safe(details)}</div>` : ''}
                             </div>
                             <div class="chem-match-intent">${safe(intent)}</div>
@@ -3607,9 +3645,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 return `
                     <div class="chem-card">
                         <div class="chem-card-header">
-                            <div class="chem-avatar">${safe(initials(w))}</div>
+                            <div class="chem-avatar">${safe(_chemInitials(w))}</div>
                             <div>
-                                <div class="chem-card-name">${safe(shortName(w))}</div>
+                                <div class="chem-card-name">${safe(_chemShortName(w))}</div>
                                 <div class="chem-card-email">${safe(w.email || '')}</div>
                             </div>
                         </div>
@@ -3617,8 +3655,8 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     </div>`;
             }).join('');
 
-            document.getElementById('candidateModal').classList.add('show');
-        };
+            container.innerHTML = shortlistControl('setShortlistN') + cards;
+        }
 
         window.closeCandidates = () => {
             // A 1s interval left running behind a closed modal repaints a
@@ -3627,7 +3665,8 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             document.getElementById('candidateModal').classList.remove('show');
             _introsDone = new Set();
             _priorityDone = new Set();
-            _prioOnlyManual = false;
+            _prioMode = 'all';
+            _shortlistN = 3;
             _runFind = '';
             _tableRound = 1;
         };
@@ -3704,7 +3743,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             if (header) {
                 header.innerHTML = rounds.length
                     ? `<div class="rotation-note">
-                         ${rounds.length} table round${rounds.length === 1 ? '' : 's'} seat
+                         ${rounds.length} seating${rounds.length === 1 ? '' : 's'} (${movesLabel(rounds.length)}) seat
                          ${_chemPairs.length - manual.length} of ${_chemPairs.length} pairs together on their own.
                          ${manual.length
                             ? `The <strong>${manual.length}</strong> the rotation never reaches are marked
@@ -3770,7 +3809,31 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // chemistry first; the ones it covers follow, dimmed, so the host can
         // still look up a pairing they were asked about.
         let _priorityDone = new Set();
-        let _prioOnlyManual = false;
+        // 'all'    — every scored pair, manual intros first
+        // 'manual' — only what the rotation never covers
+        // 'top'    — each woman's strongest _shortlistN, whoever seats them
+        //
+        // Three modes rather than one toggle because they answer different
+        // questions on the night. "Manual" is the host's to-do list. "Top N"
+        // is the one the hostess actually asks for — "who are her three?" —
+        // and it is the same shortlist the Chemistry cards show, so the two
+        // views cannot drift.
+        let _prioMode = 'all';
+
+        // Apply the current mode to the already-ordered rows. "Top N" keeps
+        // the manual-first order rather than re-sorting by score: within one
+        // woman's three, the one the seating will never bring together is
+        // still the one to walk over and introduce.
+        function prioRows(all) {
+            if (_prioMode === 'manual') return all.filter(r => r.round === null);
+            if (_prioMode === 'top') {
+                const keep = new Set();
+                _chemWomen.forEach(w => topMatchesFor(w, _shortlistN)
+                    .forEach(({ man }) => keep.add(w.id + '|' + man.id)));
+                return all.filter(r => keep.has(r.p.a.id + '|' + r.p.b.id));
+            }
+            return all;
+        }
 
         function renderPriorityIntros() {
             const container = document.getElementById('scheduleView');
@@ -3781,7 +3844,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 .sort((x, y) => (x.round === null ? 0 : 1) - (y.round === null ? 0 : 1)
                              || y.p.score - x.p.score);
             const manualCount = all.filter(r => r.round === null).length;
-            const pairs = _prioOnlyManual ? all.filter(r => r.round === null) : all;
+            const pairs = prioRows(all);
 
             if (!all.length) {
                 container.innerHTML = '<div class="empty" style="padding:24px;text-align:center;">No pairs scored yet.</div>';
@@ -3829,20 +3892,38 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 </div>`;
             }).join('');
 
+            const modes = [
+                ['all',    `All ${all.length}`,      'Every scored pair, manual intros first'],
+                ['manual', `Intros only (${manualCount})`, 'Just the pairs no round seats together'],
+                ['top',    _shortlistN ? `Top ${_shortlistN} each` : 'All each',
+                           'Each woman’s strongest matches — the same shortlist as the Chemistry cards'],
+            ].map(([m, label, title]) =>
+                `<button class="chem-toggle-btn${_prioMode === m ? ' active' : ''}"
+                    title="${safe(title)}" onclick="setPrioMode('${m}')">${safe(label)}</button>`).join('');
+
             container.innerHTML = `
                 <div class="rotation-note">
                     <strong>${manualCount}</strong> of ${all.length} pairs are never seated together by the
-                    ${_tableRounds}-round rotation — those are the introductions to make by hand, and they lead this list.
-                    <button class="chem-toggle-btn${_prioOnlyManual ? ' active' : ''}" style="margin-left:10px;"
-                        onclick="togglePrioFilter()">${_prioOnlyManual ? 'Showing intros only' : 'Show intros only'}</button>
+                    ${_tableRounds}-seating rotation (${movesLabel(_tableRounds)}) — those are the introductions to make by hand, and they lead this list.
+                    <div class="prio-modes">${modes}
+                        ${_prioMode === 'top' ? shortlistControl('setShortlistN') : ''}
+                    </div>
+                    ${_prioMode === 'top'
+                        ? `<span class="rotation-live">Showing ${pairs.length} of ${all.length} — each woman’s ${_shortlistN || 'full'} strongest, ${pairs.filter(r => r.round === null).length} of which the rotation never seats.</span>`
+                        : ''}
                 </div>
                 <div class="prio-list">${rows}</div>
+                ${pairs.length ? '' : `<div class="empty" style="padding:18px 2px;">${
+                    _prioMode === 'manual'
+                        ? 'Nothing to introduce by hand — the ' + _tableRounds + '-seating rotation puts every pair at a table.'
+                        : 'Nothing to show in this mode.'
+                }</div>`}
                 <div class="intros-print-btn">
-                    <button class="action-btn" onclick="printPriorityIntros()">⎙ Print intro list</button>
+                    <button class="action-btn" onclick="printPriorityIntros()"${pairs.length ? '' : ' disabled'}>⎙ Print intro list</button>
                 </div>`;
         }
 
-        window.togglePrioFilter = () => { _prioOnlyManual = !_prioOnlyManual; renderPriorityIntros(); };
+        window.setPrioMode = (m) => { _prioMode = m; renderPriorityIntros(); };
 
         // ── Tables — seat people together for discussion rounds ────────
         //
@@ -3868,14 +3949,29 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // cross-gender pair scores.
         let _tableSize = 6;
         let _tableRound = 1;
-        // How many SEATED ROUNDS run before the 1-on-1s — a round being one
-        // sitting, so three rounds is two rotations. Two is the classic
-        // format; three gives a third fresh table when the room has three
-        // tables to walk. Capped at the table count (see rotateTables).
-        let _tableRounds = 3;
-        // Minutes per seated round. Three 15s is 45 minutes of tables before
-        // anyone gets a 1-on-1, which is a different night from two — so the
-        // length moves with the count instead of staying nailed to 15.
+        // How many SEATINGS run before the 1-on-1s.
+        //
+        // Seatings, not moves — and the difference is worth being pedantic
+        // about, because "three rotations" reads as three moves to a host and
+        // three sittings to the code, and those are different nights. Four
+        // seatings is three moves. The UI says "Seatings" and shows the move
+        // count next to it so nobody has to hold the conversion in their head.
+        //
+        // Capped at the table count: T tables give T seatings before the men
+        // are back where they started (see rotateTables).
+        const ROUND_CHOICES = [2, 3, 4];
+        let _tableRounds = 4;
+
+        // "3 moves" — what the host calls out. Seating 1 is where people sit
+        // down; every seating after it costs one move of the room.
+        function movesLabel(seatings) {
+            const moves = Math.max(0, seatings - 1);
+            return `${moves} move${moves === 1 ? '' : 's'}`;
+        }
+        // Minutes per seating. Four 15s is an hour of tables before anyone
+        // gets a 1-on-1, which is a different night from two — so the length
+        // moves with the count instead of staying nailed to 15, and the
+        // run-of-show prints the product so the host sees the hour coming.
         let _roundMinutes = 15;
 
         // How many tables the room splits into at this seat count.
@@ -4191,10 +4287,15 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const missed     = _chemPairs.filter(p => !seatedMap.has(p.a.id + '|' + p.b.id));
             const missedHigh = missed.filter(p => p.score >= 70).length;
 
-            const roundBtns = [1, 2, 3].map(n => {
+            // Which seating to display. Starts at 1 — ROUND_CHOICES is how
+            // many seatings to RUN, which never sensibly includes one, but
+            // the first seating is very much a thing to look at.
+            const showable = Array.from(
+                { length: Math.max(...ROUND_CHOICES) }, (_, i) => i + 1);
+            const roundBtns = showable.map(n => {
                 const ok = n <= available;
                 return `<button class="chem-toggle-btn${n === _tableRound ? ' active' : ''}" onclick="setTableRound(${n})"${
-                    ok ? '' : ` disabled title="Only ${available} round${available === 1 ? '' : 's'} fit — there ${nTables === 1 ? 'is 1 table' : 'are ' + nTables + ' tables'} to rotate through"`
+                    ok ? '' : ` disabled title="Only ${available} seating${available === 1 ? '' : 's'} fit — there ${nTables === 1 ? 'is 1 table' : 'are ' + nTables + ' tables'} to rotate through"`
                 }>${n}</button>`;
             }).join('');
 
@@ -4202,8 +4303,8 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
                     <span style="font-size:12px;color:rgba(245,243,240,0.55);">Seats per table</span>
                     ${[4, 6, 8].map(n => `<button class="chem-toggle-btn${n === _tableSize ? ' active' : ''}" onclick="setTableSize(${n})">${n}</button>`).join('')}
-                    <span style="margin-left:14px;font-size:12px;color:rgba(245,243,240,0.55);">Table rounds</span>
-                    ${[2, 3].map(n => `<button class="chem-toggle-btn${n === _tableRounds ? ' active' : ''}" onclick="setTableRounds(${n})">${n}</button>`).join('')}
+                    <span style="margin-left:14px;font-size:12px;color:rgba(245,243,240,0.55);" title="A seating is one sitting; the moves between them are one fewer.">Seatings</span>
+                    ${ROUND_CHOICES.map(n => `<button class="chem-toggle-btn${n === _tableRounds ? ' active' : ''}" title="${n} seatings — ${movesLabel(n)}" onclick="setTableRounds(${n})">${n}</button>`).join('')}
                     <span style="margin-left:14px;font-size:12px;color:rgba(245,243,240,0.55);">Showing</span>
                     ${roundBtns}
                     <span style="flex:1"></span>
@@ -4211,11 +4312,12 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 </div>
                 <div class="rotation-note">
                     ${nTables} table${nTables === 1 ? '' : 's'} at ${_tableSize} seats
-                    &rarr; <strong>${available} round${available === 1 ? '' : 's'}</strong> with no pairing repeated.
+                    &rarr; <strong>${available} seating${available === 1 ? '' : 's'}</strong>
+                    (${movesLabel(available)}) with no pairing repeated.
                     ${_tableRounds > available
-                        ? `<span class="rotation-warn">Asked for ${_tableRounds}. Round ${available + 1} would re-seat round 1 exactly &mdash; the men have walked the whole circuit &mdash; so it is not offered. ${_tableSize > 4 ? 'Fewer seats per table splits the room into more tables and buys another round.' : 'More attendees would split the room into more tables and buy another round.'}</span>`
+                        ? `<span class="rotation-warn">Asked for ${_tableRounds}. Seating ${available + 1} would put the room back exactly where round 1 had it &mdash; the men have walked the whole circuit &mdash; so it is not offered. ${_tableSize > 4 ? 'Fewer seats per table splits the room into more tables and buys another move.' : 'More attendees would split the room into more tables and buy another move.'}</span>`
                         : ''}
-                    ${_tableRound > 1 ? ' <span class="rotation-live">Women stay seated. Men move one table along each round.</span>' : ''}
+                    ${_tableRound > 1 ? ' <span class="rotation-live">Women stay seated. Men move one table along between seatings.</span>' : ''}
                 </div>
                 <div class="table-cards">${cards}</div>
                 <div style="font-size:11px;color:rgba(245,243,240,0.4);margin-top:10px;">
@@ -4261,7 +4363,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
         // ── Run of show — the view the host actually holds at 6:30 ─────
         //
-        // Two or three seated rounds, then 1-on-1s. This is the only view
+        // Two to four seatings, then 1-on-1s. This is the only view
         // used DURING an event rather than before one, and that changes what
         // it has to be: big type, one instruction at a time, readable at
         // arm's length in a dark loud room, on a phone. Everything that is a
@@ -4459,11 +4561,11 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 <div class="run-setup">
                     <span>Round length</span>
                     ${[10, 15, 20].map(n => `<button class="chem-toggle-btn${n === _roundMinutes ? ' active' : ''}" onclick="setRoundMinutes(${n})">${n}m</button>`).join('')}
-                    <span style="margin-left:10px;">Table rounds</span>
-                    ${[2, 3].map(n => `<button class="chem-toggle-btn${n === _tableRounds ? ' active' : ''}" onclick="setTableRounds(${n})">${n}</button>`).join('')}
-                    <span class="run-setup-note">${seatedCount} seated round${seatedCount === 1 ? '' : 's'}${
+                    <span style="margin-left:10px;" title="A seating is one sitting; the moves between them are one fewer.">Seatings</span>
+                    ${ROUND_CHOICES.map(n => `<button class="chem-toggle-btn${n === _tableRounds ? ' active' : ''}" title="${n} seatings — ${movesLabel(n)}" onclick="setTableRounds(${n})">${n}</button>`).join('')}
+                    <span class="run-setup-note">${seatedCount} seating${seatedCount === 1 ? '' : 's'} (${movesLabel(seatedCount)})${
                         _tableRounds > seatedCount ? ` · ${_tableRounds} asked for, only ${seatedCount} fit without repeating` : ''
-                    } · then 5-minute 1-on-1s</span>
+                    } · <strong>${seatedCount * _roundMinutes} min of tables</strong>, then 5-minute 1-on-1s</span>
                 </div>
                 ${renderFindPanel(seatedRounds, currentRound)}
                 ${step.kind === 'round' && step.rotated
@@ -4472,7 +4574,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     ? '<div style="font-size:13px;color:var(--gold);margin:8px 0 2px;">Small room &mdash; everyone has already met. These are the strongest matches, five minutes each.</div>' : ''}
                 ${body}
                 <div style="font-size:11px;color:rgba(245,243,240,0.4);margin-top:12px;">
-                    ${seatedCount} &times; ${_roundMinutes}-minute round${seatedCount === 1 ? '' : 's'}, then 5-minute 1-on-1s. The clock runs on wall
+                    ${seatedCount} &times; ${_roundMinutes}-minute seating${seatedCount === 1 ? '' : 's'} (${movesLabel(seatedCount)}), then 5-minute 1-on-1s. The clock runs on wall
                     time, so it stays correct if the screen sleeps. 1-on-1 pairs never repeat someone you
                     already sat with, unless the room is small enough that everyone has met.
                 </div>`;
@@ -4500,14 +4602,22 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const sn = _chemShortName;
             const seatedMap = seatedRoundOf(buildRounds(_tableSize, _tableRounds));
 
-            // Same order as the screen: the pairs the rotation never seats
-            // together lead. A printed sheet in the old order sent the host
-            // chasing introductions the seating was about to make anyway.
-            const pairs = _chemPairs
+            // Same order AND the same mode as the screen: the pairs the
+            // rotation never seats together lead. A printed sheet that
+            // ignored either one sent the host chasing introductions the
+            // seating was about to make anyway, or handed them 150 rows when
+            // the screen they printed from was showing 33.
+            const all = _chemPairs
                 .map(p => ({ p, round: seatedMap.get(p.a.id + '|' + p.b.id) || null }))
                 .sort((x, y) => (x.round === null ? 0 : 1) - (y.round === null ? 0 : 1)
                              || y.p.score - x.p.score);
+            const pairs = prioRows(all);
             const manualCount = pairs.filter(r => r.round === null).length;
+            const modeNote = _prioMode === 'manual'
+                ? 'Manual introductions only.'
+                : _prioMode === 'top'
+                    ? `Each woman’s ${_shortlistN || 'full list of'} strongest matches.`
+                    : 'Every scored pair.';
 
             const rows = pairs.map(({ p, round }, i) => {
                 const w = p.a, m = p.b;
@@ -4549,8 +4659,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
   @media print { body { padding: 12px; } }
 </style></head><body>
 <h2>Intro Priority List</h2>
-<p class="sub">${manualCount} pair${manualCount === 1 ? '' : 's'} the ${_tableRounds}-round rotation never seats together — those are marked
-INTRO and listed first. The rest are covered by the seating and are here only for reference.</p>
+<p class="sub">${modeNote} ${pairs.length} row${pairs.length === 1 ? '' : 's'}, of which ${manualCount}
+${manualCount === 1 ? 'is one' : 'are ones'} the ${_tableRounds}-seating rotation never seats together — those are
+marked INTRO and listed first. The rest are covered by the seating and are here only for reference.</p>
 <table><tbody>${rows}</tbody></table>
 </body></html>`;
 

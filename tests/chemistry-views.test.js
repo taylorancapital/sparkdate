@@ -33,18 +33,21 @@ function lift(name) {
   if (!m) throw new Error(`${name} not found in admin.html`);
   const rest = SRC.slice(m.index);
   const firstLine = rest.slice(0, rest.indexOf('\n'));
-  if (firstLine.includes('{') && /\};?$/.test(firstLine.trim())) return firstLine;
+  const opens = (firstLine.match(/\{/g) || []).length;
+  const closes = (firstLine.match(/\}/g) || []).length;
+  if (opens === closes && /[;}]$/.test(firstLine.trim())) return firstLine;
   const close = /^ {8}\};?$/m.exec(rest.slice(firstLine.length + 1));
   if (!close) throw new Error(`${name} never closes`);
   return rest.slice(0, firstLine.length + 1 + close.index + close[0].length);
 }
 
-const LIFTED = ['_chemShortName', '_chemInitials',
-                'tableCount', 'quotas', 'fillTablePairs', 'pairLookup', 'buildTables', 'rotateTables',
-                'maxRoundsFor', 'buildRounds', 'seatedRoundOf', 'metInRounds', 'itineraryFor',
-                'buildOneOnOnes', 'introRowsFor', 'renderIntros', 'renderPriorityIntros',
-                'renderTables', 'renderRunOfShow', 'renderFindPanel', 'findAttendees',
-                'buildRunPlan', 'fmtClock', 'safe'];
+const LIFTED = ['INTENT_LABELS', 'ROUND_CHOICES', '_chemShortName', '_chemInitials',
+                'movesLabel', 'tableCount', 'quotas', 'fillTablePairs', 'pairLookup',
+                'buildTables', 'rotateTables', 'maxRoundsFor', 'buildRounds', 'seatedRoundOf',
+                'metInRounds', 'itineraryFor', 'buildOneOnOnes', 'introRowsFor',
+                'topMatchesFor', 'shortlistControl', 'prioRows', 'renderChemistryCards',
+                'renderIntros', 'renderPriorityIntros', 'renderTables', 'renderRunOfShow',
+                'renderFindPanel', 'findAttendees', 'buildRunPlan', 'fmtClock', 'safe'];
 
 // Element ids the chemistry modal actually declares. Rendering into an id
 // that is not in the markup is the exact bug this file exists to catch, so
@@ -84,7 +87,13 @@ const people = (n, prefix, gender) =>
     interests: ['hiking', 'jazz'], vibes: ['adventurous'], intent: 'long_term',
   }));
 
-function view(W = 12, M = 12) {
+// A 12x12 room at six seats is four tables, and four seatings across four
+// tables is a COMPLETE round robin — every woman meets every man and the
+// manual intro list empties. That is the right answer and it gets its own
+// test, but it makes a useless fixture for the views that exist to show what
+// the rotation misses. Those pass size 4: six tables, four seatings, so each
+// woman meets eight of the twelve men and four intros are left to the host.
+function view(W = 12, M = 12, size = 6) {
   const women = people(W, 'w', 'woman'), men = people(M, 'm', 'man');
   const pairs = [];
   for (const w of women) for (const m of men) {
@@ -100,8 +109,8 @@ function view(W = 12, M = 12) {
     console, setInterval: () => 1, clearInterval: () => {}, Date,
     document: dom.document,
     _chemWomen: women, _chemMen: men, _chemPairs: pairs,
-    _introsDone: new Set(), _priorityDone: new Set(), _prioOnlyManual: false,
-    _tableSize: 6, _tableRound: 1, _tableRounds: 3, _roundMinutes: 15,
+    _introsDone: new Set(), _priorityDone: new Set(), _prioMode: 'all', _shortlistN: 3,
+    _tableSize: size, _tableRound: 1, _tableRounds: 4, _roundMinutes: 15,
     _runTimer: null, _runEndsAt: null, _runPaused: null, _runStep: 0, _runFind: '',
     ONE_ON_ONE_MS: 5 * 60 * 1000,
   };
@@ -112,34 +121,57 @@ function view(W = 12, M = 12) {
 }
 
 describe('renderTables', () => {
-  it('renders without throwing and offers both round counts', () => {
+  it('renders without throwing and offers every seating count', () => {
     const { sandbox, nodes } = view();
     sandbox.renderTables();
     const html = nodes.get('tablesView').innerHTML;
     expect(html).toContain('Table 1');
-    expect(html).toContain('setTableRounds(2)');
-    expect(html).toContain('setTableRounds(3)');
+    for (const n of [2, 3, 4]) expect(html).toContain(`setTableRounds(${n})`);
     expect(html).toContain('Seats per table');
   });
 
-  it('states how many rounds the table count actually supports', () => {
+  it('counts in seatings and states the moves beside them', () => {
+    // Four seatings is three moves. The host says "moves"; the code says
+    // "seatings"; the label has to carry both or they mean different nights.
     const { sandbox, nodes } = view();
     sandbox.renderTables();
-    expect(nodes.get('tablesView').innerHTML).toContain('with no pairing repeated');
+    const html = nodes.get('tablesView').innerHTML;
+    expect(html).toContain('Seatings');
+    expect(html).toContain('4 seatings');
+    expect(html).toContain('3 moves');
+    expect(html).toContain('with no pairing repeated');
   });
 
-  it('warns when the host asks for more rounds than the room can serve', () => {
-    // 6W/7M at six seats is two tables, so round three would repeat round
-    // one. The host has to be told, not quietly given two.
+  it('offers a "showing" button for all four seatings', () => {
+    const { sandbox, nodes } = view();
+    sandbox.renderTables();
+    const html = nodes.get('tablesView').innerHTML;
+    for (const n of [1, 2, 3, 4]) expect(html).toContain(`setTableRound(${n})`);
+  });
+
+  it('warns when the host asks for more seatings than the room can serve', () => {
+    // 6W/7M at six seats is two tables, so a third seating would repeat the
+    // first. The host has to be told, not quietly given two.
     const { sandbox, nodes } = view(6, 7);
-    sandbox._tableRounds = 3;
+    sandbox._tableRounds = 4;
     sandbox.renderTables();
     const html = nodes.get('tablesView').innerHTML;
     expect(html).toContain('rotation-warn');
-    expect(html).toContain('re-seat round 1');
+    expect(html).toContain('back exactly where round 1 had it');
+    expect(html).toContain('Asked for 4');
   });
 
-  it('does not warn when the rounds asked for all fit', () => {
+  it('disables the seatings the room cannot serve rather than hiding them', () => {
+    const { sandbox, nodes } = view(6, 7);
+    sandbox.renderTables();
+    const html = nodes.get('tablesView').innerHTML;
+    expect(html).toContain('setTableRound(3)');
+    expect(html).toMatch(/setTableRound\(3\)"\s+disabled/);
+    expect(html).toMatch(/setTableRound\(4\)"\s+disabled/);
+    expect(html).not.toMatch(/setTableRound\(2\)"\s+disabled/);
+  });
+
+  it('does not warn when the seatings asked for all fit', () => {
     const { sandbox, nodes } = view(12, 12);
     sandbox.renderTables();
     expect(nodes.get('tablesView').innerHTML).not.toContain('rotation-warn');
@@ -157,10 +189,10 @@ describe('renderTables', () => {
   });
 
   it('falls back to a valid round when the count drops under it', () => {
-    // Host is looking at round 3, then switches to 2 rounds. Round 3 no
-    // longer exists; the view must not render an empty table list.
+    // Host is looking at seating 4, then switches to 2. Seating 4 no longer
+    // exists; the view must not render an empty table list.
     const { sandbox, nodes } = view();
-    sandbox._tableRound = 3;
+    sandbox._tableRound = 4;
     sandbox._tableRounds = 2;
     sandbox.renderTables();
     expect(sandbox._tableRound).toBe(2);
@@ -168,15 +200,28 @@ describe('renderTables', () => {
   });
 
   it('says how many pairs the rotation leaves for the host', () => {
-    const { sandbox, nodes } = view();
+    const { sandbox, nodes } = view(12, 12, 4);
     sandbox.renderTables();
     expect(nodes.get('tablesView').innerHTML).toMatch(/pairs never share a table/);
+  });
+
+  it('says so when the rotation covers the entire room', () => {
+    // Four seatings across four tables is a complete round robin: every
+    // woman meets every man and there is nothing left to introduce. Worth
+    // saying out loud — it is the reason to pick the fourth seating.
+    const { sandbox, nodes } = view(12, 12, 6);
+    expect(sandbox.buildRounds(6, 4)).toHaveLength(4);
+    sandbox.renderTables();
+    const html = nodes.get('tablesView').innerHTML;
+    expect(html).toContain('the rotation covers the whole room');
+    expect(html).not.toMatch(/pairs never share a table/);
   });
 });
 
 describe('renderIntros', () => {
+  // Size 4 so the rotation leaves work behind — see the note on view().
   let ctx;
-  beforeEach(() => { ctx = view(); ctx.sandbox.renderIntros(); });
+  beforeEach(() => { ctx = view(12, 12, 4); ctx.sandbox.renderIntros(); });
 
   it('tags every match with its round or marks it as a manual intro', () => {
     const html = ctx.nodes.get('introsGrid').innerHTML;
@@ -214,20 +259,142 @@ describe('renderIntros', () => {
 
 describe('renderPriorityIntros', () => {
   it('leads with the pairs no round seats together', () => {
-    const { sandbox, nodes } = view();
+    const { sandbox, nodes } = view(12, 12, 4);
     sandbox.renderPriorityIntros();
     const html = nodes.get('scheduleView').innerHTML;
     expect(html).toMatch(/<strong>\d+<\/strong> of \d+ pairs are never seated together/);
-    expect(html.indexOf('intro-tag manual')).toBeLessThan(html.indexOf('intro-tag seated'));
+    const rows = html.slice(html.indexOf('prio-list'));
+    expect(rows.lastIndexOf('intro-tag manual')).toBeLessThan(rows.indexOf('intro-tag seated'));
+  });
+
+  it('offers all three modes', () => {
+    const { sandbox, nodes } = view(12, 12, 4);
+    sandbox.renderPriorityIntros();
+    const html = nodes.get('scheduleView').innerHTML;
+    expect(html).toContain("setPrioMode('all')");
+    expect(html).toContain("setPrioMode('manual')");
+    expect(html).toContain("setPrioMode('top')");
+    expect(html).toContain('Top 3 each');
   });
 
   it('can hide everything the rotation already covers', () => {
-    const { sandbox, nodes } = view();
-    sandbox._prioOnlyManual = true;
+    const { sandbox, nodes } = view(12, 12, 4);
+    sandbox._prioMode = 'manual';
     sandbox.renderPriorityIntros();
     const html = nodes.get('scheduleView').innerHTML;
     expect(html).toContain('intro-tag manual');
-    expect(html).not.toContain('intro-tag seated');
+    expect(html.slice(html.indexOf('prio-list'))).not.toContain('intro-tag seated');
+  });
+
+  it('cuts to each woman\'s top N in "top" mode', () => {
+    const { sandbox, nodes, women } = view(12, 12, 4);
+    sandbox._prioMode = 'top';
+    sandbox._shortlistN = 3;
+    sandbox.renderPriorityIntros();
+    const html = nodes.get('scheduleView').innerHTML;
+    const rows = (html.match(/class="prio-item/g) || []).length;
+    expect(rows).toBe(women.length * 3);
+    expect(html).toContain('shortlist-ctl');
+    expect(html).toContain('setShortlistN(5)');
+  });
+
+  it('honours the shortlist size, and treats "All" as no cut', () => {
+    const { sandbox, nodes, women, men } = view(12, 12, 4);
+    sandbox._prioMode = 'top';
+    sandbox._shortlistN = 5;
+    sandbox.renderPriorityIntros();
+    expect((nodes.get('scheduleView').innerHTML.match(/class="prio-item/g) || []).length)
+      .toBe(women.length * 5);
+    sandbox._shortlistN = 0;
+    sandbox.renderPriorityIntros();
+    expect((nodes.get('scheduleView').innerHTML.match(/class="prio-item/g) || []).length)
+      .toBe(women.length * men.length);
+  });
+
+  it('keeps the manual intros first inside the shortlist too', () => {
+    // A woman's top 3 can contain both kinds. The one the seating will never
+    // reach is still the one to walk over and introduce.
+    const { sandbox, nodes } = view(12, 12, 4);
+    sandbox._prioMode = 'top';
+    sandbox.renderPriorityIntros();
+    const rows = nodes.get('scheduleView').innerHTML;
+    const list = rows.slice(rows.indexOf('prio-list'));
+    const tags = [...list.matchAll(/intro-tag (manual|seated)/g)].map(m => m[1]);
+    expect(tags).toContain('manual');
+    expect(tags.lastIndexOf('manual')).toBeLessThan(tags.indexOf('seated'));
+  });
+
+  it('says how much of the list the shortlist is hiding', () => {
+    const { sandbox, nodes } = view(12, 12, 4);
+    sandbox._prioMode = 'top';
+    sandbox.renderPriorityIntros();
+    expect(nodes.get('scheduleView').innerHTML).toMatch(/Showing \d+ of \d+/);
+  });
+
+  it('explains an empty "intros only" instead of showing a blank list', () => {
+    // On a room the rotation fully covers, "Intros only" is legitimately
+    // empty. A blank panel reads as broken; the reason does not.
+    const { sandbox, nodes } = view(12, 12, 6);
+    sandbox._prioMode = 'manual';
+    sandbox.renderPriorityIntros();
+    const html = nodes.get('scheduleView').innerHTML;
+    expect(html).toContain('Nothing to introduce by hand');
+    expect(html).toMatch(/printPriorityIntros\(\)"\s+disabled/);
+  });
+
+  it('shows the shortlist control only in the mode that uses it', () => {
+    const { sandbox, nodes } = view(12, 12, 4);
+    sandbox._prioMode = 'all';
+    sandbox.renderPriorityIntros();
+    expect(nodes.get('scheduleView').innerHTML).not.toContain('shortlist-ctl');
+  });
+});
+
+describe('renderChemistryCards', () => {
+  it('renders one card per woman with her top N', () => {
+    const { sandbox, nodes, women } = view();
+    sandbox.renderChemistryCards();
+    const html = nodes.get('candidateTable').innerHTML;
+    expect((html.match(/class="chem-card"/g) || []).length).toBe(women.length);
+    expect((html.match(/class="chem-match-row"/g) || []).length).toBe(women.length * 3);
+  });
+
+  it('carries the same shortlist control as the intro list', () => {
+    const { sandbox, nodes } = view();
+    sandbox.renderChemistryCards();
+    const html = nodes.get('candidateTable').innerHTML;
+    expect(html).toContain('shortlist-ctl');
+    expect(html).toContain('setShortlistN(3)');
+    expect(html).toContain('setShortlistN(0)');
+  });
+
+  it('honours the shortlist size', () => {
+    // The count used to be hardcoded to three here and absent from the intro
+    // list; one setting now drives both, so they cannot disagree.
+    const { sandbox, nodes, women, men } = view();
+    sandbox._shortlistN = 5;
+    sandbox.renderChemistryCards();
+    expect((nodes.get('candidateTable').innerHTML.match(/class="chem-match-row"/g) || []).length)
+      .toBe(women.length * 5);
+    sandbox._shortlistN = 0;
+    sandbox.renderChemistryCards();
+    expect((nodes.get('candidateTable').innerHTML.match(/class="chem-match-row"/g) || []).length)
+      .toBe(women.length * men.length);
+  });
+
+  it('ranks each card best-first', () => {
+    const { sandbox, nodes } = view();
+    sandbox.renderChemistryCards();
+    const card = nodes.get('candidateTable').innerHTML.split('class="chem-card"')[1];
+    const scores = [...card.matchAll(/chem-match-score[^>]*>(\d+)</g)].map(m => +m[1]);
+    expect(scores).toEqual([...scores].sort((a, b) => b - a));
+  });
+
+  it('renders an empty room as a message, not a crash', () => {
+    const { sandbox, nodes } = view();
+    sandbox._chemPairs = [];
+    expect(() => sandbox.renderChemistryCards()).not.toThrow();
+    expect(nodes.get('candidateTable').innerHTML).toContain('No opposite-gender pairs yet');
   });
 });
 
@@ -243,14 +410,25 @@ describe('renderRunOfShow', () => {
     expect(html).toContain('runStart()');
   });
 
-  it('carries the round-length and round-count controls', () => {
+  it('carries the round-length and seating-count controls', () => {
     const { sandbox, nodes } = view();
     sandbox.renderRunOfShow();
     const html = nodes.get('runView').innerHTML;
     expect(html).toContain('setRoundMinutes(10)');
     expect(html).toContain('setRoundMinutes(20)');
-    expect(html).toContain('setTableRounds(3)');
-    expect(html).toContain('3 seated rounds');
+    for (const n of [2, 3, 4]) expect(html).toContain(`setTableRounds(${n})`);
+    expect(html).toContain('4 seatings (3 moves)');
+  });
+
+  it('states the total table time, since four seatings is an hour of it', () => {
+    // 4 x 15 is 60 minutes before anyone gets a 1-on-1. A host choosing the
+    // fourth seating should see the hour, not discover it at 7:40.
+    const { sandbox, nodes } = view();
+    sandbox.renderRunOfShow();
+    expect(nodes.get('runView').innerHTML).toContain('<strong>60 min of tables</strong>');
+    sandbox._roundMinutes = 10;
+    sandbox.renderRunOfShow();
+    expect(nodes.get('runView').innerHTML).toContain('<strong>40 min of tables</strong>');
   });
 
   it('honours a changed round length in the clock and the plan', () => {
@@ -260,24 +438,27 @@ describe('renderRunOfShow', () => {
     expect(nodes.get('runView').innerHTML).toContain('10:00');
   });
 
-  it('steps through every seated round before the 1-on-1s', () => {
+  it('steps through all four seatings before the 1-on-1s', () => {
     const { sandbox, nodes } = view();
     const plan = sandbox.buildRunPlan();
     const seated = plan.filter(s => s.kind === 'round');
-    expect(seated).toHaveLength(3);
-    expect(plan.slice(0, 3).every(s => s.kind === 'round')).toBe(true);
-    expect(plan.slice(3).every(s => s.kind === 'ones')).toBe(true);
+    expect(seated).toHaveLength(4);
+    expect(plan.slice(0, 4).every(s => s.kind === 'round')).toBe(true);
+    expect(plan.slice(4).every(s => s.kind === 'ones')).toBe(true);
 
-    sandbox._runStep = 1;
-    sandbox.renderRunOfShow();
-    let html = nodes.get('runView').innerHTML;
-    expect(html).toContain('Round 2');
-    expect(html).toContain('Women stay seated. Men move one table along.');
-    expect(html).toContain('men from');
+    // Every seating after the first is a move, and says so.
+    for (const step of [1, 2, 3]) {
+      sandbox._runStep = step;
+      sandbox.renderRunOfShow();
+      const html = nodes.get('runView').innerHTML;
+      expect(html).toContain(`Round ${step + 1}`);
+      expect(html).toContain('Women stay seated. Men move one table along.');
+      expect(html).toContain('men from');
+    }
 
-    sandbox._runStep = 3;
+    sandbox._runStep = 4;
     sandbox.renderRunOfShow();
-    html = nodes.get('runView').innerHTML;
+    const html = nodes.get('runView').innerHTML;
     expect(html).toContain('1-on-1s');
     expect(html).toContain('05:00');
   });
