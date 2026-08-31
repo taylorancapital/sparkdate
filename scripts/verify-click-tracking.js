@@ -29,13 +29,19 @@
  *
  * USAGE
  *   node scripts/verify-click-tracking.js --to=you@example.com
- *   node scripts/verify-click-tracking.js --to=you@example.com --no-send --id=<resend_email_id>
+ *   node scripts/verify-click-tracking.js --no-send --id=<resend_email_id>
+ *   node scripts/verify-click-tracking.js --link='https://links.mail.sparkdate.date/...'
  *
  * --no-send re-checks an email already sent, so a failed run can be
  * re-inspected without mailing anyone again.
  *
+ * --link is the fallback when Resend will not hand back the rendered html --
+ * because the API key is send-only (403) or the endpoint omits it. Copy any
+ * link out of the delivered email and pass it here. Needs NO API key and
+ * sends nothing; it just follows the redirect and reports what survived.
+ *
  * Env:
- *   RESEND_API_KEY
+ *   RESEND_API_KEY  not needed for --link
  *   EMAIL_FROM      optional, defaults to the app's own sender
  */
 
@@ -50,11 +56,15 @@ const TO = arg('to');
 const NO_SEND = process.argv.includes('--no-send');
 const EXISTING_ID = arg('id');
 
-if (!process.env.RESEND_API_KEY) {
+// --link only follows a URL, so it needs neither a key nor a recipient.
+const LINK_ONLY = process.argv.some((a) => a.startsWith('--link='));
+
+if (!LINK_ONLY && !process.env.RESEND_API_KEY) {
   console.error('x Missing env var: RESEND_API_KEY');
+  console.error('  (or pass --link=<tracked url> to check a link from a delivered email instead)');
   process.exit(2);
 }
-if (!TO && !NO_SEND) {
+if (!LINK_ONLY && !TO && !NO_SEND) {
   console.error('x --to=<address> is required. Send this to yourself, never to a lead.');
   process.exit(2);
 }
@@ -78,9 +88,13 @@ const LINKS = [
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function paramsOf(u) {
+// `base` matters: a Location header is allowed to be relative ("/lp?utm=..."),
+// and new URL() throws on those. Parsing it against the URL we requested turns
+// a relative redirect into something comparable instead of something that
+// looks, wrongly, like a destination with no parameters at all.
+function paramsOf(u, base) {
   try {
-    const url = new URL(u);
+    const url = base ? new URL(u, base) : new URL(u);
     const out = {};
     url.searchParams.forEach((v, k) => { out[k] = v; });
     return { ok: true, origin: url.origin, path: url.pathname, params: out };
@@ -100,7 +114,58 @@ async function api(path, init) {
   return { status: r.status, body };
 }
 
+// Follow one tracked link and report what survived. Shared by --link and the
+// full run, so both answer the question the same way.
+async function checkLink(t, originals) {
+  const r = await fetch(t, { redirect: 'manual' });
+  const loc = r.headers.get('location');
+  console.log(`  ${t}`);
+  console.log(`    -> ${r.status} ${loc || '(no Location header)'}`);
+  if (!loc) { console.log('    FAIL: no redirect target\n'); return false; }
+
+  const got = paramsOf(loc, t);
+  const orig = originals.map((o) => paramsOf(o)).find((o) => o.ok && got.ok && o.path === got.path);
+  if (!orig) {
+    // Unknown shape (a real campaign link, say). Fall back to asserting the
+    // three params GA4 actually needs are present and non-empty.
+    const need = ['utm_source', 'utm_medium', 'utm_campaign'];
+    const absent = need.filter((k) => !got.ok || !got.params[k]);
+    if (absent.length) { console.log(`    FAIL: missing ${absent.join(', ')}\n`); return false; }
+    console.log(`    OK: ${need.map((k) => `${k}=${got.params[k]}`).join('&')}`);
+    console.log('    (not one of this script\'s own links, so checked for the GA4 params only)\n');
+    return true;
+  }
+
+  const missing = Object.keys(orig.params).filter((k) => orig.params[k] !== got.params[k]);
+  if (missing.length === 0) {
+    console.log(`    OK: all ${Object.keys(orig.params).length} params preserved `
+      + `(${Object.entries(got.params).map(([k, v]) => `${k}=${v}`).join('&')})\n`);
+    return true;
+  }
+  console.log(`    FAIL: lost or changed ${missing.join(', ')}`);
+  console.log(`      expected: ${JSON.stringify(orig.params)}`);
+  console.log(`      got     : ${JSON.stringify(got.params)}\n`);
+  return false;
+}
+
 async function main() {
+  // --link: verify a single tracked link copied out of a delivered email.
+  // Needs no API key scope beyond nothing at all, and is the fallback when
+  // Resend will not return the rendered html.
+  const ONE_LINK = arg('link');
+  if (ONE_LINK) {
+    console.log('following one tracked link (no email sent):\n');
+    const ok = await checkLink(ONE_LINK, LINKS.map(([, u]) => u));
+    console.log(ok
+      ? 'UTM parameters survived the redirect. GA4 email attribution is safe.'
+      : 'UTM parameters did NOT survive. GA4 will log these clicks as direct traffic.');
+    // exitCode, not exit(): an abrupt exit while undici still holds the socket
+    // trips a libuv assertion on Windows and prints a scary line after a
+    // perfectly good result.
+    process.exitCode = ok ? 0 : 1;
+    return;
+  }
+
   let emailId = EXISTING_ID;
 
   if (!NO_SEND) {
@@ -127,14 +192,44 @@ query string survives the links.mail.sparkdate.date redirect.</p>
 
   // Resend rewrites links at send time; the stored copy is what recipients get.
   // It is not always readable back instantly, hence the retries.
+  //
+  // The failure here USED TO BE opaque -- "could not read it back" and nothing
+  // else -- which is useless, because the three causes need three different
+  // responses and one of them is not an error at all:
+  //   403  the API key is send-only. Resend keys are scoped "Full access" or
+  //        "Sending access", and a rotated key very often comes back as the
+  //        latter. Sending works, reading does not.
+  //   404  not retrievable yet, or retention has dropped it.
+  //   200 without an `html` field -- the send is fine and this check simply
+  //        cannot be automated; fall back to a link from the inbox.
+  // So report what actually came back.
   let stored = null;
+  let last = null;
   for (let i = 0; i < 6; i++) {
     const got = await api(`/emails/${emailId}`, { method: 'GET' });
+    last = got;
     if (got.status === 200 && got.body && got.body.html) { stored = got.body.html; break; }
+    // A 403 will not fix itself by waiting.
+    if (got.status === 403) break;
     await sleep(2000);
   }
   if (!stored) {
-    console.error('x Could not read the sent email back from Resend. Re-run with --no-send --id=' + emailId);
+    console.error(`x Could not read the sent email back. Last response: HTTP ${last && last.status}`);
+    const body = last && last.body;
+    if (body && typeof body === 'object') {
+      console.error(`  body: ${JSON.stringify(body).slice(0, 400)}`);
+      if (last.status === 200 && !body.html) {
+        console.error('\n  The send SUCCEEDED and the key is valid — Resend just does not return the');
+        console.error('  rendered html here, so the rewritten links cannot be read back automatically.');
+        console.error('  Open the delivered email, copy one link (it starts with');
+        console.error('  https://links.mail.sparkdate.date/) and check where it redirects.');
+      }
+    } else if (last && last.status === 403) {
+      console.error('\n  403 means this API key can send but not read. That is Resend\'s');
+      console.error('  "Sending access" scope. Either issue a Full-access key for this check,');
+      console.error('  or verify by hand from a link in the delivered email.');
+    }
+    console.error(`\n  Re-run the read alone with:  --no-send --id=${emailId}`);
     process.exit(1);
   }
 
@@ -155,33 +250,13 @@ query string survives the links.mail.sparkdate.date redirect.</p>
   let failures = 0;
 
   for (const t of tracked) {
-    const r = await fetch(t, { redirect: 'manual' });
-    const loc = r.headers.get('location');
-    console.log(`  ${t}`);
-    console.log(`    -> ${r.status} ${loc || '(no Location header)'}`);
-    if (!loc) { failures++; console.log('    FAIL: no redirect target\n'); continue; }
-
-    const got = paramsOf(loc);
-    // Match it back to whichever original shares its path.
-    const orig = originals.map(paramsOf).find((o) => o.ok && got.ok && o.path === got.path);
-    if (!orig) { console.log('    (could not match to an original link — inspect by hand)\n'); continue; }
-
-    const missing = Object.keys(orig.params).filter((k) => orig.params[k] !== got.params[k]);
-    if (missing.length === 0) {
-      console.log(`    OK: all ${Object.keys(orig.params).length} params preserved `
-        + `(${Object.entries(got.params).map(([k, v]) => `${k}=${v}`).join('&')})\n`);
-    } else {
-      failures++;
-      console.log(`    FAIL: lost or changed ${missing.join(', ')}`);
-      console.log(`      expected: ${JSON.stringify(orig.params)}`);
-      console.log(`      got     : ${JSON.stringify(got.params)}\n`);
-    }
+    if (!(await checkLink(t, originals))) failures++;
   }
 
   console.log(failures
     ? `\n${failures} link(s) FAILED — GA4 email attribution will be wrong for those shapes.`
     : '\nAll tracked links preserved their UTM parameters. GA4 email attribution is safe.');
-  process.exit(failures ? 1 : 0);
+  process.exitCode = failures ? 1 : 0;
 }
 
 main().catch((e) => { console.error(`x ${e.message}`); process.exit(1); });
