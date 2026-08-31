@@ -45,16 +45,20 @@ function lift(name) {
   if (!m) throw new Error(`${name} not found in admin.html`);
   const rest = SRC.slice(m.index);
   const firstLine = rest.slice(0, rest.indexOf('\n'));
-  // A one-liner closes on its own line.
-  if (firstLine.includes('{') && /\};?$/.test(firstLine.trim())) return firstLine;
+  // A declaration whose braces balance on its own line is complete there —
+  // covers `const ROUND_CHOICES = [2, 3, 4];` and one-line functions alike.
+  const opens = (firstLine.match(/\{/g) || []).length;
+  const closes = (firstLine.match(/\}/g) || []).length;
+  if (opens === closes && /[;}]$/.test(firstLine.trim())) return firstLine;
   const close = /^ {8}\};?$/m.exec(rest.slice(firstLine.length + 1));
   if (!close) throw new Error(`${name} never closes`);
   return rest.slice(0, firstLine.length + 1 + close.index + close[0].length);
 }
 
-const NAMES = ['tableCount', 'quotas', 'fillTablePairs', 'pairLookup', 'buildTables',
-               'rotateTables', 'maxRoundsFor', 'buildRounds', 'seatedRoundOf',
-               'metInRounds', 'itineraryFor', 'buildOneOnOnes'];
+const NAMES = ['ROUND_CHOICES', 'movesLabel', 'tableCount', 'quotas', 'fillTablePairs',
+               'pairLookup', 'buildTables', 'rotateTables', 'maxRoundsFor', 'buildRounds',
+               'seatedRoundOf', 'metInRounds', 'itineraryFor', 'buildOneOnOnes',
+               'topMatchesFor'];
 
 // One sandbox per case: the seating functions read the module-scope roster
 // (_chemWomen / _chemMen / _chemPairs) as free variables, so the roster IS
@@ -72,7 +76,10 @@ function seating(women, men, scoreOf) {
   const sandbox = { _chemWomen: women, _chemMen: men, _chemPairs: pairs, console };
   vm.createContext(sandbox);
   vm.runInContext(NAMES.map(lift).join('\n\n'), sandbox);
-  return { sandbox, pairs };
+  // `function` declarations land on the sandbox object; `const` ones stay in
+  // the script's lexical scope and are only reachable by evaluating in it.
+  const evalIn = (expr) => vm.runInContext(expr, sandbox);
+  return { sandbox, pairs, evalIn };
 }
 
 const people = (n, prefix, gender) =>
@@ -224,11 +231,32 @@ describe('rotateTables', () => {
   });
 });
 
+describe('seatings vs moves', () => {
+  // "Three rotations" reads as three moves to a host and three sittings to
+  // the code. Four seatings is three moves; the control counts seatings and
+  // the label states the moves, so nobody has to do the conversion at 6:30.
+  it('reports one fewer move than there are seatings', () => {
+    const { sandbox } = seating(...roster(2, 2));
+    expect(sandbox.movesLabel(1)).toBe('0 moves');
+    expect(sandbox.movesLabel(2)).toBe('1 move');
+    expect(sandbox.movesLabel(3)).toBe('2 moves');
+    expect(sandbox.movesLabel(4)).toBe('3 moves');
+  });
+  it('never reports a negative move count', () => {
+    const { sandbox } = seating(...roster(2, 2));
+    expect(sandbox.movesLabel(0)).toBe('0 moves');
+  });
+  it('offers 2, 3 and 4 seatings — three moves is the top of the range', () => {
+    const { evalIn } = seating(...roster(2, 2));
+    expect(evalIn('ROUND_CHOICES')).toEqual([2, 3, 4]);
+  });
+});
+
 describe('buildRounds — the no-repeats promise', () => {
   it('never seats the same pair twice, across every roster and round count', () => {
     for (const [W, M, size] of [[12, 12, 6], [4, 9, 4], [11, 14, 6], [9, 9, 4], [20, 16, 8]]) {
       const { sandbox } = seating(...roster(W, M), varied);
-      for (const wanted of [2, 3]) {
+      for (const wanted of [2, 3, 4]) {
         const rounds = sandbox.buildRounds(size, wanted);
         const seen = new Set();
         rounds.forEach((rnd, ri) => rnd.forEach(t => t.women.forEach(w => t.men.forEach(m => {
@@ -263,6 +291,27 @@ describe('buildRounds — the no-repeats promise', () => {
     const { sandbox } = seating(...roster(9, 9), varied);
     expect(sandbox.buildTables(6).length).toBe(3);
     expect(sandbox.buildRounds(6, 3)).toHaveLength(3);
+  });
+
+  it('delivers four seatings — three moves — when four tables exist', () => {
+    const { sandbox } = seating(...roster(12, 12), varied);
+    expect(sandbox.buildTables(6).length).toBe(4);
+    const rounds = sandbox.buildRounds(6, 4);
+    expect(rounds).toHaveLength(4);
+    // The fourth seating is the last one the circuit has: a fifth would put
+    // every man back at the table he started at.
+    expect(sandbox.buildRounds(6, 5)).toHaveLength(4);
+    expect(sandbox.rotateTables(rounds[0], 4)).toBeNull();
+  });
+
+  it('covers more of the room with each extra seating', () => {
+    // The reason to add a fourth: it is the only thing that shrinks the
+    // host's manual intro list without changing the roster.
+    const { sandbox, pairs } = seating(...roster(12, 12), varied);
+    const covered = n => sandbox.seatedRoundOf(sandbox.buildRounds(6, n)).size;
+    expect(covered(2)).toBeLessThan(covered(3));
+    expect(covered(3)).toBeLessThan(covered(4));
+    expect(covered(4)).toBeLessThanOrEqual(pairs.length);
   });
 
   it('gives one round for a one-table room, not zero', () => {
@@ -347,6 +396,36 @@ describe('itineraryFor', () => {
     // A man's table changes every round; that is what "men move" means.
     const his = sandbox.itineraryFor(m[0], rounds).map(l => l.table);
     expect(new Set(his).size).toBe(his.length);
+  });
+});
+
+describe('topMatchesFor — the shortlist both views share', () => {
+  it('returns a woman\'s N strongest, best first', () => {
+    const { sandbox } = seating(...roster(6, 9), varied);
+    const w = sandbox._chemWomen ? sandbox._chemWomen[0] : null;
+    const her = sandbox.topMatchesFor(people(6, 'w', 'woman')[0], 3);
+    expect(her).toHaveLength(3);
+    expect(her.map(x => x.score)).toEqual([...her.map(x => x.score)].sort((a, b) => b - a));
+    // and they really are the top three of all nine
+    const all = sandbox.topMatchesFor(people(6, 'w', 'woman')[0], 0);
+    expect(her.map(x => x.man.id)).toEqual(all.slice(0, 3).map(x => x.man.id));
+  });
+
+  it('treats 0 as "all of them" rather than an empty list', () => {
+    // The control's "All" option passes 0. A slice(0, 0) there would blank
+    // both the Chemistry cards and the Top-N intro mode at once.
+    const { sandbox } = seating(...roster(6, 9), varied);
+    expect(sandbox.topMatchesFor(people(6, 'w', 'woman')[0], 0)).toHaveLength(9);
+  });
+
+  it('asks for more than exist without padding or throwing', () => {
+    const { sandbox } = seating(...roster(4, 2), varied);
+    expect(sandbox.topMatchesFor(people(4, 'w', 'woman')[0], 5)).toHaveLength(2);
+  });
+
+  it('gives a woman with no men an empty list', () => {
+    const { sandbox } = seating(people(3, 'w', 'woman'), []);
+    expect(sandbox.topMatchesFor(people(3, 'w', 'woman')[0], 3)).toEqual([]);
   });
 });
 
