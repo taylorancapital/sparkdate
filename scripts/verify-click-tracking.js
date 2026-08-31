@@ -114,14 +114,37 @@ async function api(path, init) {
   return { status: r.status, body };
 }
 
+// The host Resend rewrites links to. A link that is not on it was never
+// click-tracked, and cannot answer the question this script asks.
+const TRACKING_HOST = 'links.mail.sparkdate.date';
+
 // Follow one tracked link and report what survived. Shared by --link and the
 // full run, so both answer the question the same way.
+//
+// Returns 'pass' | 'fail' | 'untracked'. 'untracked' is deliberately NOT a
+// failure: it means the input was the wrong kind of URL, and reporting that as
+// "UTMs did not survive" is a false alarm about live attribution -- which is
+// exactly what this printed the first time somebody pasted a destination URL
+// instead of a rewritten one.
 async function checkLink(t, originals) {
+  console.log(`  ${t}`);
+
+  const self = paramsOf(t);
+  if (self.ok && !self.origin.endsWith(TRACKING_HOST)) {
+    console.log(`    NOT A TRACKED LINK — host is ${self.origin.replace(/^https?:\/\//, '')}, expected ${TRACKING_HOST}`);
+    console.log('    This is the destination, not the rewritten link. Two ways that happens:');
+    console.log('      1. it was copied from the email SOURCE (or from a chat/PR) rather than');
+    console.log('         from the delivered message — copy the href out of the received mail;');
+    console.log('      2. click tracking did not rewrite this send at all, which IS a finding.');
+    console.log('    Check the delivered email: a rewritten link starts with');
+    console.log(`    https://${TRACKING_HOST}/\n`);
+    return 'untracked';
+  }
+
   const r = await fetch(t, { redirect: 'manual' });
   const loc = r.headers.get('location');
-  console.log(`  ${t}`);
   console.log(`    -> ${r.status} ${loc || '(no Location header)'}`);
-  if (!loc) { console.log('    FAIL: no redirect target\n'); return false; }
+  if (!loc) { console.log('    FAIL: no redirect target\n'); return 'fail'; }
 
   const got = paramsOf(loc, t);
   const orig = originals.map((o) => paramsOf(o)).find((o) => o.ok && got.ok && o.path === got.path);
@@ -130,22 +153,22 @@ async function checkLink(t, originals) {
     // three params GA4 actually needs are present and non-empty.
     const need = ['utm_source', 'utm_medium', 'utm_campaign'];
     const absent = need.filter((k) => !got.ok || !got.params[k]);
-    if (absent.length) { console.log(`    FAIL: missing ${absent.join(', ')}\n`); return false; }
+    if (absent.length) { console.log(`    FAIL: missing ${absent.join(', ')}\n`); return 'fail'; }
     console.log(`    OK: ${need.map((k) => `${k}=${got.params[k]}`).join('&')}`);
     console.log('    (not one of this script\'s own links, so checked for the GA4 params only)\n');
-    return true;
+    return 'pass';
   }
 
   const missing = Object.keys(orig.params).filter((k) => orig.params[k] !== got.params[k]);
   if (missing.length === 0) {
     console.log(`    OK: all ${Object.keys(orig.params).length} params preserved `
       + `(${Object.entries(got.params).map(([k, v]) => `${k}=${v}`).join('&')})\n`);
-    return true;
+    return 'pass';
   }
   console.log(`    FAIL: lost or changed ${missing.join(', ')}`);
   console.log(`      expected: ${JSON.stringify(orig.params)}`);
   console.log(`      got     : ${JSON.stringify(got.params)}\n`);
-  return false;
+  return 'fail';
 }
 
 async function main() {
@@ -155,14 +178,17 @@ async function main() {
   const ONE_LINK = arg('link');
   if (ONE_LINK) {
     console.log('following one tracked link (no email sent):\n');
-    const ok = await checkLink(ONE_LINK, LINKS.map(([, u]) => u));
-    console.log(ok
-      ? 'UTM parameters survived the redirect. GA4 email attribution is safe.'
+    const verdict = await checkLink(ONE_LINK, LINKS.map(([, u]) => u));
+    console.log(
+      verdict === 'pass' ? 'UTM parameters survived the redirect. GA4 email attribution is safe.'
+      : verdict === 'untracked' ? 'INCONCLUSIVE — that was not a tracked link, so nothing was tested. See above.'
       : 'UTM parameters did NOT survive. GA4 will log these clicks as direct traffic.');
     // exitCode, not exit(): an abrupt exit while undici still holds the socket
     // trips a libuv assertion on Windows and prints a scary line after a
     // perfectly good result.
-    process.exitCode = ok ? 0 : 1;
+    // 'untracked' exits 2 — not a pass, but not evidence of broken
+    // attribution either. Distinct so a CI or a wrapper can tell them apart.
+    process.exitCode = verdict === 'pass' ? 0 : verdict === 'untracked' ? 2 : 1;
     return;
   }
 
@@ -250,7 +276,7 @@ query string survives the links.mail.sparkdate.date redirect.</p>
   let failures = 0;
 
   for (const t of tracked) {
-    if (!(await checkLink(t, originals))) failures++;
+    if ((await checkLink(t, originals)) === 'fail') failures++;
   }
 
   console.log(failures
