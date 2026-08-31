@@ -2261,10 +2261,21 @@
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">Email-Marketing Leads</h2>
-                    <span style="font-size: 12px; color: rgba(245,243,240,0.5);" id="leadCount">—</span>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="font-size: 12px; color: rgba(245,243,240,0.5);" id="leadCount">—</span>
+                        <!-- Leads is the one data-backed tab that had no way to
+                             reload. loadDashboard() (the ↻ on Overview and the
+                             5-minute timer) does not touch `leads`, and
+                             loadLeads() only runs on ENTERING the tab — so a tab
+                             parked here showed the engagement ticks frozen at
+                             whatever the Resend webhook had delivered when it was
+                             opened, indefinitely. Retention and Funnel already
+                             carry this button; this is the same one. -->
+                        <button onclick="loadLeads()" style="padding:7px 14px; background:var(--coral); color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:13px;">↻ Refresh</button>
+                    </div>
                 </div>
                 <p style="font-size: 13px; color: rgba(245,243,240,0.55); margin: -6px 0 16px; line-height: 1.6;">
-                    Signups from the site's lead-capture forms (newsletter, blog, exit-intent, etc). Welcome email + the 4-touch nurture sequence (day 2, 5, 14, 25) auto-fire from <code>/api/cron-send-emails</code>; engagement flows back from the Resend webhook. Ticks: <span style="color:var(--success);opacity:0.45;">✓</span> sent · <span style="color:var(--success);">✓</span> opened · <span style="color:var(--gold);">✓</span> clicked · <span style="color:#f87171;">✕</span> bounced. Unsubscribes flip the row to red.
+                    Signups from the site's lead-capture forms (newsletter, blog, exit-intent, etc). Welcome email + the 4-touch nurture sequence (day 2, 5, 14, 25) auto-fire from <code>/api/cron-send-emails</code>; engagement flows back from the Resend webhook. Ticks: <span style="color:var(--success);opacity:0.45;">✓</span> sent · <span style="color:var(--success);">✓</span> opened · <span style="color:var(--gold);">✓</span> clicked · <span style="color:#f87171;">✕</span> bounced. Unsubscribes dim the row and turn its last cell red.
                 </p>
                 <div class="table-scroll is-capped">
                     <table>
@@ -2739,6 +2750,26 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 loadEbLive();
                 loadSyncStatus();
                 renderRecurringCosts();
+                // Leads, but ONLY while its tab is the one on screen.
+                //
+                // The engagement ticks (sent / opened / clicked / bounced) are
+                // fed by the Resend webhook and change on their own, minutes or
+                // hours after a send. loadLeads() ran on ENTERING the tab and
+                // nowhere else, and `leads` is not in the Promise.all above — so
+                // a tab left open on Leads showed the ticks exactly as they were
+                // when it was opened, for as long as it stayed open, while a
+                // freshly-loaded browser showed the real ones. That reads as
+                // "the colours are wrong on this machine".
+                //
+                // Gated on visibility rather than added to the Promise.all
+                // because `leads` is an unbounded whole-collection read, and the
+                // 5-minute interval exists precisely to stop this page burning
+                // Firestore quota in the background (see the comment on
+                // refreshTimer). This way the read is paid only by someone
+                // actually looking at the table.
+                if (document.getElementById('tab-leads')?.classList.contains('active')) {
+                    loadLeads({ quiet: true });
+                }
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
             } catch (err) {
                 console.error('[dashboard] load error:', err);
@@ -5973,8 +6004,25 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     return `${name}'s trial is ending soon`;
                 case 'match':
                     return `${name} matched with <strong>${safe(item.details?.matchedWith || 'someone')}</strong>`;
-                case 'ticket_purchased':
-                    return `${name} bought a ticket to <span class="accent">${safe(item.details?.eventName || 'an event')}</span>${typeof item.details?.amount === 'number' ? ` (${safe(amount)})` : ''}`;
+                case 'ticket_purchased': {
+                    // `details.channel` is the ticket's own `source`, written by
+                    // lib/activity-log.js's logTicketEnrolled. It is ABSENT on
+                    // every entry api/purchase-ticket.js has ever written and on
+                    // everything logged before the marketplace channels started
+                    // reaching this feed at all — channelOf() maps a missing
+                    // source to 'direct', which is exactly right for those.
+                    const evt = `<span class="accent">${safe(item.details?.eventName || 'an event')}</span>`;
+                    const via = channelOf({ source: item.details?.channel });
+                    // Only name the channel when it is not our own checkout —
+                    // "bought a ticket via Direct" is noise on what is still
+                    // the majority of entries.
+                    const viaTxt = via === 'direct' ? '' : ` <span style="opacity:0.6;">via ${safe(CHANNEL_LABELS[via])}</span>`;
+                    // A comp is a seat given away, not a sale. Saying "bought"
+                    // and printing $0.00 next to it would put a free seat in the
+                    // reader's head as a purchase.
+                    if (item.details?.isComp) return `${name} was comped a ticket to ${evt}${viaTxt}`;
+                    return `${name} bought a ticket to ${evt}${typeof item.details?.amount === 'number' ? ` (${safe(amount)})` : ''}${viaTxt}`;
+                }
                 case 'event_attended':
                     // Only ever logged at door check-in or by the post-event cron
                     // pass (both gated on the event already having happened) — see
@@ -7055,9 +7103,19 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // Email-marketing pipeline: signup-form leads + nurture-sequence status.
         let allLeads = [];
 
-        async function loadLeads() {
+        // `quiet` suppresses the spinner and leaves the current rows on screen
+        // while the reload runs. The 5-minute auto-refresh uses it: blanking a
+        // table someone is reading, every five minutes, to redraw substantially
+        // the same rows is worse than the staleness it fixes. A hand-pressed ↻
+        // (and entering the tab) still shows the spinner, because there the
+        // wait is expected and the feedback is the point.
+        //
+        // colspan is 13 — the table has thirteen columns. It said 11 here while
+        // the empty state said 13, so the spinner and the error message spanned
+        // part of the table and left two stray cells to their right.
+        async function loadLeads({ quiet = false } = {}) {
             const tbody = document.getElementById('leadsTable');
-            tbody.innerHTML = '<tr><td colspan="11"><div class="spinner"></div></td></tr>';
+            if (!quiet) tbody.innerHTML = '<tr><td colspan="13"><div class="spinner"></div></td></tr>';
             try {
                 // Newest first — leads are written with a serverTimestamp createdAt.
                 const snap = await getDocs(query(collection(db, 'leads'), orderBy('createdAt', 'desc')));
@@ -7065,9 +7123,16 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 renderLeads();
             } catch (err) {
                 console.error('Error loading leads:', err);
-                tbody.innerHTML = '<tr><td colspan="11" class="empty">Error loading leads. Check Firestore rules.</td></tr>';
+                // On a quiet refresh keep whatever is on screen: rows that are
+                // five minutes old beat an error banner where the data was.
+                if (!quiet) tbody.innerHTML = '<tr><td colspan="13" class="empty">Error loading leads. Check Firestore rules.</td></tr>';
             }
         }
+        // This is a module, so an inline onclick cannot see `loadLeads` unless
+        // it is put on window explicitly — same reason loadRetention and
+        // loadFunnel are, and the reason the Overview ↻ had to be wired with
+        // addEventListener instead.
+        window.loadLeads = loadLeads;
 
         function renderLeads() {
             const tbody = document.getElementById('leadsTable');
@@ -7108,8 +7173,15 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 ticket_purchase:  { label: 'Buyer',     nurture: true,  welcomeElsewhere: 'sent by the ticket-purchase flow, not the cron' },
                 attendee:         { label: 'Returning', nurture: false },
                 getaway_interest: { label: 'Getaway',   nurture: false },
-                eventbrite_import:{ label: 'Imported',  nurture: false, welcomeElsewhere: 'Eventbrite sent its own registration confirmation' },
-                meetup_import:    { label: 'Imported',  nurture: false, welcomeElsewhere: 'Meetup sent its own registration confirmation' },
+                // These two said "Eventbrite/Meetup sent its own registration
+                // confirmation". They didn't — lib/enroll.js sends a SparkDate
+                // ticket-confirmation through Resend on every import. It just
+                // discarded the Resend id, so the send left no evidence and
+                // landed here, in the branch for flags with nothing behind
+                // them. Enrollment records the id now; rows imported before
+                // that fix keep this tick, and it is honest about why.
+                eventbrite_import:{ label: 'Imported',  nurture: false, welcomeElsewhere: 'Ticket confirmation sent at import, before enrollment recorded Resend ids — delivered, but no open/click evidence was ever stored' },
+                meetup_import:    { label: 'Imported',  nurture: false, welcomeElsewhere: 'Ticket confirmation sent at import, before enrollment recorded Resend ids — delivered, but no open/click evidence was ever stored' },
                 manual_import:    { label: 'Imported',  nurture: false, welcomeElsewhere: 'imported, no welcome was due' },
             };
             const seqOf = (src) => SEQ[src] || { label: 'Nurture', nurture: true };

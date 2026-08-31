@@ -6,7 +6,7 @@
 // could show "X attended [future event]" before the event happened).
 
 import { describe, it, expect } from 'vitest';
-import { logEventAttended, lockId } from '../lib/activity-log.js';
+import { logEventAttended, logTicketEnrolled, lockId } from '../lib/activity-log.js';
 
 // Minimal Firestore-like db: an in-memory map keyed by "collection/docId",
 // plus an `activity` array collecting every .add() call so tests can assert
@@ -14,12 +14,22 @@ import { logEventAttended, lockId } from '../lib/activity-log.js';
 function mockDb() {
   const locks = new Map();
   const activity = [];
+  // logTicketEnrolled addresses `activity` by a deterministic doc id rather
+  // than .add(), so the mock has to serve both shapes off the one collection.
+  const activityDocs = new Map();
   return {
     _locks: locks,
     _activity: activity,
+    _activityDocs: activityDocs,
     collection(name) {
       if (name === 'activity') {
-        return { add: async (data) => { activity.push(data); return { id: `act_${activity.length}` }; } };
+        return {
+          add: async (data) => { activity.push(data); return { id: `act_${activity.length}` }; },
+          doc: (id) => ({
+            get: async () => ({ exists: activityDocs.has(id), data: () => activityDocs.get(id) }),
+            set: async (data) => { activityDocs.set(id, data); },
+          }),
+        };
       }
       if (name === 'event_attendance_logged') {
         return {
@@ -91,5 +101,93 @@ describe('logEventAttended', () => {
     expect(await logEventAttended(db, FieldValue, { eventId: 'evt1' })).toEqual({ logged: false, reason: 'missing uid/eventId' });
     expect(await logEventAttended(db, FieldValue, { uid: 'uid1' })).toEqual({ logged: false, reason: 'missing uid/eventId' });
     expect(db._activity).toHaveLength(0);
+  });
+});
+
+// The other half of the feed: a ticket that arrived through lib/enroll.js
+// (Eventbrite, Meetup, a manual import, a comp) rather than web checkout.
+// Until this existed, `activity` had exactly one ticket writer and the feed
+// showed direct sales only — with Eventbrite at roughly half of all volume.
+describe('logTicketEnrolled', () => {
+  const base = {
+    ticketId: 'eb_uid1_evt1', uid: 'uid1', email: 'a@example.com', name: 'Aaron',
+    eventId: 'evt1', eventName: 'Rooftop Mixer', amountCents: 2500,
+    channel: 'eventbrite_import',
+  };
+
+  it('writes a ticket_purchased entry under a ticket-derived doc id', async () => {
+    const db = mockDb();
+    const result = await logTicketEnrolled(db, FieldValue, base);
+    expect(result.logged).toBe(true);
+    expect(db._activityDocs.get('tix_eb_uid1_evt1')).toMatchObject({
+      type: 'ticket_purchased',
+      userId: 'uid1',
+      userEmail: 'a@example.com',
+      userName: 'Aaron',
+      details: {
+        eventName: 'Rooftop Mixer',
+        channel: 'eventbrite_import',
+        isComp: false,
+        eventId: 'evt1',
+        ticketId: 'eb_uid1_evt1',
+      },
+    });
+  });
+
+  it('converts cents to the dollars the feed renderer formats', async () => {
+    const db = mockDb();
+    await logTicketEnrolled(db, FieldValue, { ...base, amountCents: 3249 });
+    expect(db._activityDocs.get('tix_eb_uid1_evt1').details.amount).toBe(32.49);
+  });
+
+  it('is a no-op on a re-run for the same ticket — the sync re-reads a 45-day window every 6h', async () => {
+    const db = mockDb();
+    await logTicketEnrolled(db, FieldValue, base);
+    const second = await logTicketEnrolled(db, FieldValue, { ...base, amountCents: 9999 });
+    expect(second).toEqual({ logged: false, reason: 'already_logged' });
+    expect(db._activityDocs.size).toBe(1);
+    // The first write stands; a repeat must not restate the sale at a new price.
+    expect(db._activityDocs.get('tix_eb_uid1_evt1').details.amount).toBe(25);
+  });
+
+  it('refuses without a ticketId — there would be no idempotency key', async () => {
+    const db = mockDb();
+    expect(await logTicketEnrolled(db, FieldValue, { ...base, ticketId: undefined }))
+      .toEqual({ logged: false, reason: 'missing ticketId' });
+    expect(db._activityDocs.size).toBe(0);
+  });
+
+  it('marks a comp so the feed does not call a free seat a purchase', async () => {
+    const db = mockDb();
+    await logTicketEnrolled(db, FieldValue, { ...base, ticketId: 'comp_uid1_evt1', channel: 'comp', isComp: true, amountCents: 0 });
+    expect(db._activityDocs.get('tix_comp_uid1_evt1').details).toMatchObject({ isComp: true, amount: 0, channel: 'comp' });
+  });
+
+  it('stamps a caller-supplied createdAt, so a backfill lands at the original sale date', async () => {
+    const db = mockDb();
+    const when = new Date('2026-07-15T18:00:00Z');
+    await logTicketEnrolled(db, FieldValue, { ...base, createdAt: when });
+    expect(db._activityDocs.get('tix_eb_uid1_evt1').createdAt).toBe(when);
+  });
+
+  it('falls back to a server timestamp when the caller has no date (the live enrollment path)', async () => {
+    const db = mockDb();
+    await logTicketEnrolled(db, FieldValue, base);
+    expect(db._activityDocs.get('tix_eb_uid1_evt1').createdAt).toBe('FAKE_SERVER_TIMESTAMP');
+  });
+
+  it('defaults a missing channel to direct rather than inventing a marketplace', async () => {
+    const db = mockDb();
+    await logTicketEnrolled(db, FieldValue, { ...base, channel: undefined });
+    expect(db._activityDocs.get('tix_eb_uid1_evt1').details.channel).toBe('direct');
+  });
+
+  it('treats two tickets for the same person at different events as separate sales', async () => {
+    const db = mockDb();
+    const a = await logTicketEnrolled(db, FieldValue, base);
+    const b = await logTicketEnrolled(db, FieldValue, { ...base, ticketId: 'eb_uid1_evt2', eventId: 'evt2' });
+    expect(a.logged).toBe(true);
+    expect(b.logged).toBe(true);
+    expect(db._activityDocs.size).toBe(2);
   });
 });
