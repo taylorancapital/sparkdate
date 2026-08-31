@@ -240,10 +240,26 @@ Bar & Grill, Lancaster PA, $25 / $18 early bird). **Check both, not just one.**
   into the Event 2 folder afterward so the next session doesn't repeat this.
 - The old `SparkDate_90Day_Content_Calendar*.xlsx` (Philly branding, different event date) is now
   in `Business Plan/files/_Archive/` — don't use unless explicitly asked for over the 30-Day Plan.
-  The user's updated, active version is `Business Plan/files/Marketing & GTM/Content Calendar &
-  UTM Links.xlsb.xlsx`, which also has its own `UTM Links` sheet — that's a separate artifact from
-  the `UTM Links.docx` in the Event 2 folder described next (that one still has the row-shift bug
-  below; the xlsx has not been checked for the same issue).
+  The user's updated, active content calendar is `Business Plan/files/Marketing & GTM/Content
+  Calendar & UTM Links.xlsb.xlsx`. **Despite the name, UTMs no longer live there** — its generated
+  `Paid Ad UTMs` sheet was deleted on 2026-08-31 and only the hand-kept `UTM Links` sheet (66 rows)
+  remains. It is also a separate artifact from the `UTM Links.docx` in the Event 2 folder described
+  next (that one still has the row-shift bug below).
+- **Paid/organic UTM links live in `Business Plan/files/Social Media Marketing/Content Calendars &
+  Strategy/`** — two files, one folder, and they must not be conflated:
+  - `SparkDate_UTM_Campaign_Links (version 1).xlsb.xlsx` — **HAND-maintained.** One sheet per event,
+    a `Full Campaign URL (auto)` formula column, and Platform dropdowns backed by `Sheet2`. **No
+    script may open it:** openpyxl cannot round-trip those dropdowns (x14 extended data validations)
+    and a save deletes all 16. `sync-utm-content.py` refuses it outright rather than degrade it.
+    Manual/organic rows belong here — Eventbrite, email, flyers, Nextdoor, Google Business, Patch.
+  - `SparkDate_Paid_Ad_UTMs (generated).xlsx` — script-owned, regenerated whole by
+    `npm run ads:utm-sync`. Never hand-edit it.
+
+  Both are untracked, so they exist only in the main checkout and `ads:utm-sync` fails from a
+  worktree unless you pass `--workbook` at the main checkout's path. Note the campaign workbook's
+  own "How to Use" sheet is **wrong** where it calls `utm_content` optional — `content/brand.json`
+  and `scripts/lint-ad-copy.js` both require it, unique per ad. Its event sheets also still hold
+  seeded EXAMPLE rows (`utm_source=Facebook`, `Augweek3_lancaster`, `proof_rsa1`); don't copy them.
 - `Business Plan/files/` was reorganized (2026-07-15) into `Core Plan & Financials/`, `Legal/`,
   `Marketing & GTM/`, `Pitch & Investor/`, and `_Archive/` subfolders. The `sparkdate-social-set
   Event 2` folder referenced throughout this doc was left untouched at its original path — only
