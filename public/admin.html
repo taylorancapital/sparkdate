@@ -1219,6 +1219,44 @@
             margin-top: 14px;
         }
 
+        /* Rotation awareness — a pair the seating already brings together
+           needs nothing from the host, so it is dimmed; the ones no round
+           reaches carry the coral "intro" tag and lead every list. */
+        .intro-tag {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            padding: 2px 5px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .intro-tag.seated { background: rgba(255,255,255,0.06); color: rgba(245,243,240,0.4); }
+        .intro-tag.manual { background: rgba(255,107,107,0.16); color: #ff9c9c; }
+        .intro-item.manual .intro-name { font-weight: 600; }
+        .intro-item:not(.manual) .intro-name { opacity: 0.6; }
+        .prio-item.covered { opacity: 0.5; }
+        .prio-item.covered .prio-names { font-weight: 500; }
+
+        .rotation-note {
+            font-size: 12px;
+            line-height: 1.55;
+            color: rgba(245,243,240,0.6);
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 8px;
+            padding: 9px 12px;
+            margin-bottom: 12px;
+        }
+        .rotation-note strong { color: var(--white); }
+        .rotation-warn { display: block; margin-top: 5px; color: var(--coral); }
+        .rotation-live { color: var(--gold); }
+        .table-move {
+            font-size: 11px;
+            color: var(--gold);
+            margin-top: 4px;
+        }
+
         /* Priority intro list */
         .prio-list { display: flex; flex-direction: column; }
         /* Run of show — read at arm's length, in a dark room, on a phone */
@@ -1231,6 +1269,38 @@
         .run-tables { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; margin-top:12px; }
         .run-table { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:9px; padding:9px 11px; }
         .run-table-n { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:rgba(245,243,240,0.45); margin-bottom:5px; }
+        .run-table-from { color: var(--gold); text-transform:none; letter-spacing:0; }
+        .run-setup { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; color:rgba(245,243,240,0.5); padding:10px 0 2px; }
+        .run-setup-note { color:rgba(245,243,240,0.38); margin-left:auto; }
+
+        /* "Where do I sit?" — the lookup that replaces scanning a printed
+           seating chart for a name while the room waits. */
+        .run-find { position:relative; margin:10px 0 4px; }
+        .run-find-input {
+            width:100%; box-sizing:border-box;
+            background:rgba(255,255,255,0.05);
+            border:1px solid rgba(255,107,107,0.25);
+            border-radius:8px; color:var(--white);
+            font-family:inherit; font-size:16px; padding:11px 34px 11px 13px;
+        }
+        .run-find-input::placeholder { color:rgba(245,243,240,0.35); }
+        .run-find-input:focus { outline:none; border-color:var(--coral); }
+        .run-find-x {
+            position:absolute; top:8px; right:8px;
+            background:none; border:none; color:rgba(245,243,240,0.45);
+            font-size:20px; line-height:1; cursor:pointer; padding:2px 6px;
+        }
+        .run-find-empty { font-size:12px; color:rgba(245,243,240,0.4); padding:8px 2px 0; }
+        .run-find-results { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+        .run-find-card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:9px; padding:9px 11px; }
+        .run-find-name { margin-bottom:6px; }
+        .run-find-leg { display:flex; align-items:baseline; gap:9px; padding:4px 0; font-size:13px; border-top:1px solid rgba(255,255,255,0.05); }
+        .run-find-leg:first-of-type { border-top:none; }
+        .run-find-leg.now { background:rgba(212,175,55,0.10); border-radius:5px; padding:5px 7px; margin:2px -7px; }
+        .run-find-r { font-size:10px; font-weight:700; color:rgba(245,243,240,0.4); width:20px; flex-shrink:0; }
+        .run-find-leg.now .run-find-r { color:var(--gold); }
+        .run-find-t { font-weight:700; color:var(--white); white-space:nowrap; flex-shrink:0; }
+        .run-find-with { font-size:12px; color:rgba(245,243,240,0.5); overflow:hidden; text-overflow:ellipsis; }
         @media (max-width: 640px) { .run-clock { font-size:56px; } .run-step { min-width:100%; } }
 
         /* Tables view */
@@ -2178,6 +2248,7 @@
                 <div class="chem-cards" id="candidateTable"></div>
             </div>
             <div id="introsView" style="display:none;">
+                <div id="introsHeader"></div>
                 <div class="intros-wrap">
                     <div class="intros-grid" id="introsGrid"></div>
                 </div>
@@ -3556,6 +3627,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             document.getElementById('candidateModal').classList.remove('show');
             _introsDone = new Set();
             _priorityDone = new Set();
+            _prioOnlyManual = false;
+            _runFind = '';
+            _tableRound = 1;
         };
 
         // ── View toggle ───────────────────────────────────────
@@ -3594,24 +3668,64 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             return (fn + ln) || (u.email || '?').charAt(0).toUpperCase();
         };
 
+        // ── Intro order ────────────────────────────────────────────────
+        //
+        // For each woman, the men ranked by chemistry — but ranked AGAINST
+        // THE SEATING, not in isolation. The rotation already walks most of
+        // the room past most of the room; a pair it seats together in round 2
+        // needs nothing from the host. The pairs it never seats together are
+        // the entire manual job, and on a flat score-ranked sheet they were
+        // indistinguishable from the ninety per cent that take care of
+        // themselves. So they come first, tagged, and the rest carry the
+        // round they happen in.
+        function introRowsFor(w, seatedMap) {
+            return _chemPairs
+                .filter(p => p.a.id === w.id || p.b.id === w.id)
+                .map(p => {
+                    const man = p.a.id === w.id ? p.b : p.a;
+                    return { man, score: p.score, round: seatedMap.get(w.id + '|' + man.id) || null };
+                })
+                // Never-seated first (the host has to make these happen),
+                // then by round, then by score inside each group.
+                .sort((x, y) => (x.round === null ? 0 : 1) - (y.round === null ? 0 : 1)
+                             || (x.round || 0) - (y.round || 0)
+                             || y.score - x.score);
+        }
+
         function renderIntros() {
             const grid = document.getElementById('introsGrid');
             if (!_chemWomen.length) { grid.innerHTML = ''; return; }
 
-            // For each woman, list all men ranked by score descending
-            grid.innerHTML = _chemWomen.map(w => {
-                const herMatches = _chemPairs
-                    .filter(p => p.a.id === w.id || p.b.id === w.id)
-                    .map(p => ({ man: p.a.id === w.id ? p.b : p.a, score: p.score }))
-                    .sort((a, b) => b.score - a.score);
+            const rounds    = buildRounds(_tableSize, _tableRounds);
+            const seatedMap = seatedRoundOf(rounds);
+            const manual    = _chemPairs.filter(p => !seatedMap.has(p.a.id + '|' + p.b.id));
 
-                const rows = herMatches.map(({ man, score }) => {
+            const header = document.getElementById('introsHeader');
+            if (header) {
+                header.innerHTML = rounds.length
+                    ? `<div class="rotation-note">
+                         ${rounds.length} table round${rounds.length === 1 ? '' : 's'} seat
+                         ${_chemPairs.length - manual.length} of ${_chemPairs.length} pairs together on their own.
+                         ${manual.length
+                            ? `The <strong>${manual.length}</strong> the rotation never reaches are marked
+                               <span class="intro-tag manual">intro</span> and sorted to the top of each column.`
+                            : 'Nothing here needs a manual introduction.'}
+                       </div>`
+                    : '';
+            }
+
+            grid.innerHTML = _chemWomen.map(w => {
+                const rows = introRowsFor(w, seatedMap).map(({ man, score, round }) => {
                     const key = `${w.id}|${man.id}`;
                     const done = _introsDone.has(key);
                     const scoreCls = score >= 70 ? 'high' : score < 40 ? 'low' : '';
-                    return `<div class="intro-item${done ? ' done' : ''}" onclick="toggleIntro('${w.id}','${man.id}')">
+                    const tag = round
+                        ? `<span class="intro-tag seated" title="They share a table in round ${round} — no introduction needed">R${round}</span>`
+                        : `<span class="intro-tag manual" title="No round ever seats these two together — introduce them yourself">intro</span>`;
+                    return `<div class="intro-item${done ? ' done' : ''}${round ? '' : ' manual'}" onclick="toggleIntro('${w.id}','${man.id}')">
                         <div class="intro-check"></div>
                         <div class="intro-name">${safe(_chemShortName(man))}</div>
+                        ${tag}
                         <div class="intro-score ${scoreCls}">${score}</div>
                     </div>`;
                 }).join('');
@@ -3634,12 +3748,11 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         };
 
         window.printIntros = () => {
+            const seatedMap = seatedRoundOf(buildRounds(_tableSize, _tableRounds));
             const lines = _chemWomen.map(w => {
-                const matches = _chemPairs
-                    .filter(p => p.a.id === w.id || p.b.id === w.id)
-                    .map(p => ({ man: p.a.id === w.id ? p.b : p.a, score: p.score }))
-                    .sort((a, b) => b.score - a.score)
-                    .map(({ man, score }, i) => `  ${i + 1}. ${_chemShortName(man)} (${score})`)
+                const matches = introRowsFor(w, seatedMap)
+                    .map(({ man, score, round }, i) =>
+                        `  ${i + 1}. ${_chemShortName(man)} (${score}) ${round ? '· seated R' + round : '· INTRO'}`)
                     .join('\n');
                 return `${_chemShortName(w)}\n${matches}`;
             }).join('\n\n');
@@ -3650,18 +3763,32 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         };
 
         // ── Priority intro list ─────────────────────────────────────────────────────
+        //
+        // Same reordering as the intro columns, for the same reason: the list
+        // exists to tell the host what to DO, and the seating already does
+        // most of it. Pairs the rotation never brings together lead, highest
+        // chemistry first; the ones it covers follow, dimmed, so the host can
+        // still look up a pairing they were asked about.
         let _priorityDone = new Set();
+        let _prioOnlyManual = false;
 
         function renderPriorityIntros() {
             const container = document.getElementById('scheduleView');
-            const pairs = _chemPairs;
+            const seatedMap = seatedRoundOf(buildRounds(_tableSize, _tableRounds));
 
-            if (!pairs.length) {
+            const all = _chemPairs
+                .map(p => ({ p, round: seatedMap.get(p.a.id + '|' + p.b.id) || null }))
+                .sort((x, y) => (x.round === null ? 0 : 1) - (y.round === null ? 0 : 1)
+                             || y.p.score - x.p.score);
+            const manualCount = all.filter(r => r.round === null).length;
+            const pairs = _prioOnlyManual ? all.filter(r => r.round === null) : all;
+
+            if (!all.length) {
                 container.innerHTML = '<div class="empty" style="padding:24px;text-align:center;">No pairs scored yet.</div>';
                 return;
             }
 
-            const rows = pairs.map((p, i) => {
+            const rows = pairs.map(({ p, round }, i) => {
                 const w = p.a, m = p.b;
                 const key = w.id + '|' + m.id;
                 const done = _priorityDone.has(key);
@@ -3682,7 +3809,11 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 if (intentNote) details.push(intentNote);
                 const allDetails = details.filter(Boolean).join(' · ');
 
-                return `<div class="prio-item${done ? ' done' : ''}" onclick="togglePrio('${safe(w.id)}','${safe(m.id)}')">
+                const tag = round
+                    ? `<span class="intro-tag seated" title="Seated together in round ${round}">R${round}</span>`
+                    : `<span class="intro-tag manual" title="No round seats these two together">intro</span>`;
+
+                return `<div class="prio-item${done ? ' done' : ''}${round ? ' covered' : ''}" onclick="togglePrio('${safe(w.id)}','${safe(m.id)}')">
                     <div class="prio-num">${i + 1}</div>
                     <div class="intro-check"></div>
                     <div class="intro-score ${scoreCls}">${p.score}</div>
@@ -3691,180 +3822,265 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                             <span class="prio-w">${safe(_chemShortName(w))}</span>
                             <span class="prio-sep">↔</span>
                             <span class="prio-m">${safe(_chemShortName(m))}</span>
+                            ${tag}
                         </div>
                         ${allDetails ? `<div class="prio-details">${safe(allDetails)}</div>` : ''}
                     </div>
                 </div>`;
             }).join('');
 
-            container.innerHTML = `<div class="prio-list">${rows}</div>
+            container.innerHTML = `
+                <div class="rotation-note">
+                    <strong>${manualCount}</strong> of ${all.length} pairs are never seated together by the
+                    ${_tableRounds}-round rotation — those are the introductions to make by hand, and they lead this list.
+                    <button class="chem-toggle-btn${_prioOnlyManual ? ' active' : ''}" style="margin-left:10px;"
+                        onclick="togglePrioFilter()">${_prioOnlyManual ? 'Showing intros only' : 'Show intros only'}</button>
+                </div>
+                <div class="prio-list">${rows}</div>
                 <div class="intros-print-btn">
                     <button class="action-btn" onclick="printPriorityIntros()">⎙ Print intro list</button>
                 </div>`;
         }
 
+        window.togglePrioFilter = () => { _prioOnlyManual = !_prioOnlyManual; renderPriorityIntros(); };
+
         // ── Tables — seat people together for discussion rounds ────────
         //
-        // The other three views answer "who should MEET whom" one pair at a
-        // time. This one answers "who should SIT together": partition the
-        // room into tables, balanced women/men, maximising the chemistry of
-        // the pairs that end up at the same table.
+        // The intro views answer "who should MEET whom" one pair at a time.
+        // This one answers "who should SIT together": partition the room into
+        // tables, balanced women/men, maximising the chemistry of the pairs
+        // that end up at the same table.
+        //
+        // It is also, since the intro views became rotation-aware, the thing
+        // they are ranked against — a pair this seating brings together needs
+        // no host at all, so what the seating does NOT cover is the intro
+        // list. The two used to be computed independently and the intro sheet
+        // sent the host chasing introductions the rotation was about to make.
         //
         // The optimisation is greedy, on purpose. True max-sum partitioning
         // is NP-hard, and at ~30 attendees a seeded greedy gets within a few
         // points of anything fancier while staying explainable to the host
         // mid-event: each table starts from the best still-unseated pair,
         // then repeatedly adds whichever unseated person has the highest
-        // total chemistry with everyone already at the table, alternating
-        // gender to keep the table balanced. Only W-M pairs carry scores
-        // (that is all scorePair produces), so within-table chemistry is the
-        // sum of cross-gender pair scores.
+        // total chemistry with everyone already at the table, filling to an
+        // even quota per gender. Only W-M pairs carry scores (that is all
+        // scorePair produces), so within-table chemistry is the sum of
+        // cross-gender pair scores.
         let _tableSize = 6;
         let _tableRound = 1;
+        // How many SEATED ROUNDS run before the 1-on-1s — a round being one
+        // sitting, so three rounds is two rotations. Two is the classic
+        // format; three gives a third fresh table when the room has three
+        // tables to walk. Capped at the table count (see rotateTables).
+        let _tableRounds = 3;
+        // Minutes per seated round. Three 15s is 45 minutes of tables before
+        // anyone gets a 1-on-1, which is a different night from two — so the
+        // length moves with the count instead of staying nailed to 15.
+        let _roundMinutes = 15;
+
+        // How many tables the room splits into at this seat count.
+        //
+        // Every table needs at least one woman and one man: a single-gender
+        // table has nothing to rotate and nothing to talk across. That cap is
+        // also what makes the round count honest — T tables support exactly T
+        // rounds without repeating a pairing, so a four-woman room is a
+        // two-round room at six seats a table however the host would like it.
+        function tableCount(size) {
+            const W = _chemWomen.length, M = _chemMen.length;
+            if (!W || !M) return (W + M) ? 1 : 0;
+            const bySeats = Math.max(1, Math.round((W + M) / Math.max(2, size)));
+            return Math.max(1, Math.min(bySeats, W, M));
+        }
+
+        // Split n people across t tables as evenly as possible; the first
+        // n % t tables get the extra one. Even groups are not tidiness:
+        // rotation moves whole men-groups between tables, so a 6-man table
+        // next to a 2-man table becomes a 6-man/2-woman table in round two.
+        // Quotas are what keep every round as balanced as round one.
+        function quotas(n, t) {
+            const base = Math.floor(n / t), extra = n % t;
+            return Array.from({ length: t }, (_, i) => base + (i < extra ? 1 : 0));
+        }
+
+        function fillTablePairs(table, pairOf) {
+            table.pairs = [];
+            table.women.forEach(w => table.men.forEach(m => {
+                const pr = pairOf(w, m);
+                if (pr) table.pairs.push(pr);
+            }));
+        }
+
+        function pairLookup() {
+            const idx = new Map();
+            _chemPairs.forEach(p => {
+                idx.set(p.a.id + '|' + p.b.id, p);
+                idx.set(p.b.id + '|' + p.a.id, p);
+            });
+            return (x, y) => idx.get(x.id + '|' + y.id) || null;
+        }
 
         function buildTables(size) {
             const women = [..._chemWomen], men = [..._chemMen];
-            const perGender = Math.max(1, Math.floor(size / 2));
-            const score = new Map();
-            _chemPairs.forEach(p => {
-                score.set(p.a.id + '|' + p.b.id, p);
-                score.set(p.b.id + '|' + p.a.id, p);
-            });
-            const pairOf = (x, y) => score.get(x.id + '|' + y.id) || null;
+            const nTables = tableCount(size);
+            if (!nTables) return [];
+
+            const pairOf = pairLookup();
+            const wQuota = quotas(women.length, nTables);
+            const mQuota = quotas(men.length,   nTables);
+
             const seatedIds = new Set();
             const unseated = (list) => list.filter(u => !seatedIds.has(u.id));
+            const take = (u, into) => { into.push(u); seatedIds.add(u.id); };
             const tables = [];
 
-            const nTables = Math.max(1, Math.ceil((women.length + men.length) / size));
             for (let t = 0; t < nTables; t++) {
-                const freeW = unseated(women), freeM = unseated(men);
-                if (!freeW.length && !freeM.length) break;
                 const table = { women: [], men: [], pairs: [] };
 
-                // Seed: best remaining cross-gender pair; if one side is
-                // exhausted, seed with whoever is left.
+                // Seed with the best pair both of whose halves are still
+                // unseated, so each table is anchored on a real match rather
+                // than on whoever came next in the list.
                 let seed = null;
                 _chemPairs.forEach(p => {
                     if (seatedIds.has(p.a.id) || seatedIds.has(p.b.id)) return;
                     if (!seed || p.score > seed.score) seed = p;
                 });
-                if (seed) {
-                    table.women.push(seed.a); table.men.push(seed.b);
-                    seatedIds.add(seed.a.id); seatedIds.add(seed.b.id);
-                } else {
-                    const solo = freeW[0] || freeM[0];
-                    (freeW[0] ? table.women : table.men).push(solo);
-                    seatedIds.add(solo.id);
+                if (seed && wQuota[t] > 0 && mQuota[t] > 0) {
+                    take(seed.a, table.women);
+                    take(seed.b, table.men);
                 }
 
-                // Fill: alternate toward balance; pick the unseated person of
-                // the needed gender with the highest total score against the
-                // table's OPPOSITE gender members.
-                while (table.women.length + table.men.length < size) {
-                    const needWoman = table.women.length <= table.men.length
-                        ? unseated(women).length > 0
-                        : unseated(men).length === 0;
-                    const pool = needWoman ? unseated(women) : unseated(men);
+                // Fill to quota: take from whichever gender is furthest from
+                // its own quota, choosing the person with the highest total
+                // chemistry against the opposite gender already seated here.
+                while (table.women.length < wQuota[t] || table.men.length < mQuota[t]) {
+                    const wantW = (wQuota[t] - table.women.length) >= (mQuota[t] - table.men.length)
+                        && table.women.length < wQuota[t];
+                    const pool = unseated(wantW ? women : men);
                     if (!pool.length) break;
-                    const others = needWoman ? table.men : table.women;
-                    // stop before over-packing one gender past its share,
-                    // unless the other side has nobody left to give
-                    const mine = needWoman ? table.women : table.men;
-                    const otherPoolLeft = (needWoman ? unseated(men) : unseated(women)).length;
-                    if (mine.length >= perGender && otherPoolLeft > 0) break;
-                    let best = null, bestTotal = -1;
+                    const others = wantW ? table.men : table.women;
+                    let best = pool[0], bestTotal = -1;
                     pool.forEach(u => {
-                        const total = others.reduce((sum, o) => {
+                        const total = others.reduce((s, o) => {
                             const pr = pairOf(u, o);
-                            return sum + (pr ? pr.score : 0);
+                            return s + (pr ? pr.score : 0);
                         }, 0);
                         if (total > bestTotal) { bestTotal = total; best = u; }
                     });
-                    (needWoman ? table.women : table.men).push(best);
-                    seatedIds.add(best.id);
+                    take(best, wantW ? table.women : table.men);
                 }
 
-                table.women.forEach(w => table.men.forEach(m => {
-                    const pr = pairOf(w, m);
-                    if (pr) table.pairs.push(pr);
-                }));
+                fillTablePairs(table, pairOf);
                 tables.push(table);
             }
 
-            // A tiny trailing table (fewer than half a table's seats) gets
-            // folded into the one before it -- a person seated alone is worse
-            // than a slightly over-full table.
-            while (tables.length > 1) {
-                const last = tables[tables.length - 1];
-                if (last.women.length + last.men.length >= Math.ceil(size / 2)) break;
-                const prev = tables[tables.length - 2];
-                prev.women.push(...last.women);
-                prev.men.push(...last.men);
-                prev.pairs = [];
-                prev.women.forEach(w => prev.men.forEach(m => {
-                    const pr = pairOf(w, m);
-                    if (pr) prev.pairs.push(pr);
-                }));
-                tables.pop();
-            }
-
-            // Sweep any stragglers (odd counts) onto the last table rather
-            // than leaving someone standing.
+            // Quotas account for everyone, so this normally finds nobody —
+            // but a seed skipped against a zero quota could strand someone,
+            // and a person left standing is the one outcome worth a sweep.
             const leftovers = [...unseated(women), ...unseated(men)];
-            if (leftovers.length && tables.length) {
-                const last = tables[tables.length - 1];
-                leftovers.forEach(u => {
-                    (_chemWomen.some(w => w.id === u.id) ? last.women : last.men).push(u);
-                    seatedIds.add(u.id);
+            leftovers.forEach(u => {
+                const isW = _chemWomen.some(w => w.id === u.id);
+                let best = null, bestTotal = -1;
+                tables.forEach(tb => {
+                    const others = isW ? tb.men : tb.women;
+                    const total = others.reduce((s, o) => {
+                        const pr = pairOf(u, o);
+                        return s + (pr ? pr.score : 0);
+                    }, 0);
+                    if (total > bestTotal) { bestTotal = total; best = tb; }
                 });
-                last.pairs = [];
-                last.women.forEach(w => last.men.forEach(m => {
-                    const pr = pairOf(w, m);
-                    if (pr) last.pairs.push(pr);
-                }));
-            }
+                if (!best) return;
+                (isW ? best.women : best.men).push(u);
+                seatedIds.add(u.id);
+                fillTablePairs(best, pairOf);
+            });
+
             return tables;
         }
 
-        // ── Round 2: rotate, so nobody repeats a face ──────────────────
+        // ── Rotation: men move, women hold ─────────────────────────────
         //
-        // Women hold their seats, men move one table along (wrapping at the
-        // end). With T tables that is the classic speed-dating rotation and it
-        // has a property worth stating plainly: every man meets an ENTIRELY
-        // NEW set of women in round two. Not "mostly new" -- zero repeats,
-        // guaranteed by construction rather than by scoring, because table
-        // membership is disjoint and every man leaves the table he was at.
+        // Round r seats the men from table (i − r) at table i, so the men's
+        // groups walk the circuit. Two properties matter more here than the
+        // few points a re-optimisation might find:
         //
-        // Why not re-run buildTables() with the met-pairs penalised? Because
-        // greedy re-optimisation gives no guarantee: it would usually produce
-        // fresh pairings and occasionally repeat one, and a host cannot see
-        // which. A rotation is checkable at a glance -- table 1's men are now
-        // at table 2 -- which matters more at 6:30pm in a loud room than a
-        // few points of chemistry.
+        //   1. Zero repeats, by construction. For every offset below T each
+        //      man faces an entirely new set of women — not "mostly new",
+        //      none repeated. A greedy re-solve would usually manage that and
+        //      occasionally not, with no way for a host to see which.
+        //   2. Checkable at a glance in a loud room: table 1's men are now at
+        //      table 2. That is the whole instruction.
         //
-        // One table means no rotation is possible; the caller says so rather
-        // than silently showing the same seating twice.
-        function rotateTables(tables) {
-            if (tables.length < 2) return null;
-            const menBy = tables.map(t => t.men);
-            return tables.map((t, i) => ({
-                women: t.women,
-                men: menBy[(i - 1 + tables.length) % tables.length],
-                pairs: [],
-            }));
+        // The circuit closes after T rounds — offset T is offset 0, the
+        // original seating — so T tables support exactly T rounds. Asking for
+        // more has to be refused rather than quietly served a repeat.
+        function rotateTables(tables, offset) {
+            const T = tables.length;
+            if (T < 2) return null;
+            const k = ((offset % T) + T) % T;
+            if (k === 0) return null;
+            const pairOf = pairLookup();
+            return tables.map((t, i) => {
+                const rot = { women: t.women, men: tables[(i - k + T) % T].men, pairs: [] };
+                fillTablePairs(rot, pairOf);
+                return rot;
+            });
         }
 
-        // Every (woman, man) who shared a table in either round -- used so the
-        // 1-on-1s that follow do not re-pair two people who have already had
+        // Rounds this room can seat with no pair repeated: one per table.
+        function maxRoundsFor(tables) { return Math.max(1, tables.length); }
+
+        // The seated rounds for this event — round 1 as built, then one
+        // rotation per extra round, capped at what the table count supports.
+        function buildRounds(size, wanted) {
+            const r1 = buildTables(size);
+            if (!r1.length) return [];
+            const cap = Math.max(1, Math.min(wanted, maxRoundsFor(r1)));
+            const rounds = [r1];
+            for (let r = 1; r < cap; r++) {
+                const rot = rotateTables(r1, r);
+                if (!rot) break;
+                rounds.push(rot);
+            }
+            return rounds;
+        }
+
+        // Which round seats each (woman, man) together, if any.
+        //
+        // This is what makes the intro sheets rotation-aware, and it is the
+        // thing they were missing: a pair the seating already brings together
+        // needs no introduction from the host at all. The pairs the rotation
+        // NEVER seats together are the host's entire manual job, and on a
+        // flat score-ranked sheet they were indistinguishable from the rest.
+        function seatedRoundOf(rounds) {
+            const m = new Map();
+            rounds.forEach((rnd, i) => rnd.forEach(t => t.women.forEach(w => t.men.forEach(mn => {
+                const key = w.id + '|' + mn.id;
+                if (!m.has(key)) m.set(key, i + 1);
+            }))));
+            return m;
+        }
+
+        // Every (woman, man) who shares a table in any round — used so the
+        // 1-on-1s that follow do not re-pair two people who already had
         // fifteen minutes together.
         function metInRounds(rounds) {
-            const met = new Set();
-            rounds.forEach(rnd => rnd.forEach(t => t.women.forEach(w => t.men.forEach(m => {
-                met.add(w.id + '|' + m.id);
-            }))));
-            return met;
+            return new Set(seatedRoundOf(rounds).keys());
         }
 
+        // Where one person sits each round, and with whom. The answer to the
+        // question a paper seating chart makes hardest: "I'm Dana — where do
+        // I go now?" Scanning three printed tables for a name takes longer
+        // than the room will wait.
+        function itineraryFor(person, rounds) {
+            return rounds.map((rnd, i) => {
+                const ti = rnd.findIndex(t =>
+                    t.women.some(w => w.id === person.id) || t.men.some(m => m.id === person.id));
+                if (ti === -1) return { round: i + 1, table: null, withThem: [] };
+                const t = rnd[ti];
+                const isW = t.women.some(w => w.id === person.id);
+                return { round: i + 1, table: ti + 1, withThem: isW ? t.men : t.women };
+            });
+        }
         // ── 1-on-1s: rounds of simultaneous pairs ──────────────────────
         //
         // Each round is a matching: every person in at most one pair. Built
@@ -3911,6 +4127,12 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             // (4 women, 9 men, 36 possible pairs): 22 pairs met at 4 seats a
             // table, but ALL 36 at the default 6.
             //
+            // A third round makes this MORE likely, not less -- every extra
+            // rotation seats more of the room together, so the fallback below
+            // stops being an edge case and becomes the normal ending for a
+            // small event. That is the trade the host is making by adding the
+            // round, and the banner in the run-of-show says so out loud.
+            //
             // So fall back to the strongest pairs regardless of whether they
             // already sat together, and tell the host that is what these are.
             // "Five more minutes with your best match" is a real format; a
@@ -3924,11 +4146,13 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 container.innerHTML = '<div class="empty" style="padding:24px;text-align:center;">No attendees scored yet.</div>';
                 return;
             }
-            const tables = buildTables(_tableSize);
-            const round2 = rotateTables(tables);
-            const roundsForCards = _tableRound === 2 && round2 ? round2 : tables;
+            const rounds    = buildRounds(_tableSize, _tableRounds);
+            const available = rounds.length;
+            const nTables   = rounds.length ? rounds[0].length : 0;
+            if (_tableRound > available) _tableRound = available || 1;
+            const shown = rounds[_tableRound - 1] || [];
 
-            const cards = roundsForCards.map((t, i) => {
+            const cards = shown.map((t, i) => {
                 const avg = t.pairs.length
                     ? Math.round(t.pairs.reduce((s2, p) => s2 + p.score, 0) / t.pairs.length)
                     : null;
@@ -3937,22 +4161,17 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 // Conversation starters: the interests shared by the most
                 // pairs at this table -- what the group actually has in
                 // common, which is the point of seating them together.
-                // Round 2 arrives with an empty pairs list (rotateTables only
-                // moves people); fill it from the scored pairs so the average
-                // and the topics describe the round actually on screen.
-                if (!t.pairs.length) {
-                    const byKey = new Map();
-                    _chemPairs.forEach(p => { byKey.set(p.a.id + '|' + p.b.id, p); byKey.set(p.b.id + '|' + p.a.id, p); });
-                    t.women.forEach(w => t.men.forEach(m => {
-                        const pr = byKey.get(w.id + '|' + m.id);
-                        if (pr) t.pairs.push(pr);
-                    }));
-                }
                 const tally = {};
                 t.pairs.forEach(p => (p.sharedInterests || []).forEach(tag => { tally[tag] = (tally[tag] || 0) + 1; }));
                 const topics = Object.entries(tally).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([tag]) => tag);
 
-                const chip = (u, cls) => `<span class="table-chip ${cls}" title="${safe((u.firstName || '') + ' ' + (u.lastName || ''))}">${safe(_chemShortName(u))}${u.limitedProfile ? '' : ''}</span>`;
+                // Where this table's men came from, so the host can call the
+                // move out loud instead of reading names off a chart.
+                const from = (_tableRound > 1 && nTables > 1)
+                    ? (((i - (_tableRound - 1)) % nTables) + nTables) % nTables + 1
+                    : null;
+
+                const chip = (u, cls) => `<span class="table-chip ${cls}" title="${safe((u.firstName || '') + ' ' + (u.lastName || ''))}">${safe(_chemShortName(u))}</span>`;
                 return `<div class="table-card">
                     <div class="table-card-head">
                         <span class="table-card-title">Table ${i + 1}</span>
@@ -3961,43 +4180,79 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     </div>
                     <div class="table-chip-row">${t.women.map(w => chip(w, 'w')).join('')}</div>
                     <div class="table-chip-row">${t.men.map(m => chip(m, 'm')).join('')}</div>
+                    ${from ? `<div class="table-move">Men from table ${from}</div>` : ''}
                     ${topics.length ? `<div class="table-topics" title="Interests shared by the most pairs at this table">Talk about: ${topics.map(safe).join(' · ')}</div>` : ''}
                 </div>`;
+            }).join('');
+
+            // What the seating leaves undone: the pairs no round ever puts at
+            // the same table. The intro sheets lead with these.
+            const seatedMap  = seatedRoundOf(rounds);
+            const missed     = _chemPairs.filter(p => !seatedMap.has(p.a.id + '|' + p.b.id));
+            const missedHigh = missed.filter(p => p.score >= 70).length;
+
+            const roundBtns = [1, 2, 3].map(n => {
+                const ok = n <= available;
+                return `<button class="chem-toggle-btn${n === _tableRound ? ' active' : ''}" onclick="setTableRound(${n})"${
+                    ok ? '' : ` disabled title="Only ${available} round${available === 1 ? '' : 's'} fit — there ${nTables === 1 ? 'is 1 table' : 'are ' + nTables + ' tables'} to rotate through"`
+                }>${n}</button>`;
             }).join('');
 
             container.innerHTML = `
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
                     <span style="font-size:12px;color:rgba(245,243,240,0.55);">Seats per table</span>
                     ${[4, 6, 8].map(n => `<button class="chem-toggle-btn${n === _tableSize ? ' active' : ''}" onclick="setTableSize(${n})">${n}</button>`).join('')}
-                    <span style="margin-left:14px;font-size:12px;color:rgba(245,243,240,0.55);">Round</span>
-                    <button class="chem-toggle-btn${_tableRound === 1 ? ' active' : ''}" onclick="setTableRound(1)">1</button>
-                    <button class="chem-toggle-btn${_tableRound === 2 ? ' active' : ''}" onclick="setTableRound(2)"${round2 ? '' : ' disabled title="Needs at least two tables to rotate"'}>2</button>
+                    <span style="margin-left:14px;font-size:12px;color:rgba(245,243,240,0.55);">Table rounds</span>
+                    ${[2, 3].map(n => `<button class="chem-toggle-btn${n === _tableRounds ? ' active' : ''}" onclick="setTableRounds(${n})">${n}</button>`).join('')}
+                    <span style="margin-left:14px;font-size:12px;color:rgba(245,243,240,0.55);">Showing</span>
+                    ${roundBtns}
                     <span style="flex:1"></span>
                     <button class="action-btn" onclick="printTables()">&#9046; Print seating</button>
                 </div>
-                ${_tableRound === 2 && round2
-                    ? '<div style="font-size:12px;color:var(--gold);margin-bottom:10px;">Round 2 &middot; women stay, men move one table along &mdash; every pairing here is new.</div>'
-                    : (round2 ? '' : '<div style="font-size:12px;color:rgba(245,243,240,0.45);margin-bottom:10px;">Only one table, so there is no round 2 to rotate into.</div>')}
+                <div class="rotation-note">
+                    ${nTables} table${nTables === 1 ? '' : 's'} at ${_tableSize} seats
+                    &rarr; <strong>${available} round${available === 1 ? '' : 's'}</strong> with no pairing repeated.
+                    ${_tableRounds > available
+                        ? `<span class="rotation-warn">Asked for ${_tableRounds}. Round ${available + 1} would re-seat round 1 exactly &mdash; the men have walked the whole circuit &mdash; so it is not offered. ${_tableSize > 4 ? 'Fewer seats per table splits the room into more tables and buys another round.' : 'More attendees would split the room into more tables and buy another round.'}</span>`
+                        : ''}
+                    ${_tableRound > 1 ? ' <span class="rotation-live">Women stay seated. Men move one table along each round.</span>' : ''}
+                </div>
                 <div class="table-cards">${cards}</div>
                 <div style="font-size:11px;color:rgba(245,243,240,0.4);margin-top:10px;">
-                    Tables are seeded from the strongest unseated pair, then filled with whoever has the
-                    highest total chemistry with the people already seated, keeping women/men balanced.
-                    Odd headcounts land on the last table.
+                    Round 1 is seeded from the strongest unseated pair, then filled with whoever has the
+                    highest total chemistry with the people already seated. Women and men are split evenly
+                    across tables so every later round stays as balanced as the first.
+                    ${missed.length
+                        ? `<br>${missed.length} pair${missed.length === 1 ? '' : 's'} never share a table${missedHigh ? `, ${missedHigh} of them scoring 70+` : ''} &mdash; those are the intros to make by hand, listed first under <em>Intro order</em>.`
+                        : '<br>Every scored pair shares a table at some point &mdash; the rotation covers the whole room.'}
                 </div>`;
         }
 
-        window.setTableSize = (n) => { _tableSize = n; renderTables(); };
-        window.setTableRound = (n) => { _tableRound = n; renderTables(); };
+        window.setTableSize   = (n) => { _tableSize = n; renderTables(); };
+        window.setTableRound  = (n) => { _tableRound = n; renderTables(); };
+        // Changing the round count changes the plan the run-of-show is
+        // stepping through, so a clock left running against the old plan
+        // would be counting down the wrong segment. Reset it.
+        window.setTableRounds = (n) => {
+            _tableRounds = n;
+            runReset();
+            renderTables();
+        };
+        window.setRoundMinutes = (n) => {
+            _roundMinutes = n;
+            runReset();
+        };
 
         window.printTables = () => {
-            const tables = buildTables(_tableSize);
-            const r2 = rotateTables(tables);
+            const rounds = buildRounds(_tableSize, _tableRounds);
             const fmt = (arr, label) => label + '\n\n' + arr.map((t, i) => {
                 const names = [...t.women, ...t.men].map(u => '  ' + _chemShortName(u)).join('\n');
                 return `Table ${i + 1} (${t.women.length}W/${t.men.length}M)\n${names}`;
             }).join('\n\n');
-            const lines = fmt(tables, 'ROUND 1 - 15 minutes')
-                + (r2 ? '\n\n\n' + fmt(r2, 'ROUND 2 - 15 minutes (women stay, men move one table along)') : '');
+            const lines = rounds.map((r, i) => fmt(
+                r,
+                `ROUND ${i + 1} - ${_roundMinutes} minutes` + (i ? ' (women stay, men move one table along)' : '')
+            )).join('\n\n\n');
             const w = window.open('', '_blank');
             w.document.write(`<pre style="font-family:monospace;font-size:14px;padding:24px;white-space:pre-wrap;">${lines}</pre>`);
             w.document.close();
@@ -4006,11 +4261,18 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
         // ── Run of show — the view the host actually holds at 6:30 ─────
         //
-        // Two 15-minute table rounds, then 1-on-1s. This is the only view
+        // Two or three seated rounds, then 1-on-1s. This is the only view
         // used DURING an event rather than before one, and that changes what
         // it has to be: big type, one instruction at a time, readable at
         // arm's length in a dark loud room, on a phone. Everything that is a
         // dense table elsewhere is a single line here.
+        //
+        // The question this view exists to answer fast is not "what is the
+        // plan" -- that is the Tables view, and it prints. It is the one a
+        // printed chart is worst at: someone walks up mid-rotation and asks
+        // where they go now. On paper that means scanning three seating
+        // charts for a name. Here it is the lookup box: type three letters,
+        // get their table for every round and who is at it.
         //
         // The timer is wall-clock based (an end timestamp), not a decrementing
         // counter. A setInterval that subtracts one second per tick drifts and
@@ -4021,19 +4283,23 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         let _runEndsAt = null;        // epoch ms the running segment ends
         let _runPaused = null;        // ms remaining when paused, else null
         let _runStep = 0;             // index into the built plan
+        let _runFind = '';            // "where do I sit?" lookup query
 
-        const ROUND_MS = 15 * 60 * 1000;
         const ONE_ON_ONE_MS = 5 * 60 * 1000;
 
         function buildRunPlan() {
-            const r1 = buildTables(_tableSize);
-            const r2 = rotateTables(r1);
-            const rounds = r2 ? [r1, r2] : [r1];
+            const rounds = buildRounds(_tableSize, _tableRounds);
+            if (!rounds.length) return [];
             const ones = buildOneOnOnes(rounds, 6);
-            const plan = [
-                { kind: 'round', label: 'Round 1', ms: ROUND_MS, tables: r1 },
-            ];
-            if (r2) plan.push({ kind: 'round', label: 'Round 2', ms: ROUND_MS, tables: r2 });
+            const plan = rounds.map((tables, i) => ({
+                kind: 'round',
+                label: `Round ${i + 1}`,
+                ms: _roundMinutes * 60 * 1000,
+                tables,
+                rotated: i > 0,
+                nTables: tables.length,
+                offset: i,
+            }));
             ones.rounds.forEach((pairs, i) => plan.push({
                 kind: 'ones', label: `1-on-1s · round ${i + 1}`, ms: ONE_ON_ONE_MS, pairs,
                 revisiting: ones.revisiting,
@@ -4074,6 +4340,58 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             renderRunOfShow();
         };
 
+        // The lookup repaints on every keystroke, and the 1s clock repaints
+        // the whole panel underneath it — which would blow away the caret and
+        // the half-typed name. So the query is held in state and the input is
+        // re-focused with the caret at the end after each repaint.
+        window.runFind = (q) => { _runFind = q; renderRunOfShow(); };
+        window.runFindClear = () => { _runFind = ''; renderRunOfShow(); };
+
+        // Everyone in the room, for the lookup. Matches on first name, last
+        // name, or email — a host who only caught a first name should not
+        // have to know the spelling of the surname.
+        function findAttendees(q) {
+            const needle = (q || '').trim().toLowerCase();
+            if (needle.length < 2) return [];
+            const hay = (u) => [u.firstName, u.lastName, u.email].filter(Boolean).join(' ').toLowerCase();
+            return [..._chemWomen, ..._chemMen].filter(u => hay(u).includes(needle)).slice(0, 6);
+        }
+
+        function renderFindPanel(rounds, currentRound) {
+            const results = findAttendees(_runFind);
+            const box = `<input class="run-find-input" id="runFindInput" type="search"
+                    placeholder="Where do I sit? — type a name"
+                    value="${safe(_runFind)}"
+                    oninput="runFind(this.value)" autocomplete="off">`;
+
+            if (!_runFind.trim()) return `<div class="run-find">${box}</div>`;
+            if (!results.length) {
+                return `<div class="run-find">${box}
+                    <div class="run-find-empty">No one by that name in this event.</div></div>`;
+            }
+
+            const cards = results.map(u => {
+                const isW = _chemWomen.some(w => w.id === u.id);
+                const legs = itineraryFor(u, rounds).map(leg => {
+                    const here = leg.round === currentRound;
+                    const names = leg.withThem.map(o => _chemShortName(o)).join(', ');
+                    return `<div class="run-find-leg${here ? ' now' : ''}">
+                        <span class="run-find-r">R${leg.round}</span>
+                        <span class="run-find-t">${leg.table ? 'Table ' + leg.table : '—'}</span>
+                        <span class="run-find-with">${safe(names)}</span>
+                    </div>`;
+                }).join('');
+                return `<div class="run-find-card">
+                    <div class="run-find-name"><span class="table-chip ${isW ? 'w' : 'm'}">${safe(_chemShortName(u))}</span></div>
+                    ${legs}
+                </div>`;
+            }).join('');
+
+            return `<div class="run-find">${box}
+                <button class="run-find-x" onclick="runFindClear()" title="Clear">&times;</button>
+                <div class="run-find-results">${cards}</div></div>`;
+        }
+
         function renderRunOfShow() {
             const c = document.getElementById('runView');
             if (!c) return;
@@ -4082,19 +4400,31 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 return;
             }
             const plan = buildRunPlan();
+            if (!plan.length) {
+                c.innerHTML = '<div class="empty" style="padding:24px;text-align:center;">Nothing to run — no tables could be built.</div>';
+                return;
+            }
             const step = plan[Math.min(_runStep, plan.length - 1)];
             const running = _runEndsAt !== null;
             const remain = _runPaused !== null ? _runPaused : (running ? _runEndsAt - Date.now() : step.ms);
             const over = running && _runPaused === null && remain <= 0;
 
+            const seatedRounds = plan.filter(s => s.kind === 'round').map(s => s.tables);
+            const currentRound = step.kind === 'round' ? _runStep + 1 : null;
+
             // Body: what the host reads out for this segment.
             let body;
             if (step.kind === 'round') {
-                body = `<div class="run-tables">` + step.tables.map((t, i) => `
+                body = `<div class="run-tables">` + step.tables.map((t, i) => {
+                    const from = step.rotated && step.nTables > 1
+                        ? (((i - step.offset) % step.nTables) + step.nTables) % step.nTables + 1
+                        : null;
+                    return `
                     <div class="run-table">
-                        <div class="run-table-n">Table ${i + 1}</div>
+                        <div class="run-table-n">Table ${i + 1}${from ? ` <span class="run-table-from">&larr; men from ${from}</span>` : ''}</div>
                         <div>${[...t.women, ...t.men].map(u => `<span class="table-chip ${t.women.includes(u) ? 'w' : 'm'}">${safe(_chemShortName(u))}</span>`).join('')}</div>
-                    </div>`).join('') + `</div>`;
+                    </div>`;
+                }).join('') + `</div>`;
             } else {
                 body = `<div class="run-tables">` + step.pairs.map((p, i) => `
                     <div class="run-table">
@@ -4106,6 +4436,13 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     </div>`).join('') + `</div>`;
                 if (!step.pairs.length) body = '<div class="empty" style="padding:18px;">Everyone has already met everyone available.</div>';
             }
+
+            const seatedCount = plan.filter(s => s.kind === 'round').length;
+
+            // The 1s clock repaint replaces this whole panel, caret and all.
+            // Only steal focus back if the host was actually typing in it --
+            // otherwise the lookup grabs the cursor once a second forever.
+            const wasTyping = document.activeElement && document.activeElement.id === 'runFindInput';
 
             c.innerHTML = `
                 <div class="run-head">
@@ -4119,15 +4456,36 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <button class="action-btn" onclick="runReset()">Reset</button>
                     </div>
                 </div>
-                ${step.kind === 'round' && _runStep === 1
+                <div class="run-setup">
+                    <span>Round length</span>
+                    ${[10, 15, 20].map(n => `<button class="chem-toggle-btn${n === _roundMinutes ? ' active' : ''}" onclick="setRoundMinutes(${n})">${n}m</button>`).join('')}
+                    <span style="margin-left:10px;">Table rounds</span>
+                    ${[2, 3].map(n => `<button class="chem-toggle-btn${n === _tableRounds ? ' active' : ''}" onclick="setTableRounds(${n})">${n}</button>`).join('')}
+                    <span class="run-setup-note">${seatedCount} seated round${seatedCount === 1 ? '' : 's'}${
+                        _tableRounds > seatedCount ? ` · ${_tableRounds} asked for, only ${seatedCount} fit without repeating` : ''
+                    } · then 5-minute 1-on-1s</span>
+                </div>
+                ${renderFindPanel(seatedRounds, currentRound)}
+                ${step.kind === 'round' && step.rotated
                     ? '<div style="font-size:13px;color:var(--gold);margin:8px 0 2px;">Women stay seated. Men move one table along.</div>' : ''}
                 ${step.kind === 'ones' && step.revisiting
                     ? '<div style="font-size:13px;color:var(--gold);margin:8px 0 2px;">Small room &mdash; everyone has already met. These are the strongest matches, five minutes each.</div>' : ''}
                 ${body}
                 <div style="font-size:11px;color:rgba(245,243,240,0.4);margin-top:12px;">
-                    Two 15-minute rounds, then 5-minute 1-on-1s. The clock runs on wall time, so it stays
-                    correct if the screen sleeps. 1-on-1 pairs never repeat someone you already sat with.
+                    ${seatedCount} &times; ${_roundMinutes}-minute round${seatedCount === 1 ? '' : 's'}, then 5-minute 1-on-1s. The clock runs on wall
+                    time, so it stays correct if the screen sleeps. 1-on-1 pairs never repeat someone you
+                    already sat with, unless the room is small enough that everyone has met.
                 </div>`;
+
+            // Restore the caret the repaint just destroyed.
+            if (wasTyping) {
+                const input = document.getElementById('runFindInput');
+                if (input) {
+                    input.focus();
+                    const end = input.value.length;
+                    try { input.setSelectionRange(end, end); } catch (e) { /* not all input types allow it */ }
+                }
+            }
         }
 
         window.togglePrio = (wId, mId) => {
@@ -4138,11 +4496,20 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         };
 
         window.printPriorityIntros = () => {
-            const pairs = _chemPairs;
-            if (!pairs.length) return;
+            if (!_chemPairs.length) return;
             const sn = _chemShortName;
+            const seatedMap = seatedRoundOf(buildRounds(_tableSize, _tableRounds));
 
-            const rows = pairs.map((p, i) => {
+            // Same order as the screen: the pairs the rotation never seats
+            // together lead. A printed sheet in the old order sent the host
+            // chasing introductions the seating was about to make anyway.
+            const pairs = _chemPairs
+                .map(p => ({ p, round: seatedMap.get(p.a.id + '|' + p.b.id) || null }))
+                .sort((x, y) => (x.round === null ? 0 : 1) - (y.round === null ? 0 : 1)
+                             || y.p.score - x.p.score);
+            const manualCount = pairs.filter(r => r.round === null).length;
+
+            const rows = pairs.map(({ p, round }, i) => {
                 const w = p.a, m = p.b;
                 const details = [
                     ...(p.sharedInterests  || []).slice(0, 3),
@@ -4158,9 +4525,13 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 }
 
                 const ss = p.score >= 70 ? 'color:#1a7a3a;font-weight:700;' : p.score < 45 ? 'color:#aaa;' : 'color:#555;font-weight:600;';
-                return `<tr>
+                const tag = round
+                    ? `<span style="color:#999;font-size:11px;">seated R${round}</span>`
+                    : `<span style="color:#c0392b;font-size:11px;font-weight:700;">INTRO</span>`;
+                return `<tr${round ? ' style="opacity:0.55;"' : ''}>
                     <td style="width:30px;text-align:center;"><div style="width:18px;height:18px;border:1.5px solid #ccc;border-radius:50%;display:inline-block;"></div></td>
                     <td style="width:38px;${ss}font-size:15px;text-align:center;">${p.score}</td>
+                    <td style="width:58px;text-align:center;">${tag}</td>
                     <td style="font-size:15px;font-weight:600;">${safe(sn(w))} <span style="color:#aaa;font-weight:400;">↔</span> ${safe(sn(m))}</td>
                     <td style="font-size:12px;color:#888;">${safe(details)}${intentNote}</td>
                 </tr>`;
@@ -4178,7 +4549,8 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
   @media print { body { padding: 12px; } }
 </style></head><body>
 <h2>Intro Priority List</h2>
-<p class="sub">Highest chemistry first — check off as you go.</p>
+<p class="sub">${manualCount} pair${manualCount === 1 ? '' : 's'} the ${_tableRounds}-round rotation never seats together — those are marked
+INTRO and listed first. The rest are covered by the seating and are here only for reference.</p>
 <table><tbody>${rows}</tbody></table>
 </body></html>`;
 
