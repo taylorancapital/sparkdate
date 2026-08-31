@@ -6,6 +6,7 @@
     "node": "22.x"
   },
   "scripts": {
+    "brief": "node scripts/session-brief.js",
     "test": "vitest",
     "test:run": "vitest run",
     "test:ci": "vitest run --reporter=verbose",

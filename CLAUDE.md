@@ -36,6 +36,58 @@ in-flight state, say), **read it, do not write to it**, and say so.
 
 ---
 
+## STARTING AND ENDING A SESSION (2026-08-31)
+
+Chats get closed early and often here — context fills up long before the work
+runs out. That boundary is where state was being lost, so it has a protocol.
+
+**At the start: `npm run brief`.** It prints the live worktrees (and which are
+merged corpses safe to remove), open PRs, recent `origin/main`, stashes, and
+`HANDOFF.md`. A SessionStart hook may run it for you; if you have not seen its
+output, run it. Do not reconstruct this by hand and do not trust a written-down
+copy of it.
+
+**At the end: `/handoff`.** Write what you were mid-way through into
+`HANDOFF.md` and open the PR. Do it when the *work* reaches a boundary, not when
+the context runs out — a compacted session writes a vague handoff.
+
+**Four places to write things, and they do not overlap:**
+
+| Kind | Where | Test |
+|---|---|---|
+| Rules for working here | `CLAUDE.md` | Still true next month? |
+| Facts learned about the system | memory files | True regardless of task? |
+| Analyses and findings | `reports/` | Someone might cite it? |
+| What I was mid-way through | `HANDOFF.md`, ≤25 lines | Dead once merged? |
+| Open PRs, worktrees, stashes | **nowhere** | `npm run brief` derives it |
+
+That last row is the one that keeps getting violated. Hand-written inventories
+of PRs and worktrees were wrong within hours, every time.
+
+**Size a chat to a PR.** One chat → one branch → one PR → close it. The merge is
+then the natural end of the chat, and you stop hitting the context wall
+mid-thought. `ExitWorktree remove` once it merges — three merged worktrees were
+left lying around on 08-30 and made the state look busier than it was.
+
+**Start sessions from `~/source/repos/sparkdate`, never from inside a
+worktree.** The memory directory is keyed to the directory the session launches
+in. Seven of them exist; only the one keyed to the main checkout has the real
+`MEMORY.md`. Launch elsewhere and the session silently loads no memory at all.
+
+## Environment gotchas that cost real time
+
+- Shell is PowerShell 5.1: no `&&`, no `awk`, no unix `head`/`tail`.
+- Writing Windows paths inside a Python heredoc breaks on `\U` and `\f`
+  (`C:\Users\...` → unicodeescape error). Use forward slashes or the Edit tool.
+- Embedded double quotes in a multi-line argument to a native exe (e.g.
+  `git commit -m @'...'@` with `"` inside) get mangled by PS 5.1 native-arg
+  re-quoting — the message splits into stray pathspecs. Write the text to a file
+  and use `git commit -F` / `gh pr create --body-file`.
+- A worktree-isolated session refuses compound shell commands it cannot prove
+  stay inside the worktree. Split them into separate plain calls.
+
+---
+
 > ## SUPERSEDED IN PART — read this first (2026-08-21)
 >
 > **The source of truth is no longer `SparkDate_Posting_Worksheet.xlsx`.** It is
