@@ -44,10 +44,37 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
-DEFAULT_WB = os.path.join(
-    REPO, "Business Plan", "files", "Marketing & GTM",
-    "Content Calendar & UTM Links.xlsb.xlsx",
+
+# The UTM home is a FOLDER, not a file.
+#
+# This used to write into "Marketing & GTM/Content Calendar & UTM Links.xlsb
+# .xlsx" -- a content calendar (Instagram/TikTok calendars, Daily Tracker,
+# Dashboard Results) that had UTM sheets bolted onto it. The purpose-built
+# workbook is "SparkDate_UTM_Campaign_Links", one sheet per event with an
+# auto-assembling Full Campaign URL column, and it lives in a different
+# folder entirely.
+#
+# The generated sheet does NOT go into that workbook, for a measured reason.
+# openpyxl cannot round-trip x14 extended data validations, and the campaign
+# workbook has 16 of them: the Platform dropdowns on column A of all four
+# event sheets, sourced from Sheet2. A load+save preserves its 138 formulas
+# and its inline utm_medium dropdown but silently destroys those Platform
+# dropdowns -- verified on a copy, 16 elements in, 0 out. Re-injecting them
+# means splicing raw XML and re-declaring namespace prefixes on openpyxl's
+# output root, which is not a dependency worth carrying to keep two kinds of
+# data in one file.
+#
+# So: script-owned output lives in its own file, in the SAME folder as the
+# hand-maintained one. One place to look, nothing hand-curated at risk.
+UTM_DIR = os.path.join(
+    REPO, "Business Plan", "files", "Social Media Marketing",
+    "Content Calendars & Strategy",
 )
+DEFAULT_WB = os.path.join(UTM_DIR, "SparkDate_Paid_Ad_UTMs (generated).xlsx")
+
+# The hand-maintained companion, named here only so the banner can point at it.
+HAND_WB = "SparkDate_UTM_Campaign_Links (version 1).xlsb.xlsx"
+
 SHEET = "Paid Ad UTMs"
 GRAPH = "https://graph.facebook.com/v21.0"
 
@@ -127,10 +154,47 @@ COLUMNS = [
 ]
 
 
+def has_extended_validations(path):
+    """
+    Count x14 (extended) data validations in a workbook.
+
+    openpyxl silently drops these on save. They are how Excel expresses a
+    dropdown whose list lives on ANOTHER sheet, so they are exactly the
+    validations a hand-maintained workbook depends on. Anything above zero
+    means saving with openpyxl would destroy work.
+    """
+    import re
+    import zipfile
+    with zipfile.ZipFile(path) as z:
+        return sum(
+            len(re.findall(r"x14:dataValidation\b", z.read(n).decode("utf-8", "ignore")))
+            for n in z.namelist() if n.startswith("xl/worksheets/sheet")
+        )
+
+
 def write_sheet(path, rows):
     import openpyxl
     from openpyxl.styles import Font
-    wb = openpyxl.load_workbook(path)
+
+    if os.path.exists(path):
+        # Refuse rather than quietly degrade someone's workbook. This is the
+        # guard that stops a future --workbook pointed at the hand-maintained
+        # campaign links file from stripping its Platform dropdowns.
+        lost = has_extended_validations(path)
+        if lost:
+            raise SystemExit(
+                f"Refusing to write {os.path.basename(path)}: it carries {lost} extended "
+                "(x14) data validation(s) -- dropdowns whose list lives on another sheet.\n"
+                "openpyxl cannot round-trip those; saving would delete them permanently.\n"
+                "Point --workbook at a script-owned file instead, and keep hand-maintained "
+                "workbooks out of this script's reach."
+            )
+        wb = openpyxl.load_workbook(path)
+    else:
+        # First run: the generated workbook is ours to create.
+        wb = openpyxl.Workbook()
+        wb.remove(wb.active)
+
     if SHEET in wb.sheetnames:
         del wb[SHEET]          # regenerated whole; nothing here is hand-entered
     ws = wb.create_sheet(SHEET)
@@ -138,17 +202,28 @@ def write_sheet(path, rows):
     stamp = _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
     ws.cell(row=1, column=1, value=f"Generated from the Meta Ads API {stamp} by scripts/sync-utm-content.py "
                                    f"-- do not hand-edit, it is overwritten on every run. "
-                                   f"The 'UTM Links' sheet is the hand-maintained one and is never touched.")
+                                   f"Hand-maintained links (Eventbrite, email, flyers, Nextdoor, Google Business) "
+                                   f"belong in '{HAND_WB}' in this folder, which no script touches.")
     ws.cell(row=1, column=1).font = Font(italic=True, size=9)
 
+    # The convention, next to the data it governs -- utm_content is REQUIRED
+    # and unique per ad, not the "optional A/B field" the older guidance said.
+    # A shared value is why 11 ads carried proof_rsa1 and none of them could
+    # be attributed. See content/brand.json paid_template.caption_rules.utm.
+    ws.cell(row=2, column=1, value="Convention: utm_source={{site_source_name}} (Meta fills it per placement, lowercase) "
+                                   "| utm_medium=paid_social | utm_campaign={EVENT}_{YYYYMM} "
+                                   "| utm_content={event}_{phase}_{ad_set}_{creative} -- REQUIRED, and unique per ad.")
+    ws.cell(row=2, column=1).font = Font(italic=True, size=9)
+
+    # Row 1 banner, row 2 convention, row 3 header, data from row 4.
     for c, (name, width) in enumerate(COLUMNS, 1):
-        cell = ws.cell(row=2, column=c, value=name)
+        cell = ws.cell(row=3, column=c, value=name)
         cell.font = Font(bold=True)
         ws.column_dimensions[cell.column_letter].width = width
-    for r, row in enumerate(rows, 3):
+    for r, row in enumerate(rows, 4):
         for c, (name, _) in enumerate(COLUMNS, 1):
             ws.cell(row=r, column=c, value=row.get(name, ""))
-    ws.freeze_panes = "A3"
+    ws.freeze_panes = "A4"
     wb.save(path)
 
 
@@ -188,10 +263,16 @@ def main():
     if args.dry_run:
         print("\nDry run -- workbook not written.")
         return
-    if not os.path.exists(args.workbook):
-        raise SystemExit(f"Workbook not found: {args.workbook}")
+    # The generated workbook is created on first run -- it is script-owned, so
+    # a missing file is a first run, not an error. Its FOLDER must exist,
+    # because a missing folder means the path is wrong rather than new.
+    folder = os.path.dirname(args.workbook)
+    if folder and not os.path.isdir(folder):
+        raise SystemExit(f"Folder not found: {folder}")
+    fresh = not os.path.exists(args.workbook)
     write_sheet(args.workbook, rows)
-    print(f"\nWrote '{SHEET}' ({len(rows)} rows) to {os.path.basename(args.workbook)}")
+    print(f"\n{'Created' if fresh else 'Wrote'} '{SHEET}' ({len(rows)} rows) "
+          f"in {os.path.basename(args.workbook)}")
 
 
 if __name__ == "__main__":
