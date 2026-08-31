@@ -86,6 +86,18 @@ in. Seven of them exist; only the one keyed to the main checkout has the real
 - A worktree-isolated session refuses compound shell commands it cannot prove
   stay inside the worktree. Split them into separate plain calls.
 
+## A Night Tasks re-run silently overwrites the previous pull
+
+Pull files in `Business Plan/files/Night Tasks/` are named by table and date,
+not by pull time, so **two pulls on the same day collide and the second wins.**
+2026-08-30 has two sets — the 06:00 UTC pull the GA4 report was built on, and a
+12:51 UTC pull of three new tables. The 06:00 files were kept deliberately; a
+same-named re-run would have destroyed the exact data the report cites.
+
+Before re-running a pull, check whether that date already has files and what
+time they came from. If a report cites them, write the new pull somewhere else.
+The loss is silent — the report keeps rendering, against different numbers.
+
 ---
 
 > ## SUPERSEDED IN PART — read this first (2026-08-21)
