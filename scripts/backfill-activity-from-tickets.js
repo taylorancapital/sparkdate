@@ -106,7 +106,7 @@ async function main() {
   console.log(`${tixSnap.size} ticket(s) in Firestore\n`);
 
   const bySource = {};
-  let written = 0, already = 0, legacyDupe = 0, notConfirmed = 0, noDate = 0, capped = 0;
+  let written = 0, already = 0, legacyDupe = 0, notConfirmed = 0, noDate = 0, capped = 0, plusOne = 0;
 
   // Oldest first, so a --limit run fills in history from the far end rather
   // than leaving a hole in the middle of the feed.
@@ -119,6 +119,16 @@ async function main() {
 
   for (const t of tickets) {
     if (t.status !== 'confirmed') { notConfirmed++; continue; }
+
+    // The free half of a 2-for-1 is NOT a second sale. api/purchase-ticket.js
+    // writes TWO ticket docs for one purchase (primary + isPlusOne guest,
+    // sharing a PaymentIntent, the guest at amount 0) and exactly ONE activity
+    // entry. Backfilling the guest would create feed entries the live path
+    // never creates -- "<guest> bought a ticket ($0.00)" beside the buyer's
+    // real one -- which reads as two sales and makes history disagree with
+    // everything logged from here on. Found in the dry run: 6 of the 7 recent
+    // direct tickets with no feed entry were exactly this.
+    if (t.isPlusOne) { plusOne++; continue; }
 
     if (seenLegacy.has(legacyKey(t.email, t.eventName))) { legacyDupe++; continue; }
 
@@ -168,6 +178,7 @@ async function main() {
     + ` · already logged ${already}`
     + ` · already in the feed from checkout ${legacyDupe}`
     + ` · not confirmed ${notConfirmed}`
+    + ` · 2-for-1 plus-ones ${plusOne}`
     + ` · unusable createdAt ${noDate}`
     + (capped ? ` · left by --limit ${capped}` : ''));
 
