@@ -16,10 +16,10 @@
  * this has to run from a worktree, where .env.local does not exist, and the
  * listing copy must say exactly what the public page says.
  *
- * WHAT IT WILL NOT DO: invent a fact. Attendance figures, spot counts and
- * run-of-show details are not synthesized. Where the source disagrees with
- * itself the pack prints a warning and omits the claim rather than picking a
- * side -- see FORMAT_DISPUTE below.
+ * WHAT IT WILL NOT DO: invent a fact. Attendance figures and spot counts are
+ * not synthesized, and the copy states the SHAPE of the night but never the
+ * round count or length, because those are settings the host picks per event
+ * -- see FORMAT_NOTE below.
  *
  * Usage:
  *   node scripts/build-listing-pack.js                  # all upcoming events
@@ -45,25 +45,37 @@ const arg = (n, d) => {
   return hit.includes('=') ? hit.split('=').slice(1).join('=') : true;
 };
 
-// ── The one thing the generator must not guess ────────────────────────
-// content/brand.json (events.TL.open_issues) records that a live listing
-// described the night as "no bell, no rotation, no timer" and calls that
-// WRONG -- stating the real run of show ends with 7-minute matched rounds.
-// The public blog at /blog/how-same-night-matching-works still says the
-// first version. Both are ours and they contradict each other.
+// ── The format of the night ───────────────────────────────────────────
+// SETTLED 2026-09-01. There is an icebreaker and there is a timer. The
+// authority is the shipped chemistry tool in public/admin.html, not prose:
+// balanced tables of ~6, 2-4 seatings of 10/15/20 minutes (default 4 x 15)
+// with the men rotating one table per seating, then 5-minute 1-on-1s that
+// never repeat a pair. brand.json universal.run_of_show carries the record.
 //
-// A listing description is the exact place that contradiction would harden
-// into a promise to a stranger, so the generator writes around it: every
-// element both sources agree on is used, the disputed mechanic is omitted,
-// and the pack says so at the top. Resolve it in brand.json and on the blog,
-// then add the sentence here on purpose.
-const FORMAT_DISPUTE = {
-  omitted: 'structured rounds vs. open mingling (whether the night ends in timed matched rounds)',
-  sources: [
-    'content/brand.json events.TL.open_issues -- "7-minute matched rounds LAST"',
-    '/blog/how-same-night-matching-works -- "no bell, no forced rotation, no seven-minute timer"',
-  ],
+// The copy below deliberately does NOT state the round count or length.
+// Both are per-event settings the host picks on the night, so a listing that
+// names them is committing a stranger to a number nobody has chosen yet --
+// and a listing cannot be edited once a calendar has moderated it. It says
+// the SHAPE, which is fixed, and leaves the numbers to the host.
+//
+// Six places on the live site still say the opposite ("no bell, no forced
+// rotation, no seven-minute timer" / "no rotation and no timer"). They are
+// listed in SITE_COPY_DEFECTS and printed with the pack, because a listing
+// that describes the real format while the site denies it is a worse state
+// than either one alone.
+const FORMAT_NOTE = {
+  settled: '2026-09-01, against public/admin.html',
+  shape: 'icebreaker → timed seated rounds with the men rotating → 5-minute 1-on-1s → private interest notes → same-night matches',
+  omitted: 'the round count or the minutes per round (both are per-event host settings)',
 };
+
+const SITE_COPY_DEFECTS = [
+  'public/blog/how-same-night-matching-works.html:177 -- "no bell, no forced rotation, no seven-minute timer"',
+  'public/blog/speed-dating-vs-singles-mixer.html:182 -- "A mixer has no rotation and no timer"',
+  'public/blog/speed-dating-vs-singles-mixer.html:205 -- "No whistle, no scorecard, no three-minute timer"',
+  'public/city.html:453, :577, :639 -- "no whistle, no rigid rotation" (all four city pages)',
+  'public/city.html:655 -- same claim inside the FAQ structured data Google surfaces',
+];
 
 // ── Fetch the public event record ─────────────────────────────────────
 
@@ -187,23 +199,29 @@ function buildCopy(event, brandEv) {
     `an in-person singles night where you find out the same evening who liked you back.`;
 
   const short =
-    `A real-life singles night in ${city}. Show up, meet people face to face over a drink, ` +
-    `and privately note who you'd like to see again. Mutual interest becomes a match before ` +
-    `you get home — no app to download, no waiting on a reply that never comes. ` +
+    `A real-life singles night in ${city}. An icebreaker, then timed rounds at small tables — ` +
+    `the men move along each round, so you meet the room instead of one corner of it — then ` +
+    `five-minute one-on-ones. At the end you privately note who you'd like to see again, and ` +
+    `mutual interest becomes a match before you get home. ` +
     `${dateLong(event.start)}, doors ${timeOf(event.start)}. ${money(event.price)}.`;
 
   const long = [
     `${event.description}`,
     ``,
     `**How the night works.** You check in with a host and get a name badge — there's nothing ` +
-    `to download and no profile to fill out at the door. You spend the evening actually talking ` +
-    `to people. Near the end you privately note anyone you'd like to see again; it takes under a ` +
-    `minute and nobody else sees it. If someone noted you back, that's a match, and you both get ` +
-    `it that night rather than after some review period.`,
+    `to download and no profile to fill out at the door. An icebreaker gets the room talking ` +
+    `before anyone sits down. Then you're seated at a small table, and the men move one table ` +
+    `along each round — so every round is a genuinely new set of people, and you meet the room ` +
+    `rather than talking to the same two people by the bar all night. After the tables come ` +
+    `five-minute one-on-ones with people you haven't already sat with. Near the end you ` +
+    `privately note anyone you'd like to see again; it takes under a minute and nobody else ` +
+    `sees it. If someone noted you back, that's a match, and you both get it that night rather ` +
+    `than after some review period.`,
     ``,
     `**Why it's built this way.** Everyone in the room came out on purpose on a ${fmt(event.start, { weekday: 'long' })} ` +
-    `night. That's a filter no dating app has. The awkward part — working out whether it was ` +
-    `mutual — is handled quietly for you, so the evening itself stays a normal night out.`,
+    `night. That's a filter no dating app has. The structure does the hard part — you never ` +
+    `have to work out how to start or end a conversation — and the other awkward part, finding ` +
+    `out whether it was mutual, is handled quietly for you afterwards.`,
     ``,
     `**Details.**`,
     `- ${dateLong(event.start)}`,
@@ -232,12 +250,14 @@ function renderMarkdown(events, sites, utmCfg, brand) {
   out.push(`Generated ${today} by \`scripts/build-listing-pack.js\`. Regenerate rather than`);
   out.push(`editing — prices and dates come from the live event pages and go stale here.`);
   out.push(``);
-  out.push(`> **One claim is deliberately missing from every description below:**`);
-  out.push(`> ${FORMAT_DISPUTE.omitted}.`);
-  out.push(`> Two of our own sources contradict each other on it:`);
-  FORMAT_DISPUTE.sources.forEach((s) => out.push(`> - ${s}`));
-  out.push(`> A listing is a promise to a stranger, so the copy is written around it. Settle it`);
-  out.push(`> in both places, then add the sentence on purpose.`);
+  out.push(`> **The format of the night**, settled ${FORMAT_NOTE.settled}:`);
+  out.push(`> ${FORMAT_NOTE.shape}.`);
+  out.push(`> The copy states that shape but not ${FORMAT_NOTE.omitted} — a moderated listing`);
+  out.push(`> cannot be edited afterwards, so it must not commit the host to a number.`);
+  out.push(``);
+  out.push(`> ⚠ **The live site still says the opposite**, in 7 sentences across 4 files.`);
+  out.push(`> These listings will describe the real format while sparkdate.date denies it:`);
+  SITE_COPY_DEFECTS.forEach((d) => out.push(`> - ${d}`));
   out.push(``);
 
   const active = sites.sites.filter((s) => s.status === 'active' || s.status === 'not_pursued' || s.status === 'dormant');
@@ -400,7 +420,7 @@ async function main() {
         ),
       };
     });
-    const json = JSON.stringify({ generated: new Date().toISOString(), format_dispute: FORMAT_DISPUTE, events: payload, sites: sites.sites }, null, 2);
+    const json = JSON.stringify({ generated: new Date().toISOString(), format_note: FORMAT_NOTE, site_copy_defects: SITE_COPY_DEFECTS, events: payload, sites: sites.sites }, null, 2);
     const outJson = arg('out');
     if (outJson && outJson !== true) {
       fs.mkdirSync(path.dirname(outJson), { recursive: true });
@@ -430,4 +450,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { taggedUrl, buildCopy, matchBrandEvent, fetchUpcomingEvents, FORMAT_DISPUTE };
+module.exports = { taggedUrl, buildCopy, matchBrandEvent, fetchUpcomingEvents, FORMAT_NOTE, SITE_COPY_DEFECTS };

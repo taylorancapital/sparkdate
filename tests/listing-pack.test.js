@@ -143,15 +143,41 @@ describe('buildCopy address', () => {
   });
 });
 
-describe('the format claim stays out of the copy', () => {
-  it('never asserts either side of the rounds-vs-mingling contradiction', () => {
-    // brand.json says the night ends in 7-minute matched rounds; the live blog
-    // says there is no bell, no rotation and no timer. Both are ours. A
-    // listing description is the wrong place to pick a side by accident.
-    const { long, short, teaser } = buildCopy(eventFixture(), matchBrandEvent(brand, LX_ID));
-    for (const text of [long, short, teaser]) {
-      expect(text).not.toMatch(/7[- ]minute|seven[- ]minute|rotation|no bell|timer/i);
+describe('the format of the night', () => {
+  // Settled 2026-09-01 against the shipped chemistry tool: icebreaker, then
+  // timed seated rounds with the men rotating, then 5-minute 1-on-1s. Before
+  // that, brand.json and the blog contradicted each other and the copy was
+  // written around the gap. These tests hold the corrected version in place.
+  const { long, short } = buildCopy(eventFixture(), matchBrandEvent(brand, LX_ID));
+
+  it('describes the icebreaker, the rotation and the one-on-ones', () => {
+    expect(long).toMatch(/icebreaker/i);
+    expect(long).toMatch(/move one table along/i);
+    expect(long).toMatch(/five-minute one-on-ones/i);
+  });
+
+  it('does not revive the "no rotation, no timer" claim', () => {
+    // Six places on the live site still say this. If one of them ever gets
+    // pasted in here as source material, fail loudly.
+    for (const text of [long, short]) {
+      expect(text).not.toMatch(/no bell|no (forced |rigid )?rotation|no (seven|three)[- ]minute|no timer|no whistle/i);
     }
+  });
+
+  it('never commits the host to a round count or a round length', () => {
+    // Both are per-event settings (2-4 seatings at 10/15/20 min). A moderated
+    // calendar listing cannot be edited after approval, so a number printed
+    // here becomes a promise nobody has made yet.
+    for (const text of [long, short]) {
+      expect(text).not.toMatch(/\b(two|three|four|2|3|4)\s+(rounds|seatings)\b/i);
+      expect(text).not.toMatch(/\b(10|15|20|ten|fifteen|twenty)[- ]minute\b/i);
+    }
+  });
+
+  it('still states the one duration that is fixed — the 1-on-1s', () => {
+    // ONE_ON_ONE_MS is hardcoded at 5 minutes; it is not a host setting, so
+    // it is safe to print and it is the most concrete thing in the copy.
+    expect(long).toMatch(/five-minute/i);
   });
 });
 
