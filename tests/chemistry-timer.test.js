@@ -45,7 +45,9 @@ function lift(name) {
   return rest.slice(0, firstLine.length + 1 + close.index + close[0].length);
 }
 
-const LIFTED = ['ROUND_CHOICES', 'CHEM_STORE_PREFIX', 'CHEM_STORE_VERSION', '_chemShortName',
+const LIFTED = ['ROUND_CHOICES', 'CHEM_STORE_PREFIX', 'CHEM_STORE_VERSION',
+                '_nameLabels', '_nameLabelsFor', '_nameRungs', 'buildNameLabels',
+                'ensureNameLabels', '_chemShortName',
                 'movesLabel', 'tableCount', 'quotas', 'fillTablePairs', 'pairLookup', 'buildTables',
                 'rotateTables', 'maxRoundsFor', 'rehydratePin', 'seatingTables', 'buildRounds',
                 'seatedRoundOf', 'metInRounds', 'itineraryFor', 'buildOneOnOnes',

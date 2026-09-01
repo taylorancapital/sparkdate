@@ -3735,11 +3735,107 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // done set: "wId|mId" keys ticked off by the hostess
         let _introsDone = new Set();
 
+        // ── Names that identify one person, not two ────────────────────
+        //
+        // Every panel here labels people "First L." That is the right length
+        // for a chip and it is fine right up until two people in the room
+        // share a first name and a last initial — at which point the seating
+        // chart shows the same label twice, the lookup returns two identical
+        // cards, and the host reads a name out to a room where two people
+        // stand up. It is the one display detail that gets worse the more the
+        // tool is used live rather than printed.
+        //
+        // So labels are resolved against the WHOLE roster instead of one
+        // person at a time, and only the people who actually collide pay for
+        // it. The ladder stops as soon as a label is unique:
+        //
+        //   Bo M.  ->  Bo Marsh  ->  Bo Marsh (bo2)  ->  Bo Marsh #2
+        //
+        // Rung three uses the email local part, which is what the host can
+        // check against a ticket. Rung four is a last resort for two people
+        // with the same name and no distinguishing email, which does happen.
+        let _nameLabels = null;
+        let _nameLabelsFor = { w: null, m: null, nw: -1, nm: -1 };
+
+        function _nameRungs(u) {
+            const fn = (u.firstName || '').trim();
+            const ln = (u.lastName || '').trim();
+            const local = (u.email || '').split('@')[0];
+            // Abbreviating the surname only makes sense when there is a first
+            // name in front of it: a record with just "Quinn" rendered as
+            // "Q." under the old rule, which names nobody.
+            const base = fn ? `${fn}${ln ? ' ' + ln.charAt(0) + '.' : ''}` : ln;
+            const full = `${fn}${fn && ln ? ' ' : ''}${ln}`.trim();
+            return [
+                base || full || local || '—',
+                full || base || local || '—',
+                (full || base) && local ? `${full || base} (${local})` : (local || '—'),
+            ];
+        }
+
+        function buildNameLabels() {
+            const labels = new Map();
+            const taken = new Set();
+            // Start everyone on rung 0, then promote only the people sharing
+            // a label, repeatedly. Someone unique at "Bo M." keeps it even
+            // while a different Bo is promoted to "Bo Marsh".
+            let pending = [..._chemWomen, ..._chemMen].map(u => ({ u, rung: 0 }));
+            for (let pass = 0; pass < 3 && pending.length; pass++) {
+                const byLabel = new Map();
+                pending.forEach(e => {
+                    const rungs = _nameRungs(e.u);
+                    const label = rungs[e.rung] || rungs[0];
+                    if (!byLabel.has(label)) byLabel.set(label, []);
+                    byLabel.get(label).push(e);
+                });
+                const next = [];
+                byLabel.forEach((entries, label) => {
+                    // Unique in this pass AND not already claimed by someone
+                    // settled earlier — a promoted name can land on a
+                    // resolved one.
+                    if (entries.length === 1 && !taken.has(label)) {
+                        labels.set(entries[0].u.id, label);
+                        taken.add(label);
+                    } else {
+                        entries.forEach(e => next.push({ u: e.u, rung: e.rung + 1 }));
+                    }
+                });
+                pending = next;
+            }
+            // Still colliding after the ladder runs out: two people with the
+            // same name and the same email local part. Number them.
+            const tally = new Map();
+            pending.forEach(({ u }) => {
+                const rungs = _nameRungs(u);
+                const label = rungs[2] || rungs[0];
+                const n = (tally.get(label) || 0) + 1;
+                tally.set(label, n);
+                labels.set(u.id, `${label} #${n}`);
+            });
+            return labels;
+        }
+
+        // Rebuilt when the roster changes — a walk-in can create a collision
+        // that did not exist when the modal opened. Keyed on array identity
+        // and length rather than a joined id string: _chemShortName is called
+        // dozens of times per render and the run view repaints every second,
+        // so this has to be O(1), not O(roster).
+        function ensureNameLabels() {
+            if (_nameLabels && _nameLabelsFor.w === _chemWomen && _nameLabelsFor.m === _chemMen
+                && _nameLabelsFor.nw === _chemWomen.length && _nameLabelsFor.nm === _chemMen.length) return;
+            _nameLabelsFor = { w: _chemWomen, m: _chemMen,
+                               nw: _chemWomen.length, nm: _chemMen.length };
+            _nameLabels = buildNameLabels();
+        }
+
         const _chemShortName = (u) => {
             if (!u) return '—';
-            const fn = u.firstName || '';
-            const li = (u.lastName || '').charAt(0);
-            return (`${fn}${li ? ' ' + li + '.' : ''}`).trim() || u.email || '—';
+            ensureNameLabels();
+            const resolved = _nameLabels.get(u.id);
+            if (resolved) return resolved;
+            // Not in the roster (a print run against a stale list, say) —
+            // fall back to the plain label rather than inventing one.
+            return _nameRungs(u)[0];
         };
         const _chemInitials = (u) => {
             if (!u) return '?';

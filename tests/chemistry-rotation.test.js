@@ -40,7 +40,8 @@ const SRC = fs.readFileSync(path.join(process.cwd(), 'public', 'admin.html'), 'u
 // any scanner that only knows about strings reads as the start of one and
 // then runs to the end of the file. Indentation has no such ambiguity.
 function lift(name) {
-  const decl = new RegExp(`^ {8}(?:function ${name}\\s*\\(|const ${name}\\s*=)`, 'm');
+  const decl = new RegExp(
+    `^ {8}(?:function ${name}\\s*\\(|(?:const|let) ${name}\\s*=|window\\.${name}\\s*=)`, 'm');
   const m = decl.exec(SRC);
   if (!m) throw new Error(`${name} not found in admin.html`);
   const rest = SRC.slice(m.index);
@@ -55,7 +56,8 @@ function lift(name) {
   return rest.slice(0, firstLine.length + 1 + close.index + close[0].length);
 }
 
-const NAMES = ['ROUND_CHOICES', 'movesLabel', 'tableCount', 'quotas', 'fillTablePairs',
+const NAMES = ['ROUND_CHOICES', 'movesLabel',
+               '_nameLabels', '_nameLabelsFor', '_nameRungs', 'buildNameLabels', 'ensureNameLabels', 'tableCount', 'quotas', 'fillTablePairs',
                'pairLookup', 'buildTables', 'rotateTables', 'maxRoundsFor', 'rehydratePin',
                'seatingTables', 'buildRounds',
                'seatedRoundOf', 'metInRounds', 'itineraryFor', 'buildOneOnOnes',
