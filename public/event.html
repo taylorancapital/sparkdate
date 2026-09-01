@@ -785,7 +785,7 @@
                     <p>This is a singles mixer — not a rigid, timer-driven speed dating format, and not a singles bar either. It's a curated evening designed for adults who'd rather meet in person than keep texting.</p>
                     <ul>
                         <li><strong>Pre-screened guest list.</strong> Every attendee is verified.</li>
-                        <li><strong>Trained host on-site.</strong> Natural introductions, no awkward icebreakers.</li>
+                        <li><strong>Trained host on-site.</strong> Runs the icebreaker and keeps the rounds moving, so you never have to start or end a conversation cold.</li>
                         <li><strong>Curated venue.</strong> Quiet enough to talk, lively enough to flirt.</li>
                         <li><strong>We aim for a balanced gender mix.</strong> Not an exact guarantee, but always a priority.</li>
                     </ul>
@@ -1541,7 +1541,9 @@
                 };
                 if (d) {
                     ld.startDate = d.toISOString();
-                    const hrs = Number(ev.durationHours) > 0 ? Number(ev.durationHours) : 3;
+                    // 2 = lib/next-event.js DEFAULT_EVENT_DURATION_HOURS. Client-side, so it
+                    // cannot import; if that constant moves, move this too.
+                    const hrs = Number(ev.durationHours) > 0 ? Number(ev.durationHours) : 2;
                     ld.endDate = new Date(d.getTime() + hrs * 60 * 60 * 1000).toISOString();
                 }
                 if (price > 0) {

@@ -1,0 +1,299 @@
+{
+  "_comment": "Registry of event-listing surfaces -- the free discovery channels a SparkDate event should appear on, plus the ones deliberately NOT pursued and why. scripts/build-listing-pack.js reads this to generate per-site copy and UTM'd links; .claude/commands/syndicate-events.md reads it to drive the browser. Add a site HERE, not in a runbook paragraph, so the generator and the driver both pick it up.",
+  "_created": "2026-09-01",
+
+  "_evidence": {
+    "_comment": "Why the statuses below say what they say. Source: Night Tasks/ga4-api-traffic-by-source-2026-09-01.csv, window 2026-05-19 to 2026-09-01. Re-derive before trusting; these numbers age.",
+    "eventbrite_listing": "170 sessions / 81 users / 23 key events / $290.39 -- the highest revenue of any source except (direct), and the ONLY event-listing surface producing anything at all.",
+    "patch_referral": "1 session, 0 key events. It is in the hand-kept UTM sheet, so it was planned; it was never actually worked.",
+    "nextdoor_cpc": "22 sessions, 1 key event -- and it is PAID. The free Nextdoor Events post is a different surface and has never been used.",
+    "everything_else": "Zero. No meetup, no allevents, no discoverlancaster, no lancasteronline, no facebook.com/events organic, no google business. Free listing discovery is currently a one-legged stool.",
+    "_the_headline": "One free channel carries the entire non-paid, non-direct funnel. That is the risk this registry exists to spread."
+  },
+
+  "_utm": {
+    "_comment": "The convention is not invented here -- `eventbrite / listing` already exists in GA4 and converts, so the rest of the surfaces are shaped to match it and land in the same report.",
+    "medium": "listing",
+    "_medium_why": "Deliberately NOT 'referral'. GA4 assigns 'referral' by itself to any uncontrolled inbound link, so a hand-tagged listing would drown in it. 'listing' is a bucket nothing else writes to, which makes 'what did free event calendars do for us' a single readable row.",
+    "campaign_format": "{event_key}_{YYYYMM}",
+    "_campaign_why": "Matches content/brand.json universal.utm.campaign_format. The old 'week3_Solution' shape went stale by construction every month.",
+    "content_format": "{event_key}_{site_key}",
+    "_content_why": "Unique per listing per event, so one calendar's performance is separable from another's. brand.json bans a shared utm_content for exactly this reason (the 'proof_rsa1' defect on 11 ads).",
+    "destination": "event_page",
+    "_destination_why": "The event page, not /lp. Someone clicking 'tickets' from a calendar listing has already been sold the event -- /lp has no cart and would add a hop. See brand.json universal.landing_page_warning.",
+    "_never_both": "One UTM set per link. If a site rewrites or wraps outbound links (Facebook, Nextdoor), verify the tags survive the wrapper before counting on the row."
+  },
+
+  "sites": [
+    {
+      "key": "eventbrite",
+      "name": "Eventbrite",
+      "status": "active",
+      "market": "any",
+      "cost": "free to list; ticket fees only on paid sales",
+      "submit_url": "https://www.eventbrite.com/organizations/events",
+      "utm_source": "eventbrite",
+      "role": "ticketing + discovery",
+      "notes": "Already the primary. Also the checkout for a large share of sales, which is why its buyers need the manual /admin Enroll step -- docs/EVENTBRITE_ENROLLMENT.md.",
+      "gotchas": [
+        "Eventbrite buyers do NOT get a SparkDate account or chemistry profile automatically.",
+        "GA4 cannot see Eventbrite-side purchases at all -- see the ga4-revenue-is-own-site-only memory. Its listing sessions are visible; its checkout is not."
+      ]
+    },
+    {
+      "key": "facebook_event",
+      "name": "Facebook Event (from the SparkDate Page)",
+      "status": "not_pursued",
+      "market": "any",
+      "cost": "free",
+      "submit_url": "https://www.facebook.com/events/create",
+      "utm_source": "facebook_event",
+      "role": "discovery + social proof",
+      "priority": 1,
+      "why_now": "The account already runs paid Facebook and has the Page, the audience and the creative. A Page Event is the same asset posted to a surface that costs nothing, and every RSVP is shown to that person's friends -- the one channel here with built-in amplification. GA4 shows zero organic Facebook event traffic, so this is unworked ground, not a saturated one.",
+      "gotchas": [
+        "Facebook wraps outbound links. Confirm the utm_* params survive the l.facebook.com hop before trusting the GA4 row -- 53 sessions already land as 'm.facebook.com / referral' with no campaign attached.",
+        "An Event is distinct from a post about the event. Both are worth doing; only the Event gets RSVPs and reminders."
+      ]
+    },
+    {
+      "key": "discoverlancaster",
+      "name": "Discover Lancaster (official county tourism)",
+      "status": "not_pursued",
+      "market": "lancaster",
+      "cost": "free",
+      "submit_url": "https://www.discoverlancaster.com/events/submit/",
+      "utm_source": "discoverlancaster",
+      "role": "discovery + SEO backlink",
+      "priority": 2,
+      "why_now": "The highest-authority local calendar in the county and the one that ranks for 'things to do in Lancaster'. Named in docs/MARKETING_PLAYBOOK.md in June 2026 and still never submitted.",
+      "constraints": {
+        "lead_time_days": 14,
+        "image": "600x600, no logos and no words in the image",
+        "approval": "moderated -- listing is not guaranteed"
+      },
+      "gotchas": [
+        "Submit at least two weeks ahead or it will not clear moderation in time.",
+        "Check the calendar for an existing duplicate before submitting; they ask for this explicitly."
+      ]
+    },
+    {
+      "key": "lancasteronline",
+      "name": "LancasterOnline / LNP calendar",
+      "status": "not_pursued",
+      "market": "lancaster",
+      "cost": "free",
+      "submit_url": "https://lancasteronline.com/calendar/",
+      "utm_source": "lancasteronline",
+      "role": "discovery + SEO backlink",
+      "priority": 2,
+      "why_now": "The local paper's calendar. High local trust and indexed by Google, which is the point -- 'singles events Lancaster PA' currently returns nothing of ours.",
+      "gotchas": [
+        "The submit flow is inside the calendar app itself (a #! route), not a separate /submit page. Open the calendar and find the submit control on the page rather than guessing a URL."
+      ]
+    },
+    {
+      "key": "lancasterpa",
+      "name": "LancasterPA.com",
+      "status": "not_pursued",
+      "market": "lancaster",
+      "cost": "free",
+      "submit_url": "https://lancasterpa.com/submit-event/",
+      "utm_source": "lancasterpa",
+      "role": "discovery",
+      "priority": 3,
+      "constraints": {
+        "image": "max 705x300, under 1 MB (larger files are auto-deleted)"
+      },
+      "gotchas": [
+        "Editorially screened -- they publish only what suits their audience.",
+        "The outbound link back to our site is stated as a courtesy for current customers; do not assume the link renders. Verify the live listing after approval."
+      ]
+    },
+    {
+      "key": "visitlancasterpa",
+      "name": "Visit Lancaster PA",
+      "status": "not_pursued",
+      "market": "lancaster",
+      "cost": "free",
+      "submit_url": "https://www.visitlancasterpa.com/events/suggest",
+      "utm_source": "visitlancasterpa",
+      "role": "discovery",
+      "priority": 3,
+      "gotchas": [
+        "The old /Lancaster-County/Event-Calendar/Submit-an-Event/ path in MARKETING_PLAYBOOK.md now redirects here. Use this URL."
+      ]
+    },
+    {
+      "key": "visitlancastercity",
+      "name": "Visit Lancaster City",
+      "status": "not_pursued",
+      "market": "lancaster",
+      "cost": "free",
+      "submit_url": "https://visitlancastercity.com/calendar/submit-event/",
+      "utm_source": "visitlancastercity",
+      "role": "discovery",
+      "priority": 3,
+      "why_now": "Downtown-specific, which is exactly where the venues are. Marion Court Room and Tellus360 are both city-centre rooms."
+    },
+    {
+      "key": "figlancaster",
+      "name": "Fig Lancaster",
+      "status": "not_pursued",
+      "market": "lancaster",
+      "cost": "free",
+      "submit_url": "https://figlancaster.com/submit-event/",
+      "utm_source": "figlancaster",
+      "role": "discovery",
+      "priority": 3,
+      "why_now": "Local lifestyle brand with the closest audience fit of the tourism calendars -- their readers are the people who go out on a weeknight."
+    },
+    {
+      "key": "lancasterchamber",
+      "name": "Lancaster Chamber community calendar",
+      "status": "not_pursued",
+      "market": "lancaster",
+      "cost": "free",
+      "submit_url": "https://www.lancasterchamber.com/community-calendar-event-submission/",
+      "utm_source": "lancasterchamber",
+      "role": "discovery + local credibility",
+      "priority": 4,
+      "gotchas": [
+        "Some chamber calendars restrict submissions to members. Check before spending time on the form; if members-only, mark it rejected rather than leaving it in the queue forever."
+      ]
+    },
+    {
+      "key": "allevents",
+      "name": "AllEvents.in",
+      "status": "not_pursued",
+      "market": "any",
+      "cost": "free to list; paid only for extra visibility",
+      "submit_url": "https://allevents.in/lancaster-pa/all",
+      "utm_source": "allevents",
+      "role": "discovery + SEO backlink",
+      "priority": 2,
+      "why_now": "Aggregator with real search presence for '<city> events' queries and a genuinely free listing tier. Cheap to maintain because it will also ingest an Eventbrite listing.",
+      "gotchas": [
+        "It may auto-import the Eventbrite listing. Check for an existing auto-imported copy first and claim/edit that instead of creating a duplicate.",
+        "An auto-imported listing carries EVENTBRITE's link, not a UTM'd one -- claiming it is what lets the tag be set."
+      ]
+    },
+    {
+      "key": "patch",
+      "name": "Patch — Lancaster PA",
+      "status": "dormant",
+      "market": "lancaster",
+      "cost": "free",
+      "submit_url": "https://patch.com/pennsylvania/lancaster-pa/calendar",
+      "utm_source": "patch",
+      "role": "discovery",
+      "priority": 4,
+      "why_now": "Already in the hand-kept UTM sheet and has produced exactly 1 session ever, which means it was planned and then dropped rather than tried and rejected. Low cost to revive.",
+      "gotchas": [
+        "The community slug is `lancaster-pa`, not `lancaster` -- the bare slug 404s."
+      ]
+    },
+    {
+      "key": "nextdoor_event",
+      "name": "Nextdoor — free Events post",
+      "status": "not_pursued",
+      "market": "any",
+      "cost": "free",
+      "submit_url": "https://nextdoor.com/events/",
+      "utm_source": "nextdoor_event",
+      "role": "discovery",
+      "priority": 3,
+      "why_now": "Nextdoor is ALREADY being paid for (22 sessions at cpc). The free Events post is a separate surface on the same account and has never been used.",
+      "gotchas": [
+        "Requires a logged-in neighbourhood account; the events URL bounces to login.",
+        "Keep utm_source distinct from the paid Nextdoor traffic or the free post's contribution is unreadable."
+      ]
+    },
+    {
+      "key": "meetup_existing",
+      "name": "Meetup — post into existing local singles groups",
+      "status": "not_pursued",
+      "market": "lancaster",
+      "cost": "free (no organizer subscription needed to post into a group you do not own)",
+      "submit_url": "https://www.meetup.com/find/?location=us--pa--Lancaster",
+      "utm_source": "meetup",
+      "role": "discovery, warm audience",
+      "priority": 3,
+      "why_now": "docs/MARKETING_PLAYBOOK.md already identified 'South Central PA (SOLO) Singles' (meetup.com/meetup-group-pujqfyel) in June and it was never worked.",
+      "gotchas": [
+        "This is someone else's group. Posting a ticketed event into it without asking the organizer is how you get removed -- message the organizer first.",
+        "Not the same as running our own group; see the rejected entry below."
+      ]
+    },
+    {
+      "key": "google_business",
+      "name": "Google Business Profile — Events post",
+      "status": "not_pursued",
+      "market": "any",
+      "cost": "free",
+      "submit_url": "https://business.google.com/",
+      "utm_source": "googlebusinessposting",
+      "role": "discovery on branded and near-me search",
+      "priority": 2,
+      "why_now": "`googlebusinessposting` is already a row in the hand-kept UTM sheet, so it was intended. GA4 has never recorded a session from it. Free, and it surfaces on the exact 'singles events near me' searches nothing of ours currently answers.",
+      "gotchas": [
+        "PRECONDITION: confirm a verified Google Business Profile actually exists for SparkDate before planning around this. A business with no fixed public address has to be set up as a service-area business, and verification takes time. If there is no profile, the first task is creating one, not posting to one.",
+        "Event posts expire after the event date -- this is a per-event chore, not a set-and-forget."
+      ]
+    },
+    {
+      "key": "events_org",
+      "name": "Events.org",
+      "status": "not_pursued",
+      "market": "any",
+      "cost": "free",
+      "submit_url": "https://events.org/",
+      "utm_source": "eventsorg",
+      "role": "SEO backlink",
+      "priority": 5,
+      "why_now": "Low expected traffic. Worth one submission for the backlink, not worth a recurring slot.",
+      "gotchas": [
+        "Judge this one on whether it is still indexed at all before repeating it. Aggregators in this tier go stale quietly."
+      ]
+    },
+
+    {
+      "key": "tickettailor",
+      "name": "Ticket Tailor",
+      "status": "rejected",
+      "cost": "free for free events; flat fee per paid ticket",
+      "rejected_reason": "It is a box office, not a discovery channel. Ticket Tailor has no event marketplace -- nobody browses it looking for something to do, which is the entire job being hired for here. Adding it would mean running a THIRD checkout (site + Eventbrite + this) and splitting the attendee record across it, for zero new eyeballs.",
+      "reconsider_if": "The question changes from 'where do people find us' to 'what do Eventbrite's fees cost us'. As a fee play against Eventbrite it is a real option; as a listing surface it is not one."
+    },
+    {
+      "key": "eventful",
+      "name": "Eventful.com",
+      "status": "rejected",
+      "rejected_reason": "Dead. Audacy folded it into radio.com in 2021 and the domain no longer resolves. It still appears in most 'free event listing sites' roundups, which is how stale advice keeps propagating -- recorded here so it does not get re-suggested."
+    },
+    {
+      "key": "meetup_own_group",
+      "name": "Meetup — running our own SparkDate group",
+      "status": "rejected",
+      "cost": "$29.99/mo Standard; the free Starter tier is capped",
+      "rejected_reason": "Fails the free-only constraint, and the free Starter tier caps a group at 2 events/month with a 10-person RSVP limit -- against 30-seat rooms, that cap misrepresents the event and wastes the discovery. The paid tier is a real option later; it is not a free listing.",
+      "reconsider_if": "Cadence reaches roughly weekly and recurring-discovery plus the member email blast is worth $30/mo on its own."
+    },
+    {
+      "key": "reddit_lancaster",
+      "name": "Reddit — r/lancaster",
+      "status": "out_of_scope",
+      "rejected_reason": "Free and a real local audience, but it is a community, not a listing surface -- a form-filled event post reads as spam there and most local subs remove promotional posts outright. It belongs in the organic-social workflow with hand-written copy, not in an automated syndication run.",
+      "see": "docs/MARKETING_PLAYBOOK.md section 5 has the human-voiced draft."
+    }
+  ],
+
+  "philadelphia_when_active": {
+    "_comment": "No Philadelphia event is currently on sale -- Good Good Things was 2026-08-31. Parked until there is a Philly date; re-verify before use.",
+    "candidates": [
+      { "name": "Visit Philly", "url": "https://www.visitphilly.com/events/", "note": "Live. The submission path is inside the site, not /submit-an-event/ (that 404s) -- find it from the events page." },
+      { "name": "Uwishunu", "url": "https://www.visitphilly.com/uwishunu/", "note": "Live but absorbed into Visit Philly; uwishunu.com/submit-an-event/ now redirects here. Likely no longer a standalone submission surface." },
+      { "name": "PhillyFunGuide", "url": null, "note": "DEAD as of 2026-09-01 -- the domain does not resolve. Do not re-suggest it." }
+    ]
+  }
+}

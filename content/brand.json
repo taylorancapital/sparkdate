@@ -63,6 +63,27 @@
       "content_equals_row_id": true,
       "_note": "utm_content was 'proof_rsa1' on all 45 rows, so GA4 could not attribute any individual post. It is now the row id. utm_campaign was 'Augweek3_lancaster'/'Augweek3_philly', which goes stale in September (blocker #23); it is now derived per event per month."
     },
+    "run_of_show": {
+      "_comment": "SETTLED 2026-09-01 by Taylor, against the shipped chemistry tool in public/admin.html rather than against any prose. There IS an icebreaker game and there IS a timer, and they are the same block -- the game is what you play at the tables. Every earlier description in this file and on the live site was wrong in one direction or the other -- see _what_was_wrong.",
+      "_source": "public/admin.html -- _tableSize, ROUND_CHOICES, _tableRounds, _roundMinutes, ONE_ON_ONE_MS, buildRunPlan(), and the host callout at 'women stay, men move one table along'. Read the code, not a summary, if this ever needs re-checking.",
+      "sequence": [
+        { "step": "Doors and check-in", "detail": "6:30. Host checks you off the reviewed guest list, hands you a NAME TAG, gets drinks moving. Nothing to download, no profile at the door.", "timed": false, "_name_tags": "CONFIRMED by Taylor 2026-09-01: name tags ARE used. Both first-timer guides said 'No name tag' and were corrected. There is no scorecard -- that part was always right, and is worth keeping since it is the real contrast with speed dating." },
+        { "step": "Seated rounds, with the icebreaker game", "detail": "The room splits into balanced tables of about six, and a host-run game is what you play at the table -- that IS the icebreaker, so nobody has to invent an opening line cold. Round 1 everyone sits; every round after, women stay and men move one table along, so each round is an entirely new set of people.", "timed": true, "count_default": 4, "count_choices": [2, 3, 4], "minutes_default": 15, "minutes_choices": [10, 15, 20], "_moves": "N seatings is N-1 moves. The default 4 x 15 is 3 moves and 60 minutes of tables.", "_icebreaker": "CORRECTED 2026-09-01 by Taylor, who was asked directly. An earlier version of this record had the icebreaker as its own segment BEFORE the tables. It is not -- the game is played AT the tables, and the table structure is the icebreaker. That also explains why the dashboard has no icebreaker step: there is nothing separate to time. careers.html's 7:00 Icebreaker / 7:20 the actual evening split reads as two segments and should be re-read as round one (at the 20-minute setting) and the rounds after it." },
+        { "step": "Open mingling", "detail": "Go where you want. No structure, no host moving anyone -- by this point you have already met most of the room at the tables, so nobody is starting cold.", "timed": false, "_confirmed": "Taylor, 2026-09-01, asked directly. It sits BETWEEN the seated rounds and the 1-on-1s. Not in the dashboard, because there is nothing to seat and nothing to time -- which is why reading the chemistry tool alone produced a run of show with this block missing.", "_this_is_what_the_old_copy_meant": "The site's 'no whistle, no rigid rotation, conversations at your own pace' language was NOT invented. It describes this block accurately and then presents it as the whole evening. That is why the contradiction was so persistent: every party to it was half right. Copy should keep the at-your-own-pace idea AND say it is one movement of three." },
+        { "step": "1-on-1s", "detail": "Rounds of simultaneous pairs, prioritising people you have not already shared a table with. A pair never repeats.", "timed": true, "minutes_default": 7, "minutes_choices": [5, 7, 10], "max_rounds": 6, "_was_five": "Hardcoded at 5 minutes until #379 (merged 2026-09-01) made it a host setting defaulting to SEVEN. Copy written before that -- including the first version of the listing pack -- says 'five-minute one-on-ones' and is now wrong. Like the seated rounds, this is a per-event choice, so listing copy must not state a number for it at all." },
+        { "step": "Private interest note", "detail": "Near the end, under a minute, nobody sees it but you.", "timed": false },
+        { "step": "Matches", "detail": "Mutual interest becomes a match immediately, that same night.", "timed": false }
+      ],
+      "timer": "Wall-clock based, run by the host from a phone, one segment at a time. It stays correct if the screen sleeps.",
+      "_safe_summary": "Doors and drinks, then timed rounds at small tables with a game to break the ice and the men rotating one table each round, then open mingling, then 1-on-1s, then private interest notes and same-night matches. Three movements: structured, free, then paired. Say 'about four rounds of fifteen minutes' only if the host has confirmed the setting for THAT event -- both the count and the length are per-event choices.",
+      "_what_was_wrong": [
+        "The blog and the city pages say 'no bell, no forced rotation, no seven-minute timer' and 'no rotation and no timer'. Flatly false against the shipped tool. Eight sentences across five files, still live as of 2026-09-01; scripts/build-listing-pack.js SITE_COPY_DEFECTS carries the list.",
+        "public/event.html:788 -- the ticket page itself promises 'Natural introductions, no awkward icebreakers.' There is an icebreaker game. Whether it is awkward is a matter of taste, but the sentence reads as a denial that one exists.",
+        "The icebreaker is NOT a separate segment before the tables -- an earlier version of this record said it was. The game is played at the tables.",
+        "This file previously said '7-minute matched rounds LAST'. Also wrong, twice over: the seated rounds are 10/15/20 minutes and come FIRST, and the 5-minute 1-on-1s are what comes last. Seven minutes is not a value the tool offers."
+      ]
+    },
+
     "link_rules": {
       "ig_caption_renders_links": false,
       "ig_story_link_sticker": true,
@@ -108,6 +129,7 @@
       "city": "Lancaster, PA",
       "date": "2026-09-08",
       "doors": "6:30 PM",
+      "ends": "8:30 PM",
       "event_id": "WUaooYvOq0eC0D1QVCvQ",
       "pricing": { "early_bird": 18.99, "early_bird_through": "2026-08-24", "regular": 24.99 },
       "hashtag_pool": ["#LancasterDating", "#LancasterEvents", "#SingleInLancaster", "#SparkDate", "#EarlyBird", "#SpeedDating", "#IRLDating", "#DatingAppFatigue"],
@@ -125,7 +147,7 @@
       "hashtag_pool": ["#LancasterDating", "#LancasterPA", "#LancasterEvents", "#SingleInLancaster", "#DowntownLancaster", "#LancasterNightlife", "#LancasterSingles", "#IRLDating", "#DatingAppFatigue", "#MeetInPerson", "#SpeedDating", "#SparkDate"],
       "open_issues": [
         "PRICE CONTRADICTION (blocker #14): the FACTS block says regular = $18.99 from Aug 16 onward, but the Aug 21 Reel caption says $24.99. The Eventbrite listing is the tiebreaker. Unresolved -- 24.99 recorded here because that is what shipped in the live TL-2 caption.",
-        "The live listing says 'no bell, no rotation, no timer' -- WRONG. Actual run of show: check-in and drinks, icebreaker/mingling, then 7-minute matched rounds LAST. Needs fixing on the listing itself, not just in captions.",
+        "RESOLVED 2026-09-01 -- see universal.run_of_show, which is now the single place this is recorded. Both halves of the old note were wrong: the live listing's 'no bell, no rotation, no timer' is false, AND this note's own '7-minute matched rounds LAST' was false (seated rounds are 10/15/20 min and come first; the 5-minute 1-on-1s come last). The live listing still needs fixing.",
         "Naming: use 'Tellus AfterDark: Singles Edition', never 'Event 3' or 'Round three' (that numbering collided with Good Good Things)."
       ]
     },
@@ -151,6 +173,7 @@
       "city": "Lancaster, PA",
       "date": "2026-09-22",
       "doors": "6:30 PM",
+      "ends": "8:30 PM",
       "event_id": "KL4onXm7hJbqiwI9quAZ",
       "pricing": { "early_bird": 24.99, "early_bird_through": "2026-09-07", "regular": 29.99 },
       "hashtag_pool": ["#LancasterDating", "#LancasterEvents", "#SingleInLancaster", "#LancasterNightlife", "#EarlyBird", "#IRLDating", "#SpeedDating", "#SparkDate", "#DatingApps"],

@@ -26,6 +26,8 @@
     "social:run": "node scripts/social.js run",
     "social:prep": "python scripts/prep-social-assets.py",
     "social:crop": "python scripts/crop-photo.py",
+    "listing:pack": "node scripts/build-listing-pack.js --out=build/listing-pack.md",
+    "listing:json": "node scripts/build-listing-pack.js --json",
     "email:check": "node scripts/check-email-dns.js",
     "social:handoff": "node scripts/design-handoff.js",
     "social:design-setup": "node scripts/design-project-setup.js",

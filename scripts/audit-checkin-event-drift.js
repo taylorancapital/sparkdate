@@ -13,7 +13,7 @@
  *
  * This script finds those by checking whether each check-in's real timestamp
  * (checkedInAt, falling back to createdAt) falls inside the event it's filed
- * under's actual window [date - 90min, date + durationHours(default 3h) +
+ * under's actual window [date - 90min, date + durationHours(default 2h) +
  * 60min]. A miss means the doc is very likely mis-filed; it then looks across
  * every other event for one whose window DOES contain that timestamp, as the
  * probable correct event.
