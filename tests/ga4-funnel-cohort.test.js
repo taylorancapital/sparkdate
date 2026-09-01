@@ -124,4 +124,52 @@ describe('toCsvFunnel', () => {
     const empty = { funnelTable: { ...report.funnelTable, rows: [] } };
     expect(() => toCsvFunnel(spec, empty, '2026-08-01', '2026-08-31', 'now')).not.toThrow();
   });
+
+  it('warns that the last step is a chain count, not conversions', () => {
+    const csv = toCsvFunnel(spec, report, '2026-05-19', '2026-09-01', 'now');
+    expect(csv).toContain('CHAIN COUNT, NOT A CONVERSION COUNT');
+    // and points at where the real number lives
+    expect(csv).toContain('ga4-api-events-');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The funnel's SHAPE, not its plumbing.
+//
+// add_to_cart was a mandatory step for exactly one night and it cost the bottom
+// of every funnel table. A closed funnel counts users who completed every step
+// IN ORDER, so one off-path step discards everyone who skipped it. Measured
+// 2026-09-01 over 20260519-20260901, adding a step at a time:
+//
+//     session_start -> purchase          34   <- GA4's own purchasing-user count
+//             + view_item                24
+//             + begin_checkout           12
+//             + add_to_cart               5
+//
+// GA4_ANALYSIS_2026-09-01 read those chain counts as purchases and reported
+// Email as producing none. Email produced one.
+// ---------------------------------------------------------------------------
+describe('purchase funnel shape', () => {
+  const { FUNNELS } = require('../scripts/fetch-ga4-tables.js');
+  // The waitlist funnel is a deliberate two-step sequence, not a purchase path.
+  const purchaseFunnels = FUNNELS.filter((f) => f.file !== 'funnel-waitlist-sequence');
+  const eventsOf = (f) => f.steps.map((s) => s.filterExpression.funnelEventFilter.eventName);
+
+  it('never makes add_to_cart a mandatory step', () => {
+    for (const f of purchaseFunnels) {
+      expect(eventsOf(f), `${f.file} must not gate on add_to_cart`).not.toContain('add_to_cart');
+    }
+  });
+
+  it('still ends on purchase, or it measures nothing worth having', () => {
+    for (const f of purchaseFunnels) {
+      expect(eventsOf(f).at(-1)).toBe('purchase');
+    }
+  });
+
+  it('keeps every purchase funnel on one step list, so they stay comparable', () => {
+    const shapes = new Set(purchaseFunnels.map((f) => eventsOf(f).join(' > ')));
+    expect(shapes.size).toBe(1);
+    expect([...shapes][0]).toBe('session_start > view_item > begin_checkout > purchase');
+  });
 });
