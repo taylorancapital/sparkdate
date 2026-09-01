@@ -162,10 +162,24 @@ Re-check the account rather than reading a stale table.
 | 2026-08-21 | **Items-sold rises without more sales** (#205). A 2-for-1 delivers two seats on one payment, and `purchase` previously sent no `quantity`, so GA4 counted it as one unit. It now sends the real seat count. Roughly one in five own-site purchases is a 2-for-1, so items-purchased steps up by about that much at the cutover. **Not demand.** Revenue is unaffected — `value` was always the amount charged. |
 | 2026-08-21 | **Sold-out events start appearing where they did not before** (#207). `events.html` and `city.html` used to read sold-out from the hand-typed `status === 'full'` label, which nobody sets in practice; they now compute it from real capacity, as `event.html` always did. A fall in Reserve clicks or event-page traffic after an event fills is **that fix working, not demand falling** — cross-check the event's `confirmed` against `spots` before reading it as a decline. |
 | 2026-08-22 | site changes shipped (see PR history) |
+| 2026-08-23 | **`in_app_browser` began riding on every event (#265).** Before this it fired on 4–17 events a day; 229 on 08-23, then 651+ from 08-24. So the webview segments in `funnel-webview-vs-normal` and `webview-by-event` are a measurement that STARTS on 2026-08-24, no matter how far back the export window runs. A 95-day window shown against those segments is really a ten-day one. **Do not read the pre-08-23 portion as "few webview users" — it is "the flag was not attached yet."** Raised by `GA4_ANALYSIS_2026-09-01`. |
 | 2026-08-25 | GA4 internal-traffic filter went **Active** — users/sessions/engagement step down because internal visits stopped counting. **Not a traffic decline.** |
 | 2026-08-28 | `lead_form_started` added to getaways (#311) — volume steps **up** because a whole surface began reporting, and the pairing gap above improves for that reason alone. **Not a funnel improvement.** |
 | 2026-08-28 | `view_promotion` introduced (#310) — a brand-new event, so all of its "growth" is instrumentation arriving. |
 | 2026-08-28 | `fbclid` no longer carried to `/events` (#309) — distinct landing URLs collapse sharply. 93.6% of paid rows previously held exactly one session because every visitor had a unique URL. **Cleanup, not a traffic drop.** |
+| 2026-09-01 | **Funnel purchase counts step UP without more sales (#380).** `add_to_cart` was a mandatory step in every purchase funnel for one night. A closed funnel counts only users who completed every step in order, and on this property most buyers skip the cart — `begin_checkout` has 146 users against `add_to_cart`'s 57. Measured over `20260519-20260901`: `session_start→purchase` finds 34 buyers, `+view_item` 24, `+begin_checkout` 12, `+add_to_cart` **5**, against GA4's own 37 transactions / 34 purchasing users. Dropping the step moved the channel funnel's purchase row from 5 to 12 — Paid Social 2→5, Direct 1→3, Email **0→1**. **That jump is the definition changing, not conversion improving.** `GA4_ANALYSIS_2026-09-01` quoted the pre-fix chain counts as purchases; do not trend against them. |
+
+**A funnel's last step is never a conversion count.** It counts complete chains,
+so it undercounts by however many buyers skipped a step — 12 of 34 even after
+the #380 fix. The residual is not a mystery: **§4 above is the reason.** `/lp`
+does not fire `view_item`, so every buyer who came through the landing page is
+discarded by a funnel that starts there. §4 predicted exactly this failure and
+it happened anyway, because the prediction lived in one section and the funnel
+was built in another.
+
+Read `ga4-api-revenue-daily-*.csv` and the `purchase` row of
+`ga4-api-events-*.csv` for the real numbers. Every funnel CSV now carries this
+warning in its own header.
 
 ## 11. Ads Manager drops video when you EDIT an ad, and keeps it when you CREATE one
 
