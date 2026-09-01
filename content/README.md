@@ -18,6 +18,7 @@ into `build/`. Takes a second. `build/` is gitignored.
 |---|---|
 | `content/queue.csv` | The calendar. One row per post: date, time, event, format, caption, hashtags, links, state, published ids. |
 | `content/brand.json` | Facts that don't change row to row: events, prices, hashtag pools, testimonials, banned figures, the 21-beat template. |
+| `content/listing-sites.json` | The free event-listing surfaces an event should appear on — plus the ones deliberately rejected, and why. Read by `scripts/build-listing-pack.js` and `/syndicate-events`. See `docs/EVENT_LISTING_RUNBOOK.md`. |
 | `templates/campaign-export.template.html` | The slide renderer, with Playfair and Inter embedded as base64. |
 | `reference/event3-frames.json` | The 68 hand-built Tellus frames, kept as the reference for a full campaign — 53 organic + 15 paid, all ten modes. |
 
@@ -28,6 +29,7 @@ into `build/`. Takes a second. `build/` is gitignored.
 | `build/SparkDate_30DAY_CALENDAR.md` | `scripts/build-calendar.js` |
 | `build/SparkDate_DESIGN_BRIEF.md` | `scripts/design-handoff.js` — this is the file you hand to Claude Design |
 | `build/campaign-sheets/*.html` | `scripts/build-campaign-export.js` — open in a browser, "Export all as PNG" |
+| `build/listing-pack.md` | `npm run listing:pack` — per-site listing copy and UTM'd links, read live from the event pages |
 
 **Keep zero versions of these.** Git holds the inputs, so
 

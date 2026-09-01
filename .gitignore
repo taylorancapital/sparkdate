@@ -121,6 +121,10 @@ content/*
 !content/queue.csv
 !content/brand.json
 !content/README.md
+# The registry of free event-listing surfaces, and the reasons the rejected
+# ones were rejected. Source, not an export: scripts/build-listing-pack.js and
+# .claude/commands/syndicate-events.md both read it.
+!content/listing-sites.json
 
 # Source art and superseded exports live in OneDrive, not the repo:
 #   OneDrive\SparkDate\SourceArt              <- the PNG masters
