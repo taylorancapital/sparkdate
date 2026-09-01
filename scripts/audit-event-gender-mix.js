@@ -45,16 +45,55 @@
  *   node scripts/audit-event-gender-mix.js --list
  *   node scripts/audit-event-gender-mix.js <eventId> --json
  *
- * Requires (same as the other scripts/ tools — copy from Vercel or .env.local):
+ * CREDENTIALS. Needs three vars:
  *   FIREBASE_PROJECT_ID
  *   FIREBASE_CLIENT_EMAIL
  *   FIREBASE_PRIVATE_KEY
+ *
+ * Unlike the other scripts/ tools, this one reads `.env.local` itself if the
+ * vars are not already in the environment, so the usual flow is just:
+ *
+ *   vercel env pull .env.local          # or --environment=production
+ *   node scripts/audit-event-gender-mix.js --match="good good"
+ *
+ * Note the repo's existing `.env.local` has had these three EMPTY (`""`), which
+ * reads as "present but blank" — the loader skips empty values so they fall
+ * through to the missing-var error rather than producing a confusing
+ * "Service account object must contain a string project_id" from deep inside
+ * firebase-admin.
  */
 
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const admin = require('firebase-admin');
 const { normalizeEmail } = require('../lib/email-identity');
+
+// Read .env.local if it is there, without overriding anything already in the
+// environment. Nothing in this repo loads that file — no dotenv dependency —
+// so every script here has so far required the three Firebase vars to be set by
+// hand in the shell first. That is a real barrier for a one-off audit, and the
+// values are already sitting in .env.local after `vercel env pull`.
+//
+// Deliberately does NOT fail if the file is missing or unreadable: the vars may
+// legitimately come from the environment, and a missing optional file is not an
+// error. Values may be quoted; FIREBASE_PRIVATE_KEY in particular arrives as
+// one line with literal \n sequences, which the cert() call below un-escapes.
+(function loadDotEnvLocal() {
+  const file = path.join(__dirname, '..', '.env.local');
+  let text;
+  try { text = fs.readFileSync(file, 'utf8'); } catch { return; }
+  for (const line of text.split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/);
+    if (!m) continue;
+    let v = m[2].trim();
+    if (v.length >= 2 && ((v[0] === '"' && v.endsWith('"')) || (v[0] === "'" && v.endsWith("'")))) {
+      v = v.slice(1, -1);
+    }
+    if (v !== '' && process.env[m[1]] === undefined) process.env[m[1]] = v;
+  }
+})();
 
 const need = (k) => {
   if (!process.env[k]) {
