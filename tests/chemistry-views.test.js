@@ -28,7 +28,8 @@ const SRC = fs.readFileSync(path.join(process.cwd(), 'public', 'admin.html'), 'u
 // rather than shared: a helper module between two test files is one more
 // thing to keep in step, and this is fifteen lines.
 function lift(name) {
-  const decl = new RegExp(`^ {8}(?:function ${name}\\s*\\(|const ${name}\\s*=)`, 'm');
+  const decl = new RegExp(
+    `^ {8}(?:function ${name}\\s*\\(|(?:const|let) ${name}\\s*=|window\\.${name}\\s*=)`, 'm');
   const m = decl.exec(SRC);
   if (!m) throw new Error(`${name} not found in admin.html`);
   const rest = SRC.slice(m.index);
@@ -41,7 +42,9 @@ function lift(name) {
   return rest.slice(0, firstLine.length + 1 + close.index + close[0].length);
 }
 
-const LIFTED = ['INTENT_LABELS', 'ROUND_CHOICES', '_chemShortName', '_chemInitials',
+const LIFTED = ['INTENT_LABELS', 'ROUND_CHOICES',
+                '_nameLabels', '_nameLabelsFor', '_nameRungs', 'buildNameLabels',
+                'ensureNameLabels', '_chemShortName', '_chemInitials',
                 'movesLabel', 'tableCount', 'quotas', 'fillTablePairs', 'pairLookup',
                 'buildTables', 'rotateTables', 'maxRoundsFor', 'rehydratePin', 'seatingTables',
                 'buildRounds', 'seatedRoundOf', 'rosterDrift', 'driftNote', 'pinSeating',
