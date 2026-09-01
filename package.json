@@ -34,7 +34,9 @@
     "social:export": "node scripts/build-campaign-export.js",
     "social:video": "python scripts/build-tiktok-video.py",
     "social:build": "node scripts/build-calendar.js --out=build/SparkDate_30DAY_CALENDAR.md && node scripts/design-handoff.js --events=MC,TL,GG,LX --out=build/SparkDate_DESIGN_BRIEF.md && node scripts/build-campaign-export.js --all --outdir=build/campaign-sheets",
-    "gender:backfill": "node scripts/backfill-gender.js"
+    "gender:backfill": "node scripts/backfill-gender.js",
+    "listing:redirects": "node scripts/build-listing-redirects.js --write",
+    "listing:check": "node scripts/build-listing-redirects.js --check"
   },
   "dependencies": {
     "firebase": "^10.7.0",
