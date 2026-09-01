@@ -439,6 +439,44 @@ const FUNNELS = [
     title: 'Sequence: view_item then generate_lead',
     steps: [step('1 view_item', 'view_item'), step('2 generate_lead', 'generate_lead')],
   },
+  {
+    // THE CHECKOUT PATH. Deliberately skips view_item, and that is the entire
+    // point of it existing next to the other funnels rather than replacing one.
+    //
+    // ANALYTICS_METHOD section 4 has always said `/lp` does not fire
+    // `view_item` -- it is a landing page, not a product page. Any funnel that
+    // starts at view_item therefore discards every buyer who arrived through
+    // `/lp`, which is 2,566 of 3,485 sessions in the window measured. That is
+    // not a small correction, it is most of the traffic.
+    //
+    // Measured 2026-09-01 over 20260519-20260901 against GA4's own 34
+    // purchasing users:
+    //
+    //     session_start -> purchase                          34   (the ceiling)
+    //     session_start -> begin_checkout -> purchase        21   (this table)
+    //     session_start -> view_item -> begin_checkout ->
+    //                                        purchase        12   (the others)
+    //
+    // So this captures 21 of 34 where the view_item funnels capture 12. The
+    // remaining 13 never fire begin_checkout either, and no funnel starting
+    // from a step can reach them.
+    //
+    // Broken down by LANDING PAGE because that is the question nothing else
+    // answers, and the first read is worth the table on its own: `/lp` took
+    // 2,566 sessions to 7 purchases while `/` took 349 to the same 7.
+    file: 'funnel-checkout-by-landing-page',
+    title: 'Checkout path (no view_item step) by landing page',
+    steps: [
+      step('1 session_start', 'session_start'),
+      step('2 begin_checkout', 'begin_checkout'),
+      step('3 purchase', 'purchase'),
+    ],
+    breakdown: 'landingPage',
+    // Its purchase row will NOT match funnel-by-channel's, and that is correct
+    // rather than a data fault: they count different chains. Stated in the
+    // file header so a reader does not raise it as an inconsistency.
+    note: 'This funnel SKIPS view_item on purpose, so it counts more buyers than the view_item funnels do (21 vs 12 of GA4\'s 34 purchasing users, measured 20260519-20260901). A mismatch between this table\'s purchase row and funnel-by-channel\'s is EXPECTED and is not a data fault -- see ANALYTICS_METHOD.md section 4.',
+  },
 ];
 
 async function token() {
@@ -637,6 +675,9 @@ function toCsvFunnel(spec, report, start, end, pulledAt) {
   if (spec.steps.some((s) => s.filterExpression.funnelEventFilter.eventName === 'begin_checkout')) {
     notes.push('begin_checkout was REDEFINED on 2026-08-21 (ANALYTICS_METHOD section 3). A window spanning that date mixes two definitions at that step.');
   }
+  // A funnel may carry its own caveat, appended after the standing ones so that
+  // whichever warning applies to EVERY funnel keeps the lead position.
+  if (spec.note) notes.push(spec.note);
   notes.push('No Grand total row: a funnel\'s total is its first step, and summing completion rates would mean nothing.');
 
   const body = rows.map((r) => [
