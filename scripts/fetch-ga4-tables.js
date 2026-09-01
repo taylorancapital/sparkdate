@@ -374,12 +374,37 @@ const webviewSegment = (name, value) => ({
   },
 });
 
+// NO add_to_cart. It was a step here for one night and it wrecked the bottom of
+// every funnel table, because most buyers on this property never touch a cart.
+//
+// A closed funnel counts users who completed EVERY step IN ORDER, so one
+// off-path step discards everyone who skipped it. Measured 2026-09-01 over
+// 20260519-20260901, adding one step at a time:
+//
+//     session_start -> purchase                      34   <- GA4's own count
+//             + view_item                            24
+//             + begin_checkout                       12
+//             + add_to_cart                           5
+//
+// GA4 reports 37 transactions / 34 purchasing users / $1,006.14 for that window.
+// The five-step funnel found 5 of those 34 -- 15%. `begin_checkout` has 146
+// users against add_to_cart's 57, which is the whole story: people go straight
+// to checkout.
+//
+// This is not hypothetical damage. GA4_ANALYSIS_2026-09-01 read these tables on
+// their first night and reported "Paid Social ... purchase 2" and "282
+// normal-browser users producing 4" as purchase counts. They were chain counts.
+//
+// Dropping the step takes capture from 5/34 to 12/34. Still lossy -- 10 buyers
+// never fire view_item at all -- which is why the header carries a standing
+// warning and why nobody should read a funnel's last step as revenue. The cart
+// numbers are NOT lost: `ga4-api-events-*.csv` carries add_to_cart's own count
+// and user total, unconditioned by any chain.
 const PURCHASE_STEPS = [
   step('1 session_start', 'session_start'),
   step('2 view_item', 'view_item'),
-  step('3 add_to_cart', 'add_to_cart'),
-  step('4 begin_checkout', 'begin_checkout'),
-  step('5 purchase', 'purchase'),
+  step('3 begin_checkout', 'begin_checkout'),
+  step('4 purchase', 'purchase'),
 ];
 
 const FUNNELS = [
@@ -604,6 +629,11 @@ function toCsvFunnel(spec, report, start, end, pulledAt) {
   const cols = [...dimNames, ...metNames.slice(0, width)];
 
   const notes = [];
+  // The warning that has to come first, because the last step LOOKS like a
+  // conversion count and is not one. GA4_ANALYSIS_2026-09-01 quoted this
+  // table's purchase column as purchases; the five-step version of this funnel
+  // was finding 5 of 34 real buyers at the time.
+  notes.push('THIS IS A CHAIN COUNT, NOT A CONVERSION COUNT. A closed funnel counts only users who completed EVERY step IN ORDER, so the last step UNDERSTATES the real total by however many people skipped a step. For actual purchases and revenue read ga4-api-revenue-daily-*.csv and the purchase row of ga4-api-events-*.csv.');
   if (spec.steps.some((s) => s.filterExpression.funnelEventFilter.eventName === 'begin_checkout')) {
     notes.push('begin_checkout was REDEFINED on 2026-08-21 (ANALYTICS_METHOD section 3). A window spanning that date mixes two definitions at that step.');
   }
