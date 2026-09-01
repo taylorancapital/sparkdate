@@ -121,8 +121,8 @@ CHECKS.push(() => {
 // 3. The "no rotation / no timer" family.
 CHECKS.push(() => ({
   id: 'format-denial',
-  canonical: 'timed rounds at small tables, a game as the icebreaker, men move one table per round, then 5-minute 1-on-1s',
-  source: 'public/admin.html chemistry tool (_tableSize, ROUND_CHOICES, _roundMinutes, ONE_ON_ONE_MS); confirmed by Taylor 2026-09-01',
+  canonical: 'timed rounds at small tables, a game as the icebreaker, men move one table per round, then 1-on-1s',
+  source: 'public/admin.html chemistry tool (_tableSize, ROUND_CHOICES, _roundMinutes, _oneOnOneMinutes); confirmed by Taylor 2026-09-01',
   findings: scan(
     /.{0,70}no\s+(?:bell|forced rotation|rigid rotation|rotation|timer|whistle|scorecard|awkward icebreakers|(?:seven|three)[- ]minute).{0,60}/i,
     'denies a structure the product actually has',
@@ -142,16 +142,31 @@ CHECKS.push(() => ({
   extra: 'Not necessarily wrong -- "20 to 30" and "under 30" are both compatible with a 30-seat room. Listed so the phrasing is a choice rather than an accident, and so it gets revisited if a venue ever seats more.',
 }));
 
-// 5. Welcome drink.
+// 5. Free drinks of any kind. RESOLVED: there are none.
 CHECKS.push(() => ({
-  id: 'welcome-drink',
-  canonical: 'UNVERIFIED — no record in the repo',
-  source: 'nothing. This claim has no source of truth anywhere in the codebase.',
-  findings: scan(/.{0,50}welcome drink.{0,50}/i, 'promises a drink is included'),
-  extra: 'Appears on all four city pages, in prose AND inside the FAQ structured data Google surfaces. "At most venues" is doing a lot of work. Whoever knows the venue contracts should confirm it or cut it -- it is the only claim here that costs money at the bar if it is wrong.',
+  id: 'free-drink',
+  canonical: 'NO free drink, ever. The ticket covers entry and nothing else.',
+  source: 'Taylor, 2026-09-01: "We should not under any circumstances be giving out welcome drinks."',
+  findings: scan(
+    /.{0,60}(?:welcome drink|free drink|drink included|includes a drink|complimentary\s+\w*\s*drink|first drink).{0,50}/i,
+    'promises a drink the ticket does not include',
+  ),
+  extra: 'Was on all four city pages, in prose AND in the FAQ structured data Google surfaces, phrased "includes entry and -- at most venues -- a welcome drink". Removed 2026-09-01. This check stays because the claim is attractive and cheap to retype, and it is the one claim in this audit that a guest can demand at the bar.',
 }));
 
-// 6. Name badges. Found by accident while fixing the format claims.
+// 6. Segment durations quoted in public copy. There is no safe number.
+CHECKS.push(() => ({
+  id: 'quoted-duration',
+  canonical: 'quote NO duration -- rounds are 2-4 x 10/15/20 min, 1-on-1s are 5/7/10 min, all host-set per event',
+  source: 'public/admin.html: ROUND_CHOICES, _roundMinutes, _oneOnOneMinutes',
+  findings: scan(
+    /.{0,60}(?:five|seven|ten|three|3|5|7|10|15|20)[- ]minute\s+(?:one-on-one|1-on-1|round|seating|table).{0,50}/i,
+    'commits to a duration the host chooses on the night',
+  ),
+  extra: 'This check exists because of a near miss. ONE_ON_ONE_MS was hardcoded at 5 minutes, so the listing copy said "five-minute one-on-ones" and a test asserted it. #379 merged the SAME DAY, made it settable and moved the default to SEVEN -- which would have made every listing already submitted wrong, on calendars that cannot be edited after moderation. A number that is a constant today is a setting tomorrow.',
+}));
+
+// 7. Name badges. Found by accident while fixing the format claims.
 CHECKS.push(() => ({
   id: 'name-badge',
   canonical: 'UNRESOLVED — the site says both',
@@ -162,7 +177,7 @@ CHECKS.push(() => ({
   extra: 'blog/how-same-night-matching-works.html says "get your name badge"; both first-timer guides say "No name tag". brand.json universal.run_of_show currently says badge, but only because it was written from the first of those. Someone who has run an event needs to say which it is -- it is the first thing a guest experiences.',
 }));
 
-// 7. Age policy.
+// 8. Age policy.
 CHECKS.push(() => ({
   id: 'age',
   canonical: '21+ with valid ID',

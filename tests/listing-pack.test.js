@@ -145,7 +145,7 @@ describe('buildCopy address', () => {
 
 describe('the format of the night', () => {
   // Settled 2026-09-01 against the shipped chemistry tool: icebreaker, then
-  // timed seated rounds with the men rotating, then 5-minute 1-on-1s. Before
+  // timed seated rounds with the men rotating, then 1-on-1s. Before
   // that, brand.json and the blog contradicted each other and the copy was
   // written around the gap. These tests hold the corrected version in place.
   const { long, short } = buildCopy(eventFixture(), matchBrandEvent(brand, LX_ID));
@@ -153,7 +153,7 @@ describe('the format of the night', () => {
   it('describes the icebreaker, the rotation and the one-on-ones', () => {
     expect(long).toMatch(/icebreaker/i);
     expect(long).toMatch(/move one table along/i);
-    expect(long).toMatch(/five-minute one-on-ones/i);
+    expect(long).toMatch(/one-on-ones/i);
   });
 
   it('puts the icebreaker AT the tables, not before them', () => {
@@ -186,10 +186,16 @@ describe('the format of the night', () => {
     }
   });
 
-  it('still states the one duration that is fixed — the 1-on-1s', () => {
-    // ONE_ON_ONE_MS is hardcoded at 5 minutes; it is not a host setting, so
-    // it is safe to print and it is the most concrete thing in the copy.
-    expect(long).toMatch(/five-minute/i);
+  it('quotes NO duration at all, including for the 1-on-1s', () => {
+    // This test used to assert the OPPOSITE -- that the copy said
+    // "five-minute one-on-ones" -- on the reasoning that ONE_ON_ONE_MS was
+    // hardcoded and therefore safe to print. #379 merged the same day, made
+    // it a host setting and moved the default to seven, which would have
+    // made every already-submitted listing wrong on calendars that cannot be
+    // edited after moderation. There is no safe duration to print.
+    for (const text of [long, short]) {
+      expect(text).not.toMatch(/(?:five|seven|ten|three|\d+)[- ]minute/i);
+    }
   });
 });
 

@@ -17,9 +17,9 @@
  * listing copy must say exactly what the public page says.
  *
  * WHAT IT WILL NOT DO: invent a fact. Attendance figures and spot counts are
- * not synthesized, and the copy states the SHAPE of the night but never the
- * round count or length, because those are settings the host picks per event
- * -- see FORMAT_NOTE below.
+ * not synthesized, and the copy states the SHAPE of the night but never any
+ * duration -- round count, minutes per round and minutes per 1-on-1 are all
+ * settings the host picks per event. See FORMAT_NOTE below.
  *
  * Usage:
  *   node scripts/build-listing-pack.js                  # all upcoming events
@@ -49,24 +49,31 @@ const arg = (n, d) => {
 // SETTLED 2026-09-01. There is an icebreaker and there is a timer. The
 // authority is the shipped chemistry tool in public/admin.html, not prose:
 // balanced tables of ~6, 2-4 seatings of 10/15/20 minutes (default 4 x 15)
-// with the men rotating one table per seating, then 5-minute 1-on-1s that
-// never repeat a pair. brand.json universal.run_of_show carries the record.
+// with the men rotating one table per seating, then 1-on-1s of 5/7/10 minutes
+// (default 7) that never repeat a pair. brand.json universal.run_of_show
+// carries the record.
 //
-// The copy below deliberately does NOT state the round count or length.
-// Both are per-event settings the host picks on the night, so a listing that
-// names them is committing a stranger to a number nobody has chosen yet --
-// and a listing cannot be edited once a calendar has moderated it. It says
-// the SHAPE, which is fixed, and leaves the numbers to the host.
+// The copy below deliberately states NO DURATION AT ALL. Every segment length
+// is a per-event setting the host picks on the night, so a listing that names
+// one commits a stranger to a number nobody has chosen yet -- and a listing
+// cannot be edited once a calendar has moderated it. It says the SHAPE, which
+// is fixed, and leaves every number to the host.
 //
-// Six places on the live site still say the opposite ("no bell, no forced
+// The 1-on-1s used to be the one safe exception: ONE_ON_ONE_MS was hardcoded
+// at five minutes, so the first version of this file printed "five-minute
+// one-on-ones". #379 (merged 2026-09-01, the same day) made it settable and
+// moved the default to SEVEN, which turned that sentence false in every
+// listing already carrying it. There is no safe exception now.
+//
+// Several places on the live site still say the opposite ("no bell, no forced
 // rotation, no seven-minute timer" / "no rotation and no timer"). They are
 // listed in SITE_COPY_DEFECTS and printed with the pack, because a listing
 // that describes the real format while the site denies it is a worse state
 // than either one alone.
 const FORMAT_NOTE = {
   settled: '2026-09-01, against public/admin.html',
-  shape: 'doors and drinks → timed rounds at small tables, with a game as the icebreaker and the men moving one table each round → 5-minute 1-on-1s → private interest notes → same-night matches',
-  omitted: 'the round count or the minutes per round (both are per-event host settings)',
+  shape: 'doors and drinks → timed rounds at small tables, with a game as the icebreaker and the men moving one table each round → shorter 1-on-1s → private interest notes → same-night matches',
+  omitted: 'the round count, the minutes per round, or the minutes per 1-on-1 (all three are per-event host settings)',
   _icebreaker: 'The game IS the tables, not a warm-up before them. Confirmed by Taylor 2026-09-01 after an earlier version of this file got it the other way round.',
 };
 
@@ -215,7 +222,7 @@ function buildCopy(event, brandEv) {
   const short =
     `A real-life singles night in ${city}. Timed rounds at small tables with a game to break ` +
     `the ice — the men move along each round, so you meet the room instead of one corner of ` +
-    `it — then five-minute one-on-ones. At the end you privately note who you'd like to see ` +
+    `it — then one-on-ones. At the end you privately note who you'd like to see ` +
     `again, and mutual interest becomes a match before you get home. ` +
     `${dateLong(event.start)}, doors ${timeOf(event.start)}. ${money(event.price)}.`;
 
@@ -230,7 +237,7 @@ function buildCopy(event, brandEv) {
     `with a game to play — that's the icebreaker, so nobody has to invent an opening line cold ` +
     `— and the men move one table along each round, which means every round is a genuinely new ` +
     `set of people and you meet the room rather than the same two people by the bar all night. ` +
-    `After the tables come five-minute one-on-ones with people you haven't already sat with. ` +
+    `After the tables come shorter one-on-ones with people you haven't already sat with. ` +
     `Near the end you privately note anyone you'd like to see again; it takes under a minute ` +
     `and nobody else sees it. If someone noted you back, that's a match, and you both get it ` +
     `that night rather than after some review period.`,

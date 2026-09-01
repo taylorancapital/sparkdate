@@ -45,7 +45,7 @@ be noticed.
 |---|---|---|
 | `public/city.html` ×4 | "about 6:30 to 9 PM" | fixed |
 | `content/queue.csv` ×3 | "6:30-9:00 PM" | fixed |
-| `public/careers.html:292` | close out 9:00 PM | **not fixed** — host-facing, see §7 |
+| `public/careers.html:292` | close out 9:00 PM | **not fixed** — host-facing, see §9 |
 | **Firestore event docs** | **endDate 9:30 PM** | **not fixed — needs you** |
 
 > **The Firestore one is the one that matters most.** Both live events carry a
@@ -89,7 +89,7 @@ Also minor: `first-timer-guide.html:257` says "$25" while the same post says
 
 Settled 2026-09-01 against the shipped chemistry tool in `public/admin.html`:
 **doors and drinks → timed rounds at small tables, with a game as the icebreaker
-and the men moving one table along each round → five-minute one-on-ones →
+and the men moving one table along each round → one-on-ones →
 private interest notes → same-night matches.**
 
 Nine surfaces said some version of "no rotation, no timer, no scorecard".
@@ -102,27 +102,29 @@ icebreakers" on the page where people buy.
 entire thesis is "we are a mixer, *not* speed dating", down to a closing CTA of
 "No whistle, no scorecard, no three-minute timer." With rotations and a timer,
 that post now argues against the product. That is a positioning decision, not a
-copy fix — see §7.
+copy fix — see §9.
 
-**In new copy, state the shape but never the numbers.** The round count (2–4)
-and length (10/15/20 min) are settings the host picks on the night. The
-five-minute one-on-ones are hardcoded and safe to state.
+**In new copy, state the shape and NO duration whatsoever.** See §7 — the one
+number that looked safe stopped being safe within hours.
 
 ---
 
-## 4. Welcome drink — 7 claims, zero sources
+## 4. Welcome drink — 7 false claims. RESOLVED: there is no drink.
 
 > "Tickets are $24.99, which includes entry and — at most venues — a welcome
 > drink."
 
 On all four city pages, in prose **and inside the FAQ structured data Google
-surfaces**. There is no record anywhere in the repo of which venues include a
-drink or whether any do.
+surfaces**. Nothing in the repo backed it.
 
-"At most venues" is doing a great deal of work. This is the only claim in the
-audit that **costs money at the bar** if it is wrong, and the only one a guest
-can dispute in person. Someone who knows the venue contracts needs to confirm
-it or cut it. **Not fixed — I cannot verify it from here.**
+**Taylor, 2026-09-01: "We should not under any circumstances be giving out
+welcome drinks."** All seven removed; the pages now say the ticket covers
+entry and "Drinks are on you at the bar."
+
+This was the only claim in the audit a guest could stand at a bar and demand.
+The `free-drink` check stays in `audit-facts.js` permanently — the claim is
+attractive, cheap to retype, and was sitting in structured data Google had
+already indexed.
 
 ---
 
@@ -154,14 +156,54 @@ experiences, so it is worth settling. **Not fixed.**
 
 ---
 
-## 7. Open, needs a decision from Taylor
+## 7. The near miss that changed the rule
+
+The first version of this audit said the round count and length were unsafe to
+print but that **"five minutes for the one-on-ones is fixed and safe to state"**
+— because `ONE_ON_ONE_MS` was a hardcoded constant.
+
+**#379 merged the same day.** It made the 1-on-1 length a host setting of
+5/7/10 minutes and moved the default to **seven**. Every listing already
+carrying "five-minute one-on-ones" would have been wrong, on calendars that
+cannot be edited after moderation.
+
+The rule is now absolute: **quote no duration for any segment.** A number that
+is a constant today is a setting tomorrow, and the listing outlives the
+constant. `audit-facts.js` has a `quoted-duration` check and
+`tests/listing-pack.test.js` fails on any `N-minute` phrase in generated copy.
+
+It also caught a second thing on its first run.
+
+## 8. One row nobody should rewrite without asking
+
+`content/queue.csv:110` describes the night as:
+
+> …open a tab, get a drink → **"we sit you down for an icebreaker activity —
+> with people we think you'll click with"** → **open mingling** → **"the
+> 7-minute rounds, at the end"**
+
+This is the *closest* description anywhere in the repo to what the dashboard
+actually does — it is the only surface that got the icebreaker-at-a-table right,
+and "7 minutes at the end" matches the new 1-on-1 default exactly. Two problems:
+
+1. It calls the 1-on-1s "rounds", which collides with the table rounds.
+2. It asserts an **"open mingling"** block between the tables and the 1-on-1s.
+   Nothing else in the system mentions one, and the dashboard's run-of-show
+   plan goes straight from the last seating into the 1-on-1s.
+
+**Left untouched deliberately.** Whether open mingling happens is a question
+only Taylor can answer, and this file has already guessed at the run of show
+twice and been wrong twice.
+
+## 9. Open, needs a decision from Taylor
 
 1. **Edit the Firestore event records** so `endDate` is 8:30 PM, not 9:30. This
    is the highest-value item in the audit — it is the one publishing to Google.
 2. **The Philly price.** Stop quoting a flat number, or commit to maintaining
    per-city ones.
-3. **The welcome drink.** Confirm or cut.
+3. ~~The welcome drink.~~ **Resolved 2026-09-01 — cut everywhere.**
 4. **Name badge or no name badge.**
+4b. **Is there an "open mingling" block?** See §8.
 5. **`speed-dating-vs-singles-mixer.html`.** The honest version of that post
    probably says SparkDate is a hybrid — the structure of speed dating with
    longer rounds and no scorecard — which is a genuinely better pitch than
@@ -170,7 +212,7 @@ experiences, so it is worth settling. **Not fixed.**
    evening / 9:00 close out") never mentions the tables and has the wrong end
    time. A prospective host reads this. Low urgency, real inaccuracy.
 
-## 8. The structural fix
+## 10. The structural fix
 
 `scripts/audit-facts.js` exists so this is a command rather than an afternoon.
 It is **not** wired into CI, deliberately: several checks report occurrences
