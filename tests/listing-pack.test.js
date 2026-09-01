@@ -150,10 +150,20 @@ describe('the format of the night', () => {
   // written around the gap. These tests hold the corrected version in place.
   const { long, short } = buildCopy(eventFixture(), matchBrandEvent(brand, LX_ID));
 
-  it('describes the icebreaker, the rotation and the one-on-ones', () => {
+  it('describes all three movements in order', () => {
+    // Tables -> open mingling -> 1-on-1s. The mingling block is invisible in
+    // the chemistry tool (nothing to seat, nothing to time), which is exactly
+    // how a run of show derived from the dashboard alone came out missing it.
     expect(long).toMatch(/icebreaker/i);
     expect(long).toMatch(/move one table along/i);
+    expect(long).toMatch(/open mingling/i);
     expect(long).toMatch(/one-on-ones/i);
+
+    const tables = long.search(/seated at a small table/i);
+    const mingle = long.search(/open mingling/i);
+    const ones = long.search(/one-on-ones/i);
+    expect(tables).toBeLessThan(mingle);
+    expect(mingle).toBeLessThan(ones);
   });
 
   it('puts the icebreaker AT the tables, not before them', () => {

@@ -72,7 +72,7 @@ const arg = (n, d) => {
 // than either one alone.
 const FORMAT_NOTE = {
   settled: '2026-09-01, against public/admin.html',
-  shape: 'doors and drinks → timed rounds at small tables, with a game as the icebreaker and the men moving one table each round → shorter 1-on-1s → private interest notes → same-night matches',
+  shape: 'doors and drinks → timed rounds at small tables, with a game as the icebreaker and the men moving one table each round → OPEN MINGLING → 1-on-1s → private interest notes → same-night matches. Three movements: structured, free, then paired.',
   omitted: 'the round count, the minutes per round, or the minutes per 1-on-1 (all three are per-event host settings)',
   _icebreaker: 'The game IS the tables, not a warm-up before them. Confirmed by Taylor 2026-09-01 after an earlier version of this file got it the other way round.',
 };
@@ -221,8 +221,8 @@ function buildCopy(event, brandEv) {
 
   const short =
     `A real-life singles night in ${city}. Timed rounds at small tables with a game to break ` +
-    `the ice — the men move along each round, so you meet the room instead of one corner of ` +
-    `it — then one-on-ones. At the end you privately note who you'd like to see ` +
+    `the ice and the men moving along each round, then open mingling once you already know ` +
+    `the room, then one-on-ones. At the end you privately note who you'd like to see ` +
     `again, and mutual interest becomes a match before you get home. ` +
     `${dateLong(event.start)}, doors ${timeOf(event.start)}. ${money(event.price)}.`;
 
@@ -233,12 +233,23 @@ function buildCopy(event, brandEv) {
     // guests get one and both first-timer guides say they do not, and nothing
     // settles it. See reports/FACT_AUDIT_2026-09-01.md section 5.
     `**How the night works.** You check in with a host — there's nothing ` +
-    `to download and no profile to fill out at the door. Then you're seated at a small table ` +
-    `with a game to play — that's the icebreaker, so nobody has to invent an opening line cold ` +
-    `— and the men move one table along each round, which means every round is a genuinely new ` +
-    `set of people and you meet the room rather than the same two people by the bar all night. ` +
-    `After the tables come shorter one-on-ones with people you haven't already sat with. ` +
-    `Near the end you privately note anyone you'd like to see again; it takes under a minute ` +
+    `to download and no profile to fill out at the door. The evening runs in three movements.` +
+    `
+
+First, you're seated at a small table with a game to play — that's the icebreaker, so ` +
+    `nobody has to invent an opening line cold — and the men move one table along each round, ` +
+    `which means every round is a genuinely new set of people.` +
+    `
+
+Then the structure drops away and it's open mingling: go where you want, talk to whoever ` +
+    `you want, for as long as it's working. By that point you've already met most of the room, ` +
+    `so nobody is starting cold — which is the part a bar full of strangers never gets right.` +
+    `
+
+Last, one-on-ones with the people you haven't already sat with.` +
+    `
+
+Near the end you privately note anyone you'd like to see again; it takes under a minute ` +
     `and nobody else sees it. If someone noted you back, that's a match, and you both get it ` +
     `that night rather than after some review period.`,
     ``,

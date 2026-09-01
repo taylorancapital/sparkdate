@@ -87,12 +87,28 @@ Also minor: `first-timer-guide.html:257` says "$25" while the same post says
 
 ## 3. Format — the site denied a structure the product has
 
-Settled 2026-09-01 against the shipped chemistry tool in `public/admin.html`:
-**doors and drinks → timed rounds at small tables, with a game as the icebreaker
-and the men moving one table along each round → one-on-ones →
-private interest notes → same-night matches.**
+Settled 2026-09-01, in two passes. The night runs in **three movements**:
+
+1. **Timed rounds at small tables**, a game as the icebreaker, men moving one
+   table along each round
+2. **Open mingling** — no structure, go where you want
+3. **One-on-ones** with people you haven't already sat with
+
+then private interest notes and same-night matches.
 
 Nine surfaces said some version of "no rotation, no timer, no scorecard".
+
+> **The nuance that explains why this was so hard to settle.** Movement 2 is
+> real, and it is invisible in the chemistry tool — there is nothing to seat
+> and nothing to time, so a run of show derived from the dashboard alone comes
+> out missing it entirely. That is exactly what happened here, twice.
+>
+> Which means the site's "conversations at your own pace, no rigid rotation"
+> language **was never invented**. It describes movement 2 accurately and then
+> presents it as the whole evening. Every party to this contradiction was half
+> right, which is why it survived so long: whoever checked could always find
+> evidence for their side. The defect was never the phrase — it was the phrase
+> standing alone.
 
 **Fixed (5):** `blog/how-same-night-matching-works.html`, `city.html` ×3 prose
 plus its FAQ structured data, and `event.html:788` — which promised "no awkward
@@ -174,26 +190,31 @@ constant. `audit-facts.js` has a `quoted-duration` check and
 
 It also caught a second thing on its first run.
 
-## 8. One row nobody should rewrite without asking
+## 8. The most accurate description of the night was in a social caption
 
-`content/queue.csv:110` describes the night as:
+`content/queue.csv:110` — a queued Instagram caption nobody had cross-checked —
+described the night as:
 
 > …open a tab, get a drink → **"we sit you down for an icebreaker activity —
 > with people we think you'll click with"** → **open mingling** → **"the
 > 7-minute rounds, at the end"**
 
-This is the *closest* description anywhere in the repo to what the dashboard
-actually does — it is the only surface that got the icebreaker-at-a-table right,
-and "7 minutes at the end" matches the new 1-on-1 default exactly. Two problems:
+Every element of that is right. It is the only surface in the entire codebase
+that got the icebreaker-at-a-table correct, the only one that mentioned open
+mingling at all, and "7 minutes at the end" matches the 1-on-1 default that
+#379 shipped hours later.
 
-1. It calls the 1-on-1s "rounds", which collides with the table rounds.
-2. It asserts an **"open mingling"** block between the tables and the 1-on-1s.
-   Nothing else in the system mentions one, and the dashboard's run-of-show
-   plan goes straight from the last seating into the 1-on-1s.
+It was flagged here as *suspect* because it disagreed with every other source,
+including the dashboard. Taylor confirmed it. **The outlier was the truth.**
 
-**Left untouched deliberately.** Whether open mingling happens is a question
-only Taylor can answer, and this file has already guessed at the run of show
-twice and been wrong twice.
+Only the naming was changed — it called the 1-on-1s "rounds", colliding with
+the table rounds, and quoted a duration that is now host-settable. It now reads
+"Then the one-on-ones, at the end - once you already know half the room."
+
+The lesson for this audit is uncomfortable and worth keeping: **agreement
+between surfaces is not evidence.** Six surfaces agreed the night had no
+structure and all six were wrong; one caption disagreed with everything and was
+right.
 
 ## 9. Open, needs a decision from Taylor
 
@@ -202,8 +223,7 @@ twice and been wrong twice.
 2. **The Philly price.** Stop quoting a flat number, or commit to maintaining
    per-city ones.
 3. ~~The welcome drink.~~ **Resolved 2026-09-01 — cut everywhere.**
-4. **Name badge or no name badge.**
-4b. **Is there an "open mingling" block?** See §8.
+4. **Name badge or no name badge.** The last unresolved fact in the audit.
 5. **`speed-dating-vs-singles-mixer.html`.** The honest version of that post
    probably says SparkDate is a hybrid — the structure of speed dating with
    longer rounds and no scorecard — which is a genuinely better pitch than

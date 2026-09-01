@@ -121,13 +121,13 @@ CHECKS.push(() => {
 // 3. The "no rotation / no timer" family.
 CHECKS.push(() => ({
   id: 'format-denial',
-  canonical: 'timed rounds at small tables, a game as the icebreaker, men move one table per round, then 1-on-1s',
+  canonical: 'three movements -- timed rounds at small tables with a game as the icebreaker and the men moving one table per round, THEN open mingling, THEN 1-on-1s',
   source: 'public/admin.html chemistry tool (_tableSize, ROUND_CHOICES, _roundMinutes, _oneOnOneMinutes); confirmed by Taylor 2026-09-01',
   findings: scan(
     /.{0,70}no\s+(?:bell|forced rotation|rigid rotation|rotation|timer|whistle|scorecard|awkward icebreakers|(?:seven|three)[- ]minute).{0,60}/i,
     'denies a structure the product actually has',
   ),
-  extra: 'blog/speed-dating-vs-singles-mixer.html is deliberately EXCLUDED from any fix: its whole thesis is "we are a mixer, not speed dating", so it needs a positioning decision rather than an edit.',
+  extra: 'IMPORTANT NUANCE, confirmed by Taylor 2026-09-01: there IS an open-mingling block between the tables and the 1-on-1s. So "conversations at your own pace" was never invented -- it describes that block accurately and then presents it as the whole evening. The defect was never the phrase; it was the phrase standing alone. Copy that keeps at-your-own-pace AND names it as one movement of three is correct and should not be flagged. blog/speed-dating-vs-singles-mixer.html stays excluded from any fix: its thesis is "we are a mixer, not speed dating", which is a positioning decision rather than an edit -- though the hybrid is now a much easier story to tell than it looked.',
 }));
 
 // 4. Capacity.
