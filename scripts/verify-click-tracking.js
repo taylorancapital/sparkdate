@@ -212,7 +212,17 @@ async function checkLink(t, originals) {
   console.log(`  ${t}`);
 
   const self = paramsOf(t);
-  if (self.ok && !self.hostname.endsWith(TRACKING_HOST)) {
+  // Not a URL at all. Worth its own branch because the commonest way to get
+  // here is pasting the placeholder out of the instructions rather than a real
+  // link, and the bare fetch error for that ("Failed to parse URL from
+  // <paste the tracked link...>") reads like a bug in the script.
+  if (!self.ok) {
+    console.log('    NOT A URL — nothing was checked.');
+    console.log('    Paste the actual link from the delivered email, quoted, e.g.');
+    console.log(`      --link='https://${TRACKING_HOST}/CL0/https%3A%2F%2Fsparkdate.date%2F...'\n`);
+    return 'untracked';
+  }
+  if (!self.hostname.endsWith(TRACKING_HOST)) {
     console.log(`    NOT A TRACKED LINK — host is ${self.origin.replace(/^https?:\/\//, '')}, expected ${TRACKING_HOST}`);
     console.log('    This is the destination, not the rewritten link. Two ways that happens:');
     console.log('      1. it was copied from the email SOURCE (or from a chat/PR) rather than');
