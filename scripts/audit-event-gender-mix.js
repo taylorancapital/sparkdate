@@ -14,10 +14,14 @@
  *
  * WHAT IT SEPARATES, and why each one matters:
  *
- *   PAID vs FREE. The only $0 seat the product can issue is the 2-for-1
- *     companion (api/purchase-ticket.js — `amount: 0`). A free seat carries no
- *     financial commitment, so it is the first thing to suspect in a no-show
- *     gap. Counting it inside "tickets sold" flatters both the mix and the CAC.
+ *   COMP vs NO-PRICE. Both show `amount: 0` and they are NOT the same thing.
+ *     `isComp` (or a 2-for-1 `isPlusOne`) is a seat genuinely given away.
+ *     Everything else at zero got there through
+ *     `parseInt(priceCents, 10) || 0` in lib/enroll.js, which means the
+ *     importer had no price to record -- those people may well have PAID on
+ *     Eventbrite. The first version of this script collapsed the two and
+ *     labelled all of them FREE, which turned paying attendees into evidence
+ *     for a comp-driven-no-show theory. They are separate columns now.
  *
  *   COMPANION vs BUYER. A +1 never chose to come. The buyer chose for them and
  *     typed their contact details. That is a different intent and a different
@@ -45,16 +49,55 @@
  *   node scripts/audit-event-gender-mix.js --list
  *   node scripts/audit-event-gender-mix.js <eventId> --json
  *
- * Requires (same as the other scripts/ tools — copy from Vercel or .env.local):
+ * CREDENTIALS. Needs three vars:
  *   FIREBASE_PROJECT_ID
  *   FIREBASE_CLIENT_EMAIL
  *   FIREBASE_PRIVATE_KEY
+ *
+ * Unlike the other scripts/ tools, this one reads `.env.local` itself if the
+ * vars are not already in the environment, so the usual flow is just:
+ *
+ *   vercel env pull .env.local          # or --environment=production
+ *   node scripts/audit-event-gender-mix.js --match="good good"
+ *
+ * Note the repo's existing `.env.local` has had these three EMPTY (`""`), which
+ * reads as "present but blank" — the loader skips empty values so they fall
+ * through to the missing-var error rather than producing a confusing
+ * "Service account object must contain a string project_id" from deep inside
+ * firebase-admin.
  */
 
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const admin = require('firebase-admin');
 const { normalizeEmail } = require('../lib/email-identity');
+
+// Read .env.local if it is there, without overriding anything already in the
+// environment. Nothing in this repo loads that file — no dotenv dependency —
+// so every script here has so far required the three Firebase vars to be set by
+// hand in the shell first. That is a real barrier for a one-off audit, and the
+// values are already sitting in .env.local after `vercel env pull`.
+//
+// Deliberately does NOT fail if the file is missing or unreadable: the vars may
+// legitimately come from the environment, and a missing optional file is not an
+// error. Values may be quoted; FIREBASE_PRIVATE_KEY in particular arrives as
+// one line with literal \n sequences, which the cert() call below un-escapes.
+(function loadDotEnvLocal() {
+  const file = path.join(__dirname, '..', '.env.local');
+  let text;
+  try { text = fs.readFileSync(file, 'utf8'); } catch { return; }
+  for (const line of text.split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/);
+    if (!m) continue;
+    let v = m[2].trim();
+    if (v.length >= 2 && ((v[0] === '"' && v.endsWith('"')) || (v[0] === "'" && v.endsWith("'")))) {
+      v = v.slice(1, -1);
+    }
+    if (v !== '' && process.env[m[1]] === undefined) process.env[m[1]] = v;
+  }
+})();
 
 const need = (k) => {
   if (!process.env[k]) {
@@ -95,10 +138,30 @@ const iso = (t) => { const d = toDate(t); return d && !isNaN(d) ? d.toISOString(
 const g = (v) => String(v || 'unknown').toLowerCase();
 const money = (cents) => `$${((cents || 0) / 100).toFixed(2)}`;
 
-// `amount` on a ticket is CENTS and includes the service fee. A comped seat is
-// exactly 0; anything else is a real charge. Deliberately not `< some floor` --
-// there is no partial-comp path, so a nonzero amount is always a sale.
-const isFree = (t) => !Number(t.amount);
+// `amount` on a ticket is CENTS and includes the service fee.
+//
+// A zero here is NOT automatically a comp, and the first run of this script
+// implied it was. Three routes produce `amount: 0`, and they mean different
+// things:
+//
+//   1. the 2-for-1 companion (api/purchase-ticket.js) -- a real free seat;
+//   2. an explicit comp (lib/enroll.js, channel 'comp') -- also a real free
+//      seat, and the only one that sets `isComp: true`;
+//   3. `parseInt(priceCents, 10) || 0` in enrollEventbriteOne, which lands on
+//      zero whenever the importer had no price to give it. That is "price not
+//      recorded", NOT "seat given away", and reading it as a comp turns a
+//      PAYING attendee into evidence for a comp-no-show theory.
+//
+// So zero-amount seats are reported by their SOURCE, and only isComp/+1 are
+// called free without qualification.
+const isZero = (t) => !Number(t.amount);
+const isComp = (t) => !!t.isComp || !!t.isPlusOne;
+
+// Imported tickets carry `source` (lib/enroll.js); only purchase-ticket.js sets
+// `channel`. Reading one and not the other made every Eventbrite row print as
+// "(direct)", which is exactly backwards -- they are the least direct rows in
+// the file.
+const originOf = (t) => t.source || t.channel || (t.paymentIntentId ? 'own-site' : 'unknown');
 
 async function pickEvents() {
   const snap = await db.collection('events').get();
@@ -146,7 +209,9 @@ async function auditEvent(ev) {
       _key: k,
       _reg: reg,
       _showed: !!(reg.checkedInAt || reg.attended),
-      _free: isFree(t),
+      _zero: isZero(t),
+      _comp: isComp(t),
+      _origin: originOf(t),
       _guest: !t.firebaseUid,
       _shared: (emailCount.get(k) || 0) > 1,
     };
@@ -156,14 +221,15 @@ async function auditEvent(ev) {
   for (const t of tickets) {
     const key = g(t.gender);
     const b = buckets[key] || (buckets[key] = {
-      n: 0, paid: 0, free: 0, plusOne: 0, guests: 0, revenue: 0,
+      n: 0, paid: 0, zero: 0, comp: 0, unpriced: 0, plusOne: 0, guests: 0, revenue: 0,
       showed: 0, showedPaid: 0, showedFree: 0,
     });
     b.n++;
-    if (t._free) b.free++; else { b.paid++; b.revenue += Number(t.amount) || 0; }
+    if (t._zero) { b.zero++; if (t._comp) b.comp++; else b.unpriced++; }
+    else { b.paid++; b.revenue += Number(t.amount) || 0; }
     if (t.isPlusOne) b.plusOne++;
     if (t._guest) b.guests++;
-    if (t._showed) { b.showed++; if (t._free) b.showedFree++; else b.showedPaid++; }
+    if (t._showed) { b.showed++; if (t._zero) b.showedFree++; else b.showedPaid++; }
   }
 
   const result = {
@@ -174,9 +240,10 @@ async function auditEvent(ev) {
     registrationCount: regSnap.size,
     buckets,
     tickets: tickets.map((t) => ({
-      gender: g(t.gender), amount: Number(t.amount) || 0, free: t._free,
+      gender: g(t.gender), amount: Number(t.amount) || 0,
+      zeroAmount: t._zero, comped: t._comp, origin: t._origin,
       isPlusOne: !!t.isPlusOne, guest: t._guest, sharedEmail: t._shared,
-      showed: t._showed, channel: t.channel || null, createdAt: iso(t.createdAt),
+      showed: t._showed, createdAt: iso(t.createdAt),
       // No names or addresses in --json: this gets pasted into reports.
     })),
   };
@@ -186,15 +253,15 @@ async function auditEvent(ev) {
   console.log(`\n=== ${result.title || ev.id} — ${result.date} ===`);
   console.log(`tickets ${result.ticketCount}   registrations ${result.registrationCount}\n`);
 
-  console.log('gender  amt      free  +1  guest  showed  channel                     name');
+  console.log('gender  amt      kind      +1  guest  showed  origin              name');
   console.log('-'.repeat(100));
   for (const t of tickets.sort((a, b) => g(a.gender).localeCompare(g(b.gender)) || a.amount - b.amount)) {
     console.log(
       `${g(t.gender).padEnd(7)} ${money(t.amount).padStart(8)}  `
-      + `${(t._free ? 'FREE' : '  . ').padEnd(4)}  ${(t.isPlusOne ? '+1' : ' .')}  `
+      + `${(t._comp ? 'COMP' : t._zero ? 'NOPRICE' : 'paid').padEnd(8)}  ${(t.isPlusOne ? '+1' : ' .')}  `
       + `${(t._guest ? 'guest' : '  .  ').padEnd(5)}  `
       + `${(t._showed ? ' YES  ' : '  -   ')}  `
-      + `${String(t.channel || '(direct)').slice(0, 26).padEnd(26)}  ${t.name || ''}`
+      + `${String(t._origin).slice(0, 18).padEnd(18)}  ${t.name || ''}`
       + (t._shared ? '   [SHARED EMAIL]' : ''));
   }
 
@@ -202,14 +269,39 @@ async function auditEvent(ev) {
   for (const [k, b] of Object.entries(buckets)) {
     const rate = b.n ? Math.round((b.showed / b.n) * 100) : 0;
     console.log(`  ${k.padEnd(8)} seats ${String(b.n).padStart(2)}  `
-      + `paid ${String(b.paid).padStart(2)}  free ${String(b.free).padStart(2)}  `
-      + `+1 ${String(b.plusOne).padStart(2)}  revenue ${money(b.revenue).padStart(9)}  `
+      + `paid ${String(b.paid).padStart(2)}  comp ${String(b.comp).padStart(2)}  `
+      + `no-price ${String(b.unpriced).padStart(2)}  +1 ${String(b.plusOne).padStart(2)}  `
+      + `revenue ${money(b.revenue).padStart(9)}  `
       + `showed ${String(b.showed).padStart(2)}/${String(b.n).padStart(2)} (${rate}%)`);
-    if (b.free) {
-      const freeRate = Math.round((b.showedFree / b.free) * 100);
+    if (b.zero) {
+      const zeroRate = Math.round((b.showedFree / b.zero) * 100);
       const paidRate = b.paid ? Math.round((b.showedPaid / b.paid) * 100) : 0;
-      console.log(`  ${''.padEnd(8)}   -> paid seats showed ${b.showedPaid}/${b.paid} (${paidRate}%), `
-        + `free seats showed ${b.showedFree}/${b.free} (${freeRate}%)`);
+      console.log(`  ${''.padEnd(8)}   -> priced seats showed ${b.showedPaid}/${b.paid} (${paidRate}%), `
+        + `zero-amount seats showed ${b.showedFree}/${b.zero} (${zeroRate}%)`);
+    }
+    if (b.unpriced) {
+      console.log(`  ${''.padEnd(8)}   !! ${b.unpriced} seat(s) have amount 0 but are NOT comps. Check the`);
+      console.log(`  ${''.padEnd(8)}      origin column -- an import with no priceCents lands here, and`);
+      console.log(`  ${''.padEnd(8)}      those people may well have PAID on the other platform.`);
+    }
+  }
+
+  // Registrations with no ticket doc. The first run of this reported "tickets
+  // 20, registrations 23" and then listed only the 20 -- so three attendees
+  // were dropped from every total on screen without a word. If the person who
+  // actually turned up is one of them, the gender columns above are wrong.
+  const ticketEmails = new Set(tickets.map((t) => t._key).filter(Boolean));
+  const orphans = regSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((r) => !ticketEmails.has(normalizeEmail(r.email || '')));
+  if (orphans.length) {
+    console.log(`\n--- registrations with NO ticket doc (${orphans.length}) ---`);
+    console.log('These are not in any total above. A seat exists for them, but nothing');
+    console.log('records what it cost or where it came from.');
+    for (const r of orphans) {
+      console.log(`  ${g(r.gender).padEnd(7)} ${String(r.status || '').padEnd(10)} `
+        + `showed=${(r.checkedInAt || r.attended) ? 'YES' : '-'}  `
+        + `src=${r.source || 'unknown'}  ${iso(r.registeredAt)}  ${r.name || ''}`);
     }
   }
 

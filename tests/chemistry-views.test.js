@@ -28,7 +28,8 @@ const SRC = fs.readFileSync(path.join(process.cwd(), 'public', 'admin.html'), 'u
 // rather than shared: a helper module between two test files is one more
 // thing to keep in step, and this is fifteen lines.
 function lift(name) {
-  const decl = new RegExp(`^ {8}(?:function ${name}\\s*\\(|const ${name}\\s*=)`, 'm');
+  const decl = new RegExp(
+    `^ {8}(?:function ${name}\\s*\\(|(?:const|let) ${name}\\s*=|window\\.${name}\\s*=)`, 'm');
   const m = decl.exec(SRC);
   if (!m) throw new Error(`${name} not found in admin.html`);
   const rest = SRC.slice(m.index);
@@ -41,13 +42,17 @@ function lift(name) {
   return rest.slice(0, firstLine.length + 1 + close.index + close[0].length);
 }
 
-const LIFTED = ['INTENT_LABELS', 'ROUND_CHOICES', '_chemShortName', '_chemInitials',
+const LIFTED = ['INTENT_LABELS', 'ROUND_CHOICES',
+                '_nameLabels', '_nameLabelsFor', '_nameRungs', 'buildNameLabels',
+                'ensureNameLabels', '_chemShortName', '_chemInitials',
                 'movesLabel', 'tableCount', 'quotas', 'fillTablePairs', 'pairLookup',
-                'buildTables', 'rotateTables', 'maxRoundsFor', 'buildRounds', 'seatedRoundOf',
+                'buildTables', 'rotateTables', 'maxRoundsFor', 'rehydratePin', 'seatingTables',
+                'buildRounds', 'seatedRoundOf', 'rosterDrift', 'driftNote', 'pinSeating',
+                'chemStoreWrite',
                 'metInRounds', 'itineraryFor', 'buildOneOnOnes', 'introRowsFor',
                 'topMatchesFor', 'shortlistControl', 'prioRows', 'renderChemistryCards',
                 'renderIntros', 'renderPriorityIntros', 'renderTables', 'renderRunOfShow',
-                'renderFindPanel', 'findAttendees', 'buildRunPlan', 'fmtClock', 'safe'];
+                'renderFindPanel', 'findAttendees', 'runPlanKey', 'computeRunPlan', 'buildRunPlan', 'fmtClock', 'runStepIn', 'safe'];
 
 // Element ids the chemistry modal actually declares. Rendering into an id
 // that is not in the markup is the exact bug this file exists to catch, so
@@ -109,8 +114,11 @@ function view(W = 12, M = 12, size = 6) {
     console, setInterval: () => 1, clearInterval: () => {}, Date,
     document: dom.document,
     _chemWomen: women, _chemMen: men, _chemPairs: pairs,
+    // Pinning is covered in chemistry-persistence; these render against a
+    // fresh solve, so the pin stays null.
+    _pinnedPlan: null, _chemEventId: null, _runPlanCache: null,
     _introsDone: new Set(), _priorityDone: new Set(), _prioMode: 'all', _shortlistN: 3,
-    _tableSize: size, _tableRound: 1, _tableRounds: 4, _roundMinutes: 15,
+    _tableSize: size, _tableRound: 1, _tableRounds: 4, _roundMinutes: 15, _oneOnOneMinutes: 7,
     _runTimer: null, _runEndsAt: null, _runPaused: null, _runStep: 0, _runFind: '',
     ONE_ON_ONE_MS: 5 * 60 * 1000,
   };
@@ -203,6 +211,42 @@ describe('renderTables', () => {
     const { sandbox, nodes } = view(12, 12, 4);
     sandbox.renderTables();
     expect(nodes.get('tablesView').innerHTML).toMatch(/pairs never share a table/);
+  });
+
+  it('says the seating is pinned, and offers a rebuild', () => {
+    const { sandbox, nodes } = view();
+    sandbox.pinSeating(6);
+    sandbox.renderTables();
+    const html = nodes.get('tablesView').innerHTML;
+    expect(html).toContain('Seating pinned at');
+    expect(html).toContain('will not change on its own');
+    expect(html).toContain('rebuildSeating()');
+    expect(html).not.toContain('pin-note drift');
+  });
+
+  it('names the late arrivals and offers to seat them without moving anyone', () => {
+    // The banner is the safety net for the failure this whole change exists
+    // to remove: a walk-in silently re-seeding the seating after the host
+    // has already read the tables out.
+    const { sandbox, nodes } = view();
+    sandbox.pinSeating(6);
+    sandbox._chemWomen = [...sandbox._chemWomen, {
+      id: 'late1', firstName: 'Nadia', lastName: 'Okafor', email: 'l@example.com',
+      gender: 'woman', age: 31, interests: [], vibes: [], intent: null,
+    }];
+    sandbox.renderTables();
+    const html = nodes.get('tablesView').innerHTML;
+    expect(html).toContain('pin-note drift');
+    expect(html).toContain('has arrived since');
+    expect(html).toContain('seatLateArrivals()');
+    expect(html).toContain('Seat 1 new');
+    expect(html).toContain('Nadia O.');
+  });
+
+  it('says nothing about pinning before a plan is pinned', () => {
+    const { sandbox, nodes } = view();
+    sandbox.renderTables();
+    expect(nodes.get('tablesView').innerHTML).not.toContain('pin-note');
   });
 
   it('says so when the rotation covers the entire room', () => {
@@ -460,7 +504,59 @@ describe('renderRunOfShow', () => {
     sandbox.renderRunOfShow();
     const html = nodes.get('runView').innerHTML;
     expect(html).toContain('1-on-1s');
-    expect(html).toContain('05:00');
+    expect(html).toContain('07:00');          // seven minutes, not five
+  });
+
+  it('does not re-solve the night on every clock tick', () => {
+    // renderRunOfShow is on a 1-second interval. This used to rebuild the
+    // seating, the rotation and the 1-on-1 packing sixty times a minute.
+    const { sandbox } = view();
+    const first = sandbox.buildRunPlan();
+    expect(sandbox.buildRunPlan()).toBe(first);       // same object, not a rebuild
+  });
+
+  it('does re-solve when something the plan depends on changes', () => {
+    const { sandbox } = view();
+    const first = sandbox.buildRunPlan();
+    sandbox._tableRounds = 2;
+    const second = sandbox.buildRunPlan();
+    expect(second).not.toBe(first);
+    expect(second.filter(s => s.kind === 'round')).toHaveLength(2);
+
+    sandbox._roundMinutes = 10;
+    expect(sandbox.buildRunPlan()).not.toBe(second);
+  });
+
+  it('re-solves after a re-pin, so a rebuild reaches the run of show', () => {
+    const { sandbox } = view();
+    sandbox.pinSeating(6);
+    const first = sandbox.buildRunPlan();
+    sandbox.pinSeating(6);                            // stamps a new builtAt
+    expect(sandbox.buildRunPlan()).not.toBe(first);
+  });
+
+  it('carries a 1-on-1 length control beside the round length', () => {
+    const { sandbox, nodes } = view();
+    sandbox.renderRunOfShow();
+    const html = nodes.get('runView').innerHTML;
+    for (const n of [5, 7, 10]) expect(html).toContain(`setOneOnOneMinutes(${n})`);
+    expect(html).toContain('then 7-minute 1-on-1s');
+  });
+
+  it('offers the nudge buttons only while a clock is running', () => {
+    // "The room decides" is for a segment in progress; on an idle panel it
+    // would be a control with nothing to act on.
+    const { sandbox, nodes } = view();
+    sandbox.renderRunOfShow();
+    expect(nodes.get('runView').innerHTML).not.toContain('runNudge');
+
+    sandbox._runEndsAt = Date.now() + 5 * 60000;
+    sandbox.renderRunOfShow();
+    const html = nodes.get('runView').innerHTML;
+    expect(html).toContain('The room decides');
+    expect(html).toContain('runNudge(1)');
+    expect(html).toContain('runNudge(-1)');
+    expect(html).toContain('runNudge(2)');
   });
 
   it('shows the lookup box on every render — it is the point of the view', () => {

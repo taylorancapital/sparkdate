@@ -1252,6 +1252,17 @@
         .rotation-warn { display: block; margin-top: 5px; color: var(--coral); }
         .rotation-live { display: block; margin-top: 5px; color: var(--gold); }
         .prio-modes { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+        /* The pinned-seating banner. Quiet while the plan matches the room;
+           coral the moment someone has arrived who is not in it. */
+        .pin-note {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            margin-top: 8px; padding-top: 8px;
+            border-top: 1px solid rgba(255,255,255,0.07);
+            font-size: 12px; color: rgba(245,243,240,0.45);
+        }
+        .pin-note.drift { color: var(--coral); }
+        .pin-note.drift strong { color: var(--coral); }
+        .pin-names { flex-basis: 100%; font-size: 11px; color: rgba(245,243,240,0.45); }
         .shortlist-ctl {
             display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
             font-size: 12px; color: rgba(245,243,240,0.5);
@@ -1280,6 +1291,19 @@
         .run-table-from { color: var(--gold); text-transform:none; letter-spacing:0; }
         .run-setup { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; color:rgba(245,243,240,0.5); padding:10px 0 2px; }
         .run-setup-note { color:rgba(245,243,240,0.38); margin-left:auto; }
+        /* "The room decides" — stretch the running segment without touching
+           the plan. Only shown while a clock is actually running. */
+        .run-nudge {
+            display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+            font-size:12px; color:rgba(245,243,240,0.5);
+            margin-top:10px; padding:8px 11px;
+            background:rgba(212,175,55,0.07);
+            border:1px solid rgba(212,175,55,0.18);
+            border-radius:8px;
+        }
+        .run-nudge .action-btn { border-color:rgba(212,175,55,0.4); color:var(--gold); font-size:13px; padding:7px 13px; }
+        .run-nudge .action-btn:hover { background:rgba(212,175,55,0.12); }
+        .run-nudge-note { color:rgba(245,243,240,0.35); flex-basis:100%; font-size:11px; }
 
         /* "Where do I sit?" — the lookup that replaces scanning a printed
            seating chart for a name while the room waits. */
@@ -3532,7 +3556,15 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
             // Expose to rounds functions
             _chemWomen = women; _chemMen = men; _chemPairs = pairs;
-            _introsDone = new Set();
+
+            // Restore this device's memory of the event — the pinned seating,
+            // the run clock, the ticked-off intros — then pin a plan if there
+            // is not one yet. Pinning on first open rather than on first
+            // "start" means the seating a host looks at a week ahead is the
+            // same seating the room gets, with arrivals since then reported
+            // rather than silently folded in.
+            chemStoreRestore(eventId);
+            if (!_pinnedPlan && pairs.length) pinSeating(_tableSize);
             switchChemView('chemistry');
 
             const excludedNote = excluded.length
@@ -3661,10 +3693,17 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         window.closeCandidates = () => {
             // A 1s interval left running behind a closed modal repaints a
             // hidden node forever and keeps the whole chemistry dataset alive.
+            //
+            // The interval is the ONLY thing worth throwing away here. The
+            // ticked-off intros and the run clock used to be reset on close,
+            // so an accidental tap on the backdrop mid-event wiped both.
+            // They are written to storage now and restored on reopen; the
+            // clock is wall-based, so closing the modal for ten minutes and
+            // coming back shows a round that really has ended.
             if (_runTimer) { clearInterval(_runTimer); _runTimer = null; }
             document.getElementById('candidateModal').classList.remove('show');
-            _introsDone = new Set();
-            _priorityDone = new Set();
+            chemStoreWrite();
+            // View-local scratch only — nothing a host would mind losing.
             _prioMode = 'all';
             _shortlistN = 3;
             _runFind = '';
@@ -3686,7 +3725,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             if (view === 'intros')    renderIntros();
             if (view === 'schedule')  renderPriorityIntros();
             if (view === 'tables')    renderTables();
-            if (view === 'run')       renderRunOfShow();
+            // Reopening onto a clock that was left running has to restart the
+            // repaint, not just draw one frame of it.
+            if (view === 'run')     { ensureRunTimer(); renderRunOfShow(); }
         };
 
         // ── Intro cheat sheet state ───────────────────────────
@@ -3694,11 +3735,107 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // done set: "wId|mId" keys ticked off by the hostess
         let _introsDone = new Set();
 
+        // ── Names that identify one person, not two ────────────────────
+        //
+        // Every panel here labels people "First L." That is the right length
+        // for a chip and it is fine right up until two people in the room
+        // share a first name and a last initial — at which point the seating
+        // chart shows the same label twice, the lookup returns two identical
+        // cards, and the host reads a name out to a room where two people
+        // stand up. It is the one display detail that gets worse the more the
+        // tool is used live rather than printed.
+        //
+        // So labels are resolved against the WHOLE roster instead of one
+        // person at a time, and only the people who actually collide pay for
+        // it. The ladder stops as soon as a label is unique:
+        //
+        //   Bo M.  ->  Bo Marsh  ->  Bo Marsh (bo2)  ->  Bo Marsh #2
+        //
+        // Rung three uses the email local part, which is what the host can
+        // check against a ticket. Rung four is a last resort for two people
+        // with the same name and no distinguishing email, which does happen.
+        let _nameLabels = null;
+        let _nameLabelsFor = { w: null, m: null, nw: -1, nm: -1 };
+
+        function _nameRungs(u) {
+            const fn = (u.firstName || '').trim();
+            const ln = (u.lastName || '').trim();
+            const local = (u.email || '').split('@')[0];
+            // Abbreviating the surname only makes sense when there is a first
+            // name in front of it: a record with just "Quinn" rendered as
+            // "Q." under the old rule, which names nobody.
+            const base = fn ? `${fn}${ln ? ' ' + ln.charAt(0) + '.' : ''}` : ln;
+            const full = `${fn}${fn && ln ? ' ' : ''}${ln}`.trim();
+            return [
+                base || full || local || '—',
+                full || base || local || '—',
+                (full || base) && local ? `${full || base} (${local})` : (local || '—'),
+            ];
+        }
+
+        function buildNameLabels() {
+            const labels = new Map();
+            const taken = new Set();
+            // Start everyone on rung 0, then promote only the people sharing
+            // a label, repeatedly. Someone unique at "Bo M." keeps it even
+            // while a different Bo is promoted to "Bo Marsh".
+            let pending = [..._chemWomen, ..._chemMen].map(u => ({ u, rung: 0 }));
+            for (let pass = 0; pass < 3 && pending.length; pass++) {
+                const byLabel = new Map();
+                pending.forEach(e => {
+                    const rungs = _nameRungs(e.u);
+                    const label = rungs[e.rung] || rungs[0];
+                    if (!byLabel.has(label)) byLabel.set(label, []);
+                    byLabel.get(label).push(e);
+                });
+                const next = [];
+                byLabel.forEach((entries, label) => {
+                    // Unique in this pass AND not already claimed by someone
+                    // settled earlier — a promoted name can land on a
+                    // resolved one.
+                    if (entries.length === 1 && !taken.has(label)) {
+                        labels.set(entries[0].u.id, label);
+                        taken.add(label);
+                    } else {
+                        entries.forEach(e => next.push({ u: e.u, rung: e.rung + 1 }));
+                    }
+                });
+                pending = next;
+            }
+            // Still colliding after the ladder runs out: two people with the
+            // same name and the same email local part. Number them.
+            const tally = new Map();
+            pending.forEach(({ u }) => {
+                const rungs = _nameRungs(u);
+                const label = rungs[2] || rungs[0];
+                const n = (tally.get(label) || 0) + 1;
+                tally.set(label, n);
+                labels.set(u.id, `${label} #${n}`);
+            });
+            return labels;
+        }
+
+        // Rebuilt when the roster changes — a walk-in can create a collision
+        // that did not exist when the modal opened. Keyed on array identity
+        // and length rather than a joined id string: _chemShortName is called
+        // dozens of times per render and the run view repaints every second,
+        // so this has to be O(1), not O(roster).
+        function ensureNameLabels() {
+            if (_nameLabels && _nameLabelsFor.w === _chemWomen && _nameLabelsFor.m === _chemMen
+                && _nameLabelsFor.nw === _chemWomen.length && _nameLabelsFor.nm === _chemMen.length) return;
+            _nameLabelsFor = { w: _chemWomen, m: _chemMen,
+                               nw: _chemWomen.length, nm: _chemMen.length };
+            _nameLabels = buildNameLabels();
+        }
+
         const _chemShortName = (u) => {
             if (!u) return '—';
-            const fn = u.firstName || '';
-            const li = (u.lastName || '').charAt(0);
-            return (`${fn}${li ? ' ' + li + '.' : ''}`).trim() || u.email || '—';
+            ensureNameLabels();
+            const resolved = _nameLabels.get(u.id);
+            if (resolved) return resolved;
+            // Not in the roster (a print run against a stale list, say) —
+            // fall back to the plain label rather than inventing one.
+            return _nameRungs(u)[0];
         };
         const _chemInitials = (u) => {
             if (!u) return '?';
@@ -3783,6 +3920,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const key = `${wId}|${mId}`;
             if (_introsDone.has(key)) _introsDone.delete(key);
             else _introsDone.add(key);
+            chemStoreWrite();
             renderIntros();
         };
 
@@ -4127,8 +4265,19 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
         // The seated rounds for this event — round 1 as built, then one
         // rotation per extra round, capped at what the table count supports.
+        // The round-1 seating the views should use: the pinned plan if there
+        // is one, otherwise a fresh solve. Everything downstream — rounds,
+        // intro coverage, the run of show — hangs off this one function, so
+        // the pin cannot apply to some views and not others.
+        //
+        // buildTables() itself stays pure and pin-unaware. It is the solver;
+        // this is the policy.
+        function seatingTables(size) {
+            return rehydratePin(size) || buildTables(size);
+        }
+
         function buildRounds(size, wanted) {
-            const r1 = buildTables(size);
+            const r1 = seatingTables(size);
             if (!r1.length) return [];
             const cap = Math.max(1, Math.min(wanted, maxRoundsFor(r1)));
             const rounds = [r1];
@@ -4236,6 +4385,249 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             return { rounds: pack(false), revisiting: true };
         }
 
+        // ── The plan is pinned, and it survives the night ──────────────
+        //
+        // Two failures this fixes, both of which only show up at an event.
+        //
+        // 1. THE SEATING USED TO BE RECOMPUTED, NOT REMEMBERED. Every render
+        //    called buildTables() again — including the run-of-show's 1-second
+        //    repaint, sixty times a minute. That is invisible while the roster
+        //    is frozen, because the greedy is deterministic. But the roster is
+        //    NOT frozen: door check-ins write registrations (source
+        //    'checkin'), and reopening the modal re-reads them. So one walk-in
+        //    arriving after you announced the tables silently re-seeded the
+        //    greedy and moved everybody. The host would read out a seating
+        //    that no longer matched the one the room had been given.
+        //
+        // 2. NOTHING SURVIVED A CLOSE OR A RELOAD. Tick off nine intros, tap
+        //    the backdrop by accident, and they were gone. The run clock was
+        //    worse than gone: closing the modal killed the repaint interval
+        //    but left _runEndsAt set, so reopening showed a frozen "TIME"
+        //    that never ticked again.
+        //
+        // So the round-1 partition is pinned per event and everything derives
+        // from it. Storing round 1 rather than every round is what makes late
+        // arrivals cheap: a woman joins the table with the fewest women and
+        // stays there; a man joins the smallest men-group and rotates WITH
+        // that group, automatically, for every round. Nobody who was already
+        // seated moves.
+        //
+        // localStorage, not Firestore, deliberately. A denied Firestore read
+        // fails silently here — it looks like an empty widget, not an error
+        // (see firestore.rules, which nothing in CI deploys). Silent failure
+        // is the exact thing this code exists to remove, and the host is one
+        // person on one phone. The cost is that it does not follow them to a
+        // second device; that is the right trade for a 90-minute event.
+        const CHEM_STORE_PREFIX = 'sparkdate.chem.';
+        const CHEM_STORE_VERSION = 1;
+        let _chemEventId = null;
+        let _pinnedPlan = null;      // { size, builtAt, womenByTable, menByTable }
+
+        // Every localStorage access is wrapped: Safari private mode throws on
+        // write, a full quota throws, and some embedded webviews throw on
+        // read. None of those should take down the panel a host is holding.
+        function chemStoreRead(eventId) {
+            try {
+                const raw = localStorage.getItem(CHEM_STORE_PREFIX + eventId);
+                if (!raw) return null;
+                const data = JSON.parse(raw);
+                return data && data.v === CHEM_STORE_VERSION ? data : null;
+            } catch (e) { return null; }
+        }
+
+        function chemStoreWrite() {
+            if (!_chemEventId) return;
+            // The payload is built OUTSIDE the try on purpose. A try around
+            // the whole thing swallows programming errors as readily as
+            // storage ones: a reference to a variable that was renamed threw
+            // ReferenceError, got caught here, and persistence silently
+            // stopped working — no error, no stored state, and the panel
+            // looked fine until a reload lost the night. Only the setItem
+            // call can fail for a reason the host should not hear about.
+            const payload = JSON.stringify({
+                v: CHEM_STORE_VERSION,
+                // When this was written, so a restore can tell a run still in
+                // progress from one that ended days ago.
+                savedAt: Date.now(),
+                plan: _pinnedPlan,
+                prefs: { size: _tableSize, rounds: _tableRounds, minutes: _roundMinutes,
+                         oneOnOne: _oneOnOneMinutes },
+                run: { step: _runStep, endsAt: _runEndsAt, paused: _runPaused },
+                done: { intros: [..._introsDone], priority: [..._priorityDone] },
+            });
+            try {
+                localStorage.setItem(CHEM_STORE_PREFIX + _chemEventId, payload);
+            } catch (e) { /* out of quota or a private window — carry on in memory */ }
+        }
+
+        // Called when the modal opens, after _chemWomen/_chemMen/_chemPairs
+        // are populated. Restores whatever this device knows about the event.
+        function chemStoreRestore(eventId) {
+            _chemEventId = eventId;
+            _pinnedPlan = null;
+            _runStep = 0; _runEndsAt = null; _runPaused = null;
+            _introsDone = new Set(); _priorityDone = new Set();
+            _tableSize = 6; _tableRounds = 4; _roundMinutes = 15;
+            _oneOnOneMinutes = 7; _tableRound = 1;
+            _runPlanCache = null;
+
+            const data = chemStoreRead(eventId);
+            if (!data) return;
+            if (data.prefs) {
+                if ([4, 6, 8].includes(data.prefs.size))          _tableSize    = data.prefs.size;
+                if (ROUND_CHOICES.includes(data.prefs.rounds))    _tableRounds  = data.prefs.rounds;
+                if ([10, 15, 20].includes(data.prefs.minutes))    _roundMinutes = data.prefs.minutes;
+                if ([5, 7, 10].includes(data.prefs.oneOnOne))     _oneOnOneMinutes = data.prefs.oneOnOne;
+            }
+            if (data.plan && Array.isArray(data.plan.womenByTable)) _pinnedPlan = data.plan;
+            // The clock is restored only if it belongs to a run still
+            // plausibly in progress. Without this, reopening last week's
+            // event restored an end time six days past: the panel read "TIME"
+            // on a round that finished last Tuesday and started a 1-second
+            // repaint of it. An event runs about two hours; six is a generous
+            // outer bound for "the host stepped away and came back".
+            // Both halves are needed. savedAt alone is not enough: ticking an
+            // intro the morning after re-writes the record with a fresh
+            // savedAt while still carrying last night's endsAt. endsAt alone
+            // is not enough either — a PAUSED run leaves endsAt stale by
+            // design, and its real remaining time lives in `paused`.
+            const RUN_STATE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+            const savedAt = typeof data.savedAt === 'number' ? data.savedAt : 0;
+            const run = data.run || {};
+            const isPaused = typeof run.paused === 'number';
+            const endsAt = typeof run.endsAt === 'number' ? run.endsAt : null;
+            const recordIsFresh = Date.now() - savedAt < RUN_STATE_MAX_AGE_MS;
+            const clockIsPlausible = isPaused || endsAt === null ||
+                                     Date.now() - endsAt < RUN_STATE_MAX_AGE_MS;
+            if (data.run && recordIsFresh && clockIsPlausible) {
+                _runStep   = Number.isInteger(run.step) && run.step >= 0 ? run.step : 0;
+                _runEndsAt = endsAt;
+                _runPaused = isPaused ? run.paused : null;
+            }
+            if (data.done) {
+                _introsDone   = new Set(data.done.intros   || []);
+                _priorityDone = new Set(data.done.priority || []);
+            }
+        }
+
+        // Pin the seating as it currently stands. Called once when a plan is
+        // first built for an event, and again on an explicit rebuild.
+        function pinSeating(size) {
+            const tables = buildTables(size);
+            _pinnedPlan = {
+                size,
+                builtAt: Date.now(),
+                womenByTable: tables.map(t => t.women.map(u => u.id)),
+                menByTable:   tables.map(t => t.men.map(u => u.id)),
+            };
+            chemStoreWrite();
+            return _pinnedPlan;
+        }
+
+        // Rebuild table objects from the pinned ids against today's roster.
+        // Anyone in the pin who is no longer registered (a refund, a
+        // cancellation) simply drops out of their table; the rest hold their
+        // seats, which is the entire point.
+        function rehydratePin(size) {
+            if (!_pinnedPlan || _pinnedPlan.size !== size) return null;
+            const byId = new Map([..._chemWomen, ..._chemMen].map(u => [u.id, u]));
+            const pairOf = pairLookup();
+            const tables = _pinnedPlan.womenByTable.map((wIds, i) => {
+                const t = {
+                    women: wIds.map(id => byId.get(id)).filter(Boolean),
+                    men: (_pinnedPlan.menByTable[i] || []).map(id => byId.get(id)).filter(Boolean),
+                    pairs: [],
+                };
+                fillTablePairs(t, pairOf);
+                return t;
+            });
+            return tables.length ? tables : null;
+        }
+
+        // Who has arrived or left since the plan was pinned. The banner that
+        // reports this is the whole safety net: a seating that silently
+        // stopped matching the room is what this replaces.
+        function rosterDrift() {
+            if (!_pinnedPlan) return { added: [], removed: 0, pinned: 0 };
+            const inPlan = new Set([
+                ..._pinnedPlan.womenByTable.flat(),
+                ..._pinnedPlan.menByTable.flat(),
+            ]);
+            const now = [..._chemWomen, ..._chemMen];
+            const added = now.filter(u => !inPlan.has(u.id));
+            const nowIds = new Set(now.map(u => u.id));
+            const removed = [...inPlan].filter(id => !nowIds.has(id)).length;
+            return { added, removed, pinned: inPlan.size };
+        }
+
+        // Seat late arrivals WITHOUT moving anyone already placed.
+        //
+        // A woman joins the table with the fewest women and holds it all
+        // night. A man joins the smallest men-group and rotates with that
+        // group for free, because the pin stores round 1 and the rotation is
+        // derived. Ties break toward the table this person has the most
+        // chemistry with, so a walk-in still lands somewhere sensible.
+        window.seatLateArrivals = () => {
+            const { added } = rosterDrift();
+            if (!added.length || !_pinnedPlan) return;
+            const pairOf = pairLookup();
+            added.forEach(u => {
+                const isW = _chemWomen.some(w => w.id === u.id);
+                const groups = isW ? _pinnedPlan.womenByTable : _pinnedPlan.menByTable;
+                const others = isW ? _pinnedPlan.menByTable : _pinnedPlan.womenByTable;
+                const byId = new Map([..._chemWomen, ..._chemMen].map(p => [p.id, p]));
+                let best = 0, bestKey = null;
+                groups.forEach((g, i) => {
+                    const affinity = (others[i] || []).reduce((s, id) => {
+                        const o = byId.get(id);
+                        const pr = o ? pairOf(u, o) : null;
+                        return s + (pr ? pr.score : 0);
+                    }, 0);
+                    // Smallest group wins; affinity only breaks the tie.
+                    const key = [g.length, -affinity];
+                    if (bestKey === null || key[0] < bestKey[0] ||
+                        (key[0] === bestKey[0] && key[1] < bestKey[1])) {
+                        bestKey = key; best = i;
+                    }
+                });
+                groups[best].push(u.id);
+            });
+            _pinnedPlan.builtAt = Date.now();
+            chemStoreWrite();
+            renderTables();
+        };
+
+        // Throw the plan away and re-solve from the current roster. Moves
+        // everyone, which is why it is a button and not a side effect.
+        window.rebuildSeating = () => {
+            pinSeating(_tableSize);
+            renderTables();
+        };
+
+        // The banner. Silent when the plan still matches the room.
+        function driftNote() {
+            if (!_pinnedPlan) return '';
+            const { added, removed } = rosterDrift();
+            const when = new Date(_pinnedPlan.builtAt);
+            const stamp = when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            if (!added.length && !removed) {
+                return `<span class="pin-note">Seating pinned at ${stamp} — it will not change on its own.
+                    <button class="chem-toggle-btn" onclick="rebuildSeating()"
+                        title="Re-solve from scratch. Everyone moves.">Rebuild</button></span>`;
+            }
+            const bits = [];
+            if (added.length) bits.push(`<strong>${added.length}</strong> ${added.length === 1 ? 'person has' : 'people have'} arrived since`);
+            if (removed) bits.push(`<strong>${removed}</strong> no longer registered`);
+            return `<span class="pin-note drift">Pinned at ${stamp} · ${bits.join(', ')}.
+                ${added.length
+                    ? `<button class="chem-toggle-btn" onclick="seatLateArrivals()"
+                          title="Adds them to the smallest tables. Nobody already seated moves.">Seat ${added.length} new</button>`
+                    : ''}
+                <button class="chem-toggle-btn" onclick="rebuildSeating()"
+                    title="Re-solve from scratch. Everyone moves — do not use mid-round.">Rebuild all</button>
+                ${added.length ? `<span class="pin-names">${added.map(u => safe(_chemShortName(u))).join(', ')}</span>` : ''}</span>`;
+        }
+
         function renderTables() {
             const container = document.getElementById('tablesView');
             if (!_chemWomen.length && !_chemMen.length) {
@@ -4318,6 +4710,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         ? `<span class="rotation-warn">Asked for ${_tableRounds}. Seating ${available + 1} would put the room back exactly where round 1 had it &mdash; the men have walked the whole circuit &mdash; so it is not offered. ${_tableSize > 4 ? 'Fewer seats per table splits the room into more tables and buys another move.' : 'More attendees would split the room into more tables and buy another move.'}</span>`
                         : ''}
                     ${_tableRound > 1 ? ' <span class="rotation-live">Women stay seated. Men move one table along between seatings.</span>' : ''}
+                    ${driftNote()}
                 </div>
                 <div class="table-cards">${cards}</div>
                 <div style="font-size:11px;color:rgba(245,243,240,0.4);margin-top:10px;">
@@ -4330,20 +4723,56 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 </div>`;
         }
 
-        window.setTableSize   = (n) => { _tableSize = n; renderTables(); };
+        // Changing the seat count changes the table count, which changes who
+        // sits with whom — so it re-pins rather than leaving a stale plan
+        // that rehydratePin() would refuse anyway (it checks the size).
+        window.setTableSize   = (n) => { _tableSize = n; pinSeating(n); runReset(); renderTables(); };
         window.setTableRound  = (n) => { _tableRound = n; renderTables(); };
-        // Changing the round count changes the plan the run-of-show is
+        // Changing the seating count changes the plan the run-of-show is
         // stepping through, so a clock left running against the old plan
-        // would be counting down the wrong segment. Reset it.
+        // would be counting down the wrong segment. Reset it. The seating
+        // itself is untouched — more seatings is more rotations of the same
+        // round 1, so nobody's first table moves.
         window.setTableRounds = (n) => {
             _tableRounds = n;
             runReset();
             renderTables();
         };
+        // Nudging 15m to 20m used to call runReset() — which threw away the
+        // host's place in the night and the clock with it, mid-event, for a
+        // change that should have been a small one. It keeps the step now,
+        // and a running segment is extended or shortened by the difference:
+        // "make the rounds five minutes longer" reads as including this one.
         window.setRoundMinutes = (n) => {
+            const delta = (n - _roundMinutes) * 60 * 1000;
             _roundMinutes = n;
-            runReset();
+            _runPlanCache = null;
+            const plan = buildRunPlan();
+            if (plan.length && plan[runStepIn(plan)].kind === 'round') shiftRunClock(delta);
+            ensureRunTimer();
+            chemStoreWrite();
+            renderRunOfShow();
         };
+
+        window.setOneOnOneMinutes = (n) => {
+            const delta = (n - _oneOnOneMinutes) * 60 * 1000;
+            _oneOnOneMinutes = n;
+            _runPlanCache = null;
+            const plan = buildRunPlan();
+            if (plan.length && plan[runStepIn(plan)].kind === 'ones') shiftRunClock(delta);
+            ensureRunTimer();
+            chemStoreWrite();
+            renderRunOfShow();
+        };
+
+        // Move the running clock by delta without disturbing the step. Only
+        // touches a segment that is actually running; an idle panel just
+        // picks up the new length when it starts.
+        function shiftRunClock(delta) {
+            if (!delta) return;
+            if (_runPaused !== null) _runPaused = Math.max(0, _runPaused + delta);
+            else if (_runEndsAt !== null) _runEndsAt = Math.max(Date.now(), _runEndsAt + delta);
+        }
 
         window.printTables = () => {
             const rounds = buildRounds(_tableSize, _tableRounds);
@@ -4387,9 +4816,39 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         let _runStep = 0;             // index into the built plan
         let _runFind = '';            // "where do I sit?" lookup query
 
-        const ONE_ON_ONE_MS = 5 * 60 * 1000;
+        // Minutes per 1-on-1. Seven, not five: five is long enough to trade
+        // names and not long enough to get past them, and this is the segment
+        // the whole night has been building toward. It is a setting rather
+        // than a constant for the same reason the round length is — the right
+        // number is the one the room is actually running at, and the host can
+        // see the room.
+        let _oneOnOneMinutes = 7;
+
+        // Memoised, because renderRunOfShow() is on a 1-second interval and
+        // this used to re-solve the whole night — seating, rotation and the
+        // 1-on-1 packing — sixty times a minute for a plan that had not
+        // changed. The key is everything the plan actually depends on;
+        // builtAt covers a re-pin, a rebuild, and late arrivals, all of which
+        // stamp it.
+        let _runPlanCache = null;
+
+        function runPlanKey() {
+            return [
+                _chemEventId, _tableSize, _tableRounds, _roundMinutes,
+                _pinnedPlan ? _pinnedPlan.builtAt : 0,
+                _chemWomen.length, _chemMen.length,
+            ].join('|');
+        }
 
         function buildRunPlan() {
+            const key = runPlanKey();
+            if (_runPlanCache && _runPlanCache.key === key) return _runPlanCache.plan;
+            const plan = computeRunPlan();
+            _runPlanCache = { key, plan };
+            return plan;
+        }
+
+        function computeRunPlan() {
             const rounds = buildRounds(_tableSize, _tableRounds);
             if (!rounds.length) return [];
             const ones = buildOneOnOnes(rounds, 6);
@@ -4403,42 +4862,118 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 offset: i,
             }));
             ones.rounds.forEach((pairs, i) => plan.push({
-                kind: 'ones', label: `1-on-1s · round ${i + 1}`, ms: ONE_ON_ONE_MS, pairs,
+                kind: 'ones', label: `1-on-1s · round ${i + 1}`, ms: _oneOnOneMinutes * 60 * 1000, pairs,
                 revisiting: ones.revisiting,
             }));
             return plan;
         }
 
+        // Ceil, not round. A countdown that rounds spends its last half-second
+        // displaying 00:00 while the round is still running, and a host
+        // reading 00:00 calls time. Ceiling means 00:01 shows until the clock
+        // genuinely reaches zero, and 00:00 means over.
         function fmtClock(ms) {
             if (ms < 0) ms = 0;
-            const t = Math.round(ms / 1000);
+            const t = Math.ceil(ms / 1000);
             return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+        }
+
+        // The plan can get SHORTER underneath a step the host is already on:
+        // seating late arrivals repacks the 1-on-1s, and on a 12x12 room that
+        // took the plan from 10 segments to 8 while _runStep sat at 9. Every
+        // entry point that indexed the plan then threw on undefined.ms —
+        // Start and Next both died, mid-event, on a panel showing the right
+        // seating. A restored step from a bigger plan does the same.
+        //
+        // So nothing indexes the plan directly: this clamps, writes the
+        // clamped value back so the host is not left pointing off the end,
+        // and is the only way in.
+        function runStepIn(plan) {
+            if (!plan.length) return 0;
+            const clamped = Math.max(0, Math.min(_runStep, plan.length - 1));
+            if (clamped !== _runStep) _runStep = clamped;
+            return clamped;
+        }
+
+        // A running clock needs a live repaint interval, and the interval is
+        // the one piece of run state that CANNOT be stored — closing the
+        // modal kills it. So instead of restoring it, re-establish it from
+        // the stored state: if there is an end time and nothing is paused,
+        // the clock should be ticking, whoever set it going and whenever.
+        //
+        // This is what made a reopened modal show a frozen "TIME": the state
+        // said running, the interval was gone, and nothing reconciled them.
+        function ensureRunTimer() {
+            const shouldTick = _runEndsAt !== null && _runPaused === null;
+            if (shouldTick && !_runTimer) _runTimer = setInterval(renderRunOfShow, 1000);
+            if (!shouldTick && _runTimer) { clearInterval(_runTimer); _runTimer = null; }
         }
 
         window.runStart = () => {
             const plan = buildRunPlan();
             if (!plan.length) return;
-            _runEndsAt = Date.now() + plan[_runStep].ms;
+            _runEndsAt = Date.now() + plan[runStepIn(plan)].ms;
             _runPaused = null;
-            if (_runTimer) clearInterval(_runTimer);
-            _runTimer = setInterval(renderRunOfShow, 1000);
+            ensureRunTimer();
+            chemStoreWrite();
             renderRunOfShow();
         };
         window.runPause = () => {
-            if (_runPaused === null && _runEndsAt) { _runPaused = _runEndsAt - Date.now(); }
-            else if (_runPaused !== null) { _runEndsAt = Date.now() + _runPaused; _runPaused = null; }
+            if (_runPaused === null && _runEndsAt) {
+                // Clamped at zero: pausing 90 seconds into overtime used to
+                // store a negative remainder, and Resume then set an end time
+                // already in the past — the button looked broken. Overtime
+                // freezes at "TIME" instead, which is what it says.
+                _runPaused = Math.max(0, _runEndsAt - Date.now());
+            } else if (_runPaused !== null) {
+                _runEndsAt = Date.now() + _runPaused;
+                _runPaused = null;
+            }
+            ensureRunTimer();
+            chemStoreWrite();
             renderRunOfShow();
         };
         window.runNext = () => {
             const plan = buildRunPlan();
-            if (_runStep < plan.length - 1) _runStep++;
-            _runEndsAt = Date.now() + plan[_runStep].ms;
+            if (!plan.length) return;
+            const at = runStepIn(plan);
+            if (at < plan.length - 1) _runStep = at + 1;
+            _runEndsAt = Date.now() + plan[runStepIn(plan)].ms;
             _runPaused = null;
+            ensureRunTimer();
+            chemStoreWrite();
             renderRunOfShow();
         };
         window.runReset = () => {
-            if (_runTimer) { clearInterval(_runTimer); _runTimer = null; }
             _runStep = 0; _runEndsAt = null; _runPaused = null;
+            ensureRunTimer();
+            chemStoreWrite();
+            renderRunOfShow();
+        };
+
+        // ── Going with the flow of the room ────────────────────────────
+        //
+        // The plan is a plan. A table that is deep in conversation at 00:30
+        // should not be broken up because a number said so, and a round that
+        // died at 04:00 should not be sat through. This adds or removes a
+        // minute from the segment actually running, without touching the
+        // plan, the step, or anyone's seat.
+        //
+        // Overtime extends from NOW, not from the end that already passed —
+        // "+1" two minutes late means one more minute from here, which is
+        // what the host means by it.
+        window.runNudge = (mins) => {
+            const delta = mins * 60 * 1000;
+            if (_runPaused !== null) {
+                _runPaused = Math.max(0, _runPaused + delta);
+            } else if (_runEndsAt !== null) {
+                _runEndsAt = Math.max(Date.now(), _runEndsAt) + delta;
+                if (_runEndsAt < Date.now()) _runEndsAt = Date.now();
+            } else {
+                return;   // nothing running to stretch
+            }
+            ensureRunTimer();
+            chemStoreWrite();
             renderRunOfShow();
         };
 
@@ -4506,7 +5041,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 c.innerHTML = '<div class="empty" style="padding:24px;text-align:center;">Nothing to run — no tables could be built.</div>';
                 return;
             }
-            const step = plan[Math.min(_runStep, plan.length - 1)];
+            const step = plan[runStepIn(plan)];
             const running = _runEndsAt !== null;
             const remain = _runPaused !== null ? _runPaused : (running ? _runEndsAt - Date.now() : step.ms);
             const over = running && _runPaused === null && remain <= 0;
@@ -4558,23 +5093,32 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <button class="action-btn" onclick="runReset()">Reset</button>
                     </div>
                 </div>
+                ${running ? `<div class="run-nudge">
+                    <span>The room decides</span>
+                    <button class="action-btn" onclick="runNudge(-1)" title="Cut a minute from this segment">&minus;1 min</button>
+                    <button class="action-btn" onclick="runNudge(1)" title="Give this segment another minute — from now, if it has already run over">+1 min</button>
+                    <button class="action-btn" onclick="runNudge(2)" title="Give this segment two more minutes">+2 min</button>
+                    <span class="run-nudge-note">Stretches only the segment running. Nobody moves, the plan does not change.</span>
+                </div>` : ''}
                 <div class="run-setup">
                     <span>Round length</span>
                     ${[10, 15, 20].map(n => `<button class="chem-toggle-btn${n === _roundMinutes ? ' active' : ''}" onclick="setRoundMinutes(${n})">${n}m</button>`).join('')}
+                    <span style="margin-left:10px;">1-on-1</span>
+                    ${[5, 7, 10].map(n => `<button class="chem-toggle-btn${n === _oneOnOneMinutes ? ' active' : ''}" onclick="setOneOnOneMinutes(${n})">${n}m</button>`).join('')}
                     <span style="margin-left:10px;" title="A seating is one sitting; the moves between them are one fewer.">Seatings</span>
                     ${ROUND_CHOICES.map(n => `<button class="chem-toggle-btn${n === _tableRounds ? ' active' : ''}" title="${n} seatings — ${movesLabel(n)}" onclick="setTableRounds(${n})">${n}</button>`).join('')}
                     <span class="run-setup-note">${seatedCount} seating${seatedCount === 1 ? '' : 's'} (${movesLabel(seatedCount)})${
                         _tableRounds > seatedCount ? ` · ${_tableRounds} asked for, only ${seatedCount} fit without repeating` : ''
-                    } · <strong>${seatedCount * _roundMinutes} min of tables</strong>, then 5-minute 1-on-1s</span>
+                    } · <strong>${seatedCount * _roundMinutes} min of tables</strong>, then ${_oneOnOneMinutes}-minute 1-on-1s</span>
                 </div>
                 ${renderFindPanel(seatedRounds, currentRound)}
                 ${step.kind === 'round' && step.rotated
                     ? '<div style="font-size:13px;color:var(--gold);margin:8px 0 2px;">Women stay seated. Men move one table along.</div>' : ''}
                 ${step.kind === 'ones' && step.revisiting
-                    ? '<div style="font-size:13px;color:var(--gold);margin:8px 0 2px;">Small room &mdash; everyone has already met. These are the strongest matches, five minutes each.</div>' : ''}
+                    ? `<div style="font-size:13px;color:var(--gold);margin:8px 0 2px;">Small room &mdash; everyone has already met. These are the strongest matches, ${_oneOnOneMinutes} minutes each.</div>` : ''}
                 ${body}
                 <div style="font-size:11px;color:rgba(245,243,240,0.4);margin-top:12px;">
-                    ${seatedCount} &times; ${_roundMinutes}-minute seating${seatedCount === 1 ? '' : 's'} (${movesLabel(seatedCount)}), then 5-minute 1-on-1s. The clock runs on wall
+                    ${seatedCount} &times; ${_roundMinutes}-minute seating${seatedCount === 1 ? '' : 's'} (${movesLabel(seatedCount)}), then ${_oneOnOneMinutes}-minute 1-on-1s. The clock runs on wall
                     time, so it stays correct if the screen sleeps. 1-on-1 pairs never repeat someone you
                     already sat with, unless the room is small enough that everyone has met.
                 </div>`;
@@ -4594,6 +5138,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const key = wId + '|' + mId;
             if (_priorityDone.has(key)) _priorityDone.delete(key);
             else _priorityDone.add(key);
+            chemStoreWrite();
             renderPriorityIntros();
         };
 

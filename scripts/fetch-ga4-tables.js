@@ -374,12 +374,37 @@ const webviewSegment = (name, value) => ({
   },
 });
 
+// NO add_to_cart. It was a step here for one night and it wrecked the bottom of
+// every funnel table, because most buyers on this property never touch a cart.
+//
+// A closed funnel counts users who completed EVERY step IN ORDER, so one
+// off-path step discards everyone who skipped it. Measured 2026-09-01 over
+// 20260519-20260901, adding one step at a time:
+//
+//     session_start -> purchase                      34   <- GA4's own count
+//             + view_item                            24
+//             + begin_checkout                       12
+//             + add_to_cart                           5
+//
+// GA4 reports 37 transactions / 34 purchasing users / $1,006.14 for that window.
+// The five-step funnel found 5 of those 34 -- 15%. `begin_checkout` has 146
+// users against add_to_cart's 57, which is the whole story: people go straight
+// to checkout.
+//
+// This is not hypothetical damage. GA4_ANALYSIS_2026-09-01 read these tables on
+// their first night and reported "Paid Social ... purchase 2" and "282
+// normal-browser users producing 4" as purchase counts. They were chain counts.
+//
+// Dropping the step takes capture from 5/34 to 12/34. Still lossy -- 10 buyers
+// never fire view_item at all -- which is why the header carries a standing
+// warning and why nobody should read a funnel's last step as revenue. The cart
+// numbers are NOT lost: `ga4-api-events-*.csv` carries add_to_cart's own count
+// and user total, unconditioned by any chain.
 const PURCHASE_STEPS = [
   step('1 session_start', 'session_start'),
   step('2 view_item', 'view_item'),
-  step('3 add_to_cart', 'add_to_cart'),
-  step('4 begin_checkout', 'begin_checkout'),
-  step('5 purchase', 'purchase'),
+  step('3 begin_checkout', 'begin_checkout'),
+  step('4 purchase', 'purchase'),
 ];
 
 const FUNNELS = [
@@ -413,6 +438,44 @@ const FUNNELS = [
     file: 'funnel-waitlist-sequence',
     title: 'Sequence: view_item then generate_lead',
     steps: [step('1 view_item', 'view_item'), step('2 generate_lead', 'generate_lead')],
+  },
+  {
+    // THE CHECKOUT PATH. Deliberately skips view_item, and that is the entire
+    // point of it existing next to the other funnels rather than replacing one.
+    //
+    // ANALYTICS_METHOD section 4 has always said `/lp` does not fire
+    // `view_item` -- it is a landing page, not a product page. Any funnel that
+    // starts at view_item therefore discards every buyer who arrived through
+    // `/lp`, which is 2,566 of 3,485 sessions in the window measured. That is
+    // not a small correction, it is most of the traffic.
+    //
+    // Measured 2026-09-01 over 20260519-20260901 against GA4's own 34
+    // purchasing users:
+    //
+    //     session_start -> purchase                          34   (the ceiling)
+    //     session_start -> begin_checkout -> purchase        21   (this table)
+    //     session_start -> view_item -> begin_checkout ->
+    //                                        purchase        12   (the others)
+    //
+    // So this captures 21 of 34 where the view_item funnels capture 12. The
+    // remaining 13 never fire begin_checkout either, and no funnel starting
+    // from a step can reach them.
+    //
+    // Broken down by LANDING PAGE because that is the question nothing else
+    // answers, and the first read is worth the table on its own: `/lp` took
+    // 2,566 sessions to 7 purchases while `/` took 349 to the same 7.
+    file: 'funnel-checkout-by-landing-page',
+    title: 'Checkout path (no view_item step) by landing page',
+    steps: [
+      step('1 session_start', 'session_start'),
+      step('2 begin_checkout', 'begin_checkout'),
+      step('3 purchase', 'purchase'),
+    ],
+    breakdown: 'landingPage',
+    // Its purchase row will NOT match funnel-by-channel's, and that is correct
+    // rather than a data fault: they count different chains. Stated in the
+    // file header so a reader does not raise it as an inconsistency.
+    note: 'This funnel SKIPS view_item on purpose, so it counts more buyers than the view_item funnels do (21 vs 12 of GA4\'s 34 purchasing users, measured 20260519-20260901). A mismatch between this table\'s purchase row and funnel-by-channel\'s is EXPECTED and is not a data fault -- see ANALYTICS_METHOD.md section 4.',
   },
 ];
 
@@ -604,9 +667,17 @@ function toCsvFunnel(spec, report, start, end, pulledAt) {
   const cols = [...dimNames, ...metNames.slice(0, width)];
 
   const notes = [];
+  // The warning that has to come first, because the last step LOOKS like a
+  // conversion count and is not one. GA4_ANALYSIS_2026-09-01 quoted this
+  // table's purchase column as purchases; the five-step version of this funnel
+  // was finding 5 of 34 real buyers at the time.
+  notes.push('THIS IS A CHAIN COUNT, NOT A CONVERSION COUNT. A closed funnel counts only users who completed EVERY step IN ORDER, so the last step UNDERSTATES the real total by however many people skipped a step. For actual purchases and revenue read ga4-api-revenue-daily-*.csv and the purchase row of ga4-api-events-*.csv.');
   if (spec.steps.some((s) => s.filterExpression.funnelEventFilter.eventName === 'begin_checkout')) {
     notes.push('begin_checkout was REDEFINED on 2026-08-21 (ANALYTICS_METHOD section 3). A window spanning that date mixes two definitions at that step.');
   }
+  // A funnel may carry its own caveat, appended after the standing ones so that
+  // whichever warning applies to EVERY funnel keeps the lead position.
+  if (spec.note) notes.push(spec.note);
   notes.push('No Grand total row: a funnel\'s total is its first step, and summing completion rates would mean nothing.');
 
   const body = rows.map((r) => [
