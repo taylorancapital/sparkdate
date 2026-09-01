@@ -167,9 +167,41 @@ describe('purchase funnel shape', () => {
     }
   });
 
-  it('keeps every purchase funnel on one step list, so they stay comparable', () => {
-    const shapes = new Set(purchaseFunnels.map((f) => eventsOf(f).join(' > ')));
+  // There are exactly TWO purchase-funnel shapes, and the split is deliberate.
+  //
+  // This assertion used to demand a single shape, which was right when written
+  // and wrong within the hour: funnel-checkout-by-landing-page landed with a
+  // second shape on purpose, and turned main red. The rule being protected was
+  // never "one shape" -- it was "shapes do not drift by accident". So the two
+  // intended shapes are named, and anything else fails.
+  //
+  // Why two. ANALYTICS_METHOD section 4: /lp does not fire view_item, so a
+  // funnel starting there cannot see 2,566 of 3,485 sessions. The view_item
+  // shape measures the browse-then-buy path; the checkout shape measures
+  // everyone who reached checkout, including the landing-page traffic. They
+  // capture 12 and 21 of GA4's 34 purchasing users respectively, and neither
+  // number is wrong -- they answer different questions.
+  const SHAPES = {
+    'funnel-checkout-by-landing-page': 'session_start > begin_checkout > purchase',
+    _default: 'session_start > view_item > begin_checkout > purchase',
+  };
+
+  it('uses only the two intended step lists, so shapes cannot drift unnoticed', () => {
+    for (const f of purchaseFunnels) {
+      expect(eventsOf(f).join(' > '), `${f.file} has an unrecognised funnel shape`)
+        .toBe(SHAPES[f.file] || SHAPES._default);
+    }
+  });
+
+  it('keeps the view_item funnels comparable with each other', () => {
+    const viewItemFunnels = purchaseFunnels.filter((f) => !SHAPES[f.file]);
+    expect(viewItemFunnels.length).toBeGreaterThan(1);
+    const shapes = new Set(viewItemFunnels.map((f) => eventsOf(f).join(' > ')));
     expect(shapes.size).toBe(1);
-    expect([...shapes][0]).toBe('session_start > view_item > begin_checkout > purchase');
+  });
+
+  it('has exactly one funnel that deliberately skips view_item', () => {
+    const skippers = purchaseFunnels.filter((f) => !eventsOf(f).includes('view_item'));
+    expect(skippers.map((f) => f.file)).toEqual(['funnel-checkout-by-landing-page']);
   });
 });
