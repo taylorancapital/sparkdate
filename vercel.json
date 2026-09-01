@@ -35,24 +35,47 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Permissions-Policy", "value": "geolocation=(), camera=(), microphone=()" },
-        { "key": "Content-Security-Policy-Report-Only", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://www.gstatic.com https://cdn.formspree.io https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.google-analytics.com https://*.analytics.google.com https://*.stripe.com https://m.stripe.network wss://*.firebaseio.com https://www.googletagmanager.com https://connect.facebook.net https://www.facebook.com; frame-src https://js.stripe.com https://hooks.stripe.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "geolocation=(), camera=(), microphone=()"
+        },
+        {
+          "key": "Content-Security-Policy-Report-Only",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://www.gstatic.com https://cdn.formspree.io https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.google-analytics.com https://*.analytics.google.com https://*.stripe.com https://m.stripe.network wss://*.firebaseio.com https://www.googletagmanager.com https://connect.facebook.net https://www.facebook.com; frame-src https://js.stripe.com https://hooks.stripe.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+        }
       ]
     },
     {
       "source": "/(.*)\\.(svg|png|jpg|jpeg|webp|ico|woff2)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=604800, stale-while-revalidate=2592000" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800, stale-while-revalidate=2592000"
+        }
       ]
     }
   ],
   "redirects": [
     {
       "source": "/:path*",
-      "has": [{ "type": "host", "value": "www.sparkdate.date" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "www.sparkdate.date"
+        }
+      ],
       "destination": "https://sparkdate.date/:path*",
       "permanent": true
     },
@@ -75,6 +98,156 @@
       "source": "/founding",
       "destination": "/",
       "permanent": true
+    },
+    {
+      "source": "/l/mc-eventbrite",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=eventbrite&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_eventbrite",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-facebook-event",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=facebook_event&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_facebook_event",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-discoverlancaster",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=discoverlancaster&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_discoverlancaster",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-lancasteronline",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=lancasteronline&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_lancasteronline",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-lancasterpa",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=lancasterpa&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_lancasterpa",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-visitlancasterpa",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=visitlancasterpa&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_visitlancasterpa",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-visitlancastercity",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=visitlancastercity&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_visitlancastercity",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-figlancaster",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=figlancaster&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_figlancaster",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-lancasterchamber",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=lancasterchamber&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_lancasterchamber",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-allevents",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=allevents&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_allevents",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-patch",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=patch&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_patch",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-nextdoor-event",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=nextdoor_event&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_nextdoor_event",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-meetup-existing",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=meetup&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_meetup_existing",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-google-business",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=googlebusinessposting&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_google_business",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-events-org",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=eventsorg&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_events_org",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-eventbrite",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=eventbrite&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_eventbrite",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-facebook-event",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=facebook_event&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_facebook_event",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-discoverlancaster",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=discoverlancaster&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_discoverlancaster",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-lancasteronline",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=lancasteronline&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_lancasteronline",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-lancasterpa",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=lancasterpa&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_lancasterpa",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-visitlancasterpa",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=visitlancasterpa&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_visitlancasterpa",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-visitlancastercity",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=visitlancastercity&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_visitlancastercity",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-figlancaster",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=figlancaster&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_figlancaster",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-lancasterchamber",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=lancasterchamber&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_lancasterchamber",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-allevents",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=allevents&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_allevents",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-patch",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=patch&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_patch",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-nextdoor-event",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=nextdoor_event&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_nextdoor_event",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-meetup-existing",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=meetup&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_meetup_existing",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-google-business",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=googlebusinessposting&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_google_business",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-events-org",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=eventsorg&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_events_org",
+      "permanent": false
     }
   ],
   "rewrites": [

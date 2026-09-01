@@ -34,10 +34,13 @@
 const fs = require('fs');
 const path = require('path');
 
+const {
+  shortPath, SITE_ORIGIN, fetchUpcomingEvents, matchBrandEvent, taggedUrl,
+} = require('../lib/listing-links');
+
 const REPO = path.join(__dirname, '..');
 const BRAND = path.join(REPO, 'content', 'brand.json');
 const SITES = path.join(REPO, 'content', 'listing-sites.json');
-const SITE_ORIGIN = 'https://sparkdate.date';
 
 const arg = (n, d) => {
   const hit = process.argv.find((a) => a === `--${n}` || a.startsWith(`--${n}=`));
@@ -87,65 +90,10 @@ const SITE_COPY_DEFECTS = [
   'public/careers.html:250, :278 -- the host spec has the icebreaker at 7:00 and "the actual evening" at 7:20, which reads as two segments. It is one: round 1 (at the 20-minute setting) and the rounds after it. Also never mentions the tables.',
 ];
 
-// ── Fetch the public event record ─────────────────────────────────────
-
-async function fetchText(url) {
-  const res = await fetch(url, { headers: { 'user-agent': 'sparkdate-listing-pack' } });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
-  return res.text();
-}
-
-async function fetchUpcomingEvents() {
-  const xml = await fetchText(`${SITE_ORIGIN}/sitemap.xml`);
-  const urls = [...xml.matchAll(/<loc>([^<]*\/event\?id=[^<]*)<\/loc>/g)].map((m) =>
-    m[1].replace(/&amp;/g, '&'),
-  );
-  if (!urls.length) throw new Error('sitemap listed no event pages -- is /sitemap.xml healthy?');
-
-  const events = [];
-  for (const url of urls) {
-    const html = await fetchText(url);
-    const m = html.match(
-      /<script type="application\/ld\+json" id="event-jsonld">([\s\S]*?)<\/script>/,
-    );
-    if (!m) {
-      console.error(`  ! no JSON-LD on ${url} -- skipped`);
-      continue;
-    }
-    const ld = JSON.parse(m[1].replace(/\\u003c/g, '<'));
-    const start = new Date(ld.startDate);
-    if (start < new Date()) continue; // past events are not syndicated
-    events.push({
-      id: new URL(url).searchParams.get('id'),
-      url,
-      name: ld.name,
-      description: ld.description,
-      start,
-      end: ld.endDate ? new Date(ld.endDate) : null,
-      venue: ld.location && ld.location.name,
-      address: ld.location && ld.location.address,
-      price: ld.offers && Number(ld.offers.price),
-      currency: (ld.offers && ld.offers.priceCurrency) || 'USD',
-      priceValidUntil: ld.offers && ld.offers.priceValidUntil
-        ? new Date(ld.offers.priceValidUntil) : null,
-      image: Array.isArray(ld.image) ? ld.image[0] : ld.image,
-    });
-  }
-  events.sort((a, b) => a.start - b.start);
-  return events;
-}
-
-// ── Join the public record to brand.json ──────────────────────────────
-// brand.json holds the event_key (MC, LX) that the UTM campaign is built
-// from, plus the market hashtag pool. Match on event_id, never on name --
-// names get edited on the live page and the key must survive that.
-
-function matchBrandEvent(brand, eventId) {
-  for (const [key, ev] of Object.entries(brand.events || {})) {
-    if (ev.event_id === eventId) return { key, ...ev };
-  }
-  return null;
-}
+// Event fetching, brand-key matching and UTM tagging all live in
+// lib/listing-links.js, shared with scripts/build-listing-redirects.js.
+// Two builders producing the same URL independently is the defect this
+// whole branch exists to stop repeating.
 
 // ── Formatting ────────────────────────────────────────────────────────
 
@@ -159,19 +107,6 @@ const ymd = (d) => fmt(d, { year: 'numeric', month: '2-digit', day: '2-digit' })
   .replace(/(\d+)\/(\d+)\/(\d+)/, '$3-$1-$2');
 const yyyymm = (d) => ymd(d).slice(0, 7).replace('-', '');
 const money = (n) => `$${Number(n).toFixed(2).replace(/\.00$/, '')}`;
-
-// ── UTM ───────────────────────────────────────────────────────────────
-
-function taggedUrl(event, brandEv, site, utmCfg) {
-  const key = (brandEv ? brandEv.key : 'evt').toLowerCase();
-  const campaign = `${key}_${yyyymm(event.start)}`;
-  const u = new URL(event.url);
-  u.searchParams.set('utm_source', site.utm_source);
-  u.searchParams.set('utm_medium', utmCfg.medium);
-  u.searchParams.set('utm_campaign', campaign);
-  u.searchParams.set('utm_content', `${key}_${site.key}`);
-  return u.toString();
-}
 
 // ── The commentary ────────────────────────────────────────────────────
 // Three lengths because the forms want three lengths: a one-line teaser, a
@@ -369,13 +304,22 @@ function renderMarkdown(events, sites, utmCfg, brand) {
       out.push(``);
     }
 
-    out.push(`### Tagged links — one per site`);
+    out.push(`### Ticket links — PASTE THE SHORT ONE`);
     out.push(``);
-    out.push(`| Site | Status | Ticket URL to paste |`);
-    out.push(`|---|---|---|`);
+    out.push(`> Use the \`/l/\` link. It exists because listing sites mangle long`);
+    out.push(`> query-strings without erroring: AllEvents HTML-escaped the ampersands`);
+    out.push(`> (\`&amp;utm_source\` — page loads, GA4 sees nothing) and Discover`);
+    out.push(`> Lancaster's 100-character field cap truncated \`utm_campaign\` and`);
+    out.push(`> \`utm_content\` off the end. Both were found the hard way on 2026-09-01.`);
+    out.push(`> The short link has nothing to escape and nothing to truncate.`);
+    out.push(``);
+    out.push(`| Site | Status | Paste this | Resolves to |`);
+    out.push(`|---|---|---|---|`);
     for (const site of active) {
       if (site.market && site.market !== 'any' && brandEv && site.market !== brandEv.market) continue;
-      out.push(`| ${site.name} | ${site.status} | \`${taggedUrl(event, brandEv, site, utmCfg)}\` |`);
+      const long = taggedUrl(event, brandEv, site, utmCfg);
+      const short = `${SITE_ORIGIN}${shortPath(brandEv, site)}`;
+      out.push(`| ${site.name} | ${site.status} | \`${short}\` | \`${long}\` |`);
     }
     out.push(``);
   }
