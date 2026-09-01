@@ -156,6 +156,18 @@ describe('the format of the night', () => {
     expect(long).toMatch(/five-minute one-on-ones/i);
   });
 
+  it('puts the icebreaker AT the tables, not before them', () => {
+    // Taylor corrected this on 2026-09-01: the game is what you play once
+    // seated, so the table structure IS the icebreaker. A first draft had it
+    // as a separate warm-up segment, which invents a block of the evening
+    // that does not exist.
+    expect(long).not.toMatch(/before anyone sits down|before you sit down|icebreaker (gets|opens|starts)/i);
+    const seated = long.search(/seated at a small table/i);
+    const ice = long.search(/icebreaker/i);
+    expect(seated).toBeGreaterThan(-1);
+    expect(ice).toBeGreaterThan(seated);
+  });
+
   it('does not revive the "no rotation, no timer" claim', () => {
     // Six places on the live site still say this. If one of them ever gets
     // pasted in here as source material, fail loudly.

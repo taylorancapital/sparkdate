@@ -65,8 +65,9 @@ const arg = (n, d) => {
 // than either one alone.
 const FORMAT_NOTE = {
   settled: '2026-09-01, against public/admin.html',
-  shape: 'icebreaker → timed seated rounds with the men rotating → 5-minute 1-on-1s → private interest notes → same-night matches',
+  shape: 'doors and drinks → timed rounds at small tables, with a game as the icebreaker and the men moving one table each round → 5-minute 1-on-1s → private interest notes → same-night matches',
   omitted: 'the round count or the minutes per round (both are per-event host settings)',
+  _icebreaker: 'The game IS the tables, not a warm-up before them. Confirmed by Taylor 2026-09-01 after an earlier version of this file got it the other way round.',
 };
 
 const SITE_COPY_DEFECTS = [
@@ -75,6 +76,8 @@ const SITE_COPY_DEFECTS = [
   'public/blog/speed-dating-vs-singles-mixer.html:205 -- "No whistle, no scorecard, no three-minute timer"',
   'public/city.html:453, :577, :639 -- "no whistle, no rigid rotation" (all four city pages)',
   'public/city.html:655 -- same claim inside the FAQ structured data Google surfaces',
+  'public/event.html:788 -- "Natural introductions, no awkward icebreakers." The ticket page denies the icebreaker exists.',
+  'public/careers.html:250, :278 -- the host spec has the icebreaker at 7:00 and "the actual evening" at 7:20, which reads as two segments. It is one: round 1 (at the 20-minute setting) and the rounds after it. Also never mentions the tables.',
 ];
 
 // ── Fetch the public event record ─────────────────────────────────────
@@ -199,24 +202,24 @@ function buildCopy(event, brandEv) {
     `an in-person singles night where you find out the same evening who liked you back.`;
 
   const short =
-    `A real-life singles night in ${city}. An icebreaker, then timed rounds at small tables — ` +
-    `the men move along each round, so you meet the room instead of one corner of it — then ` +
-    `five-minute one-on-ones. At the end you privately note who you'd like to see again, and ` +
-    `mutual interest becomes a match before you get home. ` +
+    `A real-life singles night in ${city}. Timed rounds at small tables with a game to break ` +
+    `the ice — the men move along each round, so you meet the room instead of one corner of ` +
+    `it — then five-minute one-on-ones. At the end you privately note who you'd like to see ` +
+    `again, and mutual interest becomes a match before you get home. ` +
     `${dateLong(event.start)}, doors ${timeOf(event.start)}. ${money(event.price)}.`;
 
   const long = [
     `${event.description}`,
     ``,
     `**How the night works.** You check in with a host and get a name badge — there's nothing ` +
-    `to download and no profile to fill out at the door. An icebreaker gets the room talking ` +
-    `before anyone sits down. Then you're seated at a small table, and the men move one table ` +
-    `along each round — so every round is a genuinely new set of people, and you meet the room ` +
-    `rather than talking to the same two people by the bar all night. After the tables come ` +
-    `five-minute one-on-ones with people you haven't already sat with. Near the end you ` +
-    `privately note anyone you'd like to see again; it takes under a minute and nobody else ` +
-    `sees it. If someone noted you back, that's a match, and you both get it that night rather ` +
-    `than after some review period.`,
+    `to download and no profile to fill out at the door. Then you're seated at a small table ` +
+    `with a game to play — that's the icebreaker, so nobody has to invent an opening line cold ` +
+    `— and the men move one table along each round, which means every round is a genuinely new ` +
+    `set of people and you meet the room rather than the same two people by the bar all night. ` +
+    `After the tables come five-minute one-on-ones with people you haven't already sat with. ` +
+    `Near the end you privately note anyone you'd like to see again; it takes under a minute ` +
+    `and nobody else sees it. If someone noted you back, that's a match, and you both get it ` +
+    `that night rather than after some review period.`,
     ``,
     `**Why it's built this way.** Everyone in the room came out on purpose on a ${fmt(event.start, { weekday: 'long' })} ` +
     `night. That's a filter no dating app has. The structure does the hard part — you never ` +
@@ -255,7 +258,7 @@ function renderMarkdown(events, sites, utmCfg, brand) {
   out.push(`> The copy states that shape but not ${FORMAT_NOTE.omitted} — a moderated listing`);
   out.push(`> cannot be edited afterwards, so it must not commit the host to a number.`);
   out.push(``);
-  out.push(`> ⚠ **The live site still says the opposite**, in 7 sentences across 4 files.`);
+  out.push(`> ⚠ **The live site still contradicts this in ${SITE_COPY_DEFECTS.length} places.**`);
   out.push(`> These listings will describe the real format while sparkdate.date denies it:`);
   SITE_COPY_DEFECTS.forEach((d) => out.push(`> - ${d}`));
   out.push(``);
