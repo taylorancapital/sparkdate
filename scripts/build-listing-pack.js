@@ -229,10 +229,10 @@ function buildCopy(event, brandEv) {
   const long = [
     `${event.description}`,
     ``,
-    // No name badge here on purpose: how-same-night-matching-works.html says
-    // guests get one and both first-timer guides say they do not, and nothing
-    // settles it. See reports/FACT_AUDIT_2026-09-01.md section 5.
-    `**How the night works.** You check in with a host — there's nothing ` +
+    // Name tags confirmed by Taylor 2026-09-01, settling a contradiction
+    // between the blog and the two first-timer guides. See
+    // reports/FACT_AUDIT_2026-09-01.md section 5.
+    `**How the night works.** You check in with a host and get a name tag — there's nothing ` +
     `to download and no profile to fill out at the door. The evening runs in three movements.` +
     `
 

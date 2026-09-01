@@ -20,7 +20,7 @@ const { admin } = require('../lib/auth');
 const { applyCors } = require('../lib/cors');
 const { effectivePrice, spotsRemaining } = require('../lib/seat-model');
 const { buildSitemapXml } = require('../lib/sitemap-xml');
-const { isEventOver } = require('../lib/next-event');
+const { isEventOver, DEFAULT_EVENT_DURATION_HOURS } = require('../lib/next-event');
 
 const db = admin.firestore();
 
@@ -98,9 +98,11 @@ async function renderEventPage(req, res) {
         const d = ev.date && ev.date.toDate ? ev.date.toDate()
                 : (ev.date ? new Date(ev.date) : null);
         const dateLabel = d ? d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
-        // Mixers run ~3 hours; the event's own durationHours wins when set.
-        // Shared by the schema's endDate below and the is-it-over check.
-        const hrs = Number(ev.durationHours) > 0 ? Number(ev.durationHours) : 3;
+        // The event's own durationHours wins when set; otherwise the shared
+        // default. Imported rather than retyped -- this literal was a second
+        // copy of the constant and is exactly how the published end time and
+        // the is-it-over check drift apart.
+        const hrs = Number(ev.durationHours) > 0 ? Number(ev.durationHours) : DEFAULT_EVENT_DURATION_HOURS;
         const isPast = d ? d.getTime() + hrs * 60 * 60 * 1000 < Date.now() : false;
         // Never hardcode a single city — this file serves both Philadelphia
         // and Lancaster events. Fall back to the event's own city, then to

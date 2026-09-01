@@ -169,12 +169,12 @@ CHECKS.push(() => ({
 // 7. Name badges. Found by accident while fixing the format claims.
 CHECKS.push(() => ({
   id: 'name-badge',
-  canonical: 'UNRESOLVED — the site says both',
-  source: 'nothing authoritative. Two blog posts contradict each other and no system of record settles it.',
+  canonical: 'name tags ARE used; there is no scorecard',
+  source: 'Taylor, 2026-09-01, asked directly.',
   findings: [
     ...scan(/.{0,50}(?:no name tag|name badge|name tag).{0,50}/i, 'states whether badges are worn'),
   ],
-  extra: 'blog/how-same-night-matching-works.html says "get your name badge"; both first-timer guides say "No name tag". brand.json universal.run_of_show currently says badge, but only because it was written from the first of those. Someone who has run an event needs to say which it is -- it is the first thing a guest experiences.',
+  extra: 'RESOLVED 2026-09-01. The two first-timer guides said "No name tag" and were wrong; how-same-night-matching-works.html was right. Occurrences below are expected -- this check now exists to catch a REGRESSION to "no name tag", not to flag the mentions.',
 }));
 
 // 8. Age policy.

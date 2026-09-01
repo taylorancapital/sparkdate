@@ -46,14 +46,29 @@ be noticed.
 | `public/city.html` ×4 | "about 6:30 to 9 PM" | fixed |
 | `content/queue.csv` ×3 | "6:30-9:00 PM" | fixed |
 | `public/careers.html:292` | close out 9:00 PM | **not fixed** — host-facing, see §9 |
-| **Firestore event docs** | **endDate 9:30 PM** | **not fixed — needs you** |
+| `DEFAULT_EVENT_DURATION_HOURS` | **published endDate 9:30 PM** | **fixed — 3 → 2** |
 
-> **The Firestore one is the one that matters most.** Both live events carry a
-> three-hour duration, so `/event?id=…` publishes `endDate` of 9:30 PM inside
-> its schema.org Event JSON-LD. That is the block Google reads to show event
-> times in search results, and it is what every calendar that scrapes us will
-> ingest. **Fixing the marketing copy does not touch it.** The event record has
-> to be edited in `/admin`.
+> **It turned out not to be a data problem at all.** No event doc sets
+> `durationHours`; the end time was *computed* from
+> `DEFAULT_EVENT_DURATION_HOURS`, which was **3**. That single constant was the
+> published end time for every event, and it was inventing an hour that does
+> not exist — into the schema.org `endDate` Google reads, and into every
+> calendar that scrapes the site.
+>
+> **Fixed at the source: 3 → 2.** No Firestore write was needed, and it
+> corrects every future event too, not just the two on sale.
+>
+> The constant was also duplicated as a bare `3` in four other places
+> (`api/next-event.js`, `city.html`, `event.html`, `events.html`) — in a file
+> whose own comment warns that every such check "must route through this helper
+> so they can't drift out of sync again". The API now imports the constant; the
+> three client-side copies can't import from `lib/`, so they carry the number
+> with a comment naming what it must match.
+>
+> It also decided when an event stopped being *current*. At 3, the site kept
+> selling and check-in kept pointing at a room that had emptied an hour
+> earlier. `tests/next-event.test.js` gained a 2.5-hour boundary case —
+> verified to fail under the old default.
 
 Note the spread: 8:30 (true), 9:00 (careers + queue), 9 PM (city pages), 9:30
 (Firestore). Nobody wrote the wrong number on purpose; each surface was written
@@ -144,16 +159,18 @@ already indexed.
 
 ---
 
-## 5. Name badges — the site says both
+## 5. Name tags — RESOLVED: they are used
 
-- `blog/how-same-night-matching-works.html:174` — "check in with your host,
-  **get your name badge**"
+- `blog/how-same-night-matching-works.html:174` — "get your name badge" ✓ right
 - `blog/first-timer-guide.html:202` and `first-timer-guide-lancaster.html:202`
-  — "**No name tag**, no scorecard"
+  — "No name tag" ✗ wrong
 
-`brand.json` currently records "name badge", but only because it was written
-from the first of those. Nothing settles it. It is the first thing a guest
-experiences, so it is worth settling. **Not fixed.**
+**Taylor, 2026-09-01: name tags are used.** Both guides corrected. The "no
+scorecard" half of that sentence was always right and is kept — it is the real
+contrast with speed dating.
+
+The `name-badge` check stays, inverted: it now watches for a regression *back*
+to "no name tag".
 
 ---
 
@@ -218,12 +235,12 @@ right.
 
 ## 9. Open, needs a decision from Taylor
 
-1. **Edit the Firestore event records** so `endDate` is 8:30 PM, not 9:30. This
-   is the highest-value item in the audit — it is the one publishing to Google.
+1. ~~Edit the Firestore event records.~~ **Resolved — it was a code default,
+   not data. `DEFAULT_EVENT_DURATION_HOURS` 3 → 2.**
 2. **The Philly price.** Stop quoting a flat number, or commit to maintaining
-   per-city ones.
+   per-city ones. **The last open item in this audit.**
 3. ~~The welcome drink.~~ **Resolved 2026-09-01 — cut everywhere.**
-4. **Name badge or no name badge.** The last unresolved fact in the audit.
+4. ~~Name badge or no name badge.~~ **Resolved — name tags are used.**
 5. **`speed-dating-vs-singles-mixer.html`.** The honest version of that post
    probably says SparkDate is a hybrid — the structure of speed dating with
    longer rounds and no scorecard — which is a genuinely better pitch than

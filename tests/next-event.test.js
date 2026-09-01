@@ -92,7 +92,7 @@ describe('getNextEvent', () => {
   // next on the calendar instead of tonight's.
   it('still returns an event that started within its duration window', async () => {
     const db = mockDb([
-      { id: 'tonight', date: new Date(Date.now() - HOUR), venue: 'Tonight' }, // started 1h ago, default 3h duration
+      { id: 'tonight', date: new Date(Date.now() - HOUR), venue: 'Tonight' }, // started 1h ago, default 2h duration
       { id: 'later', date: future(20), venue: 'Later' },
     ]);
     expect((await getNextEvent(db)).id).toBe('tonight');
@@ -108,12 +108,19 @@ describe('getNextEvent', () => {
 });
 
 describe('isEventOver', () => {
-  it('is false while inside the default 3h window', () => {
+  it('is false while inside the default 2h window', () => {
     expect(isEventOver(new Date(Date.now() - HOUR), undefined)).toBe(false);
   });
 
-  it('is true once the default 3h window has elapsed', () => {
+  it('is true once the default 2h window has elapsed', () => {
     expect(isEventOver(new Date(Date.now() - 4 * HOUR), undefined)).toBe(true);
+  });
+
+  it('is true at 2.5h — the hour that used to be counted and is not real', () => {
+    // Events run 6:30 to 8:30. The default was 3, which kept an event
+    // "current" until 9:30 and published a 9:30 endDate to Google. This
+    // case is the whole point of the change: it FAILED before 2026-09-01.
+    expect(isEventOver(new Date(Date.now() - 2.5 * HOUR), undefined)).toBe(true);
   });
 
   it('honors a custom durationHours', () => {

@@ -1541,7 +1541,9 @@
                 };
                 if (d) {
                     ld.startDate = d.toISOString();
-                    const hrs = Number(ev.durationHours) > 0 ? Number(ev.durationHours) : 3;
+                    // 2 = lib/next-event.js DEFAULT_EVENT_DURATION_HOURS. Client-side, so it
+                    // cannot import; if that constant moves, move this too.
+                    const hrs = Number(ev.durationHours) > 0 ? Number(ev.durationHours) : 2;
                     ld.endDate = new Date(d.getTime() + hrs * 60 * 60 * 1000).toISOString();
                 }
                 if (price > 0) {
