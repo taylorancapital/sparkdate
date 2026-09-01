@@ -59,18 +59,24 @@ const EXISTING_ID = arg('id');
 // --link only follows a URL, so it needs neither a key nor a recipient.
 const LINK_ONLY = process.argv.some((a) => a.startsWith('--link='));
 
-if (!LINK_ONLY && !process.env.RESEND_API_KEY) {
-  console.error('x Missing env var: RESEND_API_KEY');
-  console.error('  (or pass --link=<tracked url> to check a link from a delivered email instead)');
-  process.exit(2);
-}
-if (!LINK_ONLY && !TO && !NO_SEND) {
-  console.error('x --to=<address> is required. Send this to yourself, never to a lead.');
-  process.exit(2);
-}
-if (NO_SEND && !EXISTING_ID) {
-  console.error('x --no-send needs --id=<resend_email_id>');
-  process.exit(2);
+// Argument validation runs only when this is the program, not when a test
+// imports it. At module scope these process.exit(2) calls killed the importing
+// process before a single assertion ran, which is why the redirect logic had no
+// tests despite being the part most likely to be wrong.
+function checkArgs() {
+  if (!LINK_ONLY && !process.env.RESEND_API_KEY) {
+    console.error('x Missing env var: RESEND_API_KEY');
+    console.error('  (or pass --link=<tracked url> to check a link from a delivered email instead)');
+    process.exit(2);
+  }
+  if (!LINK_ONLY && !TO && !NO_SEND) {
+    console.error('x --to=<address> is required. Send this to yourself, never to a lead.');
+    process.exit(2);
+  }
+  if (NO_SEND && !EXISTING_ID) {
+    console.error('x --no-send needs --id=<resend_email_id>');
+    process.exit(2);
+  }
 }
 
 const { buildUtmUrl } = require('../lib/utm');
@@ -97,7 +103,11 @@ function paramsOf(u, base) {
     const url = base ? new URL(u, base) : new URL(u);
     const out = {};
     url.searchParams.forEach((v, k) => { out[k] = v; });
-    return { ok: true, origin: url.origin, path: url.pathname, params: out };
+    // hostname, not origin: origin carries the scheme AND any explicit port, so
+    // an endsWith() host comparison against it silently fails on anything not
+    // served from the default port. It happens to work for the real tracker on
+    // 443 and fails for every test server, which is a bad way round.
+    return { ok: true, origin: url.origin, hostname: url.hostname, path: url.pathname, params: out };
   } catch {
     return { ok: false };
   }
@@ -118,6 +128,78 @@ async function api(path, init) {
 // click-tracked, and cannot answer the question this script asks.
 const TRACKING_HOST = 'links.mail.sparkdate.date';
 
+// Some trackers serve a bot-check interstitial to a default fetch agent and the
+// real 302 to a browser. Asking as a browser removes that as an explanation for
+// a chain that does not reach the destination.
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+  + '(KHTML, like Gecko) Chrome/128.0 Safari/537.36';
+
+const MAX_HOPS = 10;
+
+/**
+ * Walk a redirect chain to its end, printing each hop, and return the final URL.
+ *
+ * Handles the two ways a click tracker moves you on:
+ *   - a 3xx with a Location header, and
+ *   - a 200 whose BODY carries the redirect, as <meta http-equiv="refresh">
+ *     or a `location.href = "..."` assignment. Trackers use the HTML form to
+ *     run a script before forwarding, and a header-only reader sees that as
+ *     "no redirect target" -- indistinguishable, wrongly, from a dead link.
+ *
+ * A relative Location is resolved against the URL it came from; `new URL()`
+ * throws on those otherwise, which would look like a mangled destination
+ * rather than a perfectly ordinary relative redirect.
+ */
+async function followChain(start, { trackerHost = TRACKING_HOST, log = console.log } = {}) {
+  let cur = start;
+  for (let hop = 1; hop <= MAX_HOPS; hop++) {
+    let r;
+    try {
+      r = await fetch(cur, { redirect: 'manual', headers: { 'user-agent': UA } });
+    } catch (e) {
+      return { url: cur, error: `network error on hop ${hop}: ${e.message}` };
+    }
+    let next = r.headers.get('location');
+    let via = 'Location';
+    const onTracker = (() => {
+      const p = paramsOf(cur);
+      return p.ok && p.hostname.endsWith(trackerHost);
+    })();
+
+    // Body-sniffing is confined to the TRACKER's own pages, and this is not
+    // caution for its own sake -- an earlier version of this loop scanned every
+    // page and matched `location.href = "intent://..."` inside sparkdate.date's
+    // webview-escape script, which is conditional code that had not run. It
+    // then "followed" that phantom hop to intent://, failed to fetch it, and
+    // would have reported a live attribution failure. A regex cannot tell
+    // conditional JS from an interstitial; the host it is served from can.
+    if (!next && r.status === 200 && onTracker) {
+      const body = await r.text().catch(() => '');
+      const meta = body.match(/<meta[^>]+http-equiv=["']?refresh["']?[^>]*content=["'][^"']*url=([^"'>\s]+)/i);
+      const js = body.match(/(?:location\.(?:href|replace)\s*(?:=|\()\s*)["']([^"']+)["']/i);
+      if (meta) { next = meta[1]; via = 'meta refresh'; }
+      else if (js) { next = js[1]; via = 'js redirect'; }
+    }
+
+    // Landed on a real destination. That is the answer -- following our own
+    // site's internal navigation further would tell us nothing about the
+    // tracker and risks wandering off into app-scheme URLs.
+    if (!next && !onTracker && hop > 1) {
+      log(`    hop${hop}: ${r.status} (destination reached)`);
+      return { url: cur };
+    }
+
+    if (!next) {
+      log(`    hop${hop}: ${r.status} (final)`);
+      return { url: cur };
+    }
+    const resolved = new URL(next, cur).toString();
+    log(`    hop${hop}: ${r.status} via ${via} -> ${resolved}`);
+    cur = resolved;
+  }
+  return { url: cur, error: `still redirecting after ${MAX_HOPS} hops` };
+}
+
 // Follow one tracked link and report what survived. Shared by --link and the
 // full run, so both answer the question the same way.
 //
@@ -130,7 +212,7 @@ async function checkLink(t, originals) {
   console.log(`  ${t}`);
 
   const self = paramsOf(t);
-  if (self.ok && !self.origin.endsWith(TRACKING_HOST)) {
+  if (self.ok && !self.hostname.endsWith(TRACKING_HOST)) {
     console.log(`    NOT A TRACKED LINK — host is ${self.origin.replace(/^https?:\/\//, '')}, expected ${TRACKING_HOST}`);
     console.log('    This is the destination, not the rewritten link. Two ways that happens:');
     console.log('      1. it was copied from the email SOURCE (or from a chat/PR) rather than');
@@ -141,12 +223,38 @@ async function checkLink(t, originals) {
     return 'untracked';
   }
 
-  const r = await fetch(t, { redirect: 'manual' });
-  const loc = r.headers.get('location');
-  console.log(`    -> ${r.status} ${loc || '(no Location header)'}`);
-  if (!loc) { console.log('    FAIL: no redirect target\n'); return 'fail'; }
+  // Follow the WHOLE chain, not the first hop.
+  //
+  // This read one Location header and judged the answer on it. That is only
+  // correct if the tracker redirects straight to the destination, and a click
+  // tracker is entitled to take more than one hop -- a consent or bot-check
+  // interstitial, a region redirect, or simply tracker -> tracker -> target.
+  // On any of those the first Location is another tracking URL carrying no
+  // UTMs, and the old code reported "UTM parameters did NOT survive" about a
+  // link whose destination it never actually looked at. Same false-alarm shape
+  // as #368: the script's own narrow view reported as a live attribution
+  // failure.
+  //
+  // Every hop is printed, because when this does fail the chain IS the
+  // diagnosis -- it says which host dropped them.
+  const final = await followChain(t);
+  if (final.error) { console.log(`    FAIL: ${final.error}\n`); return 'fail'; }
+  if (final.url === t) { console.log('    FAIL: no redirect target\n'); return 'fail'; }
 
-  const got = paramsOf(loc, t);
+  // Ended still on the tracker. That is not "the UTMs were dropped" -- it is
+  // "we never reached a destination to check", and calling it an attribution
+  // failure would be the #368 mistake again. Usually a bot check that a real
+  // click would clear.
+  const end = paramsOf(final.url);
+  if (end.ok && end.hostname.endsWith(TRACKING_HOST)) {
+    console.log(`    INCONCLUSIVE — the chain never left ${TRACKING_HOST}, so no`);
+    console.log('    destination was reached and nothing was proved either way.');
+    console.log('    Usually an interstitial or bot check that a real click clears.');
+    console.log('    Click the link in the delivered mail and paste the address bar into --link=\n');
+    return 'untracked';
+  }
+
+  const got = end;
   const orig = originals.map((o) => paramsOf(o)).find((o) => o.ok && got.ok && o.path === got.path);
   if (!orig) {
     // Unknown shape (a real campaign link, say). Fall back to asserting the
@@ -285,4 +393,9 @@ query string survives the links.mail.sparkdate.date redirect.</p>
   process.exitCode = failures ? 1 : 0;
 }
 
-main().catch((e) => { console.error(`x ${e.message}`); process.exit(1); });
+if (require.main === module) {
+  checkArgs();
+  main().catch((e) => { console.error(`x ${e.message}`); process.exit(1); });
+}
+
+module.exports = { followChain, paramsOf, TRACKING_HOST, MAX_HOPS };
