@@ -184,6 +184,17 @@ function buildCopy(event, brandEv) {
   const streetIsRedundant = !street || !/^\d/.test(street.trim());
   const wherefull = streetIsRedundant ? where : `${where} (${street})`;
 
+  // END TIME: brand.json wins over the live page, and this is not a
+  // preference -- the Firestore event docs carry a three-hour duration, so
+  // /event?id=... publishes endDate 9:30 PM when the night actually ends at
+  // 8:30. Reading the live page here would print the wrong hour onto a
+  // moderated listing that cannot be edited afterwards. See
+  // reports/FACT_AUDIT_2026-09-01.md section 1. Fix the event record in
+  // /admin and this override stops mattering.
+  const endsFromBrand = brandEv && brandEv.ends;
+  const endsFromPage = event.end ? timeOf(event.end) : null;
+  const ends = endsFromBrand || endsFromPage;
+
   const earlyBird = event.priceValidUntil && event.priceValidUntil > new Date()
     ? event.priceValidUntil : null;
 
@@ -211,7 +222,10 @@ function buildCopy(event, brandEv) {
   const long = [
     `${event.description}`,
     ``,
-    `**How the night works.** You check in with a host and get a name badge — there's nothing ` +
+    // No name badge here on purpose: how-same-night-matching-works.html says
+    // guests get one and both first-timer guides say they do not, and nothing
+    // settles it. See reports/FACT_AUDIT_2026-09-01.md section 5.
+    `**How the night works.** You check in with a host — there's nothing ` +
     `to download and no profile to fill out at the door. Then you're seated at a small table ` +
     `with a game to play — that's the icebreaker, so nobody has to invent an opening line cold ` +
     `— and the men move one table along each round, which means every round is a genuinely new ` +
@@ -228,7 +242,7 @@ function buildCopy(event, brandEv) {
     ``,
     `**Details.**`,
     `- ${dateLong(event.start)}`,
-    `- Doors ${timeOf(event.start)}${event.end ? ` — ${timeOf(event.end)}` : ''}`,
+    `- Doors ${timeOf(event.start)}${ends ? ` — ${ends}` : ''}`,
     `- ${wherefull}`,
     `- ${money(event.price)} per ticket` +
       (earlyBird
@@ -278,7 +292,12 @@ function renderMarkdown(events, sites, utmCfg, brand) {
     out.push(`| | |`);
     out.push(`|---|---|`);
     out.push(`| Event key | \`${key}\`${brandEv ? '' : ' — **not in brand.json**, add it'} |`);
-    out.push(`| When | ${dateLong(event.start)}, ${timeOf(event.start)}${event.end ? `–${timeOf(event.end)}` : ''} ET |`);
+    const endsB = brandEv && brandEv.ends;
+    const endsP = event.end ? timeOf(event.end) : null;
+    out.push(`| When | ${dateLong(event.start)}, ${timeOf(event.start)}${endsB || endsP ? `–${endsB || endsP}` : ''} ET |`);
+    if (endsB && endsP && endsB !== endsP) {
+      out.push(`| | ⚠ the live event page says it ends at **${endsP}**. brand.json says **${endsB}** and that is what the copy uses. Fix the event record in /admin — its schema.org endDate is what Google reads. |`);
+    }
     out.push(`| Where | ${event.venue}${event.address && event.address.streetAddress ? `, ${event.address.streetAddress}` : ''} |`);
     const reg = brandEv && brandEv.pricing && brandEv.pricing.regular;
     const inEB = event.priceValidUntil && event.priceValidUntil > new Date();
