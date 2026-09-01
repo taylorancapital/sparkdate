@@ -49,7 +49,7 @@ const LIFTED = ['INTENT_LABELS', 'ROUND_CHOICES', '_chemShortName', '_chemInitia
                 'metInRounds', 'itineraryFor', 'buildOneOnOnes', 'introRowsFor',
                 'topMatchesFor', 'shortlistControl', 'prioRows', 'renderChemistryCards',
                 'renderIntros', 'renderPriorityIntros', 'renderTables', 'renderRunOfShow',
-                'renderFindPanel', 'findAttendees', 'runPlanKey', 'computeRunPlan', 'buildRunPlan', 'fmtClock', 'safe'];
+                'renderFindPanel', 'findAttendees', 'runPlanKey', 'computeRunPlan', 'buildRunPlan', 'fmtClock', 'runStepIn', 'safe'];
 
 // Element ids the chemistry modal actually declares. Rendering into an id
 // that is not in the markup is the exact bug this file exists to catch, so
@@ -115,7 +115,7 @@ function view(W = 12, M = 12, size = 6) {
     // fresh solve, so the pin stays null.
     _pinnedPlan: null, _chemEventId: null, _runPlanCache: null,
     _introsDone: new Set(), _priorityDone: new Set(), _prioMode: 'all', _shortlistN: 3,
-    _tableSize: size, _tableRound: 1, _tableRounds: 4, _roundMinutes: 15,
+    _tableSize: size, _tableRound: 1, _tableRounds: 4, _roundMinutes: 15, _oneOnOneMinutes: 7,
     _runTimer: null, _runEndsAt: null, _runPaused: null, _runStep: 0, _runFind: '',
     ONE_ON_ONE_MS: 5 * 60 * 1000,
   };
@@ -501,7 +501,7 @@ describe('renderRunOfShow', () => {
     sandbox.renderRunOfShow();
     const html = nodes.get('runView').innerHTML;
     expect(html).toContain('1-on-1s');
-    expect(html).toContain('05:00');
+    expect(html).toContain('07:00');          // seven minutes, not five
   });
 
   it('does not re-solve the night on every clock tick', () => {
@@ -530,6 +530,30 @@ describe('renderRunOfShow', () => {
     const first = sandbox.buildRunPlan();
     sandbox.pinSeating(6);                            // stamps a new builtAt
     expect(sandbox.buildRunPlan()).not.toBe(first);
+  });
+
+  it('carries a 1-on-1 length control beside the round length', () => {
+    const { sandbox, nodes } = view();
+    sandbox.renderRunOfShow();
+    const html = nodes.get('runView').innerHTML;
+    for (const n of [5, 7, 10]) expect(html).toContain(`setOneOnOneMinutes(${n})`);
+    expect(html).toContain('then 7-minute 1-on-1s');
+  });
+
+  it('offers the nudge buttons only while a clock is running', () => {
+    // "The room decides" is for a segment in progress; on an idle panel it
+    // would be a control with nothing to act on.
+    const { sandbox, nodes } = view();
+    sandbox.renderRunOfShow();
+    expect(nodes.get('runView').innerHTML).not.toContain('runNudge');
+
+    sandbox._runEndsAt = Date.now() + 5 * 60000;
+    sandbox.renderRunOfShow();
+    const html = nodes.get('runView').innerHTML;
+    expect(html).toContain('The room decides');
+    expect(html).toContain('runNudge(1)');
+    expect(html).toContain('runNudge(-1)');
+    expect(html).toContain('runNudge(2)');
   });
 
   it('shows the lookup box on every render — it is the point of the view', () => {

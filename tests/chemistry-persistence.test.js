@@ -94,7 +94,7 @@ function ctx({ W = 12, M = 12, storage = fakeStorage(), size = 6 } = {}) {
     // writing to a different binding than the code reads.
     _chemEventId: null, _pinnedPlan: null,
     _introsDone: new Set(), _priorityDone: new Set(),
-    _tableSize: size, _tableRound: 1, _tableRounds: 4, _roundMinutes: 15,
+    _tableSize: size, _tableRound: 1, _tableRounds: 4, _roundMinutes: 15, _oneOnOneMinutes: 7,
     _runTimer: null, _runEndsAt: null, _runPaused: null, _runStep: 0, _runFind: '',
     // Render functions the store helpers call back into; stubbed so this
     // file stays about state, not markup (that is chemistry-views).
@@ -401,6 +401,26 @@ describe('chemStore — surviving a close and a reload', () => {
     c.storage.throwOnRead = true;
     expect(() => c.sandbox.chemStoreRestore('ev1')).not.toThrow();
     expect(c.sandbox._runStep).toBe(0);
+  });
+
+  it('lets a programming error through instead of swallowing it as a storage failure', () => {
+    // Found the hard way. chemStoreWrite() used to wrap the whole payload
+    // build in the try that exists for quota errors, so a reference to a
+    // variable that had been renamed threw ReferenceError, got caught, and
+    // persistence silently stopped — no error, nothing stored, and the panel
+    // looked healthy until a reload lost the evening. Only setItem is
+    // allowed to fail quietly now.
+    const c = ctx();
+    c.sandbox._chemEventId = 'ev1';
+    vm.runInContext('_introsDone = undefined;', c.sandbox);
+    expect(() => c.sandbox.chemStoreWrite()).toThrow();
+  });
+
+  it('still swallows a real storage failure after that change', () => {
+    const c = ctx();
+    c.sandbox._chemEventId = 'ev1';
+    c.storage.throwOnWrite = true;
+    expect(() => c.sandbox.chemStoreWrite()).not.toThrow();
   });
 
   it('writes nothing before an event is opened', () => {

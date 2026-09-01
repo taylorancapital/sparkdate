@@ -1291,6 +1291,19 @@
         .run-table-from { color: var(--gold); text-transform:none; letter-spacing:0; }
         .run-setup { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; color:rgba(245,243,240,0.5); padding:10px 0 2px; }
         .run-setup-note { color:rgba(245,243,240,0.38); margin-left:auto; }
+        /* "The room decides" — stretch the running segment without touching
+           the plan. Only shown while a clock is actually running. */
+        .run-nudge {
+            display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+            font-size:12px; color:rgba(245,243,240,0.5);
+            margin-top:10px; padding:8px 11px;
+            background:rgba(212,175,55,0.07);
+            border:1px solid rgba(212,175,55,0.18);
+            border-radius:8px;
+        }
+        .run-nudge .action-btn { border-color:rgba(212,175,55,0.4); color:var(--gold); font-size:13px; padding:7px 13px; }
+        .run-nudge .action-btn:hover { background:rgba(212,175,55,0.12); }
+        .run-nudge-note { color:rgba(245,243,240,0.35); flex-basis:100%; font-size:11px; }
 
         /* "Where do I sit?" — the lookup that replaces scanning a printed
            seating chart for a name while the room waits. */
@@ -4328,14 +4341,26 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
         function chemStoreWrite() {
             if (!_chemEventId) return;
+            // The payload is built OUTSIDE the try on purpose. A try around
+            // the whole thing swallows programming errors as readily as
+            // storage ones: a reference to a variable that was renamed threw
+            // ReferenceError, got caught here, and persistence silently
+            // stopped working — no error, no stored state, and the panel
+            // looked fine until a reload lost the night. Only the setItem
+            // call can fail for a reason the host should not hear about.
+            const payload = JSON.stringify({
+                v: CHEM_STORE_VERSION,
+                // When this was written, so a restore can tell a run still in
+                // progress from one that ended days ago.
+                savedAt: Date.now(),
+                plan: _pinnedPlan,
+                prefs: { size: _tableSize, rounds: _tableRounds, minutes: _roundMinutes,
+                         oneOnOne: _oneOnOneMinutes },
+                run: { step: _runStep, endsAt: _runEndsAt, paused: _runPaused },
+                done: { intros: [..._introsDone], priority: [..._priorityDone] },
+            });
             try {
-                localStorage.setItem(CHEM_STORE_PREFIX + _chemEventId, JSON.stringify({
-                    v: CHEM_STORE_VERSION,
-                    plan: _pinnedPlan,
-                    prefs: { size: _tableSize, rounds: _tableRounds, minutes: _roundMinutes },
-                    run: { step: _runStep, endsAt: _runEndsAt, paused: _runPaused },
-                    done: { intros: [..._introsDone], priority: [..._priorityDone] },
-                }));
+                localStorage.setItem(CHEM_STORE_PREFIX + _chemEventId, payload);
             } catch (e) { /* out of quota or a private window — carry on in memory */ }
         }
 
@@ -4346,7 +4371,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             _pinnedPlan = null;
             _runStep = 0; _runEndsAt = null; _runPaused = null;
             _introsDone = new Set(); _priorityDone = new Set();
-            _tableSize = 6; _tableRounds = 4; _roundMinutes = 15; _tableRound = 1;
+            _tableSize = 6; _tableRounds = 4; _roundMinutes = 15;
+            _oneOnOneMinutes = 7; _tableRound = 1;
+            _runPlanCache = null;
 
             const data = chemStoreRead(eventId);
             if (!data) return;
@@ -4354,12 +4381,32 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 if ([4, 6, 8].includes(data.prefs.size))          _tableSize    = data.prefs.size;
                 if (ROUND_CHOICES.includes(data.prefs.rounds))    _tableRounds  = data.prefs.rounds;
                 if ([10, 15, 20].includes(data.prefs.minutes))    _roundMinutes = data.prefs.minutes;
+                if ([5, 7, 10].includes(data.prefs.oneOnOne))     _oneOnOneMinutes = data.prefs.oneOnOne;
             }
             if (data.plan && Array.isArray(data.plan.womenByTable)) _pinnedPlan = data.plan;
-            if (data.run) {
-                _runStep   = Number.isInteger(data.run.step) ? data.run.step : 0;
-                _runEndsAt = typeof data.run.endsAt === 'number' ? data.run.endsAt : null;
-                _runPaused = typeof data.run.paused === 'number' ? data.run.paused : null;
+            // The clock is restored only if it belongs to a run still
+            // plausibly in progress. Without this, reopening last week's
+            // event restored an end time six days past: the panel read "TIME"
+            // on a round that finished last Tuesday and started a 1-second
+            // repaint of it. An event runs about two hours; six is a generous
+            // outer bound for "the host stepped away and came back".
+            // Both halves are needed. savedAt alone is not enough: ticking an
+            // intro the morning after re-writes the record with a fresh
+            // savedAt while still carrying last night's endsAt. endsAt alone
+            // is not enough either — a PAUSED run leaves endsAt stale by
+            // design, and its real remaining time lives in `paused`.
+            const RUN_STATE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+            const savedAt = typeof data.savedAt === 'number' ? data.savedAt : 0;
+            const run = data.run || {};
+            const isPaused = typeof run.paused === 'number';
+            const endsAt = typeof run.endsAt === 'number' ? run.endsAt : null;
+            const recordIsFresh = Date.now() - savedAt < RUN_STATE_MAX_AGE_MS;
+            const clockIsPlausible = isPaused || endsAt === null ||
+                                     Date.now() - endsAt < RUN_STATE_MAX_AGE_MS;
+            if (data.run && recordIsFresh && clockIsPlausible) {
+                _runStep   = Number.isInteger(run.step) && run.step >= 0 ? run.step : 0;
+                _runEndsAt = endsAt;
+                _runPaused = isPaused ? run.paused : null;
             }
             if (data.done) {
                 _introsDone   = new Set(data.done.intros   || []);
@@ -4595,10 +4642,41 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             runReset();
             renderTables();
         };
+        // Nudging 15m to 20m used to call runReset() — which threw away the
+        // host's place in the night and the clock with it, mid-event, for a
+        // change that should have been a small one. It keeps the step now,
+        // and a running segment is extended or shortened by the difference:
+        // "make the rounds five minutes longer" reads as including this one.
         window.setRoundMinutes = (n) => {
+            const delta = (n - _roundMinutes) * 60 * 1000;
             _roundMinutes = n;
-            runReset();
+            _runPlanCache = null;
+            const plan = buildRunPlan();
+            if (plan.length && plan[runStepIn(plan)].kind === 'round') shiftRunClock(delta);
+            ensureRunTimer();
+            chemStoreWrite();
+            renderRunOfShow();
         };
+
+        window.setOneOnOneMinutes = (n) => {
+            const delta = (n - _oneOnOneMinutes) * 60 * 1000;
+            _oneOnOneMinutes = n;
+            _runPlanCache = null;
+            const plan = buildRunPlan();
+            if (plan.length && plan[runStepIn(plan)].kind === 'ones') shiftRunClock(delta);
+            ensureRunTimer();
+            chemStoreWrite();
+            renderRunOfShow();
+        };
+
+        // Move the running clock by delta without disturbing the step. Only
+        // touches a segment that is actually running; an idle panel just
+        // picks up the new length when it starts.
+        function shiftRunClock(delta) {
+            if (!delta) return;
+            if (_runPaused !== null) _runPaused = Math.max(0, _runPaused + delta);
+            else if (_runEndsAt !== null) _runEndsAt = Math.max(Date.now(), _runEndsAt + delta);
+        }
 
         window.printTables = () => {
             const rounds = buildRounds(_tableSize, _tableRounds);
@@ -4642,7 +4720,13 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         let _runStep = 0;             // index into the built plan
         let _runFind = '';            // "where do I sit?" lookup query
 
-        const ONE_ON_ONE_MS = 5 * 60 * 1000;
+        // Minutes per 1-on-1. Seven, not five: five is long enough to trade
+        // names and not long enough to get past them, and this is the segment
+        // the whole night has been building toward. It is a setting rather
+        // than a constant for the same reason the round length is — the right
+        // number is the one the room is actually running at, and the host can
+        // see the room.
+        let _oneOnOneMinutes = 7;
 
         // Memoised, because renderRunOfShow() is on a 1-second interval and
         // this used to re-solve the whole night — seating, rotation and the
@@ -4682,16 +4766,37 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 offset: i,
             }));
             ones.rounds.forEach((pairs, i) => plan.push({
-                kind: 'ones', label: `1-on-1s · round ${i + 1}`, ms: ONE_ON_ONE_MS, pairs,
+                kind: 'ones', label: `1-on-1s · round ${i + 1}`, ms: _oneOnOneMinutes * 60 * 1000, pairs,
                 revisiting: ones.revisiting,
             }));
             return plan;
         }
 
+        // Ceil, not round. A countdown that rounds spends its last half-second
+        // displaying 00:00 while the round is still running, and a host
+        // reading 00:00 calls time. Ceiling means 00:01 shows until the clock
+        // genuinely reaches zero, and 00:00 means over.
         function fmtClock(ms) {
             if (ms < 0) ms = 0;
-            const t = Math.round(ms / 1000);
+            const t = Math.ceil(ms / 1000);
             return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+        }
+
+        // The plan can get SHORTER underneath a step the host is already on:
+        // seating late arrivals repacks the 1-on-1s, and on a 12x12 room that
+        // took the plan from 10 segments to 8 while _runStep sat at 9. Every
+        // entry point that indexed the plan then threw on undefined.ms —
+        // Start and Next both died, mid-event, on a panel showing the right
+        // seating. A restored step from a bigger plan does the same.
+        //
+        // So nothing indexes the plan directly: this clamps, writes the
+        // clamped value back so the host is not left pointing off the end,
+        // and is the only way in.
+        function runStepIn(plan) {
+            if (!plan.length) return 0;
+            const clamped = Math.max(0, Math.min(_runStep, plan.length - 1));
+            if (clamped !== _runStep) _runStep = clamped;
+            return clamped;
         }
 
         // A running clock needs a live repaint interval, and the interval is
@@ -4711,23 +4816,33 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         window.runStart = () => {
             const plan = buildRunPlan();
             if (!plan.length) return;
-            _runEndsAt = Date.now() + plan[_runStep].ms;
+            _runEndsAt = Date.now() + plan[runStepIn(plan)].ms;
             _runPaused = null;
             ensureRunTimer();
             chemStoreWrite();
             renderRunOfShow();
         };
         window.runPause = () => {
-            if (_runPaused === null && _runEndsAt) { _runPaused = _runEndsAt - Date.now(); }
-            else if (_runPaused !== null) { _runEndsAt = Date.now() + _runPaused; _runPaused = null; }
+            if (_runPaused === null && _runEndsAt) {
+                // Clamped at zero: pausing 90 seconds into overtime used to
+                // store a negative remainder, and Resume then set an end time
+                // already in the past — the button looked broken. Overtime
+                // freezes at "TIME" instead, which is what it says.
+                _runPaused = Math.max(0, _runEndsAt - Date.now());
+            } else if (_runPaused !== null) {
+                _runEndsAt = Date.now() + _runPaused;
+                _runPaused = null;
+            }
             ensureRunTimer();
             chemStoreWrite();
             renderRunOfShow();
         };
         window.runNext = () => {
             const plan = buildRunPlan();
-            if (_runStep < plan.length - 1) _runStep++;
-            _runEndsAt = Date.now() + plan[_runStep].ms;
+            if (!plan.length) return;
+            const at = runStepIn(plan);
+            if (at < plan.length - 1) _runStep = at + 1;
+            _runEndsAt = Date.now() + plan[runStepIn(plan)].ms;
             _runPaused = null;
             ensureRunTimer();
             chemStoreWrite();
@@ -4735,6 +4850,32 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         };
         window.runReset = () => {
             _runStep = 0; _runEndsAt = null; _runPaused = null;
+            ensureRunTimer();
+            chemStoreWrite();
+            renderRunOfShow();
+        };
+
+        // ── Going with the flow of the room ────────────────────────────
+        //
+        // The plan is a plan. A table that is deep in conversation at 00:30
+        // should not be broken up because a number said so, and a round that
+        // died at 04:00 should not be sat through. This adds or removes a
+        // minute from the segment actually running, without touching the
+        // plan, the step, or anyone's seat.
+        //
+        // Overtime extends from NOW, not from the end that already passed —
+        // "+1" two minutes late means one more minute from here, which is
+        // what the host means by it.
+        window.runNudge = (mins) => {
+            const delta = mins * 60 * 1000;
+            if (_runPaused !== null) {
+                _runPaused = Math.max(0, _runPaused + delta);
+            } else if (_runEndsAt !== null) {
+                _runEndsAt = Math.max(Date.now(), _runEndsAt) + delta;
+                if (_runEndsAt < Date.now()) _runEndsAt = Date.now();
+            } else {
+                return;   // nothing running to stretch
+            }
             ensureRunTimer();
             chemStoreWrite();
             renderRunOfShow();
@@ -4804,7 +4945,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 c.innerHTML = '<div class="empty" style="padding:24px;text-align:center;">Nothing to run — no tables could be built.</div>';
                 return;
             }
-            const step = plan[Math.min(_runStep, plan.length - 1)];
+            const step = plan[runStepIn(plan)];
             const running = _runEndsAt !== null;
             const remain = _runPaused !== null ? _runPaused : (running ? _runEndsAt - Date.now() : step.ms);
             const over = running && _runPaused === null && remain <= 0;
@@ -4856,23 +4997,32 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         <button class="action-btn" onclick="runReset()">Reset</button>
                     </div>
                 </div>
+                ${running ? `<div class="run-nudge">
+                    <span>The room decides</span>
+                    <button class="action-btn" onclick="runNudge(-1)" title="Cut a minute from this segment">&minus;1 min</button>
+                    <button class="action-btn" onclick="runNudge(1)" title="Give this segment another minute — from now, if it has already run over">+1 min</button>
+                    <button class="action-btn" onclick="runNudge(2)" title="Give this segment two more minutes">+2 min</button>
+                    <span class="run-nudge-note">Stretches only the segment running. Nobody moves, the plan does not change.</span>
+                </div>` : ''}
                 <div class="run-setup">
                     <span>Round length</span>
                     ${[10, 15, 20].map(n => `<button class="chem-toggle-btn${n === _roundMinutes ? ' active' : ''}" onclick="setRoundMinutes(${n})">${n}m</button>`).join('')}
+                    <span style="margin-left:10px;">1-on-1</span>
+                    ${[5, 7, 10].map(n => `<button class="chem-toggle-btn${n === _oneOnOneMinutes ? ' active' : ''}" onclick="setOneOnOneMinutes(${n})">${n}m</button>`).join('')}
                     <span style="margin-left:10px;" title="A seating is one sitting; the moves between them are one fewer.">Seatings</span>
                     ${ROUND_CHOICES.map(n => `<button class="chem-toggle-btn${n === _tableRounds ? ' active' : ''}" title="${n} seatings — ${movesLabel(n)}" onclick="setTableRounds(${n})">${n}</button>`).join('')}
                     <span class="run-setup-note">${seatedCount} seating${seatedCount === 1 ? '' : 's'} (${movesLabel(seatedCount)})${
                         _tableRounds > seatedCount ? ` · ${_tableRounds} asked for, only ${seatedCount} fit without repeating` : ''
-                    } · <strong>${seatedCount * _roundMinutes} min of tables</strong>, then 5-minute 1-on-1s</span>
+                    } · <strong>${seatedCount * _roundMinutes} min of tables</strong>, then ${_oneOnOneMinutes}-minute 1-on-1s</span>
                 </div>
                 ${renderFindPanel(seatedRounds, currentRound)}
                 ${step.kind === 'round' && step.rotated
                     ? '<div style="font-size:13px;color:var(--gold);margin:8px 0 2px;">Women stay seated. Men move one table along.</div>' : ''}
                 ${step.kind === 'ones' && step.revisiting
-                    ? '<div style="font-size:13px;color:var(--gold);margin:8px 0 2px;">Small room &mdash; everyone has already met. These are the strongest matches, five minutes each.</div>' : ''}
+                    ? `<div style="font-size:13px;color:var(--gold);margin:8px 0 2px;">Small room &mdash; everyone has already met. These are the strongest matches, ${_oneOnOneMinutes} minutes each.</div>` : ''}
                 ${body}
                 <div style="font-size:11px;color:rgba(245,243,240,0.4);margin-top:12px;">
-                    ${seatedCount} &times; ${_roundMinutes}-minute seating${seatedCount === 1 ? '' : 's'} (${movesLabel(seatedCount)}), then 5-minute 1-on-1s. The clock runs on wall
+                    ${seatedCount} &times; ${_roundMinutes}-minute seating${seatedCount === 1 ? '' : 's'} (${movesLabel(seatedCount)}), then ${_oneOnOneMinutes}-minute 1-on-1s. The clock runs on wall
                     time, so it stays correct if the screen sleeps. 1-on-1 pairs never repeat someone you
                     already sat with, unless the room is small enough that everyone has met.
                 </div>`;
