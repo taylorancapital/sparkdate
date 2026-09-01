@@ -11,10 +11,13 @@ is worse than no cause.
 
 ## The roster
 
-| | seats | paid | free | attended |
-|---|---|---|---|---|
-| women | 4 | 1 ($32.49, own-site) | 3 (all Eventbrite, $0) | 0 scanned |
-| men | 16 | 13 | 3 (2 are 2-for-1 +1s) | 12 scanned |
+| | seats | paid | free | scanned | **actually attended** |
+|---|---|---|---|---|---|
+| women | 4 | 1 ($32.49, own-site) | 3 (all Eventbrite, $0) | 0 | **1** (Kate) |
+| men | 16 | 13 | 3 (2 are 2-for-1 +1s) | 12 | **14** (+Daniel, +Taylor) |
+
+The scanned column is what the export says. The attended column is what happened
+— see the check-in section below, which is the single biggest correction here.
 
 Plus **3 registrations with no ticket at all**, every one created at the door
 with `src=checkin`, and every one marked attended:
@@ -60,27 +63,32 @@ ticketed "no-show":
 | Kate Kim (woman, Eventbrite, $0) | Kate (woman) |
 | Daniel Anderson (man, Eventbrite, $26.22) | Daniel (man) |
 
-If those are the same two humans — and the door flow creating a fresh
-registration when its email lookup misses is a known, documented failure
-(`scripts/audit-duplicate-attendees.js` exists for it) — then the true figures
-are roughly **1 of 4 ticketed women** and **14 of 16 men**, not 0 and 12.
+**CONFIRMED by Taylor, 2026-09-01: same people, both pairs.** The door flow
+created a second account because its email lookup missed — the known failure
+`scripts/audit-duplicate-attendees.js` exists for, here caught by first name
+rather than by email, which is why that script would not have found it.
 
-**This must be settled before any decision rests on these numbers.** It is
-plausible that a woman who did attend is recorded as having skipped.
+So the corrected figures are **1 of 4 ticketed women** and **14 of 16 men**
+(13 matched plus Taylor, who is mis-scanned in the export). Not 0 and 12.
+
+**Everything below reads against the corrected numbers.** The raw export
+understated attendance by three people — 15% of the room — and a woman who did
+attend was filed as a no-show.
 
 ## So: what caused the no-shows?
 
 Ranked by what the data actually supports.
 
-**A. A measurement failure, for a real share of them.** Three attendees exist
-with no ticket, two of them name-matching ticketed absentees, plus the organiser
-himself mis-scanned. Some fraction of "no-show" is "we failed to connect a person
-to their ticket at the door."
+**A. A measurement failure, CONFIRMED, for three of them.** Kate and Daniel were
+each recorded twice — absent on their ticket, present on a door-created account —
+and Taylor is mis-scanned besides. That is three people, 15% of the room, that
+the export got wrong. This is no longer a candidate explanation; it is a
+measured fact, and it is the largest single correction to the night.
 
-**B. Free-on-Eventbrite underperformed, but the sample cannot carry weight.**
-Three free women, at most one attended. Directionally consistent with the usual
-result that a free seat is a weak commitment — but n=3, and the one woman who
-paid the most also did not come.
+**B. Free-on-Eventbrite underperformed, and now the sample is smaller still.**
+Kate was one of the three free-on-Eventbrite women, and she came. So it is one of
+three attending, not zero of three. Directionally still weak, but n=3 and now
+carrying an attendance — this cannot support a conclusion in either direction.
 
 **C. Something between buying and walking in, specific to women.** After the most
 generous correction, ticketed attendance is about 25% for women against ~88% for
@@ -96,13 +104,14 @@ comfortable to walk in alone.
 
 ## What to do
 
-1. **Fix door matching before trusting any of this.** Run
-   `scripts/audit-duplicate-attendees.js` on this event. Note it groups by
-   *email*, so it will miss a pair whose door email differs from their Eventbrite
-   one — the Kate and Daniel pairs may need a human eye.
+1. **Fix door matching. It is confirmed broken and it is the top item.** Two of
+   twenty attendees were double-recorded at this one event. `audit-duplicate-
+   attendees.js` groups by *email* and would NOT have caught either pair — both
+   were found by first name. The door needs to match on more than an exact email,
+   or every future event carries the same silent undercount.
 2. **Stop issuing free Eventbrite tickets to women, or make them confirm.** They
-   are invisible to `isComp`, they skew the mix on paper, and here they
-   converted at 0–33%.
+   are invisible to `isComp` and they skew the mix on paper. Note the attendance
+   argument for this is now weak — Kate was one of them and she came.
 3. **Record the door.** A walk-in with no ticket doc (Helesha) is revenue and a
    lead with no origin attached to it.
 4. **Test a non-bar venue.** The cheapest way to probe hypothesis C.
@@ -113,8 +122,9 @@ comfortable to walk in alone.
 ## Kernels from the room — REPORTED, not verified
 
 - **One woman effectively carried the night.** Engaged, helpful, enjoyed herself
-  by the end. Two women were checked in (Helesha, Kate); Taylor recalls one as
-  meaningfully present. Worth a personal follow-up, not a nurture email.
+  by the end. Two women were in the room — Helesha, who walked in with no ticket
+  at all, and Kate, who held a free Eventbrite ticket and was recorded as a
+  no-show. Worth a personal follow-up, not a nurture email.
 - **A prospective partner/regional operator** with Date Faster and Date
   Philadelphia history. Taylor notes the approach is not uncommon and is treating
   it with appropriate caution.
@@ -122,7 +132,6 @@ comfortable to walk in alone.
 
 ## Open questions
 
-- Are Kate/Kate Kim and Daniel/Daniel Anderson the same people?
 - What Eventbrite ticket type issued the three $0 women's tickets, and who set it
   up? Nothing in this repo did.
 - Did the three absent women open the pre-event emails? Resend tracks clicks from
