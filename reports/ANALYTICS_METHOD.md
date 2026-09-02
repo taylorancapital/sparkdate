@@ -23,11 +23,13 @@ not mean what it looks like."
 
 ---
 
-## 1. The tail of every export is unreliable — for TWO separate reasons
+## 1. The tail of every export is unreliable — for THREE separate reasons
 
 An earlier version of this section treated the unreliable tail as one
-phenomenon. It is two, with different causes and different remedies, and only
-one of them is a processing lag.
+phenomenon. It is three, with different causes and different remedies, and only
+one of them is a processing lag. (a) and (b) are about the last *days* of a
+daily series; (c) is about the last *bucket* of a weekly one, and the two-day
+rule does not help you there.
 
 **(a) Engagement lags one to two days.** The most recent day reports engagement
 near zero or not at all. The second-most-recent day is *sometimes* fine and
@@ -58,6 +60,42 @@ different clock times will show "growth" that is only elapsed time.**
 
 This single trap caused three retractions in one report: a phantom engagement
 collapse, a phantom `in_app_browser` regression, and a premature retention read.
+
+**(c) A cohort's newest week cell is partial until that week closes — and no
+amount of waiting a day or two fixes it.** This is a bucket-boundary problem,
+not a lag. `cohort-retention` is built by `cohortSpec()` in
+`scripts/fetch-ga4-tables.js`, which anchors every cohort to a **Monday**:
+
+```js
+monday.setUTCDate(monday.getUTCDate() - ((endDate.getUTCDay() + 6) % 7));
+```
+
+So cohort `wk of YYYY-MM-DD` starts on a Monday, and its `cohortNthWeek` cell
+`n` covers **Monday + 7n through Sunday + 7n + 6**. That cell keeps filling
+until its Sunday passes. Every cohort in the file therefore ends on an open
+cell, and the largest, newest, most interesting cohort is always the one whose
+latest cell is emptiest.
+
+**The arithmetic, so you do not have to guess.** A cell is closed only if
+`cohort_start + 7n + 6 < pull_date`. Anything else is partial, and a partial
+cell measured against closed ones will *always* read lowest — that is the
+shape of the artifact, not a finding.
+
+**Measured, and it produced a false conclusion.** The 2026-09-02 report read
+the `wk of 2026-08-24` cohort's week-1 cell as `4 / 891 = 0.45%`, called it
+"fully elapsed," and reported it as "the lowest complete reading yet" against
+four cohorts running 1.65%–3.37%. Week 1 of that cohort is Mon 08-31 → Sun
+09-06; the pull ran 09-02 05:23 UTC, so **~2.2 of 7 days had elapsed**. The
+four comparators were all full 7-day cells. There was no retention decline —
+there was a third of a week compared against four whole ones. The counts
+themselves were correct; only the completeness claim was wrong.
+
+**Rule.** Never compare an open cell to a closed one. State a cohort cell's
+elapsed fraction whenever you quote it, and if you need a week-1 number, take
+it from a cohort whose week 1 has actually closed. Note also that "one day
+short of a full week" is a claim worth checking twice — in the case above the
+cell was five days short, and the phrase came from assuming the cohort week
+started on the pull's own weekday rather than on Monday.
 
 ## 2. Seven routes are server-rendered — the file in `public/` is not what ships
 
