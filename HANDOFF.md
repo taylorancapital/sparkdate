@@ -16,22 +16,17 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **The `MC Retargeting` audience does not contain a single video we are
-  running.** It is a 365-day engagement allow-list of 88 video `object_id`s
-  prefilled on 08-17; all six live Marion Court creatives were uploaded later and
-  are outside it. So `Marion Court | Traffic` reached 3,916 people and produced
-  436 video views while the retargeting pool grew by 35 — the two-stage design
-  was never wired up, and everything that looked like retargeting fatigue is a
-  sealed pool being re-served. **Free to fix** (add the live video IDs, or rebuild
-  the audience as Page/IG engagement so it stops going stale on every upload) and
-  **nothing has been changed in the ad account.** Full write-up and the revised
-  option list: `reports/MARION_COURT_RETARGETING_FATIGUE_2026-09-01.md`. Decide
-  before **2026-09-08 16:30**, when the ad set ends anyway.
-- **Do it by CREATING a new audience, never by editing the existing one.** Meta
-  documents prefill only at creation; `rule` is writable on update but `prefill`
-  is not, and nothing says an edit re-runs it. Creation-time prefill is confirmed
-  on this account: `MC Retargeting` was created 2026-08-17 20:24 ET and the
-  campaign reached 115 unique people that same day. Report §8b.
+- **Marion Court retargeting: two free targeting changes proposed, none applied.**
+  The pool is 224 people at frequency 13.8 because Marion Court has only produced
+  ~571 video views total and `relationship_statuses: [1]` (declared Single) cuts
+  roughly half of what arrives. The ad set has **never targeted women** —
+  `genders: [1,2]`. Proposal is to drop Single *and* set `genders: [2]` together,
+  and raise Traffic, which does feed the pool. Modelled in
+  `reports/MARION_COURT_RETARGETING_FATIGUE_2026-09-01.md` §8. Decide before
+  **2026-09-08 16:30**, when the ad set ends anyway.
+- **Do NOT rebuild the `MC Retargeting` audience.** An earlier revision of that
+  report said it contained none of our videos; that was wrong. It is correctly
+  scoped — 88 Marion Court renditions, 08-17 → 08-29, kept current.
 
 ## Open threads nobody owns
 
