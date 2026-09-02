@@ -16,23 +16,28 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **The nightly's first real local run is done: #399, opened by the launcher at
-  01:32 on 2026-09-02.** The 02:00 scheduled run should log `SKIP (meta)`,
-  `SKIP (ga4)` and `SKIP (analysis)` because the day's pull and branch already
-  exist (#398). Next step: read `Night Tasks/logs/2026-09-02.log` in the morning
-  and confirm exactly that; then the 09:00 review should have commented on #399.
-- **The ads review (reports/META_ADS_REVIEW_2026-09-02.md) ranks seven actions
-  for getting more women into the room; the first is selecting the pixel dataset
-  on the two Traffic campaigns.** Nothing in it has been acted on.
+- **The ad lever for women is decided and not yet pulled.** The plan and this
+  morning's evidence: `reports/AD_LEVER_WOMEN_2026-09-02.md`; the lifetime ad
+  history behind it: `reports/META_ADS_REVIEW_2026-09-02.md`. Three actions are
+  Taylor's, in Ads Manager: attach the pixel to the two live Marion Court
+  "(Traffic)" ads (they count landing-page views and nothing after); add
+  "Visited but did not order tickets" to the MC retargeting set beside the video
+  audience; raise the Loxleys female prime budget to a 70/30 split now, not at
+  the Sep 8 ladder step. Next step for a session: a week after any of those
+  land, `npm run ads:review` and read purchases by gender per ad. That is the
+  score; landing-page views are not.
 - **Taylor must pause the Cowork nightly task himself; nothing in the repo can.**
   Until then Cowork and the local run both fire and race for one branch name.
+  The local nightly is proven: the 02:00 run on 09-02 skipped all three steps
+  exactly as #398 intended, after the 01:23 hand run had produced the report.
 - **Marion Court: four ad changes went live 2026-09-02 and are running.** Traffic
   and retargeting budgets up, retargeting narrowed to women and the declared-Single
   filter dropped. Values, rationale and rollback: report §10. Both campaigns
   re-entered learning, so **do not tune either again before 2026-09-08 16:30**,
   when both end — each edit restarts the clock and there are only ~6 days. Next
   step is to read the two Marion Court watch signals below around 09-04 and change
-  nothing until then.
+  nothing until then. The pixel and audience edits above are the exception Taylor
+  asked for; make them once, not repeatedly.
 - **MC-RT-QUANG and MC-RT-NO-SCORECARDS stay running — deliberate, for the data.
   Do not pause them as tidy-up.** They will only get ~250–400 impressions each:
   enough to spot a dead ad, not to rank them.
@@ -67,6 +72,9 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `StartWhenAvailable` and `RunOnlyIfNetworkAvailable` are both `False` on the
   02:00 task, which is why 8 of 23 nights never ran and why the 08-29 run failed
   both network steps 14 minutes after a boot. Needs an elevated shell.
+- **No woman's testimonial exists in any ad.** The only testimonial creative is
+  Quang's. The plan above wants one for the women's prime; someone has to ask
+  an attendee.
 - `reports/META_CAPI_PROMPT.md` is untracked and has never been run.
 - **Two report branches the sweep refuses as STALE and nobody has replayed onto
   main:** `claude/accessibility-analysis-2026-08-27` and
@@ -77,13 +85,6 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `proof_rsa1` and hardcode `utm_source=Instagram`, so Women vs All-Genders
   cannot be split in GA4. `url_tags` is settable only at creative creation, so
   fix it at the next event's creative build, not mid-flight.
-- The pixel dataset is up and firing; what the two live Marion Court "(Traffic)"
-  ads lack is the pixel in their own `tracking_specs` (checked by API
-  2026-09-02), so they count landing-page views and never a cart, checkout or
-  purchase. The Loxleys prime videos carry it. Whether this is what holds the
-  website audiences at Meta's 20-person floor is NOT established: the pixel
-  fires for every visitor whichever ad sent them. Attach the pixel to the two
-  ads; treat the audience floor as its own question.
 - `/admin` took 13 sessions from 1 user attributed to `facebook / paid_social`
   with 5 key events. Looks like internal traffic wearing paid attribution;
   nobody has looked. Small, but it feeds the internal-traffic-filter question.
