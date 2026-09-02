@@ -44,6 +44,15 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   of four female registrations at Good Good. Nothing in this repo created it or
   can see it — `isComp` is false on all of them. Who set it up, and is it still
   live for the next event?
+- **An Eventbrite listing dated 2026-08-10 is refused by every sync run, and
+  nobody has checked whether it holds buyers.** "SparkDate — Good Good Night @
+  Good Good Things Philly (2026-08-10)" matches no event doc, so the sync skips
+  it rather than guess — correct, and still refusing as of the 09-02 03:20 run.
+  Our Philly doc is dated 08-31 under a *different* EB id (1994945955054), so
+  this reads as a rescheduled or duplicate listing. If anyone bought on it and
+  never transferred, they exist in no ticket, registration or lead record.
+  Needs `EVENTBRITE_TOKEN` to count attendees; then either point the 08-31 doc
+  at it, or confirm it is empty and leave it.
 - **The nightly still cannot catch up or wait for a network.**
   `StartWhenAvailable` and `RunOnlyIfNetworkAvailable` are both `False` on the
   02:00 task, which is why 8 of 23 nights never ran and why the 08-29 run failed
