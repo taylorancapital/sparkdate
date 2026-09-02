@@ -58,6 +58,21 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   casual tier (~$20-25/head). Taylor's decision to make, not a copy fix. Working:
   `reports/VENUE_PITCH_FACT_AUDIT_2026-09-01.md`.
 
+- **The free-listing syndication run is part-done and the rest is unverified.**
+  Eventbrite is fixed and confirmed live: Loxley's now reads $24.99 through
+  Sep 7 then $29.99 (it had been selling $6 under the site, expiring Sep 1),
+  and both descriptions carry the three-movements copy. NOT confirmed from
+  outside: whether Marion Court's 2-for-1 ticket got renamed to name women, and
+  whether the AllEvents link repairs and the eight remaining calendars were
+  done. **Next step: get the Chrome agent's final report and spot-check the
+  hrefs it claims** — two sites silently corrupted a link already, which is
+  why `/l/` short links exist at all.
+- **Philadelphia is quoted at $24.99 in a $29.99 market.** The city page and
+  two Philly-targeted blog posts state a flat price; Good Good Things was
+  $29.99. `reports/FACT_AUDIT_2026-09-01.md` §2. Deliberately not edited: the
+  fix is a decision — stop quoting a number and point at the event page, or
+  commit to maintaining per-city ones. First is cheaper to keep true.
+
 ## Open threads nobody owns
 
 - **The door records the same person twice, and the existing audit cannot see
@@ -105,12 +120,6 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   room with nowhere to go. Same root as the hetero-only pairing the code
   already flags as waiting on a "looking to meet" field. Decide: seat them
   anyway, or make gender required at checkout.
-- **Two strings in `content/brand.json` still describe the old 1-on-1 length.**
-  `universal.run_of_show._source` cites `ONE_ON_ONE_MS`, which #379 replaced
-  with `_oneOnOneMinutes`; `_wrong_before` still asserts "Seven minutes is not
-  a value the tool offers", which is now the default. The numbers themselves
-  were corrected before #376 merged — these are the leftover prose, in the file
-  that is meant to BE the record.
 
 ## Watch signals
 
