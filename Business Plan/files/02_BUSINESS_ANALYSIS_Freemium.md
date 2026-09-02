@@ -438,7 +438,7 @@
 **Venue Economics per Event:**
 - SparkDate attendees: 40
 - Avg F&B spend/attendee: $35
-- Total F&B revenue: $1,400
+- Total F&B revenue: $1,400 — **ESTIMATE at a mid-tier $35 check, never measured** (range $800-$2,000)
 - Venue cost (room discount): -$150
 - Venue net profit: **+$1,250 per event**
 

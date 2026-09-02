@@ -108,6 +108,19 @@ Business Plan/files/Environment Variables.txt
 Business Plan/files/stripe_backup_code.txt
 *backup_code*
 
+# ── Scraped venue contact data (NEVER commit) ─────────────────
+# "Business Plan/SparkDate/" holds a 258-row CSV of real venue contact
+# names, emails and phone numbers compiled from Google Places and from
+# the venues' own websites. It was untracked but NOT ignored -- the same
+# state stripe_backup_code.txt was in before it sat in this public repo
+# for 103 days. Publishing a compiled contact list is a privacy problem
+# even though the rows are business contacts rather than individuals.
+# Enrichment output is written next to its input by scripts/scrape-venues.js,
+# so the generated copies are covered here too.
+Business Plan/SparkDate/
+*sepa_bars*
+*.enriched.csv
+
 # ── content/ is a two-file directory, on purpose ──────────────────
 # queue.csv and brand.json are the source of truth for the social calendar.
 # Nothing else belongs here. Design source masters (31.5 MB of PNG) and the

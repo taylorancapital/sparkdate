@@ -180,7 +180,7 @@ A dating app with 10,000 users spread across an entire city is less valuable tha
 
 **Venue Pitch (M1):**
 
-"We're hosting curated dating events for young professionals. We handle everything: promotion, attendee screening, event host. You provide the space and make money on F&B. Average event: 40 people, $35/person F&B spend = $1,400 revenue. Your cost: ~$150 room discount. Your net: +$1,250 profit per event."
+"We're hosting curated dating events for young professionals. We handle everything: promotion, attendee screening, event host. You provide the space and make money on F&B. Say a room of 30-40 on separate tabs off your regular menu — at your check average that is somewhere around $900 to $2,000, and you keep all of it. Your cost is a ~$150 room discount."
 
 **Expected Venue Reception:**
 - 40% interested (clear ROI pitch)
@@ -642,7 +642,7 @@ Establish multi-city expansion playbook
 
 - Average event: 40 attendees
 - Average F&B spend: $35/attendee
-- Average F&B revenue per event: $1,400
+- Modelled F&B revenue per event: $1,400 at a mid-tier $35 check — **ESTIMATE, never measured.** Range $800 (casual) to $2,000 (upscale); see the F&B ESTIMATE note in `Venue_Outreach_Package.md`
 - Average room cost discount: $150
 - Average net profit per event: **$1,250**
 - 8 events per month × $1,250 = **$10,000 monthly profit**
