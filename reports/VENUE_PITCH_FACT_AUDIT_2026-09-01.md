@@ -111,17 +111,40 @@ was meant to make.
 If a figure is wanted in writing, the honest form exposes inputs and marks itself
 a projection: *"30 guests at a $35 check is about $1,050"* — never "most venues see."
 
-## Also fix
+## Fixed — 19 instances across six files
 
-- `10_Venue_Cold_Emails_Ready_to_Send.md` — carries the claim **6 times** and is
-  named *ready to send*. Highest-risk file of the set.
-- `Venue_Outreach_Package.md` header — *"You make ~$1,400/event in F&B."*
-- `04_GO_TO_MARKET_Freemium.md:183` / `06_QUICK_REFERENCE_Freemium.md:85` — the
-  source arithmetic. Leave these and the claim gets re-derived next quarter. They
-  do not need the number changed, only relabelling from observation to projection.
+It ran wider than the first pass reported: **19 occurrences**, not the six first
+counted, **ten of them in `10_Venue_Cold_Emails_Ready_to_Send.md`** — a file whose
+name says it is ready to send. A second verbatim pitch script was also found in
+`Philadelphia_Financial_Model_FREEMIUM_VENUES_1.md:251`, which nothing had flagged.
 
-## Worth measuring, since it is currently unmeasurable
+Split by risk:
 
-One venue willingly reporting a tab total after one event would give the business
-its first hard F&B number. Ask Tellus or Loxleys — an existing partner has no
-reason to refuse, and it converts this entire pitch from a model into evidence.
+| File | Treatment |
+|---|---|
+| `10_Venue_Cold_Emails_Ready_to_Send.md` | 10 copies rewritten |
+| `Venue_Outreach_Package.md` | header pitch, Template 1, Template 2 rewritten; banded estimate added at the top as the one place the number is stated |
+| `04_GO_TO_MARKET_Freemium.md` | spoken pitch script rewritten; model input relabelled |
+| `Philadelphia_Financial_Model_FREEMIUM_VENUES_1.md` | second pitch script rewritten; three model lines relabelled |
+| `06_QUICK_REFERENCE_Freemium.md`, `02_BUSINESS_ANALYSIS_Freemium.md` | arithmetic kept, relabelled **ESTIMATE** |
+
+`05_MODEL_COMPARISON_All_Versions.md:41` already said "estimated" and was left alone.
+
+**The model files were relabelled, not recomputed.** Changing $1,400 there cascades
+into net-profit per event, the $10,000/month venue figure and the $11,200 eight-event
+total. That is a business decision, not a copy fix, and it is still open — see below.
+
+## Measuring it was declined, deliberately
+
+One partner reporting a tab total after an event would have converted this pitch
+from a model into evidence. **Taylor considered it and declined on 2026-09-02** —
+not worth bothering a venue over.
+
+So the estimate is retained as an estimate, permanently, **by choice.** The mid
+tier (~$35/head, **~$1,050 at 30 guests**) is confirmed as realistic and stands as
+the default.
+
+That makes the labelling in this commit the whole of the fix rather than a stopgap:
+nothing downstream will ever arrive to replace these numbers, so every surface that
+carries one must keep saying **ESTIMATE** and must keep handing the multiplier to
+the operator. This is not an open thread. Do not re-raise it as a gap.

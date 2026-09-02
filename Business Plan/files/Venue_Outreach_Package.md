@@ -29,6 +29,8 @@ In outbound copy, hand the multiplier to the operator — they know their own ch
 average, and at a $50 room it lands them above anything we would have asserted.
 Never write "most venues see." Working: `reports/VENUE_PITCH_FACT_AUDIT_2026-09-01.md`.
 
+**RETAINED as the standing estimate — Taylor, 2026-09-02.** The mid tier (~$35/head, **~$1,050 at 30 guests**) reads realistic and is the default for planning and for any figure quoted internally. Asking a partner venue for an actual tab total was considered and **declined** — so this stays a projection **by choice, not by oversight.** Do not re-open it as a measurement gap, and do not upgrade it to an observation without new data actually arriving.
+
 ---
 
 ## TARGET VENUE CRITERIA
