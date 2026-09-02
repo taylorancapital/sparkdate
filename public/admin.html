@@ -4421,7 +4421,13 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         const CHEM_STORE_PREFIX = 'sparkdate.chem.';
         const CHEM_STORE_VERSION = 1;
         let _chemEventId = null;
-        let _pinnedPlan = null;      // { size, builtAt, womenByTable, menByTable }
+        let _pinnedPlan = null;      // { size, builtAt, rev, womenByTable, menByTable }
+        // A monotonic revision, bumped on every pin. The run-of-show memo keys
+        // off THIS, not off builtAt: two pins inside the same millisecond
+        // produce an identical Date.now(), so a rebuild could land on the
+        // cached plan and never reach the panel. Rare by hand, but it made the
+        // test suite intermittently red, which is the same bug being honest.
+        let _pinRev = 0;
 
         // Every localStorage access is wrapped: Safari private mode throws on
         // write, a full quota throws, and some embedded webviews throw on
@@ -4479,7 +4485,13 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 if ([10, 15, 20].includes(data.prefs.minutes))    _roundMinutes = data.prefs.minutes;
                 if ([5, 7, 10].includes(data.prefs.oneOnOne))     _oneOnOneMinutes = data.prefs.oneOnOne;
             }
-            if (data.plan && Array.isArray(data.plan.womenByTable)) _pinnedPlan = data.plan;
+            if (data.plan && Array.isArray(data.plan.womenByTable)) {
+                _pinnedPlan = data.plan;
+                // Carry the revision forward, or a session that restores a
+                // rev-5 plan and then pins five times would mint rev 5 again
+                // and match a cache entry belonging to the restored seating.
+                _pinRev = Math.max(_pinRev, Number(data.plan.rev) || 0);
+            }
             // The clock is restored only if it belongs to a run still
             // plausibly in progress. Without this, reopening last week's
             // event restored an end time six days past: the panel read "TIME"
@@ -4517,6 +4529,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             _pinnedPlan = {
                 size,
                 builtAt: Date.now(),
+                rev: ++_pinRev,
                 womenByTable: tables.map(t => t.women.map(u => u.id)),
                 menByTable:   tables.map(t => t.men.map(u => u.id)),
             };
@@ -4593,6 +4606,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 groups[best].push(u.id);
             });
             _pinnedPlan.builtAt = Date.now();
+            _pinnedPlan.rev = ++_pinRev;
             chemStoreWrite();
             renderTables();
         };
@@ -4828,14 +4842,15 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // this used to re-solve the whole night — seating, rotation and the
         // 1-on-1 packing — sixty times a minute for a plan that had not
         // changed. The key is everything the plan actually depends on;
-        // builtAt covers a re-pin, a rebuild, and late arrivals, all of which
-        // stamp it.
+        // The pin's `rev` covers a re-pin, a rebuild, and late arrivals, all
+        // of which bump it — and unlike builtAt it cannot collide with itself
+        // when two of those happen in the same millisecond.
         let _runPlanCache = null;
 
         function runPlanKey() {
             return [
                 _chemEventId, _tableSize, _tableRounds, _roundMinutes,
-                _pinnedPlan ? _pinnedPlan.builtAt : 0,
+                _pinnedPlan ? _pinnedPlan.rev : 0,
                 _chemWomen.length, _chemMen.length,
             ].join('|');
         }

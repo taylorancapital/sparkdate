@@ -63,6 +63,18 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 - `/admin` took 13 sessions from 1 user attributed to `facebook / paid_social`
   with 5 key events. Looks like internal traffic wearing paid attribution;
   nobody has looked. Small, but it feeds the internal-traffic-filter question.
+- **An attendee with no gender on file gets no seat at all.** The chemistry
+  tool counts them in a coral "N excluded" warning and then leaves them out of
+  every table and every round — at an event that is a person standing in the
+  room with nowhere to go. Same root as the hetero-only pairing the code
+  already flags as waiting on a "looking to meet" field. Decide: seat them
+  anyway, or make gender required at checkout.
+- **Two strings in `content/brand.json` still describe the old 1-on-1 length.**
+  `universal.run_of_show._source` cites `ONE_ON_ONE_MS`, which #379 replaced
+  with `_oneOnOneMinutes`; `_wrong_before` still asserts "Seven minutes is not
+  a value the tool offers", which is now the default. The numbers themselves
+  were corrected before #376 merged — these are the leftover prose, in the file
+  that is meant to BE the record.
 
 ## Watch signals
 
