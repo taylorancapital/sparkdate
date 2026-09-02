@@ -1,38 +1,27 @@
 # Venue pitch — fact audit, 2026-09-01
 
-The venue outreach package makes two numeric promises to business owners. One
-survives contact with reality. The other does not, and it is the one printed in
-every cold email, in the subject-line-adjacent opening paragraph, and in the
-package header.
+The venue outreach package makes two numeric promises to business owners. Both
+survive better than a first pass suggested. What does not survive is **one word**
+in how the second is stated.
 
 Triggered by drafting Phase 1 outreach to ten Philadelphia venues. Not covered by
 `reports/FACT_AUDIT_2026-09-01.md`, which audits public marketing surfaces —
 these claims live in outbound sales copy, which nothing audits.
 
+> **Revision note.** An earlier version of this file concluded the F&B claim ran
+> 3.1× high. That was built on a first, hedged estimate of ~$15/head. Taylor then
+> supplied the Tellus figure — about three drinks, **$18–22 a head plus tip** —
+> and the Tier 1 check band was checked against the package itself. The claim is
+> considerably more defensible than that draft said. The corrected finding is
+> below; the wrong multiple is not preserved, because a wrong number left lying
+> around is worse than none.
+
 ---
 
 ## The two claims
 
-From `Business Plan/files/Marketing & GTM/Venue_Outreach_Package.md` and its
-five email templates, repeated verbatim across
-`Business Plan/files/10_Venue_Cold_Emails_Ready_to_Send.md`:
-
 1. *"We bring **25-40** pre-screened, paying young professionals"*
 2. *"Most venues we partner with see **~$1,400** in incremental F&B per event"*
-
-## Where $1,400 comes from
-
-It is not a measurement. It is a multiplication, and both source documents show
-their work:
-
-> `04_GO_TO_MARKET_Freemium.md:183` — "Average event: **40 people, $35/person
-> F&B spend** = $1,400 revenue."
->
-> `06_QUICK_REFERENCE_Freemium.md:85` — "40 attendees × $35 F&B spend = $1,400"
-
-So $1,400 requires **the top of the headcount range and $35 a head, simultaneously.**
-
----
 
 ## Claim 1 — headcount — HOLDS
 
@@ -40,85 +29,99 @@ So $1,400 requires **the top of the headcount range and $35 a head, simultaneous
 |---|---|---|
 | Event 1 | 22 | `approved_stat`, CAMPAIGN_FRAME_GAP_ANALYSIS_2026-08-22.md:108 |
 | Good Good | ~20 | EVENT_DEBRIEF_GOOD_GOOD_2026-08-31.md ("two of twenty attendees") |
-| Others (MC / TL / LX) | 30+ | Taylor, 2026-09-01 |
+| Marion Court / Tellus / Loxleys | 30+ | Taylor, 2026-09-01 |
 
 Good Good is the known weak one — dive bar, 19:1 gender ratio, its own debrief.
-Treating it as typical would understate the business. **25-40 is a fair range to
-put in front of a GM.** No change needed.
+**25-40 is fair to put in front of a GM.** Unchanged.
 
-## Claim 2 — $1,400 — DOES NOT HOLD
+## Claim 2 — the arithmetic — LARGELY HOLDS
 
-The break is entirely in the **$35/person** assumption. Taylor's own read of the
-room is **~$15/person**, on separate tabs.
+$1,400 is `40 people × $35/person` (`04_GO_TO_MARKET_Freemium.md:183`,
+`06_QUICK_REFERENCE_Freemium.md:85`). The $35 is not arbitrary: the package's own
+Tier 1 criteria target venues with **"Avg Check: $25-50/person"**
+(`Venue_Outreach_Package.md:15`). $35 sits mid-band. The model is internally
+consistent with the venues it is aimed at.
 
-| Headcount | × $15 (observed) | × $35 (assumed) |
-|---|---|---|
-| 20 | $300 | $700 |
-| 25 | $375 | $875 |
-| 30 | $450 | $1,050 |
-| 40 | **$600** | **$1,400** |
+**Incremental F&B, by headcount and the venue's own check average:**
 
-**At $15 a head, $1,400 needs 93 people in the room.** At a realistic 30, it needs
-$46.67 a head. The claim overstates by **2.3× at the most generous reading**
-(40 people) and **3.1× at a typical one** (30 people).
+| In the room | × $20 (Tellus-class) | × $25 (Tier 1 floor) | × $35 (Tier 1 mid) | × $50 (Tier 1 ceiling) |
+|---|---|---|---|---|
+| 25 | $500 | $625 | $875 | $1,250 |
+| 30 — typical | $600 | $750 | **$1,050** | $1,500 |
+| 40 — best case | $800 | $1,000 | **$1,400** | $2,000 |
 
----
+So $1,400 is a **real top-of-range outcome at a properly selected Tier 1 venue** —
+40 people at a mid-band check. It is not a fabrication. Two honest caveats:
 
-## The deeper problem: this number is unmeasurable by us
+- It needs the **top** of the headcount range, not the typical 30. At 30 in a
+  mid-band room it is about **$1,050**.
+- **Tip is not the venue's money.** Taylor's $18-22 is "plus tip"; the tip goes to
+  staff, not the F&B line an owner counts. Worth keeping out of the quoted figure —
+  though bartender goodwill on a dead shift is a genuine secondary sell to a GM.
 
-Attendees **open separate tabs**. That means:
+## The actual defect: "see"
 
-- F&B lands in the venue's POS, never in ours. We see ticket revenue only.
+The arithmetic is sound. The **framing** is not.
+
+- Attendees **open separate tabs**, so F&B lands in the venue's POS and never in
+  ours. We see ticket revenue only.
 - No venue has ever reported an F&B figure back. Nothing in this repo contains
-  one — `grep` across `reports/` and `content/brand.json` returns no measured
-  F&B anywhere.
-- Therefore *"most venues we partner with **see** ~$1,400"* describes an
-  observation **nobody has ever made**. It is not a number that was measured
-  and drifted. It is a number that was multiplied and then described as
-  observed.
+  one — `grep` across `reports/` and `content/brand.json` returns no measured F&B.
+- Therefore *"most venues we partner with **see** ~$1,400"* presents a **model
+  output as observed history.** The model is reasonable. The observation has never
+  been made.
 
-**And the venue can check it. We cannot.** The GM reads their own POS the next
-morning. This is the rare overclaim where the recipient holds better data than
-the claimant, and finds out on day one.
+**And the venue can check it; we cannot.** The GM reads their own POS the next
+morning. This is the rare claim where the recipient holds better data than the
+claimant.
 
-## Why this is worth fixing before Phase 1 sends
+## The Lancaster rooms do not validate the Philadelphia number
 
-Philadelphia hospitality is small and the target list is concentrated:
+This cuts both ways and is the most useful finding here.
 
-- **JMac Hospitality** operates Rouge *and* Twenty Manning Grill — 2 of the 10.
-- **Starr Restaurants** operates Parc *and* the Ranstead Room — 2 more.
+Tellus ran **$18-22 a head** — *below* the $25-50 Tier 1 band the Philadelphia
+targets are selected for. So SparkDate's own event history **cannot confirm or
+refute $35/head at a Rittenhouse cocktail bar.** Three drinks at Tellus and three
+drinks at Parc are not the same transaction.
 
-Four of ten Phase 1 targets sit inside two groups. Overpromising to one GM burns
-the group, not the room. A partnership that dies after event one because the
-number missed by 3× also costs the reference — and references are the whole
-Phase 2 plan.
+The per-head figure is a property of **the venue**, not of SparkDate. That is why
+quoting one fixed dollar amount to every venue is the error — a dive bar and Parc
+cannot both produce $1,400, and the pitch currently promises both the same number.
 
 ---
 
 ## Recommended copy
 
-Delete the F&B claim; keep the arithmetic and let it be checkable. Replace:
+Keep the model, drop the false provenance, and let the GM supply the multiplier —
+which is more persuasive to an operator than any number we assert. Replace:
 
 > Most venues we partner with see ~$1,400 in incremental F&B per event.
 
 with:
 
-> They open separate tabs and buy off your regular menu — figure a couple of
-> drinks a head across a couple of hours on a night that would otherwise be
-> quiet. You keep all of it.
+> They open separate tabs and buy off your regular menu — figure two or three
+> drinks a head across a couple of hours. At your check average you can do that
+> math faster than I can, and you keep all of it.
 
-This is defensible, it is still attractive for a dead Tuesday, and it cannot be
-falsified by a POS report. **$450–600 of incremental F&B on a dead Tuesday is a
-good pitch on its own.** The overclaim was never needed.
+This is unfalsifiable by a POS report, it flatters the operator's own knowledge,
+and at a Tier 1 room it lands the reader on a number **larger** than $1,400 — a
+$50 check average at 40 people is $2,000. The overclaim was costing us the sale it
+was meant to make.
 
-If a number is wanted, the honest form is a projection with its inputs exposed —
-*"30 guests at roughly $15 a head is about $450"* — never "most venues see."
+If a figure is wanted in writing, the honest form exposes inputs and marks itself
+a projection: *"30 guests at a $35 check is about $1,050"* — never "most venues see."
 
 ## Also fix
 
-- `Venue_Outreach_Package.md` header: *"You make ~$1,400/event in F&B"* — same fix.
 - `10_Venue_Cold_Emails_Ready_to_Send.md` — carries the claim **6 times** and is
-  named *ready to send*. Highest risk file of the set.
-- `04_GO_TO_MARKET_Freemium.md:183` and `06_QUICK_REFERENCE_Freemium.md:85` are
-  the source of the arithmetic. Correcting the templates without correcting these
-  means it gets re-derived next quarter.
+  named *ready to send*. Highest-risk file of the set.
+- `Venue_Outreach_Package.md` header — *"You make ~$1,400/event in F&B."*
+- `04_GO_TO_MARKET_Freemium.md:183` / `06_QUICK_REFERENCE_Freemium.md:85` — the
+  source arithmetic. Leave these and the claim gets re-derived next quarter. They
+  do not need the number changed, only relabelling from observation to projection.
+
+## Worth measuring, since it is currently unmeasurable
+
+One venue willingly reporting a tab total after one event would give the business
+its first hard F&B number. Ask Tellus or Loxleys — an existing partner has no
+reason to refuse, and it converts this entire pitch from a model into evidence.
