@@ -16,35 +16,32 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **The ad lever for women is decided and not yet pulled.** The plan and this
-  morning's evidence: `reports/AD_LEVER_WOMEN_2026-09-02.md`; the lifetime ad
-  history behind it: `reports/META_ADS_REVIEW_2026-09-02.md`. Three actions are
-  Taylor's, in Ads Manager: attach the pixel to the two live Marion Court
-  "(Traffic)" ads (they count landing-page views and nothing after); add
-  "Visited but did not order tickets" to the MC retargeting set beside the video
-  audience; raise the Loxleys female prime budget to a 70/30 split now, not at
-  the Sep 8 ladder step. Next step for a session: a week after any of those
-  land, `npm run ads:review` and read purchases by gender per ad. That is the
-  score; landing-page views are not.
+- **Marion Court is hands-off until 2026-09-08 16:30, when both campaigns end.**
+  Four ad changes went live 09-02 (`reports/META_ADS_REVIEW_2026-09-02.md` §10
+  has values and rollback) and the pixel was attached to the two Traffic ads.
+  Both campaigns are in learning; each edit restarts the clock. Read the watch
+  signals around 09-04 and change nothing.
+- **Nothing further is pending on Marion Court — two items are deferred BY
+  DECISION.** The retargeting set still carries only the video audience (adding
+  the site-visitor one is a targeting edit), and the Traffic ads' shared
+  `utm_content` is fixable only at creative creation. Taylor's call, 09-02:
+  leave both, the event ends first. Do not re-raise them as findings.
+- **The score has not been read yet.** The pixel buys measurement, not lift —
+  both Traffic sets still optimise `LINK_CLICKS`. Around 09-09 run
+  `npm run ads:review` and read **purchases by gender per ad**, never
+  landing-page views. Before then those ads cannot have counted anything.
 - **Taylor must pause the Cowork nightly task himself; nothing in the repo can.**
   Until then Cowork and the local run both fire and race for one branch name.
   The local nightly is proven: the 02:00 run on 09-02 skipped all three steps
   exactly as #398 intended, after the 01:23 hand run had produced the report.
-- **Marion Court: four ad changes went live 2026-09-02 and are running.** Traffic
-  and retargeting budgets up, retargeting narrowed to women and the declared-Single
-  filter dropped. Values, rationale and rollback: report §10. Both campaigns
-  re-entered learning, so **do not tune either again before 2026-09-08 16:30**,
-  when both end — each edit restarts the clock and there are only ~6 days. Next
-  step is to read the two Marion Court watch signals below around 09-04 and change
-  nothing until then. The pixel and audience edits above are the exception Taylor
-  asked for; make them once, not repeatedly.
 - **MC-RT-QUANG and MC-RT-NO-SCORECARDS stay running — deliberate, for the data.
   Do not pause them as tidy-up.** They will only get ~250–400 impressions each:
   enough to spot a dead ad, not to rank them.
 - **Loxleys is next, held for its own chat.** Do not pattern-match Marion Court
-  onto it: it has its own budget ladder (memory `lx-campaign-live`) and a 09-22
-  event, so none of the six-day time pressure that shaped those calls applies.
-  Re-derive from its own numbers.
+  onto it: its budget ladder is deliberate (memory `lx-campaign-live`) and the
+  event is 09-22, so none of the six-day pressure applies. Its retargeting is
+  meant to be built at the **Sep 8** ladder step — the paused campaigns and
+  unattached audience are by design, not a gap to close early.
 
 ## Open threads nobody owns
 
@@ -73,18 +70,26 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   02:00 task, which is why 8 of 23 nights never ran and why the 08-29 run failed
   both network steps 14 minutes after a boot. Needs an elevated shell.
 - **No woman's testimonial exists in any ad.** The only testimonial creative is
-  Quang's. The plan above wants one for the women's prime; someone has to ask
-  an attendee.
+  Quang's. `reports/AD_LEVER_WOMEN_2026-09-02.md` wants one for the women's
+  prime; someone has to ask an attendee.
 - `reports/META_CAPI_PROMPT.md` is untracked and has never been run.
 - **Two report branches the sweep refuses as STALE and nobody has replayed onto
   main:** `claude/accessibility-analysis-2026-08-27` and
   `claude/content-freshness-analysis-2026-08-29`. Cherry-pick or drop them.
-- `utm_content=proof_rsa1` sharing is **partly fixed** — read live 2026-09-02,
-  all four Marion Court *retargeting* ads now carry a distinct `utm_content`
-  (`mc_rt_*`) and `utm_source=Facebook`. The two *Traffic* ads still share
-  `proof_rsa1` and hardcode `utm_source=Instagram`, so Women vs All-Genders
-  cannot be split in GA4. `url_tags` is settable only at creative creation, so
-  fix it at the next event's creative build, not mid-flight.
+- **`utm_content=proof_rsa1` is on THIRTEEN ads, not two** — measured 09-02,
+  `reports/AD_ACCOUNT_AUDIT_2026-09-02.md`. $554.39 lifetime, 46% of everything
+  the account has spent, across three events and both objectives. Only 14% of
+  lifetime spend is uniquely attributable in GA4. Fixable only at creative
+  creation, so **the deliverable is a tagging convention enforced at the next
+  event's creative build**, not a retrofit. Same build should stop hardcoding
+  `utm_source`: `GG Women - Traffic` tags every click `Facebook` and served
+  98.6% on Instagram. Only `meta-create-lx-prime-ads.js` gets this right, via
+  the `{{site_source_name}}` macro.
+- **The pixel records more checkouts than carts.** Seven days to 09-02:
+  `InitiateCheckout` 50 against `AddToCart` 19, so checkout is being reached
+  without a cart firing. (`Purchase` 18 over `AddPaymentInfo` 12 is *explained* —
+  server-side purchases.) Counts read, firing code not. Whoever picks this up
+  starts in the client-side pixel calls, not in Meta.
 - `/admin` took 13 sessions from 1 user attributed to `facebook / paid_social`
   with 5 key events. Looks like internal traffic wearing paid attribution;
   nobody has looked. Small, but it feeds the internal-traffic-filter question.
