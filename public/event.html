@@ -886,7 +886,12 @@
                              email / phone inputs -- in the middle of the buyer's own details, pushing
                              the card further down the form for everyone including the majority who
                              never take it. Here it is adjacent to the subtotal line it relabels. -->
-                        <div class="two-for-one-toggle">
+                        <!-- Hidden until Gender is "woman". The 2-for-1 is a women-only
+                             promotion (Taylor, 2026-09-02); it shipped ungated to everyone,
+                             which quietly turned a targeted offer into a site-wide 50% off.
+                             Hiding it is presentation only -- api/purchase-ticket.js rejects a
+                             +1 from a non-female buyer, because a checkbox is not a gate. -->
+                        <div class="two-for-one-toggle" id="twoForOneToggle" hidden>
                             <input type="checkbox" id="twoForOneCheckbox">
                             <label for="twoForOneCheckbox"><strong>🎉 2-for-1:</strong> bring someone for free. Add their info below — you're only charged for one ticket.</label>
                         </div>
@@ -1767,7 +1772,26 @@
             btn.disabled = false;
         }
 
-        document.getElementById('ticketGender').addEventListener('change', updatePricing);
+        // The 2-for-1 is women-only. Show the toggle only for a female buyer,
+        // and RESET it when hidden -- otherwise ticking it as "woman" and then
+        // switching to "man" leaves a checked box and a populated +1 behind,
+        // which is the same free seat by a slower route.
+        function syncTwoForOneVisibility() {
+            const isWoman = document.getElementById('ticketGender').value === 'woman';
+            const toggle = document.getElementById('twoForOneToggle');
+            const box = document.getElementById('twoForOneCheckbox');
+            toggle.hidden = !isWoman;
+            if (!isWoman && box.checked) {
+                box.checked = false;
+                box.dispatchEvent(new Event('change'));
+            }
+        }
+
+        document.getElementById('ticketGender').addEventListener('change', () => {
+            syncTwoForOneVisibility();
+            updatePricing();
+        });
+        syncTwoForOneVisibility();
 
         // 2-for-1 toggle: reveal/hide the +1's fields, mark them required
         // only while visible (so an unchecked box never blocks submission
