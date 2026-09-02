@@ -1,3 +1,5 @@
+> **SUPERSEDED 2026-09-02.** The nightly prompt now lives in git at `.claude/commands/nightly-ga4.md` and runs on the local CLI from `run-nightly-claude-code.ps1`. Nothing reads this file any more; it is kept as history.
+
 # Tonight's Claude Code Prompt — 2026-08-14
 
 **Prompt chosen:** Prompt 9 — GA4 Analysis → Site Improvement Suggestions

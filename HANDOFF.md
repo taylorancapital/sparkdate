@@ -17,7 +17,7 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 ## In flight
 
 - **The nightly moved off Cowork onto the local CLI (#395); first unattended run
-  02:00 on 2026-09-02.** The launcher change is untracked and live on this
+  02:00 on 2026-09-02.** The launcher change is tracked and merged, live on this
   machine. Next step: confirm that run opened a `claude/nightly-ga4-2026-09-02`
   PR by 09:00 (`Night Tasks/logs/2026-09-02.log` says why if not) and that the
   09:00 review commented on it. A no-push dry run of the real prompt on the 09-01
