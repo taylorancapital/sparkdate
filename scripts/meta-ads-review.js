@@ -26,6 +26,12 @@
  * markdown is the first thing to read: an ad missing from the dataset shows 0
  * purchases whatever it actually sold.
  *
+ * Reconciles the gender breakdown against the unbroken total per ad, because
+ * Meta answers the same window differently depending on whether a breakdown is
+ * asked for -- one ad here reports a women's share of LPV above 100%. The
+ * "Gender rows vs totals" section names every ad where the two disagree. No
+ * figure is corrected and no share is rescaled; the disagreement is the output.
+ *
  * Usage:
  *   node scripts/meta-ads-review.js                    # writes build/meta-ads-review-<date>.{json,md}
  *   node scripts/meta-ads-review.js --md=path --json=path
@@ -43,10 +49,6 @@ const path = require('path');
 
 const GRAPH_VERSION = 'v21.0';
 const TOKEN = process.env.META_ADS_ACCESS_TOKEN || process.env.META_CAPI_ACCESS_TOKEN;
-if (!TOKEN) {
-  console.error('ERROR: META_ADS_ACCESS_TOKEN is not set (needs ads_read).');
-  process.exit(2);
-}
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => {
@@ -120,6 +122,59 @@ const ACTION_KEYS = {
   thruplay: ['video_thruplay_watched_actions'],
   post_engagement: ['post_engagement'],
 };
+
+// Meta answers the same window differently depending on whether you ask for a
+// breakdown, and the difference lands in the conversion counts. On this account
+// `Loxleys | female | prime video` returns 42 landing-page views in the female
+// row against 40 in the unbroken total, on identical spend, impressions, reach
+// and clicks -- which the summary table below prints, correctly, as "women share
+// of LPV 105.00%" (memory meta-gender-rows-do-not-reconcile).
+//
+// It matters because the two get mixed. Every women's cost-per-X divides a
+// breakdown numerator by a breakdown denominator; the $/LPV column divides the
+// unbroken total. Neither is wrong on its own and there is no third source to
+// arbitrate, so this does not silently pick one or quietly rescale a share to
+// 100%. It sums the gender rows, compares them to the total, and says where
+// they disagree -- turning an invisible error into a visible one.
+//
+// Ratios (ctr, cpc, cpm, frequency) are excluded because summing them is
+// meaningless, and reach is excluded because it is deduplicated people rather
+// than an additive count.
+const RECONCILE = [
+  'spend', 'impressions', 'clicks', 'link_clicks', 'lpv',
+  'add_to_cart', 'checkout', 'purchases', 'leads',
+];
+
+// Below this, treat a gap as float noise on money and Meta's own rounding.
+// Above it, the two queries genuinely disagree and the reader should know.
+// --drift=0 reports every difference, which is how to check this is looking.
+const RECONCILE_TOLERANCE = args.drift != null && args.drift !== true
+  ? Number(args.drift)
+  : 0.02;
+
+function reconcileGender(total, byGender, tolerance = RECONCILE_TOLERANCE) {
+  if (!total || !byGender) return null;
+  const rows = Object.values(byGender);
+  if (!rows.length) return null;
+  // Quantise before comparing. Meta reports spend to the cent, and summing
+  // floats always leaves sub-cent residue ($61.76 becomes $61.760000000000005),
+  // which at a low --drift would be reported as a Meta disagreement when it is
+  // only IEEE-754. Counts are already whole numbers; round them anyway so a
+  // fractional action value cannot manufacture a difference either.
+  const cents = (n) => Math.round(n * 100) / 100;
+  const drifts = [];
+  for (const k of RECONCILE) {
+    const summed = cents(rows.reduce((s, m) => s + (m[k] || 0), 0));
+    const whole = cents(total[k] || 0);
+    const scale = Math.max(Math.abs(whole), Math.abs(summed));
+    if (!scale) continue;
+    const drift = (summed - whole) / scale;
+    if (Math.abs(drift) > tolerance) {
+      drifts.push({ metric: k, total: whole, summed, drift });
+    }
+  }
+  return drifts.length ? drifts : null;
+}
 
 function pick(actions, keys) {
   if (!Array.isArray(actions)) return 0;
@@ -264,7 +319,11 @@ function utmsOf(text) {
   return out;
 }
 
-(async () => {
+async function main() {
+  if (!TOKEN) {
+    console.error('ERROR: META_ADS_ACCESS_TOKEN is not set (needs ads_read).');
+    process.exit(2);
+  }
   console.log(`Account ${ACCOUNT}, Graph ${GRAPH_VERSION}`);
   const ads = await graphAll(`${ACCOUNT}/ads`, {
     fields: AD_FIELDS,
@@ -312,6 +371,7 @@ function utmsOf(text) {
       window: l ? `${l.date_start}..${l.date_stop}` : null,
       lifetime: l ? metrics(l) : null,
       by_gender: gen.get(ad.id) || null,
+      gender_drift: reconcileGender(l ? metrics(l) : null, gen.get(ad.id)),
       spend_last_7d: recent.get(ad.id) || 0,
     };
   });
@@ -360,6 +420,36 @@ function utmsOf(text) {
   }
   md.push('');
 
+  // Where Meta's two answers for the same window disagree. Every gender-split
+  // cost figure in this file rests on the breakdown query; the $/LPV column
+  // rests on the total. Anything listed here is an ad where those two bases
+  // differ, so a women's share on it is not exact and can exceed 100%.
+  const drifted = records.filter((r) => r.gender_drift);
+  md.push('## Gender rows vs totals');
+  md.push('');
+  if (drifted.length === 0) {
+    md.push(`The gender breakdown sums to the unbroken total on every delivered ad, within ${pct(RECONCILE_TOLERANCE * 100)}. ` +
+      `Women's shares below can be read as exact.`);
+  } else {
+    md.push(`**${drifted.length} of ${records.filter((r) => r.delivered).length} delivered ads disagree with themselves by more than ${pct(RECONCILE_TOLERANCE * 100)}.** ` +
+      `Meta returns different numbers for the same window depending on whether \`breakdowns=gender\` is asked for. ` +
+      `The women's-share columns divide a breakdown figure by an unbroken total, so on these ads they are approximate and can exceed 100%. ` +
+      `Marked \`!\` in the table below.`);
+    md.push('');
+    md.push('| Ad | Metric | Sum of gender rows | Unbroken total | Drift |');
+    md.push('|---|---|---:|---:|---:|');
+    for (const r of drifted) {
+      for (const d of r.gender_drift) {
+        const fmt = d.metric === 'spend' ? money : int;
+        md.push(`| ${q(r.name)} | ${d.metric} | ${fmt(d.summed)} | ${fmt(d.total)} | ${d.drift > 0 ? '+' : ''}${pct(d.drift * 100)} |`);
+      }
+    }
+    md.push('');
+    md.push('Neither figure is corrected here and no share is rescaled to 100% — there is no third source to arbitrate. ' +
+      'Treat a women\'s cost-per-anything on these ads as approximate, and never divide a breakdown numerator by an unbroken denominator when the gap matters.');
+  }
+  md.push('');
+
   // Summary table
   md.push('## Every ad, by lifetime spend');
   md.push('');
@@ -371,7 +461,9 @@ function utmsOf(text) {
     const f = g.female, spendW = f ? f.spend : 0, lpvW = f ? f.lpv : 0;
     const tgt = r.adset ? `${r.adset.targeting.gender} ${r.adset.targeting.age}` : '-';
     const px = r.tracking.has_pixel ? 'yes' : '**NO**';
-    md.push(`| ${q(r.name)} | ${q(r.campaign ? r.campaign.name : '')} | ${r.effective_status}${r.adset && r.adset.end ? ` (set ends ${r.adset.end.slice(0, 10)})` : ''}${r.spend_last_7d ? ' spending' : ''} | ${tgt} | ${px} | ${L ? money(L.spend) : '-'} | ${L ? int(L.impressions) : '-'} | ${L ? int(L.reach) : '-'} | ${L ? int(L.link_clicks) : '-'} | ${L ? int(L.lpv) : '-'} | ${L ? int(L.purchases) : '-'} | ${L ? money(L.cost_per_lpv) : '-'} | ${L && L.spend ? pct((spendW / L.spend) * 100) : '-'} | ${L && L.lpv ? pct((lpvW / L.lpv) * 100) : '-'} |`);
+    // Flag the share cell whose own basis disagreed, not the whole row.
+    const drift = (m) => (r.gender_drift && r.gender_drift.some((d) => d.metric === m) ? ' !' : '');
+    md.push(`| ${q(r.name)} | ${q(r.campaign ? r.campaign.name : '')} | ${r.effective_status}${r.adset && r.adset.end ? ` (set ends ${r.adset.end.slice(0, 10)})` : ''}${r.spend_last_7d ? ' spending' : ''} | ${tgt} | ${px} | ${L ? money(L.spend) : '-'} | ${L ? int(L.impressions) : '-'} | ${L ? int(L.reach) : '-'} | ${L ? int(L.link_clicks) : '-'} | ${L ? int(L.lpv) : '-'} | ${L ? int(L.purchases) : '-'} | ${L ? money(L.cost_per_lpv) : '-'} | ${L && L.spend ? pct((spendW / L.spend) * 100) + drift('spend') : '-'} | ${L && L.lpv ? pct((lpvW / L.lpv) * 100) + drift('lpv') : '-'} |`);
   }
   md.push('');
 
@@ -411,6 +503,16 @@ function utmsOf(text) {
       }
       const L = r.lifetime;
       md.push(`| **all** | ${money(L.spend)} | ${int(L.impressions)} | ${int(L.reach)} | ${int(L.link_clicks)} | ${pct(L.ctr)} | ${money(L.cpc)} | ${int(L.lpv)} | ${money(L.cost_per_lpv)} | ${int(L.add_to_cart)} | ${int(L.checkout)} | ${int(L.purchases)} | ${int(L.leads)} |`);
+      if (r.gender_drift) {
+        md.push('');
+        md.push(`> **The rows above do not sum to the all row.** ` +
+          r.gender_drift.map((d) => {
+            const fmt = d.metric === 'spend' ? money : int;
+            return `${d.metric}: ${fmt(d.summed)} split vs ${fmt(d.total)} total`;
+          }).join('; ') +
+          `. Meta returns different figures for the same window with and without \`breakdowns=gender\`; ` +
+          `nothing here is corrected. A women's share on this ad is approximate.`);
+      }
     } else {
       md.push('- **Results:** never delivered');
     }
@@ -420,7 +522,13 @@ function utmsOf(text) {
   fs.writeFileSync(OUT_MD, md.join('\n') + '\n');
   console.log(`Wrote ${OUT_JSON}`);
   console.log(`Wrote ${OUT_MD}`);
-})().catch((e) => {
-  console.error(`ERROR: ${e.message}`);
-  process.exit(1);
-});
+}
+
+if (require.main === module) {
+  main().catch((e) => {
+    console.error(`ERROR: ${e.message}`);
+    process.exit(1);
+  });
+}
+
+module.exports = { reconcileGender, pixelTracking, promotedSummary, RECONCILE, RECONCILE_TOLERANCE };
