@@ -16,12 +16,14 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **The nightly moved off Cowork onto the local CLI (#395); first unattended run
-  02:00 on 2026-09-02.** The launcher change is tracked and merged, live on this
-  machine. Next step: confirm that run opened a `claude/nightly-ga4-2026-09-02`
-  PR by 09:00 (`Night Tasks/logs/2026-09-02.log` says why if not) and that the
-  09:00 review commented on it. A no-push dry run of the real prompt on the 09-01
-  data is in the same log, timestamped before 02:00.
+- **The nightly's first real local run is done: #399, opened by the launcher at
+  01:32 on 2026-09-02.** The 02:00 scheduled run should log `SKIP (meta)`,
+  `SKIP (ga4)` and `SKIP (analysis)` because the day's pull and branch already
+  exist (#398). Next step: read `Night Tasks/logs/2026-09-02.log` in the morning
+  and confirm exactly that; then the 09:00 review should have commented on #399.
+- **The ads review (reports/META_ADS_REVIEW_2026-09-02.md) ranks seven actions
+  for getting more women into the room; the first is selecting the pixel dataset
+  on the two Traffic campaigns.** Nothing in it has been acted on.
 - **Taylor must pause the Cowork nightly task himself; nothing in the repo can.**
   Until then Cowork and the local run both fire and race for one branch name.
 - **Marion Court: four ad changes went live 2026-09-02 and are running.** Traffic
@@ -75,11 +77,13 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `proof_rsa1` and hardcode `utm_source=Instagram`, so Women vs All-Genders
   cannot be split in GA4. `url_tags` is settable only at creative creation, so
   fix it at the next event's creative build, not mid-flight.
-- Marion Court Traffic ads have no pixel dataset selected — they cannot report
-  conversions until one is. **This is also what blocks the site-visitor
-  retargeting audience:** every website audience on the account sits at Meta's
-  20-person floor and one is flagged too small to use, so the pool never grows
-  to usable size. Fix the dataset first; the audience work depends on it.
+- The pixel dataset is up and firing; what the two live Marion Court "(Traffic)"
+  ads lack is the pixel in their own `tracking_specs` (checked by API
+  2026-09-02), so they count landing-page views and never a cart, checkout or
+  purchase. The Loxleys prime videos carry it. Whether this is what holds the
+  website audiences at Meta's 20-person floor is NOT established: the pixel
+  fires for every visitor whichever ad sent them. Attach the pixel to the two
+  ads; treat the audience floor as its own question.
 - `/admin` took 13 sessions from 1 user attributed to `facebook / paid_social`
   with 5 key events. Looks like internal traffic wearing paid attribution;
   nobody has looked. Small, but it feeds the internal-traffic-filter question.
