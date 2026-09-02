@@ -219,11 +219,44 @@ changes that.
   so there is effectively no learning state a targeting edit could destroy —
   **correcting the first version's "a targeting edit may go net-negative."**
 - Cold-audience sizes are Meta's modelled estimates.
-- Whether adding video IDs to a live audience backfills historical viewers.
-  Meta's documented behaviour is that engagement audiences populate
-  retroactively within the retention window; **this has not been confirmed on
-  this account** and it determines whether fixing §3 helps in six days or only
-  from here on.
+- ~~Whether adding video IDs to a live audience backfills historical viewers.~~
+  **Resolved 2026-09-02 — see §8b. The earlier claim that "Meta documents that it
+  does" was wrong.**
+
+---
+
+## 8b. Prefill: create a new audience, do not edit the existing one
+
+**This corrects an earlier line in this report** which said Meta documents that
+engagement audiences backfill on rule edit. It does not.
+
+**Editing an existing audience — not supported, do not rely on it.** Meta's
+Engagement Custom Audiences guide describes prefill only at creation: *"When you
+first create this audience, Facebook prefills the audience with a list of people
+who already engaged…"* On the update endpoint `rule` **is** writable, but
+`prefill` is not an accepted parameter there and nothing documents that changing
+the rule re-runs it. Status code `442` ("Your Custom Audience could not be
+prefilled") implies prefill is a discrete creation-time operation with its own
+state. Several practitioner write-ups claim engagement audiences never backfill
+at all, which contradicts the official docs on the creation case — treat them as
+unreliable on this nuance in both directions.
+
+**Creating a new audience — confirmed, on this account:**
+
+| fact | value |
+|---|---|
+| `MC Retargeting` created | **2026-08-17, 20:24 America/New_York** |
+| `data_source.creation_params` | `{"prefill":"true"}` |
+| campaign unique reach on 2026-08-17 | **115 people** |
+
+115 unique people reached inside the ~3.5 hours between audience creation and
+midnight. No one watched 88 older videos in that window. **Prefill pulled
+historical viewers, and it worked here.**
+
+**Consequence for §9:** the fix is certain if you *create* rather than *edit*,
+and a prefilled audience is populated at creation rather than filling up over
+days — so it can plausibly help before 09-08, which this report previously
+hedged against.
 
 ---
 
@@ -233,10 +266,14 @@ Nothing here is applied.
 
 **Do first, because it is free and it is the actual defect:**
 
-- **Connect the pipe.** Add the live video IDs to `MC Retargeting`, or rebuild it
-  as engagement with the Page / IG account rather than an explicit ID list so it
-  stops going stale on every upload. This is what makes the two-stage design real,
-  and it compounds: every future video view lands instead of evaporating.
+- **Connect the pipe — by creating a new audience, not editing this one** (§8b).
+  Build it as **Page / Instagram-account engagement**, not a video-ID list. That
+  captures video views without naming individual videos, so **it never goes stale
+  again** — which is the actual bug, not just this instance of it — and prefill
+  populates the full 365-day window at creation, so it inherits Traffic's 436
+  video views immediately rather than starting empty. One new audience and an
+  ad-set swap; no creative rebuild. Editing the existing audience's rule is a bet
+  on undocumented behaviour — don't.
 - **Drop `relationship_statuses: [1]`**, which would otherwise cut ~76% of
   whatever finally arrives. No learning cost (§8).
 
@@ -252,10 +289,13 @@ Nothing here is applied.
 - **Pause MC-RT-QUANG and MC-RT-NO-SCORECARDS**, or give them their own budget.
   They cannot be tested at $3/day inside a three-ad set.
 
-**Expect little from any of it before 09-08.** 436 video views is a few hundred
-people before the geo/age/Single cuts; connecting the pipe roughly doubles-to-
-triples the pool rather than transforming it, and six days is thin for a
-newly-filled pool to convert. **Fix it because it unblocks the next event.**
+**Timing, revised by §8b.** A prefilled audience is populated at creation, not
+over days, so this can plausibly help before 09-08 — the earlier version of this
+report hedged against that and was wrong to. Temper it anyway: 436 video views is
+a few hundred people before the geo/age/Single cuts, so the pool roughly
+doubles-to-triples rather than transforms, and the budget stays 3–8× short of the
+room. **The durable win is that it stops going stale for every event after this
+one.**
 
 **The bigger question this raises.** Traffic buys sessions at $0.185 and
 `Augweek2_lancaster` converted comparable sessions at $0.31 each. At that rate

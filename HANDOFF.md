@@ -26,12 +26,12 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   the audience as Page/IG engagement so it stops going stale on every upload) and
   **nothing has been changed in the ad account.** Full write-up and the revised
   option list: `reports/MARION_COURT_RETARGETING_FATIGUE_2026-09-01.md`. Decide
-  before **2026-09-08 16:30**, when the ad set ends anyway — but expect this to
-  unblock the *next* event, not rescue Sep 8.
-- **Open question that gates the above:** does adding video IDs to a live
-  engagement audience backfill viewers already inside the retention window?
-  Meta documents that it does; unconfirmed on this account, and it decides
-  whether the fix helps in six days or only from here on.
+  before **2026-09-08 16:30**, when the ad set ends anyway.
+- **Do it by CREATING a new audience, never by editing the existing one.** Meta
+  documents prefill only at creation; `rule` is writable on update but `prefill`
+  is not, and nothing says an edit re-runs it. Creation-time prefill is confirmed
+  on this account: `MC Retargeting` was created 2026-08-17 20:24 ET and the
+  campaign reached 115 unique people that same day. Report §8b.
 
 ## Open threads nobody owns
 
