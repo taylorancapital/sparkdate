@@ -20,6 +20,12 @@
  * url_tags) -- see memory utm-process-map. Never compares creative video_id
  * to audience object ids (memory meta-video-rendition-ids).
  *
+ * Reads each ad's own tracking_specs, because that -- not the campaign
+ * objective and not the pixel firing on the site -- decides whether the ad can
+ * report a purchase at all. The "Pixel in tracking" section at the top of the
+ * markdown is the first thing to read: an ad missing from the dataset shows 0
+ * purchases whatever it actually sold.
+ *
  * Usage:
  *   node scripts/meta-ads-review.js                    # writes build/meta-ads-review-<date>.{json,md}
  *   node scripts/meta-ads-review.js --md=path --json=path
@@ -90,8 +96,9 @@ const ALL_STATUSES = [
 
 const AD_FIELDS = [
   'id', 'name', 'status', 'effective_status', 'created_time', 'updated_time',
+  'tracking_specs',
   'campaign{id,name,objective,status,start_time,stop_time}',
-  'adset{id,name,status,effective_status,start_time,end_time,daily_budget,lifetime_budget,optimization_goal,destination_type,targeting}',
+  'adset{id,name,status,effective_status,start_time,end_time,daily_budget,lifetime_budget,optimization_goal,destination_type,promoted_object,targeting}',
   'creative{id,name,title,body,url_tags,thumbnail_url,object_story_spec,asset_feed_spec}',
 ].join(',');
 
@@ -181,6 +188,43 @@ function creativeText(c) {
   return out;
 }
 
+// Whether THIS ad can report a pixel conversion at all. An ad counts pixel
+// events only if its own tracking_specs name the dataset -- the pixel firing on
+// the site is not enough, and neither is the campaign objective (memory
+// meta-pixel-is-per-ad-tracking). Ads Manager leaves it off "(Traffic)" ads it
+// builds; scripts/meta-create-lx-prime-ads.js sets it at creation.
+//
+// This is REPORTING, not delivery. The ad set's optimization_goal and
+// promoted_object decide who Meta shows the ad to; tracking_specs only decides
+// what gets counted back. An ad with no pixel here reports landing_page_view
+// and nothing after it, so its 0 purchases means "cannot count", not "no sales".
+function pixelTracking(specs) {
+  if (!Array.isArray(specs)) return { pixels: [], has_pixel: false, action_types: [] };
+  const pixels = [];
+  const kinds = [];
+  for (const s of specs) {
+    for (const id of [].concat(s.fb_pixel || [])) {
+      const v = String(id);
+      if (!pixels.includes(v)) pixels.push(v);
+    }
+    for (const a of [].concat(s['action.type'] || [])) if (!kinds.includes(a)) kinds.push(a);
+  }
+  return { pixels, has_pixel: pixels.length > 0, action_types: kinds };
+}
+
+// What the ad SET optimises toward -- the other half of the pair. A Traffic set
+// optimising LINK_CLICKS has no promoted_object, which is why attaching a pixel
+// to its ads buys measurement and not delivery.
+function promotedSummary(po) {
+  if (!po) return null;
+  const bits = [];
+  if (po.pixel_id) bits.push(`pixel ${po.pixel_id}`);
+  if (po.custom_event_type) bits.push(po.custom_event_type);
+  if (po.page_id) bits.push(`page ${po.page_id}`);
+  if (po.object_store_url) bits.push('app');
+  return bits.length ? bits.join(' / ') : null;
+}
+
 function targetingSummary(t) {
   if (!t) return {};
   const g = t.genders || [];
@@ -258,8 +302,10 @@ function utmsOf(text) {
         daily_budget: ad.adset.daily_budget ? Number(ad.adset.daily_budget) / 100 : null,
         lifetime_budget: ad.adset.lifetime_budget ? Number(ad.adset.lifetime_budget) / 100 : null,
         optimization_goal: ad.adset.optimization_goal,
+        promoted_object: promotedSummary(ad.adset.promoted_object),
         targeting: targetingSummary(ad.adset.targeting),
       } : null,
+      tracking: pixelTracking(ad.tracking_specs),
       creative: text,
       utms: utmsOf(text),
       delivered: !!l,
@@ -289,17 +335,43 @@ function utmsOf(text) {
     `Purchases are Meta-ATTRIBUTED conversions, not sales. Gender is Meta's own inference on the person served.`);
   md.push('');
 
+  // Which ads are blind. This is the check that used to be done by hand, ad by
+  // ad, and it is the one to read first: an ad with no pixel in its tracking
+  // cannot report a cart, a checkout or a purchase, so nothing below it scores.
+  const blind = records.filter((r) => r.delivered && !r.tracking.has_pixel);
+  md.push('## Pixel in tracking');
+  md.push('');
+  if (blind.length === 0) {
+    md.push(`Every delivered ad carries a pixel in its \`tracking_specs\`. Purchase counts below mean what they say.`);
+  } else {
+    const blindSpend = blind.reduce((s, r) => s + r.lifetime.spend, 0);
+    md.push(`**${blind.length} of ${records.filter((r) => r.delivered).length} delivered ads carry NO pixel in \`tracking_specs\`**, ` +
+      `holding ${money(blindSpend)} of lifetime spend. They report \`landing_page_view\` and nothing after it: ` +
+      `a 0 in their Purch column means "cannot count", not "did not happen".`);
+    md.push('');
+    md.push('| Ad | Ad set optimises for | Spend | LPV | Last 7 days |');
+    md.push('|---|---|---:|---:|---:|');
+    for (const r of blind.sort((a, b) => b.lifetime.spend - a.lifetime.spend)) {
+      md.push(`| ${q(r.name)} | ${r.adset ? r.adset.optimization_goal : '-'}${r.adset && r.adset.promoted_object ? ` (${q(r.adset.promoted_object)})` : ''} | ${money(r.lifetime.spend)} | ${int(r.lifetime.lpv)} | ${money(r.spend_last_7d)} |`);
+    }
+    md.push('');
+    md.push('Attaching the pixel changes what these ads **report**, not who Meta shows them to — ' +
+      'delivery follows the ad set\'s `optimization_goal`. Expect measurement, not lift.');
+  }
+  md.push('');
+
   // Summary table
   md.push('## Every ad, by lifetime spend');
   md.push('');
-  md.push('| Ad | Campaign | Status | Aimed at | Spend | Impr | Reach | Link clicks | LPV | Purch | $/LPV | Women share of spend | Women share of LPV |');
-  md.push('|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|');
+  md.push('| Ad | Campaign | Status | Aimed at | Pixel | Spend | Impr | Reach | Link clicks | LPV | Purch | $/LPV | Women share of spend | Women share of LPV |');
+  md.push('|---|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|');
   for (const r of records) {
     const L = r.lifetime;
     const g = r.by_gender || {};
     const f = g.female, spendW = f ? f.spend : 0, lpvW = f ? f.lpv : 0;
     const tgt = r.adset ? `${r.adset.targeting.gender} ${r.adset.targeting.age}` : '-';
-    md.push(`| ${q(r.name)} | ${q(r.campaign ? r.campaign.name : '')} | ${r.effective_status}${r.adset && r.adset.end ? ` (set ends ${r.adset.end.slice(0, 10)})` : ''}${r.spend_last_7d ? ' spending' : ''} | ${tgt} | ${L ? money(L.spend) : '-'} | ${L ? int(L.impressions) : '-'} | ${L ? int(L.reach) : '-'} | ${L ? int(L.link_clicks) : '-'} | ${L ? int(L.lpv) : '-'} | ${L ? int(L.purchases) : '-'} | ${L ? money(L.cost_per_lpv) : '-'} | ${L && L.spend ? pct((spendW / L.spend) * 100) : '-'} | ${L && L.lpv ? pct((lpvW / L.lpv) * 100) : '-'} |`);
+    const px = r.tracking.has_pixel ? 'yes' : '**NO**';
+    md.push(`| ${q(r.name)} | ${q(r.campaign ? r.campaign.name : '')} | ${r.effective_status}${r.adset && r.adset.end ? ` (set ends ${r.adset.end.slice(0, 10)})` : ''}${r.spend_last_7d ? ' spending' : ''} | ${tgt} | ${px} | ${L ? money(L.spend) : '-'} | ${L ? int(L.impressions) : '-'} | ${L ? int(L.reach) : '-'} | ${L ? int(L.link_clicks) : '-'} | ${L ? int(L.lpv) : '-'} | ${L ? int(L.purchases) : '-'} | ${L ? money(L.cost_per_lpv) : '-'} | ${L && L.spend ? pct((spendW / L.spend) * 100) : '-'} | ${L && L.lpv ? pct((lpvW / L.lpv) * 100) : '-'} |`);
   }
   md.push('');
 
@@ -310,12 +382,15 @@ function utmsOf(text) {
     md.push(`### ${r.name}`);
     md.push('');
     md.push(`- **Campaign:** ${r.campaign ? `${r.campaign.name} (${r.campaign.objective}, ${r.campaign.status})` : '-'}`);
-    md.push(`- **Ad set:** ${r.adset ? `${r.adset.name} (${r.adset.status}; ${r.adset.start ? r.adset.start.slice(0, 10) : '?'} to ${r.adset.end ? r.adset.end.slice(0, 10) : 'open'}; ${r.adset.daily_budget != null ? `$${r.adset.daily_budget}/day` : r.adset.lifetime_budget != null ? `$${r.adset.lifetime_budget} lifetime` : 'budget at campaign'}; goal ${r.adset.optimization_goal})` : '-'}`);
+    md.push(`- **Ad set:** ${r.adset ? `${r.adset.name} (${r.adset.status}; ${r.adset.start ? r.adset.start.slice(0, 10) : '?'} to ${r.adset.end ? r.adset.end.slice(0, 10) : 'open'}; ${r.adset.daily_budget != null ? `$${r.adset.daily_budget}/day` : r.adset.lifetime_budget != null ? `$${r.adset.lifetime_budget} lifetime` : 'budget at campaign'}; goal ${r.adset.optimization_goal}${r.adset.promoted_object ? `, optimising ${r.adset.promoted_object}` : ''})` : '-'}`);
     if (r.adset) {
       const t = r.adset.targeting;
       md.push(`- **Audience:** ${t.gender}, ${t.age}; ${t.places.join('; ') || 'no geo'}${t.interests.length ? `; interests: ${t.interests.join(', ')}` : ''}${t.custom_audiences.length ? `; custom: ${t.custom_audiences.join(', ')}` : ''}${t.excluded_audiences.length ? `; excluding: ${t.excluded_audiences.join(', ')}` : ''}${t.advantage_audience != null ? `; advantage+ audience ${t.advantage_audience ? 'ON' : 'off'}` : ''}`);
     }
     md.push(`- **Ad status:** ${r.effective_status}; created ${r.created ? r.created.slice(0, 10) : '?'}; delivery ${r.window || 'none'}; last 7 days ${money(r.spend_last_7d)}`);
+    md.push(`- **Pixel in tracking:** ${r.tracking.has_pixel
+      ? `yes — ${r.tracking.pixels.join(', ')}${r.tracking.action_types.length ? ` (${r.tracking.action_types.join(', ')})` : ''}`
+      : '**no** — this ad cannot report a cart, a checkout or a purchase'}`);
     const c = r.creative;
     md.push(`- **Format:** ${c.kind}${c.cta ? `, CTA ${c.cta}` : ''}`);
     if (c.primary_text) md.push(`- **Primary text:** ${q(c.primary_text)}`);
