@@ -16,15 +16,22 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **Marion Court retargeting: analysis done, no decision applied.** The pool is
-  exhausted (224 unique people, frequency 13.8, 0 purchases on $62.71) and the
-  unit economics say it needs a 12.8% LP-view→seat rate to break even against
-  Traffic's 1.84%. Five options are laid out in
-  `reports/MARION_COURT_RETARGETING_FATIGUE_2026-09-01.md`; recommendation is #4
-  (move the remaining ~$19.50 to `Marion Court | Traffic`) plus #3 (pause the two
-  starved ads). **Nothing has been changed in the ad account** — Taylor was
-  weighing it. Decide before **2026-09-08 16:30**, when the ad set ends anyway.
-  Worth ~half a seat either way; the budget is 3–8× short of filling the room.
+- **The `MC Retargeting` audience does not contain a single video we are
+  running.** It is a 365-day engagement allow-list of 88 video `object_id`s
+  prefilled on 08-17; all six live Marion Court creatives were uploaded later and
+  are outside it. So `Marion Court | Traffic` reached 3,916 people and produced
+  436 video views while the retargeting pool grew by 35 — the two-stage design
+  was never wired up, and everything that looked like retargeting fatigue is a
+  sealed pool being re-served. **Free to fix** (add the live video IDs, or rebuild
+  the audience as Page/IG engagement so it stops going stale on every upload) and
+  **nothing has been changed in the ad account.** Full write-up and the revised
+  option list: `reports/MARION_COURT_RETARGETING_FATIGUE_2026-09-01.md`. Decide
+  before **2026-09-08 16:30**, when the ad set ends anyway — but expect this to
+  unblock the *next* event, not rescue Sep 8.
+- **Open question that gates the above:** does adding video IDs to a live
+  engagement audience backfill viewers already inside the retention window?
+  Meta documents that it does; unconfirmed on this account, and it decides
+  whether the fix helps in six days or only from here on.
 
 ## Open threads nobody owns
 
