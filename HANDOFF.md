@@ -16,31 +16,20 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **Marion Court: four changes went LIVE 2026-09-02 and are running now.**
-  Traffic $6→$10/day, Retargeting $3→$6/day, retargeting ad set `genders` [1,2]→[2],
-  `relationship_statuses:[1]` removed. Marion Court now spends **$16/day, ~$101
-  to 09-08** against ~$57 before. **Both campaigns re-entered learning** (budget
-  moves of 67% and 100%, plus a targeting edit) — expect 1–2 erratic days out of
-  the ~6 remaining, and **do not tune again before 09-08**, each edit restarts it.
-  Detail and rollback pointers: report §10.
-- **Watch two numbers.** Retargeting frequency should fall 13.8 → ~2.5; if it does
-  not, the pool is delivery-limited not pool-limited (report §3b is explicitly
-  unresolved on this) and the extra budget is buying repetition. And Traffic CPL
-  was $0.31 at $6/day — above ~$0.68 the increment stops paying for itself.
-- **MC-RT-QUANG and MC-RT-NO-SCORECARDS stay running — deliberate, not an
-  oversight.** Taylor's call 2026-09-02, for the data. **Do not pause them as
-  tidy-up.** Expect only ~250–400 impressions each: enough to spot a dead ad, not
-  to rank them. A real creative read needs their own ad set at the next event.
-- **Loxleys is the next thread, deliberately held for its own chat.** The method
-  from Marion Court is what transfers: pull reach/frequency and disjoint weekly
-  buckets from the API (the nightly CSVs carry neither), check what the
-  retargeting audience actually contains by resolving object_ids to names, and
-  read cost per *female* LP view rather than blended. Note Loxleys already has a
-  budget ladder recorded in memory (`lx-campaign-live`) and its own event on
-  2026-09-22 — so it is not a copy of this situation.
-- **Do NOT rebuild the `MC Retargeting` audience.** An earlier revision of that
-  report said it contained none of our videos; that was wrong. It is correctly
-  scoped — 88 Marion Court renditions, 08-17 → 08-29, kept current.
+- **Marion Court: four ad changes went live 2026-09-02 and are running.** Traffic
+  and retargeting budgets up, retargeting narrowed to women and the declared-Single
+  filter dropped. Values, rationale and rollback: report §10. Both campaigns
+  re-entered learning, so **do not tune either again before 2026-09-08 16:30**,
+  when both end — each edit restarts the clock and there are only ~6 days. Next
+  step is to read the two Marion Court watch signals below around 09-04 and change
+  nothing until then.
+- **MC-RT-QUANG and MC-RT-NO-SCORECARDS stay running — deliberate, for the data.
+  Do not pause them as tidy-up.** They will only get ~250–400 impressions each:
+  enough to spot a dead ad, not to rank them.
+- **Loxleys is next, held for its own chat.** Do not pattern-match Marion Court
+  onto it: it has its own budget ladder (memory `lx-campaign-live`) and a 09-22
+  event, so none of the six-day time pressure that shaped those calls applies.
+  Re-derive from its own numbers.
 
 ## Open threads nobody owns
 
@@ -77,6 +66,11 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## Watch signals
 
+- **Marion Court retargeting frequency should fall 13.8 → ~2.5.** If it does not,
+  the pool is delivery-limited rather than pool-limited — report §3b is explicitly
+  unresolved on that — and the extra budget is buying repetition, not reach.
+- **Marion Court Traffic cost per LP view at $10/day.** It ran $0.31 at $6/day and
+  the model assumed ~$0.38 blended; above ~$0.68 the increment is not paying.
 - **`funnel-checkout-by-landing-page` gets its first real read tonight.** It
   showed `/lp` taking 2,566 sessions to 7 purchases while `/` took 349 to the
   same 7. Before believing a 7x page-quality gap, control for channel — paid
