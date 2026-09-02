@@ -102,12 +102,16 @@ the audience at `approximate_count 1000–1000` and returns *the same* 1000–10
 for every targeting variant tested, so it is a floor, not a measurement. Reach is
 what Meta *served*, not what exists. Both readings are consistent with the data.
 
-### 3c. The ad set is not targeting women
+### 3c. The ad set was not targeting women — changed 2026-09-02
 
-`genders: [1, 2]` — both. `relationship_statuses` is a relationship filter, not a
-gender one. **Nothing in this campaign has ever targeted women.** Its female skew
-in *spend* (62.5%) is Meta's delivery choice, and its output skews male anyway —
-see §5.
+Through 2026-09-01 it ran `genders: [1, 2]` — both. `relationship_statuses` is a
+relationship filter, not a gender one, so **nothing in this campaign had ever
+targeted women.** Its female skew in *spend* (62.5%) was Meta's delivery choice,
+and its output skewed male anyway — see §5.
+
+**Both fields were changed on 2026-09-02** (`genders` → `[2]`, `relationship_statuses`
+removed). Everything in §§1–9 describes the account *before* that. **§10 is the
+current state.**
 
 ---
 
@@ -234,33 +238,86 @@ smaller, not larger.
 
 ---
 
-## 10. What to do — the ad set runs to 2026-09-08 16:30
+## 10. APPLIED 2026-09-02 — what changed in the account
 
-Nothing here is applied. Nothing has been changed in the ad account.
+**These are live.** Taylor authorised them on 2026-09-02; all four were written
+via the Marketing API and read back to confirm.
 
-**The two targeting changes, together** (§8): drop `relationship_statuses: [1]`,
-set `genders: [2]`. Free, no learning cost, and they are the difference between
-re-serving 224 people and reaching ~400 women.
+**To revert, set these back** (inlined rather than pointing at a file — the
+capture lived in a session scratchpad that does not survive):
 
-**Raise Traffic.** It is not fatigued (frequency flat at 1.96, CTR *rising*
-2.59% → 2.82%), buys a female LP view 10.1× cheaper, and — since the pipe does
-work — every video view it buys lands in the retargeting pool. At $10/day the
-*marginal* LP view runs ~$0.58, so the increment is roughly break-even on its
-own; the pool it builds is the reason to do it anyway. Make the budget change
-**once**, not in increments.
+```
+campaign 120251072513090542  daily_budget = 600          # Marion Court | Traffic, $6.00
+campaign 120250958681350542  daily_budget = 300          # Marion Court Retargeting, $3.00
+adset    120250958851430542  genders      = [1,2]
+adset    120250958851430542  flexible_spec= [{"relationship_statuses":[1]}]
+```
 
-**Pause MC-RT-QUANG and MC-RT-NO-SCORECARDS.** They cannot be tested at $3/day
-inside a three-ad set.
+Targeting is a full replace on POST, not a merge — send the whole object.
 
-**Do not rebuild the audience.** It is correctly scoped and current. v2 of this
-report said otherwise and was wrong.
+| # | Object | Field | From | To |
+|---|---|---|---|---|
+| 1 | `Marion Court \| Traffic` campaign | `daily_budget` | $6.00 | **$10.00** |
+| 2 | `Marion Court Retargeting` campaign | `daily_budget` | $3.00 | **$6.00** |
+| 3 | MC Retargeting ad set | `genders` | `[1, 2]` | **`[2]`** |
+| 4 | MC Retargeting ad set | `flexible_spec` | `[{relationship_statuses:[1]}]` | **removed** |
 
-**Temper the expectation.** The budget stays 3–8× short of the room, and six days
-is thin. The durable win is that the funnel finally runs as designed.
+Verified unchanged on the ad set: age 22–45, the four 15-mile custom locations,
+custom audience `120250973173480542`, optimisation goal. Both campaigns still end
+**2026-09-08 16:30**.
 
-**The bigger question.** Traffic buys sessions at $0.185; `Augweek2_lancaster`
-converted comparable sessions at $0.31 each, which would be ROAS 1.7. Marion
-Court converts at zero measured. **The traffic is cheap enough to work; something
-after the click is not converting** — the offer, the LP, or the Eventbrite
-handoff. An outbound-click key event on the LP is the cheapest way to find out,
-and it is a better question than how to split $21.
+**Spend consequence.** Marion Court goes from **$9/day to $16/day**. Over the
+~6.3 days remaining that is roughly **$101 rather than $57** — about **$44 more**
+than the do-nothing path, on a funnel with $0 of measured revenue to date (§6).
+
+**Both campaigns will re-enter learning.** Traffic's budget rose 67% and
+retargeting's 100%, each well past the ~20% threshold, and the retargeting ad set
+also had a targeting edit. Expect **1–2 days of erratic delivery** out of the 6.3
+remaining. The retargeting ad set had no learning state worth losing (zero
+purchase events ever); Traffic did, and this is the cost of the change.
+
+**Do not tune these again before 09-08.** Repeated budget edits restart learning
+each time and would consume the rest of the window.
+
+### Deliberately left alone — do not "tidy" these
+
+- **MC-RT-QUANG and MC-RT-NO-SCORECARDS keep running.** Taylor's call on
+  2026-09-02, for the data. **This is a decision, not an oversight — do not pause
+  them.** Be clear-eyed about what it buys: ~$38 of retargeting spend at a CPM
+  likely rising toward **$23** (female-only; female CPM there ran $23.33 vs male
+  $16.73) is roughly **1,650 impressions across three ads**, and Meta will not
+  split evenly — V2 took 87% at $3/day. Expect **250–400 impressions each** and
+  **single-digit clicks**. That detects a *dead* ad; it cannot rank them.
+  Two things make it worth more than nothing: the targeting edit reset learning,
+  and Meta explores more broadly while learning; and both ads now carry distinct
+  `utm_content` (`mc_rt_quang`, `mc_rt_scorecards`) from the 08-29 build, so
+  whatever they produce is attributable in GA4 rather than pooling. A real
+  creative read needs their own ad set and budget at the **next** event.
+- **Do not rebuild the audience.** It is correctly scoped and current (§3a).
+
+### What to watch
+
+- **Retargeting frequency should fall from 13.8 toward ~2.5.** If it does not, the
+  pool is delivery-limited rather than pool-limited (§3b, unresolved) and the
+  extra budget is buying repetition rather than reach.
+- **Traffic CPL at $10/day.** It ran $0.31 at $6/day; the model assumed ~$0.38
+  blended. If it lands above ~$0.68 the increment is not paying for itself.
+
+---
+
+## 11. What this does not fix
+
+**The budget is still short of the room.** $16/day to 09-08 is ~$101. Filling the
+remaining 21 seats needs $161–$484 of Traffic at the observed rates — so this
+raises the ceiling without reaching it. The durable win is that the funnel now
+runs as designed for the first time.
+
+**And the real question is downstream of all of it.** Traffic buys sessions at
+**$0.185**; `Augweek2_lancaster` converted comparable sessions at **$0.31 each**,
+which would be ROAS 1.7 on the same landing page and tag structure. Marion Court
+converts at **zero measured** (§6). The traffic is cheap enough to work —
+**something after the click is not converting**: the offer, the LP for this event,
+or the Eventbrite handoff, which is invisible to us entirely.
+
+**An outbound-click key event on the LP is the cheapest way to start answering
+that**, and it is a better question than any budget split. Nothing above tests it.
