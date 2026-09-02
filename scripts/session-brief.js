@@ -69,7 +69,7 @@ const isNightlyClone = path.basename(topLevel) === 'sparkdate-nightly';
 const out = [];
 const say = (s = '') => out.push(s);
 
-const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+const stamp = new Date().toLocaleString('sv-SE', { hour12: false }).slice(0, 16) + ' local';
 say(`== SparkDate session brief == ${stamp}`);
 say(
   `cwd: ${isNightlyClone ? 'NIGHTLY CLONE' : inWorktree ? path.basename(topLevel) + ' (worktree)' : 'MAIN CHECKOUT'}` +

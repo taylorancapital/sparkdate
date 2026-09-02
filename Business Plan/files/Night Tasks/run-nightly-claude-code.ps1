@@ -26,7 +26,8 @@
 #   -AnalysisOnly  skip steps 1-3 and 5: a re-run on data already pulled.
 #   -Force         run step 6 even if today's branch already exists on origin
 #                  (the new branch gets a -HHmm suffix) or today's GA4 pull is
-#                  missing.
+#                  missing; and re-pull data that already exists for today
+#                  (steps 1-2 otherwise keep the first pull of the day).
 #   -NoPush        step 6 commits in the clone but pushes nothing and opens no
 #                  PR. For testing the launcher.
 #   -SmokeTest     -AnalysisOnly and -NoPush with a trivial built-in prompt:
@@ -71,6 +72,7 @@ $RepoPath   = "C:\Users\penns\source\repos\sparkdate"
 $NightTasks = Join-Path $RepoPath "Business Plan\files\Night Tasks"
 $LogDir     = Join-Path $NightTasks "logs"
 $Today      = Get-Date -Format "yyyy-MM-dd"
+$Yesterday  = (Get-Date).AddDays(-1).ToString("yyyy-MM-dd")   # Meta files are named by their last day
 $LogFile    = Join-Path $LogDir "$Today.log"
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
@@ -105,6 +107,19 @@ function Write-ProcessOutputToLog($output) {
 
 Log "=== Nightly run starting ==="
 
+# -- Only one instance at a time ------------------------------------------
+# Two runs sharing the nightly clone would reset each other's branch
+# mid-analysis. Task Scheduler refuses a second SCHEDULED instance, but a hand
+# run of this file from a terminal is invisible to it. So look for any other
+# powershell.exe running this script and yield. A hung instance therefore
+# blocks later nights until it is killed -- the log names its PID.
+$others = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
+    Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*run-nightly-claude-code.ps1*' })
+if ($others.Count -gt 0) {
+    Log "SKIP (all): another nightly run is in progress (pid $($others[0].ProcessId), started $($others[0].CreationDate)). Exiting so it can finish."
+    exit 0
+}
+
 if ($AnalysisOnly) {
     Log "SKIP (steps 1-3): -AnalysisOnly -- using the data already in Night Tasks."
 } else {
@@ -115,6 +130,12 @@ if ($AnalysisOnly) {
     try {
         if (-not $env:META_ADS_ACCESS_TOKEN -and -not $env:META_CAPI_ACCESS_TOKEN) {
             Log "SKIP (meta): neither META_ADS_ACCESS_TOKEN nor META_CAPI_ACCESS_TOKEN is set for this user. Insights need a token carrying ads_read -- see scripts/fetch-meta-insights.js."
+        } elseif (-not $Force -and (Test-Path (Join-Path $NightTasks "meta-insights-$Yesterday.csv"))) {
+            # Pull files are named by date, not by pull time, so a second run on
+            # the same day silently overwrites the file the first run's report
+            # cites (CLAUDE.md, "A Night Tasks re-run silently overwrites").
+            # Keep the first pull; -Force is the deliberate override.
+            Log "SKIP (meta): meta-insights-$Yesterday.csv already exists -- keeping the day's first pull. Re-run with -Force to replace it."
         } else {
             Log "Pulling Meta Ads insights (last 7 days)..."
             Push-Location $RepoPath
@@ -162,6 +183,9 @@ if ($AnalysisOnly) {
             Log "SKIP (ga4): GOOGLE_APPLICATION_CREDENTIALS is not set for this user. It must point at the service account JSON, and the account needs Viewer on the GA4 property -- see scripts/fetch-ga4-tables.js."
         } elseif (-not (Test-Path $env:GOOGLE_APPLICATION_CREDENTIALS)) {
             Log "SKIP (ga4): GOOGLE_APPLICATION_CREDENTIALS points at '$env:GOOGLE_APPLICATION_CREDENTIALS' but nothing exists there."
+        } elseif (-not $Force -and (Test-Path (Join-Path $NightTasks "ga4-api-daily-trend-$Today.csv"))) {
+            # Same rule as step 1: the day's first pull is the one a report cites.
+            Log "SKIP (ga4): ga4-api-daily-trend-$Today.csv already exists -- keeping the day's first pull. Re-run with -Force to replace it."
         } else {
             Log "Pulling core GA4 tables..."
             Push-Location $RepoPath
