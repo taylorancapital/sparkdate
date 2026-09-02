@@ -107,6 +107,19 @@ function Write-ProcessOutputToLog($output) {
 
 Log "=== Nightly run starting ==="
 
+# -- Only one instance at a time ------------------------------------------
+# Two runs sharing the nightly clone would reset each other's branch
+# mid-analysis. Task Scheduler refuses a second SCHEDULED instance, but a hand
+# run of this file from a terminal is invisible to it. So look for any other
+# powershell.exe running this script and yield. A hung instance therefore
+# blocks later nights until it is killed -- the log names its PID.
+$others = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
+    Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*run-nightly-claude-code.ps1*' })
+if ($others.Count -gt 0) {
+    Log "SKIP (all): another nightly run is in progress (pid $($others[0].ProcessId), started $($others[0].CreationDate)). Exiting so it can finish."
+    exit 0
+}
+
 if ($AnalysisOnly) {
     Log "SKIP (steps 1-3): -AnalysisOnly -- using the data already in Night Tasks."
 } else {
