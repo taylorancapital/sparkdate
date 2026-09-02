@@ -96,8 +96,8 @@
     },
     {
       "source": "/founding",
-      "destination": "/",
-      "permanent": true
+      "destination": "/lp",
+      "permanent": false
     },
     {
       "source": "/l/mc-eventbrite",
