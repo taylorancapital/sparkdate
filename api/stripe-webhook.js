@@ -220,6 +220,7 @@ module.exports = async function handler(req, res) {
             email: confirmedTicket.email,
             name: confirmedTicket.name,
             phone: confirmedTicket.phone,
+            gender: confirmedTicket.gender,
             eventId: confirmedTicket.eventId,
             eventName: confirmedTicket.eventName,
           }).catch((e) => console.error('[webhook] 3DS guest lead failed:', e.message));
