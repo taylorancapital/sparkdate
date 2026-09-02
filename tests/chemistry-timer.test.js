@@ -78,7 +78,7 @@ function ctx({ W = 12, M = 12, store = new Map() } = {}) {
     document: { getElementById: () => null },
     setInterval: () => 1, clearInterval: () => {},
     _chemWomen: women, _chemMen: men, _chemPairs: mkPairs(women, men),
-    _chemEventId: 'ev', _pinnedPlan: null, _runPlanCache: null,
+    _chemEventId: 'ev', _pinnedPlan: null, _pinRev: 0, _runPlanCache: null,
     _introsDone: new Set(), _priorityDone: new Set(),
     _tableSize: 6, _tableRound: 1, _tableRounds: 4, _roundMinutes: 15, _oneOnOneMinutes: 7,
     _runTimer: null, _runEndsAt: null, _runPaused: null, _runStep: 0, _runFind: '',

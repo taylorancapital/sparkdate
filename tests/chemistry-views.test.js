@@ -116,7 +116,7 @@ function view(W = 12, M = 12, size = 6) {
     _chemWomen: women, _chemMen: men, _chemPairs: pairs,
     // Pinning is covered in chemistry-persistence; these render against a
     // fresh solve, so the pin stays null.
-    _pinnedPlan: null, _chemEventId: null, _runPlanCache: null,
+    _pinnedPlan: null, _pinRev: 0, _chemEventId: null, _runPlanCache: null,
     _introsDone: new Set(), _priorityDone: new Set(), _prioMode: 'all', _shortlistN: 3,
     _tableSize: size, _tableRound: 1, _tableRounds: 4, _roundMinutes: 15, _oneOnOneMinutes: 7,
     _runTimer: null, _runEndsAt: null, _runPaused: null, _runStep: 0, _runFind: '',
@@ -531,8 +531,39 @@ describe('renderRunOfShow', () => {
     const { sandbox } = view();
     sandbox.pinSeating(6);
     const first = sandbox.buildRunPlan();
-    sandbox.pinSeating(6);                            // stamps a new builtAt
+    sandbox.pinSeating(6);
     expect(sandbox.buildRunPlan()).not.toBe(first);
+  });
+
+  it('re-solves on a re-pin inside the same millisecond', () => {
+    // This one was intermittently red in CI and green locally. The memo used
+    // to key on the pin's builtAt, which is Date.now() — two pins in the same
+    // millisecond produced an identical key, so a rebuild served the CACHED
+    // plan and never reached the panel. A frozen clock is the honest way to
+    // test it; the fix was to key on a monotonic revision instead.
+    const { sandbox } = view();
+    const realNow = Date.now;
+    Date.now = () => 1893456000000;               // time stands still
+    try {
+      sandbox.pinSeating(6);
+      const first = sandbox.buildRunPlan();
+      sandbox.pinSeating(6);
+      const second = sandbox.buildRunPlan();
+      expect(second).not.toBe(first);
+      expect(sandbox._pinnedPlan.rev).toBeGreaterThan(1);
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  it('still serves the cache when nothing about the plan changed', () => {
+    // The other half: the memo has to actually memoise, or the 1-second
+    // repaint goes back to re-solving the whole night.
+    const { sandbox } = view();
+    sandbox.pinSeating(6);
+    const first = sandbox.buildRunPlan();
+    expect(sandbox.buildRunPlan()).toBe(first);
+    expect(sandbox.buildRunPlan()).toBe(first);
   });
 
   it('carries a 1-on-1 length control beside the round length', () => {

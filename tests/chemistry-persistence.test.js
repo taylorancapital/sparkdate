@@ -94,7 +94,7 @@ function ctx({ W = 12, M = 12, storage = fakeStorage(), size = 6 } = {}) {
     // Supplied as sandbox globals rather than lifted: a lifted `let` lives in
     // the script's lexical scope, where a test assigning sandbox._x would be
     // writing to a different binding than the code reads.
-    _chemEventId: null, _pinnedPlan: null,
+    _chemEventId: null, _pinnedPlan: null, _pinRev: 0,
     _introsDone: new Set(), _priorityDone: new Set(),
     _tableSize: size, _tableRound: 1, _tableRounds: 4, _roundMinutes: 15, _oneOnOneMinutes: 7,
     _runTimer: null, _runEndsAt: null, _runPaused: null, _runStep: 0, _runFind: '',
