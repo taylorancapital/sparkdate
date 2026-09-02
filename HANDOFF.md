@@ -16,6 +16,14 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **The nightly moved off Cowork onto the local CLI (#395).** The launcher
+  change is untracked and already live on this machine; the tracked prompt lands
+  with the PR. Until #395 merges, the 02:00 run logs `SKIP (analysis)` and exits
+  0. Next step: after it merges, confirm the next 02:00 run opened a
+  `claude/ga4-analysis-<date>` PR by about 03:00 (`Night Tasks/logs/<date>.log`)
+  and that the 09:00 review commented on it.
+- **Taylor must pause the Cowork nightly task himself; nothing in the repo can.**
+  Until then Cowork and the local run both fire and race for one branch name.
 - **Marion Court: four ad changes went live 2026-09-02 and are running.** Traffic
   and retargeting budgets up, retargeting narrowed to women and the declared-Single
   filter dropped. Values, rationale and rollback: report §10. Both campaigns
@@ -58,6 +66,9 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   02:00 task, which is why 8 of 23 nights never ran and why the 08-29 run failed
   both network steps 14 minutes after a boot. Needs an elevated shell.
 - `reports/META_CAPI_PROMPT.md` is untracked and has never been run.
+- **Two report branches the sweep refuses as STALE and nobody has replayed onto
+  main:** `claude/accessibility-analysis-2026-08-27` and
+  `claude/content-freshness-analysis-2026-08-29`. Cherry-pick or drop them.
 - `utm_content=proof_rsa1` sharing is **partly fixed** — read live 2026-09-02,
   all four Marion Court *retargeting* ads now carry a distinct `utm_content`
   (`mc_rt_*`) and `utm_source=Facebook`. The two *Traffic* ads still share
