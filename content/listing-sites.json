@@ -1,7 +1,6 @@
 {
   "_comment": "Registry of event-listing surfaces -- the free discovery channels a SparkDate event should appear on, plus the ones deliberately NOT pursued and why. scripts/build-listing-pack.js reads this to generate per-site copy and UTM'd links; .claude/commands/syndicate-events.md reads it to drive the browser. Add a site HERE, not in a runbook paragraph, so the generator and the driver both pick it up.",
   "_created": "2026-09-01",
-
   "_evidence": {
     "_comment": "Why the statuses below say what they say. Source: Night Tasks/ga4-api-traffic-by-source-2026-09-01.csv, window 2026-05-19 to 2026-09-01. Re-derive before trusting; these numbers age.",
     "eventbrite_listing": "170 sessions / 81 users / 23 key events / $290.39 -- the highest revenue of any source except (direct), and the ONLY event-listing surface producing anything at all.",
@@ -10,7 +9,6 @@
     "everything_else": "Zero. No meetup, no allevents, no discoverlancaster, no lancasteronline, no facebook.com/events organic, no google business. Free listing discovery is currently a one-legged stool.",
     "_the_headline": "One free channel carries the entire non-paid, non-direct funnel. That is the risk this registry exists to spread."
   },
-
   "_utm": {
     "_comment": "The convention is not invented here -- `eventbrite / listing` already exists in GA4 and converts, so the rest of the surfaces are shaped to match it and land in the same report.",
     "medium": "listing",
@@ -23,7 +21,6 @@
     "_destination_why": "The event page, not /lp. Someone clicking 'tickets' from a calendar listing has already been sold the event -- /lp has no cart and would add a hop. See brand.json universal.landing_page_warning.",
     "_never_both": "One UTM set per link. If a site rewrites or wraps outbound links (Facebook, Nextdoor), verify the tags survive the wrapper before counting on the row."
   },
-
   "sites": [
     {
       "key": "eventbrite",
@@ -210,20 +207,30 @@
       ]
     },
     {
-      "key": "meetup_existing",
-      "name": "Meetup — post into existing local singles groups",
+      "key": "meetup",
+      "name": "Meetup — our own SparkDate group",
       "status": "not_pursued",
-      "market": "lancaster",
-      "cost": "free (no organizer subscription needed to post into a group you do not own)",
-      "submit_url": "https://www.meetup.com/find/?location=us--pa--Lancaster",
+      "market": "any",
+      "cost": "already paid for — the group exists and has sold tickets",
+      "submit_url": "https://www.meetup.com/",
       "utm_source": "meetup",
-      "role": "discovery, warm audience",
-      "priority": 3,
-      "why_now": "docs/MARKETING_PLAYBOOK.md already identified 'South Central PA (SOLO) Singles' (meetup.com/meetup-group-pujqfyel) in June and it was never worked.",
+      "role": "discovery + a standing audience we already own",
+      "priority": 2,
+      "why_now": "CORRECTED 2026-09-02. This was recorded as 'rejected -- fails the free-only constraint', on the assumption that using Meetup meant buying a subscription first. Taylor already has the group and has already sold 2 tickets through it, so the subscription is a sunk cost and posting there is now among the cheapest listings on this list. About 20 members sit in it, unworked.",
       "gotchas": [
-        "This is someone else's group. Posting a ticketed event into it without asking the organizer is how you get removed -- message the organizer first.",
-        "Not the same as running our own group; see the rejected entry below."
+        "The 2 tickets it has sold appear NOWHERE in GA4 and carry no attribution on any attendee record -- they went through Meetup's own checkout, the same blind spot Eventbrite has. Do not judge this channel by what the dashboard shows.",
+        "Member emails are NOT obtainable on a standard organizer plan. Only Meetup Pro can export them, and even then only for members who RSVP'd AND consented to share. Do not plan around getting the list.",
+        "Because the list cannot be extracted, the event post itself has to carry the signup CTA -- that is how a Meetup member becomes a SparkDate member with real consent, rather than a scraped address."
       ]
+    },
+    {
+      "key": "meetup_other_groups",
+      "name": "Meetup — other people's local singles groups",
+      "status": "out_of_scope",
+      "market": "lancaster",
+      "cost": "free",
+      "rejected_reason": "Someone else's group. Posting a ticketed event into one uninvited is how you get removed, and it is a conversation with a human organizer rather than a form to fill. docs/MARKETING_PLAYBOOK.md identified 'South Central PA (SOLO) Singles' (meetup.com/meetup-group-pujqfyel) in June 2026; it stays a manual ask, not a syndication target.",
+      "reconsider_if": "An organizer says yes. Then it is a one-off post, not a recurring channel."
     },
     {
       "key": "google_business",
@@ -256,7 +263,6 @@
         "Judge this one on whether it is still indexed at all before repeating it. Aggregators in this tier go stale quietly."
       ]
     },
-
     {
       "key": "tickettailor",
       "name": "Ticket Tailor",
@@ -272,14 +278,6 @@
       "rejected_reason": "Dead. Audacy folded it into radio.com in 2021 and the domain no longer resolves. It still appears in most 'free event listing sites' roundups, which is how stale advice keeps propagating -- recorded here so it does not get re-suggested."
     },
     {
-      "key": "meetup_own_group",
-      "name": "Meetup — running our own SparkDate group",
-      "status": "rejected",
-      "cost": "$29.99/mo Standard; the free Starter tier is capped",
-      "rejected_reason": "Fails the free-only constraint, and the free Starter tier caps a group at 2 events/month with a 10-person RSVP limit -- against 30-seat rooms, that cap misrepresents the event and wastes the discovery. The paid tier is a real option later; it is not a free listing.",
-      "reconsider_if": "Cadence reaches roughly weekly and recurring-discovery plus the member email blast is worth $30/mo on its own."
-    },
-    {
       "key": "reddit_lancaster",
       "name": "Reddit — r/lancaster",
       "status": "out_of_scope",
@@ -287,13 +285,24 @@
       "see": "docs/MARKETING_PLAYBOOK.md section 5 has the human-voiced draft."
     }
   ],
-
   "philadelphia_when_active": {
     "_comment": "No Philadelphia event is currently on sale -- Good Good Things was 2026-08-31. Parked until there is a Philly date; re-verify before use.",
     "candidates": [
-      { "name": "Visit Philly", "url": "https://www.visitphilly.com/events/", "note": "Live. The submission path is inside the site, not /submit-an-event/ (that 404s) -- find it from the events page." },
-      { "name": "Uwishunu", "url": "https://www.visitphilly.com/uwishunu/", "note": "Live but absorbed into Visit Philly; uwishunu.com/submit-an-event/ now redirects here. Likely no longer a standalone submission surface." },
-      { "name": "PhillyFunGuide", "url": null, "note": "DEAD as of 2026-09-01 -- the domain does not resolve. Do not re-suggest it." }
+      {
+        "name": "Visit Philly",
+        "url": "https://www.visitphilly.com/events/",
+        "note": "Live. The submission path is inside the site, not /submit-an-event/ (that 404s) -- find it from the events page."
+      },
+      {
+        "name": "Uwishunu",
+        "url": "https://www.visitphilly.com/uwishunu/",
+        "note": "Live but absorbed into Visit Philly; uwishunu.com/submit-an-event/ now redirects here. Likely no longer a standalone submission surface."
+      },
+      {
+        "name": "PhillyFunGuide",
+        "url": null,
+        "note": "DEAD as of 2026-09-01 -- the domain does not resolve. Do not re-suggest it."
+      }
     ]
   }
 }
