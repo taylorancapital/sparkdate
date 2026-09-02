@@ -16,7 +16,17 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- Nothing. Last session closed clean.
+- **Marion Court retargeting: two free targeting changes proposed, none applied.**
+  The pool is 224 people at frequency 13.8 because Marion Court has only produced
+  ~571 video views total and `relationship_statuses: [1]` (declared Single) cuts
+  roughly half of what arrives. The ad set has **never targeted women** —
+  `genders: [1,2]`. Proposal is to drop Single *and* set `genders: [2]` together,
+  and raise Traffic, which does feed the pool. Modelled in
+  `reports/MARION_COURT_RETARGETING_FATIGUE_2026-09-01.md` §8. Decide before
+  **2026-09-08 16:30**, when the ad set ends anyway.
+- **Do NOT rebuild the `MC Retargeting` audience.** An earlier revision of that
+  report said it contained none of our videos; that was wrong. It is correctly
+  scoped — 88 Marion Court renditions, 08-17 → 08-29, kept current.
 
 ## Open threads nobody owns
 
@@ -36,10 +46,17 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   02:00 task, which is why 8 of 23 nights never ran and why the 08-29 run failed
   both network steps 14 minutes after a boot. Needs an elevated shell.
 - `reports/META_CAPI_PROMPT.md` is untracked and has never been run.
-- 7 of 11 serving Meta ads still share `utm_content=proof_rsa1`, so per-ad
-  attribution collapses to one bucket.
+- `utm_content=proof_rsa1` sharing is **partly fixed** — read live 2026-09-02,
+  all four Marion Court *retargeting* ads now carry a distinct `utm_content`
+  (`mc_rt_*`) and `utm_source=Facebook`. The two *Traffic* ads still share
+  `proof_rsa1` and hardcode `utm_source=Instagram`, so Women vs All-Genders
+  cannot be split in GA4. `url_tags` is settable only at creative creation, so
+  fix it at the next event's creative build, not mid-flight.
 - Marion Court Traffic ads have no pixel dataset selected — they cannot report
-  conversions until one is.
+  conversions until one is. **This is also what blocks the site-visitor
+  retargeting audience:** every website audience on the account sits at Meta's
+  20-person floor and one is flagged too small to use, so the pool never grows
+  to usable size. Fix the dataset first; the audience work depends on it.
 - `/admin` took 13 sessions from 1 user attributed to `facebook / paid_social`
   with 5 key events. Looks like internal traffic wearing paid attribution;
   nobody has looked. Small, but it feeds the internal-traffic-filter question.

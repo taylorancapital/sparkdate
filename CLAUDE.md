@@ -74,6 +74,42 @@ worktree.** The memory directory is keyed to the directory the session launches
 in. Seven of them exist; only the one keyed to the main checkout has the real
 `MEMORY.md`. Launch elsewhere and the session silently loads no memory at all.
 
+## HOW ANALYSES GET DELIVERED — artifact, not just markdown (2026-09-02)
+
+**Every analysis ships twice: the `reports/*.md` file AND a designed Artifact
+page.** Taylor asked for this directly after the Marion Court retargeting
+write-up: *"thank you for this lovely visualization, I'd like to get my reports
+like this from now often."*
+
+The markdown is the citable record the nightly reviews reference. **The artifact
+is what he actually reads** — on 2026-09-01 he could not find the markdown at
+all, because it sat in a worktree and the `reports/…` link resolved to the main
+checkout where it did not exist. Publish the page, then hand over the **absolute
+Windows path** to the file as well. Never hand over a repo-relative link alone.
+
+What worked, and is worth repeating:
+
+- **One hero chart that carries the whole argument.** For Marion Court it was
+  cumulative unique reach (flat) against cumulative impressions (climbing), both
+  on one linear scale, with the gap between them shaded — because that gap *is*
+  the frequency. Find the equivalent single picture for the finding at hand.
+- **A four-stat strip above the fold**, with the alarming one in coral.
+- **Disjoint buckets, never rolling windows,** in any trend table — see the §1
+  warning in `ANALYTICS_CONTEXT.md`.
+- **Eyebrows that name each section's epistemic status** — EVIDENCE / MECHANISM /
+  NOT VERIFIED / DECISION — instead of decorative 01/02/03 numbering. This repo's
+  reports live or die on being clear about what is measured versus inferred, so
+  the structure should encode that.
+- **A "What I did not verify" section is mandatory,** not optional politeness.
+- Brand: Playfair Display display face, IBM Plex Sans body, IBM Plex Mono for
+  data and labels; navy ink, coral for the finding, gold for the healthy
+  comparison. Coral means action. Design both light and dark.
+
+Load the `artifact-design` skill before writing the page. Keep the treatment
+utilitarian-but-polished — this is analysis, not a landing page.
+
+---
+
 ## Environment gotchas that cost real time
 
 - Shell is PowerShell 5.1: no `&&`, no `awk`, no unix `head`/`tail`.
