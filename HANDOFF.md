@@ -16,14 +16,19 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **Marion Court retargeting: two free targeting changes proposed, none applied.**
-  The pool is 224 people at frequency 13.8 because Marion Court has only produced
-  ~571 video views total and `relationship_statuses: [1]` (declared Single) cuts
-  roughly half of what arrives. The ad set has **never targeted women** —
-  `genders: [1,2]`. Proposal is to drop Single *and* set `genders: [2]` together,
-  and raise Traffic, which does feed the pool. Modelled in
-  `reports/MARION_COURT_RETARGETING_FATIGUE_2026-09-01.md` §8. Decide before
-  **2026-09-08 16:30**, when the ad set ends anyway.
+- **Marion Court: four changes went LIVE 2026-09-02 and are running now.**
+  Traffic $6→$10/day, Retargeting $3→$6/day, retargeting ad set `genders` [1,2]→[2],
+  `relationship_statuses:[1]` removed. Marion Court now spends **$16/day, ~$101
+  to 09-08** against ~$57 before. **Both campaigns re-entered learning** (budget
+  moves of 67% and 100%, plus a targeting edit) — expect 1–2 erratic days out of
+  the ~6 remaining, and **do not tune again before 09-08**, each edit restarts it.
+  Detail and rollback pointers: report §10.
+- **Watch two numbers.** Retargeting frequency should fall 13.8 → ~2.5; if it does
+  not, the pool is delivery-limited not pool-limited (report §3b is explicitly
+  unresolved on this) and the extra budget is buying repetition. And Traffic CPL
+  was $0.31 at $6/day — above ~$0.68 the increment stops paying for itself.
+- **Not done, not requested:** pausing MC-RT-QUANG and MC-RT-NO-SCORECARDS, which
+  still cannot be tested at $6/day across three ads.
 - **Do NOT rebuild the `MC Retargeting` audience.** An earlier revision of that
   report said it contained none of our videos; that was wrong. It is correctly
   scoped — 88 Marion Court renditions, 08-17 → 08-29, kept current.
