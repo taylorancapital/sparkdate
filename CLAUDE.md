@@ -8,6 +8,11 @@ Do not work directly in the main checkout at `~/source/repos/sparkdate`. Do not
 run `git checkout`, `git switch`, or `git stash` there — those move the ground
 under whichever session is mid-edit.
 
+**One exception:** the unattended nightly runs in a dedicated clone at
+`~/source/repos/sparkdate-nightly` that nobody shares. A session launched there
+must NOT enter a worktree; it commits on the branch the launcher cut and stops.
+See "THE NIGHTLY RUNS ON THIS MACHINE NOW" below.
+
 **This is not a precaution. It is a record of what already went wrong** on
 2026-08-29, in a single day, from two sessions sharing this checkout:
 
@@ -121,6 +126,33 @@ utilitarian-but-polished — this is analysis, not a landing page.
   and use `git commit -F` / `gh pr create --body-file`.
 - A worktree-isolated session refuses compound shell commands it cannot prove
   stay inside the worktree. Split them into separate plain calls.
+
+## THE NIGHTLY RUNS ON THIS MACHINE NOW (2026-09-02)
+
+The GA4/Meta nightly no longer runs in Cowork. One Windows scheduled task,
+`Meta Ads Results Pull` (02:00 local, misnamed, leave the name), runs
+`Business Plan/files/Night Tasks/run-nightly-claude-code.ps1`, which:
+
+1. pulls Meta insights and the GA4 Data API tables into Night Tasks (as before);
+2. sweeps `claude/*` branches pushed without a PR (as before, now via
+   `--body-file`, which is why the 08-31 report was stranded for a day);
+3. runs the analysis itself: headless `claude --print` in a **dedicated clone
+   at `~/source/repos/sparkdate-nightly`** (never the main checkout, never a
+   worktree of it), on a fresh `claude/nightly-ga4-<date>` branch, with the
+   prompt at **`.claude/commands/nightly-ga4.md`**, tracked so it cannot fork.
+   Claude commits; the script checks the commit is exactly one `reports/*.md`
+   file, then pushes and opens the PR. Claude never pushes and never runs `gh`.
+
+The 09:00 `SparkDate Nightly Report Review` task then fact-checks that PR.
+
+- Re-run by hand after a fresh export: `/nightly-ga4` in a normal worktree
+  session, or `run-nightly-claude-code.ps1 -AnalysisOnly -Force` (the switch
+  names are documented at the top of the script).
+- `-SmokeTest` exercises the launcher end to end with a throwaway prompt and
+  no push. Run it after upgrading the CLI or editing the script.
+- Health: `Night Tasks/logs/<date>.log`. **The Cowork nightly task must stay
+  paused.** If both run, two reports race for one branch name.
+- `TONIGHT_PROMPT.md` is dead. The prompt library file keeps the run log only.
 
 ## A Night Tasks re-run silently overwrites the previous pull
 
