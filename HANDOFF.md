@@ -17,31 +17,28 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 ## In flight
 
 - **Marion Court is hands-off until 2026-09-08 16:30, when both campaigns end.**
-  Four ad changes went live 09-02 (`reports/META_ADS_REVIEW_2026-09-02.md` §10
-  has values and rollback) and the pixel was attached to the two Traffic ads.
-  Both campaigns are in learning; each edit restarts the clock. Read the watch
-  signals around 09-04 and change nothing.
-- **Nothing further is pending on Marion Court — two items are deferred BY
-  DECISION.** The retargeting set still carries only the video audience (adding
-  the site-visitor one is a targeting edit), and the Traffic ads' shared
-  `utm_content` is fixable only at creative creation. Taylor's call, 09-02:
-  leave both, the event ends first. Do not re-raise them as findings.
-- **The score has not been read yet.** The pixel buys measurement, not lift —
-  both Traffic sets still optimise `LINK_CLICKS`. Around 09-09 run
-  `npm run ads:review` and read **purchases by gender per ad**, never
-  landing-page views. Before then those ads cannot have counted anything.
+  Four ad changes went live 09-02 (`reports/META_ADS_REVIEW_2026-09-02.md` §10)
+  and the pixel was attached to the two Traffic ads; both campaigns are in
+  learning and each edit restarts the clock. Two remaining items are deferred BY
+  DECISION, not forgotten — the retargeting set's missing site-visitor audience,
+  and the Traffic ads' shared `utm_content`, which cannot be fixed on a live
+  creative. Do not re-raise them as findings. MC-RT-QUANG and MC-RT-NO-SCORECARDS
+  stay running for the data; do not pause them as tidy-up.
+- **The score comes 09-09, not before.** The pixel bought measurement, not lift —
+  both Traffic sets still optimise `LINK_CLICKS`. Run `npm run ads:review` and
+  read **purchases by gender per ad**, never landing-page views.
+- **The UTM convention is enforced at BUILD time now (#411); its first real use
+  is the Loxleys retargeting creatives on Sep 8.** `scripts/ad-utm.js` computes
+  the tag from brand.json and refuses what GA4 cannot split;
+  `tests/ad-utm.test.js` gates it with no token, which `ads:lint` never could.
+  When those creatives are built, import `urlTags` and let it fail rather than
+  typing a tag. Nothing live is retagged — `url_tags` is frozen at creation.
 - **Taylor must pause the Cowork nightly task himself; nothing in the repo can.**
   Until then Cowork and the local run both fire and race for one branch name.
-  The local nightly is proven: the 02:00 run on 09-02 skipped all three steps
-  exactly as #398 intended, after the 01:23 hand run had produced the report.
-- **MC-RT-QUANG and MC-RT-NO-SCORECARDS stay running — deliberate, for the data.
-  Do not pause them as tidy-up.** They will only get ~250–400 impressions each:
-  enough to spot a dead ad, not to rank them.
-- **Loxleys is next, held for its own chat.** Do not pattern-match Marion Court
-  onto it: its budget ladder is deliberate (memory `lx-campaign-live`) and the
-  event is 09-22, so none of the six-day pressure applies. Its retargeting is
-  meant to be built at the **Sep 8** ladder step — the paused campaigns and
-  unattached audience are by design, not a gap to close early.
+- **Loxleys is next, held for its own chat.** Its budget ladder is deliberate
+  (memory `lx-campaign-live`) and the event is 09-22, so none of Marion Court's
+  six-day pressure applies. Its retargeting is meant to be built at the Sep 8
+  ladder step — the paused campaigns and unattached audience are by design.
 
 ## Open threads nobody owns
 
@@ -76,15 +73,6 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 - **Two report branches the sweep refuses as STALE and nobody has replayed onto
   main:** `claude/accessibility-analysis-2026-08-27` and
   `claude/content-freshness-analysis-2026-08-29`. Cherry-pick or drop them.
-- **`utm_content=proof_rsa1` is on THIRTEEN ads, not two** — measured 09-02,
-  `reports/AD_ACCOUNT_AUDIT_2026-09-02.md`. $554.39 lifetime, 46% of everything
-  the account has spent, across three events and both objectives. Only 14% of
-  lifetime spend is uniquely attributable in GA4. Fixable only at creative
-  creation, so **the deliverable is a tagging convention enforced at the next
-  event's creative build**, not a retrofit. Same build should stop hardcoding
-  `utm_source`: `GG Women - Traffic` tags every click `Facebook` and served
-  98.6% on Instagram. Only `meta-create-lx-prime-ads.js` gets this right, via
-  the `{{site_source_name}}` macro.
 - **The pixel records more checkouts than carts.** Seven days to 09-02:
   `InitiateCheckout` 50 against `AddToCart` 19, so checkout is being reached
   without a cart firing. (`Purchase` 18 over `AddPaymentInfo` 12 is *explained* —
