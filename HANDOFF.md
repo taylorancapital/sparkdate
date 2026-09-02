@@ -39,6 +39,24 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   (memory `lx-campaign-live`) and the event is 09-22, so none of Marion Court's
   six-day pressure applies. Its retargeting is meant to be built at the Sep 8
   ladder step — the paused campaigns and unattached audience are by design.
+- **Eight venue-outreach emails sit in Taylor's Gmail Drafts, unsent by his own
+  choice (09-02).** Beer gardens and rooftops, per the revised criteria and the
+  nine verified contacts in `Business Plan/files/Venue_Outreach_Package.md`. Two
+  steps are his alone: **check the From line** — the signature says
+  `hello@sparkdate.date`, and if that is not a send-as alias on that account all
+  eight leave from his personal Gmail contradicting their own signature; and
+  **Uptown Beer Garden is phone-only, (267) 639-4493** — 700 standing, the best
+  room on the list, no published email anywhere. Yards and Silk City came from the
+  old scraped CSV and are unverified; expect bounces.
+- **That outdoor list expires with the season — late October, ~8 weeks from 09-02.**
+  Cherry Street Pier, Frankford Hall and Evil Genius are the covered/year-round
+  three that survive it. Independence and Morgan's Pier are already written as
+  spring approaches rather than October fills; do not "fix" them back.
+- **The F&B model files were relabelled, not recomputed.** `$1,400` still feeds
+  net-profit per event, the `$10,000/month` venue figure and the `$11,200`
+  eight-event total, all assuming a mid-tier room — while the new target list is
+  casual tier (~$20-25/head). Taylor's decision to make, not a copy fix. Working:
+  `reports/VENUE_PITCH_FACT_AUDIT_2026-09-01.md`.
 
 ## Open threads nobody owns
 
