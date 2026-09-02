@@ -26,7 +26,7 @@
 - **M1-6:** Complete free platform
   - Get 20-25 venues signed up
   - Achieve critical mass (50K+ users, 16K+ MAU)
-  - Each venue averaging $1,200-1,400 F&B per event
+  - Each venue averaging $1,200-1,400 F&B per event — **ESTIMATE, never measured**; a casual room is nearer $600-800
   - Venue sees clear ROI: "SparkDate brings me $3-4K/month in revenue for free"
 
 - **M7+:** Introduce paid tier
@@ -44,12 +44,12 @@
 **Per-Event Value to Venue:**
 - SparkDate attendees: 40 per event
 - Avg F&B spend per attendee: $35
-- Total F&B revenue per event: $1,400
+- Total F&B revenue per event: $1,400 — **ESTIMATE at a mid-tier $35 check, never measured** (range $800-$2,000)
 - Venue cost (room discount): $150
 - Venue net: +$1,250 per event
 
 **Monthly (8 events/month average):**
-- F&B revenue: 8 × $1,400 = $11,200
+- F&B revenue: 8 × $1,400 = $11,200 — **estimated**, and assumes every venue is mid-tier
 - Room discount cost: 8 × $150 = $1,200
 - Net monthly value: $10,000
 
@@ -248,7 +248,7 @@
 - "Host SparkDate events completely free"
 - "We handle everything: promotion, attendee screening, event host, check-in system"
 - "You just provide the space and make money on F&B"
-- "Average event: 40 attendees, $35 avg spend = $1,400 F&B, your cost is ~$150 room discount = $1,250 net profit per event"
+- "A room of 30-40 on separate tabs off your regular menu — at your check average that is roughly $900 to $2,000, and you keep all of it. Your cost is a ~$150 room discount."
 - "8 events/month = $10,000 monthly profit"
 
 **Goal:** Get 20-22 venues signed up without monetization friction

@@ -82,7 +82,7 @@
 - Check-in system + analytics
 
 **Venue Profit:**
-- 40 attendees × $35 F&B spend = $1,400 revenue
+- 40 attendees × $35 F&B spend = $1,400 revenue — **ESTIMATE at a mid-tier venue, never measured.** $800 casual / $2,000 upscale
 - Room cost discount = $150
 - Net profit per event = **$1,250**
 - 8 events/month = **$10,000/month profit**

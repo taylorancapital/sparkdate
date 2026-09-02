@@ -19,7 +19,7 @@ I'm launching SparkDate, a curated dating events platform here in Philly. We bri
 
 You keep 100% of F&B. We make our money from the consumers (event tickets + subscription). The model is built so it only works if your night is more profitable with us than without us.
 
-Most venues we partner with see ~$1,400 in incremental F&B per event. We've designed the format around your space and your slowest night — not ours.
+They open separate tabs and buy off your regular menu — figure two or three drinks a head across a couple of hours. At your check average you can do that math faster than I can, and you keep all of it. We've designed the format around your space and your slowest night — not ours.
 
 Would you be open to a 15-minute call this week? Happy to share the model, the demographics, and a sample event run-of-show. No pitch, just a quick fit check.
 
@@ -45,7 +45,7 @@ I'm launching SparkDate, a curated dating events platform here in Philly. We bri
 
 You keep 100% of F&B. We make our money from the consumers (event tickets + subscription). The model is built so it only works if your night is more profitable with us than without us.
 
-Most venues we partner with see ~$1,400 in incremental F&B per event. We've designed the format around your space and your slowest night — not ours.
+They open separate tabs and buy off your regular menu — figure two or three drinks a head across a couple of hours. At your check average you can do that math faster than I can, and you keep all of it. We've designed the format around your space and your slowest night — not ours.
 
 Would you be open to a 15-minute call this week? Happy to share the model, the demographics, and a sample event run-of-show. No pitch, just a quick fit check.
 
@@ -71,7 +71,7 @@ I'm launching SparkDate, a curated dating events platform here in Philly. We bri
 
 You keep 100% of F&B. We make our money from the consumers (event tickets + subscription). The model is built so it only works if your night is more profitable with us than without us.
 
-Most venues we partner with see ~$1,400 in incremental F&B per event. We've designed the format around your space and your slowest night — not ours.
+They open separate tabs and buy off your regular menu — figure two or three drinks a head across a couple of hours. At your check average you can do that math faster than I can, and you keep all of it. We've designed the format around your space and your slowest night — not ours.
 
 Would you be open to a 15-minute call this week? Happy to share the model, the demographics, and a sample event run-of-show. No pitch, just a quick fit check.
 
@@ -97,7 +97,7 @@ I'm launching SparkDate, a curated dating events platform here in Philly. We bri
 
 You keep 100% of F&B. We make our money from the consumers (event tickets + subscription). The model is built so it only works if your night is more profitable with us than without us.
 
-Most venues we partner with see ~$1,400 in incremental F&B per event. We've designed the format around your space and your slowest night — not ours.
+They open separate tabs and buy off your regular menu — figure two or three drinks a head across a couple of hours. At your check average you can do that math faster than I can, and you keep all of it. We've designed the format around your space and your slowest night — not ours.
 
 Would you be open to a 15-minute call this week? Happy to share the model, the demographics, and a sample event run-of-show. No pitch, just a quick fit check.
 
@@ -123,7 +123,7 @@ I'm launching SparkDate, a curated dating events platform here in Philly. We bri
 
 You keep 100% of F&B. We make our money from the consumers (event tickets + subscription). The model is built so it only works if your night is more profitable with us than without us.
 
-Most venues we partner with see ~$1,400 in incremental F&B per event. We've designed the format around your space and your slowest night — not ours.
+They open separate tabs and buy off your regular menu — figure two or three drinks a head across a couple of hours. At your check average you can do that math faster than I can, and you keep all of it. We've designed the format around your space and your slowest night — not ours.
 
 Would you be open to a 15-minute call this week? Happy to share the model, the demographics, and a sample event run-of-show. No pitch, just a quick fit check.
 
@@ -149,7 +149,7 @@ I'm launching SparkDate, a curated dating events platform here in Philly. We bri
 
 You keep 100% of F&B. We make our money from the consumers (event tickets + subscription). The model is built so it only works if your night is more profitable with us than without us.
 
-Most venues we partner with see ~$1,400 in incremental F&B per event. We've designed the format around your space and your slowest night — not ours.
+They open separate tabs and buy off your regular menu — figure two or three drinks a head across a couple of hours. At your check average you can do that math faster than I can, and you keep all of it. We've designed the format around your space and your slowest night — not ours.
 
 Would you be open to a 15-minute call this week? Happy to share the model, the demographics, and a sample event run-of-show. No pitch, just a quick fit check.
 
@@ -175,7 +175,7 @@ I'm launching SparkDate, a curated dating events platform here in Philly. We bri
 
 You keep 100% of F&B. We make our money from the consumers (event tickets + subscription). The model is built so it only works if your night is more profitable with us than without us.
 
-Most venues we partner with see ~$1,400 in incremental F&B per event. We've designed the format around your space and your slowest night — not ours.
+They open separate tabs and buy off your regular menu — figure two or three drinks a head across a couple of hours. At your check average you can do that math faster than I can, and you keep all of it. We've designed the format around your space and your slowest night — not ours.
 
 Would you be open to a 15-minute call this week? Happy to share the model, the demographics, and a sample event run-of-show. No pitch, just a quick fit check.
 
@@ -201,7 +201,7 @@ I'm launching SparkDate, a curated dating events platform here in Philly. We bri
 
 You keep 100% of F&B. We make our money from the consumers (event tickets + subscription). The model is built so it only works if your night is more profitable with us than without us.
 
-Most venues we partner with see ~$1,400 in incremental F&B per event. We've designed the format around your space and your slowest night — not ours.
+They open separate tabs and buy off your regular menu — figure two or three drinks a head across a couple of hours. At your check average you can do that math faster than I can, and you keep all of it. We've designed the format around your space and your slowest night — not ours.
 
 Would you be open to a 15-minute call this week? Happy to share the model, the demographics, and a sample event run-of-show. No pitch, just a quick fit check.
 
@@ -227,7 +227,7 @@ I'm launching SparkDate, a curated dating events platform here in Philly. We bri
 
 You keep 100% of F&B. We make our money from the consumers (event tickets + subscription). The model is built so it only works if your night is more profitable with us than without us.
 
-Most venues we partner with see ~$1,400 in incremental F&B per event. We've designed the format around your space and your slowest night — not ours.
+They open separate tabs and buy off your regular menu — figure two or three drinks a head across a couple of hours. At your check average you can do that math faster than I can, and you keep all of it. We've designed the format around your space and your slowest night — not ours.
 
 Would you be open to a 15-minute call this week? Happy to share the model, the demographics, and a sample event run-of-show. No pitch, just a quick fit check.
 
@@ -253,7 +253,7 @@ I'm launching SparkDate, a curated dating events platform here in Philly. We bri
 
 You keep 100% of F&B. We make our money from the consumers (event tickets + subscription). The model is built so it only works if your night is more profitable with us than without us.
 
-Most venues we partner with see ~$1,400 in incremental F&B per event. We've designed the format around your space and your slowest night — not ours.
+They open separate tabs and buy off your regular menu — figure two or three drinks a head across a couple of hours. At your check average you can do that math faster than I can, and you keep all of it. We've designed the format around your space and your slowest night — not ours.
 
 Would you be open to a 15-minute call this week? Happy to share the model, the demographics, and a sample event run-of-show. No pitch, just a quick fit check.
 

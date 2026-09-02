@@ -1,7 +1,33 @@
 # Venue Outreach Package — SparkDate Philadelphia
 
 **Goal:** Lock in 8-15 free venue partnerships in Months 1-3 (Phase 1)
-**Pitch:** "Free platform. We bring 25-40 qualified, paying customers to your slow nights. You make ~$1,400/event in F&B."
+**Pitch:** "Free platform. We bring 25-40 qualified, paying customers to your slow nights. They run separate tabs off your regular menu and you keep 100% of it — roughly $500-$2,000 depending on your check average."
+
+---
+
+## F&B ESTIMATE — read before quoting any number
+
+**There is no measured F&B figure.** Attendees open separate tabs, so the spend
+lands in the venue's POS and never in ours; we see ticket revenue only. No venue
+has ever reported a total back. Every figure below is a **projection**, and the
+only grounded input is Tellus at **$18-22 a head** (about three drinks, plus tip
+— and tip is staff money, not the owner's F&B line).
+
+Per-head spend is a property of **the venue**, not of SparkDate. A dive bar and
+Parc cannot produce the same number, which is why one fixed figure must never be
+quoted to every venue.
+
+| Venue tier | Avg check / head | 25 guests | 30 guests | 40 guests |
+|---|---|---|---|---|
+| Casual / dive (Tellus, Good Good) | ~$20 | $500 | $600 | $800 |
+| Mid / gastropub | ~$35 | $875 | $1,050 | $1,400 |
+| Upscale cocktail (Tier 1 target) | ~$50 | $1,250 | $1,500 | $2,000 |
+
+**Range: $500-$2,000. Typical mid room at 30 guests: ~$1,050.**
+
+In outbound copy, hand the multiplier to the operator — they know their own check
+average, and at a $50 room it lands them above anything we would have asserted.
+Never write "most venues see." Working: `reports/VENUE_PITCH_FACT_AUDIT_2026-09-01.md`.
 
 ---
 
@@ -115,7 +141,7 @@ I'm launching SparkDate, a curated dating events platform here in Philly. We bri
 
 You keep 100% of F&B. We make our money from the consumers (event tickets + subscription). The model is built so it only works if your night is more profitable with us than without us.
 
-Most venues we partner with see ~$1,400 in incremental F&B per event. We've designed the format around your space and your slowest night — not ours.
+They open separate tabs and buy off your regular menu — figure two or three drinks a head across a couple of hours. At your check average you can do that math faster than I can, and you keep all of it. We've designed the format around your space and your slowest night — not ours.
 
 Would you be open to a 15-minute call this week? Happy to share the model, the demographics, and a sample event run-of-show. No pitch, just a quick fit check.
 
@@ -136,7 +162,7 @@ Hi [First Name],
 
 [Mutual Name] mentioned you're the right person to talk to about [VENUE NAME]'s Tuesday/Wednesday programming.
 
-I'm running SparkDate — a curated IRL dating events platform launching in Philly. We bring 25-40 paying young professionals to a partner venue on slow nights, and we don't charge venues to host. You keep all the F&B revenue (~$1,400/event on average).
+I'm running SparkDate — a curated IRL dating events platform launching in Philly. We bring 25-40 paying young professionals to a partner venue on slow nights, and we don't charge venues to host. You keep all the F&B revenue — they run separate tabs off your regular menu, so at your check average it lands somewhere around $500-$2,000 a night.
 
 [Mutual Name] thought it might be a good fit. Would you have 15 minutes this week for a quick call?
 
