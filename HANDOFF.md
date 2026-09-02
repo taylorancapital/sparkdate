@@ -77,11 +77,13 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `proof_rsa1` and hardcode `utm_source=Instagram`, so Women vs All-Genders
   cannot be split in GA4. `url_tags` is settable only at creative creation, so
   fix it at the next event's creative build, not mid-flight.
-- Marion Court Traffic ads have no pixel dataset selected — they cannot report
-  conversions until one is. **This is also what blocks the site-visitor
-  retargeting audience:** every website audience on the account sits at Meta's
-  20-person floor and one is flagged too small to use, so the pool never grows
-  to usable size. Fix the dataset first; the audience work depends on it.
+- The pixel dataset is up and firing; what the two live Marion Court "(Traffic)"
+  ads lack is the pixel in their own `tracking_specs` (checked by API
+  2026-09-02), so they count landing-page views and never a cart, checkout or
+  purchase. The Loxleys prime videos carry it. Whether this is what holds the
+  website audiences at Meta's 20-person floor is NOT established: the pixel
+  fires for every visitor whichever ad sent them. Attach the pixel to the two
+  ads; treat the audience floor as its own question.
 - `/admin` took 13 sessions from 1 user attributed to `facebook / paid_social`
   with 5 key events. Looks like internal traffic wearing paid attribution;
   nobody has looked. Small, but it feeds the internal-traffic-filter question.

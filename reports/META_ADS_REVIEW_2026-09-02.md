@@ -8,7 +8,8 @@
 delivery, lifetime window (Meta's maximum). Spend, impressions, clicks and
 landing-page views (LPV) are split by Meta's own gender inference for the person
 served. "Purchases" are Meta-attributed conversions, a stricter measure than
-sales, and only ads with a pixel dataset can report them at all — see §5.
+sales, and an ad can only count one if the pixel is in its tracking; §5 lists
+the five current ads where it is not.
 Targeting shown is the ad set's **current** setting; delivery is **lifetime**, so
 a set edited mid-flight shows a mismatch, and the delivery record is the truth.
 Appendix A lists every ad; Appendix B has each ad's copy, audience and results
@@ -22,13 +23,15 @@ Eventbrite listings and, once, through a social-proof creative (Tellus, week of
 08-18). Three things explain the gap. First, more than a quarter of the money in
 women-targeted ad sets reached men, including the "bring your girl" 2-for-1,
 which is a women-only offer. Second, the ads that buy women's attention
-cheapest (Traffic-objective video, $0.11 to $0.30 a landing-page view) run
-without a pixel dataset, so Meta cannot learn which of those women buy and the
-retargeting pool they should feed cannot grow. Third, at the last event the
+cheapest (Traffic-objective video, $0.11 to $0.30 a landing-page view) were
+built without the pixel in their tracking, so they count a landing-page view
+and nothing after it: no cart, no checkout, no purchase, and no signal for Meta
+to learn from. Third, at the last event the
 ticketed women showed up at a quarter of the men's rate, so seats are being
 lost after the sale as well as before it. Getting more women into the room is
-therefore three fixes, not one: deliver the women's ads to women, give Meta the
-purchase signal, and make arriving alone feel safe.
+therefore three fixes, not one: deliver the women's ads to women, attach the
+pixel to the Traffic ads so a purchase can be counted, and make arriving alone
+feel safe.
 
 ## Four numbers
 
@@ -77,7 +80,7 @@ money was spent either way.
 
 | Campaign objective | Ads | Spend | To women | Women's LPV | Cost per women's LPV | Women's purchases |
 |---|---:|---:|---:|---:|---:|---:|
-| Traffic | 23 | $558.29 | 79% | 1,357 | **$0.33** | 0 (blind, see §5) |
+| Traffic | 23 | $558.29 | 79% | 1,357 | **$0.33** | 0 (see §5) |
 | Sales | 12 | $500.07 | 53% | 186 | $1.42 | 3 |
 | Link clicks (June) | 5 | $139.41 | 57% | 84 | $0.95 | 0 |
 
@@ -138,14 +141,27 @@ remark, is the experience of arriving alone at a dive bar. Four data points, a
 hypothesis, not a finding — but every ad dollar that does buy a woman's seat
 runs into it next.
 
-## 5. MECHANISM — why Traffic ads are blind, and the retargeting pool is stuck
+## 5. MECHANISM — the pixel is up; five current Traffic ads are not wired to it
 
-- **Traffic campaigns have no pixel dataset selected** (HANDOFF open thread).
-  Meta therefore records no purchase on them, cannot optimise their delivery
-  toward women who buy, and cannot grow the website audience: every website
-  audience on the account sits at Meta's 20-person floor. The cheapest women's
-  traffic in §2 and the best-converting audiences in §3 are both throttled by
-  one unset field.
+- **The pixel dataset exists and fires.** `4390442851170732` ("Sparkdate Date's
+  Pixel - Active Version") last fired 2026-09-01 23:58 UTC, and the site sends
+  Purchase both from the page and server-side. Every Sales-objective ad carries
+  it in `tracking_specs` and optimises for it, and so do most older Traffic
+  ads: Good Good Ad, the Tellus Traffic pair, the three Landing page - Event 3
+  ads, the Event 2 women's ads, and both Loxleys prime videos.
+- **Five current Traffic ads carry no pixel in their tracking**, checked ad by
+  ad on 2026-09-02: MC Women - Video Ad (Traffic), MC All Genders - Video Ad
+  (Traffic), GG Women - Traffic, LX Women - Video Ad (Traffic) and LX All
+  Genders - Video Ad (Traffic) (the last two paused). They report landing-page
+  views and nothing after: the 282 women's views on GG Women - Traffic show no
+  cart or checkout, while the older Traffic ads that do carry the pixel show
+  carts and checkouts (Landing page - Event 3 Women: 5 checkouts; Good Good Ad:
+  1 cart; Loxleys male prime: 1 checkout). None of those reported a purchase
+  either, so the 0 in §2 is partly "cannot count" and partly "did not happen".
+- **The 20-person floor on the website audiences is a separate question.** The
+  pixel fires for every visitor whichever ad sent them, so ad tracking does not
+  gate audience growth; the earlier handoff note that tied the two together is
+  not supported by this pull. Not re-checked here.
 - **Per-ad attribution in GA4 only became possible on 2026-08-29** when
   `utm_content` stopped reading `proof_rsa1` on every ad; before that no ad's
   clicks could be told from another's. This review uses Meta's own numbers for
@@ -155,10 +171,13 @@ runs into it next.
 
 ## DECISION — what to do, in order
 
-1. **Select the pixel dataset on every Traffic campaign** (Marion Court |
-   Traffic, Loxleys | Traffic), today. It unlocks purchase optimisation and lets
-   the retargeting audiences grow past the floor. Nothing else on this list
-   compounds without it.
+1. **Attach the pixel to the two live Marion Court Traffic ads** (MC Women -
+   Video Ad (Traffic), MC All Genders - Video Ad (Traffic)): in Ads Manager, the
+   ad's Tracking section, website events, choose the dataset; or by API, set
+   `tracking_specs` the way `scripts/meta-create-lx-prime-ads.js` does. The
+   Loxleys prime videos already carry it. Until then those two ads can never
+   count a cart, a checkout or a purchase, and nothing else on this list can be
+   judged.
 2. **Check gender delivery weekly, and never let 2-for-1 copy run where men are
    served.** `npm run ads:review` prints "women share of spend" beside each
    set's target; anything aimed at women and under about 90% is a set to fix.
@@ -183,9 +202,9 @@ runs into it next.
    prompt for +1 seats (`api/cron-send-emails.js:491` still skips them), and a
    non-bar venue test when the calendar allows.
 7. **Budget.** The Sales objective at $1.42 a women's view is defensible only
-   because it is the only objective that can see a purchase; once step 1 is
-   done, move the women's prospecting budget back to Traffic video with a
-   dataset attached and judge it by purchases, not views.
+   while it is the objective that can see a purchase; once step 1 is done,
+   move the women's prospecting budget back to Traffic video with the pixel
+   attached and judge it by purchases, not views.
 
 ## What I did not verify
 
@@ -193,8 +212,8 @@ runs into it next.
   when). The mismatch between current target and lifetime delivery is real; the
   mechanism is inferred.
 - Purchases by gender from Firestore for any event other than Good Good. Meta's
-  attributed purchases are a floor and Traffic ads contribute none by
-  construction.
+  attributed purchases are a floor, and the five Traffic ads named in §5
+  cannot contribute one.
 - Meta's gender inference; "unknown" rows are shown, never redistributed.
 - Whether any of the 2026 June "Promoting website" boosts carried targeting at
   all (their sets report gender `0`).
