@@ -61,6 +61,10 @@ const commonDir = git(['rev-parse', '--path-format=absolute', '--git-common-dir'
 const mainRepo = commonDir ? path.dirname(commonDir) : topLevel;
 const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']) || '(detached)';
 const inWorktree = path.resolve(topLevel) !== path.resolve(mainRepo);
+// The unattended nightly runs in a dedicated clone that nobody shares. It is
+// neither the main checkout nor a worktree, and the EnterWorktree nudge below
+// would send it off the branch its launcher inspects. See CLAUDE.md.
+const isNightlyClone = path.basename(topLevel) === 'sparkdate-nightly';
 
 const out = [];
 const say = (s = '') => out.push(s);
@@ -68,10 +72,12 @@ const say = (s = '') => out.push(s);
 const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
 say(`== SparkDate session brief == ${stamp}`);
 say(
-  `cwd: ${inWorktree ? path.basename(topLevel) + ' (worktree)' : 'MAIN CHECKOUT'}` +
+  `cwd: ${isNightlyClone ? 'NIGHTLY CLONE' : inWorktree ? path.basename(topLevel) + ' (worktree)' : 'MAIN CHECKOUT'}` +
     `  branch: ${branch}`,
 );
-if (!inWorktree) {
+if (isNightlyClone) {
+  say('!! Nightly clone, dedicated to run-nightly-claude-code.ps1. Do NOT call EnterWorktree; commit on the current branch and stop.');
+} else if (!inWorktree) {
   say('!! You are in the main checkout. CLAUDE.md: call EnterWorktree before touching anything.');
 }
 say();

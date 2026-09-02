@@ -8,6 +8,11 @@ Do not work directly in the main checkout at `~/source/repos/sparkdate`. Do not
 run `git checkout`, `git switch`, or `git stash` there — those move the ground
 under whichever session is mid-edit.
 
+**One exception:** the unattended nightly runs in a dedicated clone at
+`~/source/repos/sparkdate-nightly` that nobody shares. A session launched there
+must NOT enter a worktree; it commits on the branch the launcher cut and stops.
+See "THE NIGHTLY RUNS ON THIS MACHINE NOW" below.
+
 **This is not a precaution. It is a record of what already went wrong** on
 2026-08-29, in a single day, from two sessions sharing this checkout:
 
@@ -133,7 +138,7 @@ The GA4/Meta nightly no longer runs in Cowork. One Windows scheduled task,
    `--body-file`, which is why the 08-31 report was stranded for a day);
 3. runs the analysis itself: headless `claude --print` in a **dedicated clone
    at `~/source/repos/sparkdate-nightly`** (never the main checkout, never a
-   worktree of it), on a fresh `claude/ga4-analysis-<date>` branch, with the
+   worktree of it), on a fresh `claude/nightly-ga4-<date>` branch, with the
    prompt at **`.claude/commands/nightly-ga4.md`**, tracked so it cannot fork.
    Claude commits; the script checks the commit is exactly one `reports/*.md`
    file, then pushes and opens the PR. Claude never pushes and never runs `gh`.

@@ -12,7 +12,7 @@ launched, because the rules differ:
 **Unattended (the normal case).** `run-nightly-claude-code.ps1` launched you
 with `--print` inside the dedicated clone at
 `C:\Users\penns\source\repos\sparkdate-nightly`, already on a fresh branch
-`claude/ga4-analysis-<date>` cut from `origin/main`. Nobody is watching and
+`claude/nightly-ga4-<date>` cut from `origin/main`. Nobody is watching and
 nobody will answer a question. In this mode:
 
 - Do NOT call EnterWorktree, do NOT run `npm run brief`, do NOT create any
@@ -21,6 +21,11 @@ nobody will answer a question. In this mode:
   the PR after it has checked your commit. Your job ends at the commit.
 - There is no `node_modules` in this clone and you must not install one. Read
   CSVs with Python or by hand.
+- CLAUDE.md's worktree rule does not apply here: this clone is neither the
+  main checkout nor shared with anyone. The session brief may call it MAIN
+  CHECKOUT or NIGHTLY CLONE; either way, stay on this branch.
+- Scratch files (a CSV-parsing helper, say) go in the system temp directory,
+  not in the clone. If you wrote one here anyway, delete it before you commit.
 - If something is genuinely ambiguous, write the ambiguity into the report and
   keep going. Stopping with nothing committed wastes the night.
 

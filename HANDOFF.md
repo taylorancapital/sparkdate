@@ -16,12 +16,12 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **The nightly moved off Cowork onto the local CLI (#395).** The launcher
-  change is untracked and already live on this machine; the tracked prompt lands
-  with the PR. Until #395 merges, the 02:00 run logs `SKIP (analysis)` and exits
-  0. Next step: after it merges, confirm the next 02:00 run opened a
-  `claude/ga4-analysis-<date>` PR by about 03:00 (`Night Tasks/logs/<date>.log`)
-  and that the 09:00 review commented on it.
+- **The nightly moved off Cowork onto the local CLI (#395); first unattended run
+  02:00 on 2026-09-02.** The launcher change is untracked and live on this
+  machine. Next step: confirm that run opened a `claude/nightly-ga4-2026-09-02`
+  PR by 09:00 (`Night Tasks/logs/2026-09-02.log` says why if not) and that the
+  09:00 review commented on it. A no-push dry run of the real prompt on the 09-01
+  data is in the same log, timestamped before 02:00.
 - **Taylor must pause the Cowork nightly task himself; nothing in the repo can.**
   Until then Cowork and the local run both fire and race for one branch name.
 - **Marion Court: four ad changes went live 2026-09-02 and are running.** Traffic
