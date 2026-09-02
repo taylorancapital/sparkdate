@@ -241,8 +241,19 @@ smaller, not larger.
 ## 10. APPLIED 2026-09-02 — what changed in the account
 
 **These are live.** Taylor authorised them on 2026-09-02; all four were written
-via the Marketing API and read back to confirm. Rollback state is captured in
-`rollback-2026-09-02.json` / `rollback-retargeting-budget.json` (scratchpad).
+via the Marketing API and read back to confirm.
+
+**To revert, set these back** (inlined rather than pointing at a file — the
+capture lived in a session scratchpad that does not survive):
+
+```
+campaign 120251072513090542  daily_budget = 600          # Marion Court | Traffic, $6.00
+campaign 120250958681350542  daily_budget = 300          # Marion Court Retargeting, $3.00
+adset    120250958851430542  genders      = [1,2]
+adset    120250958851430542  flexible_spec= [{"relationship_statuses":[1]}]
+```
+
+Targeting is a full replace on POST, not a merge — send the whole object.
 
 | # | Object | Field | From | To |
 |---|---|---|---|---|
@@ -268,10 +279,20 @@ purchase events ever); Traffic did, and this is the cost of the change.
 **Do not tune these again before 09-08.** Repeated budget edits restart learning
 each time and would consume the rest of the window.
 
-### Still not done
+### Deliberately left alone — do not "tidy" these
 
-- **Pause MC-RT-QUANG and MC-RT-NO-SCORECARDS.** They cannot be tested at
-  $6/day across three ads either. Not applied — not requested.
+- **MC-RT-QUANG and MC-RT-NO-SCORECARDS keep running.** Taylor's call on
+  2026-09-02, for the data. **This is a decision, not an oversight — do not pause
+  them.** Be clear-eyed about what it buys: ~$38 of retargeting spend at a CPM
+  likely rising toward **$23** (female-only; female CPM there ran $23.33 vs male
+  $16.73) is roughly **1,650 impressions across three ads**, and Meta will not
+  split evenly — V2 took 87% at $3/day. Expect **250–400 impressions each** and
+  **single-digit clicks**. That detects a *dead* ad; it cannot rank them.
+  Two things make it worth more than nothing: the targeting edit reset learning,
+  and Meta explores more broadly while learning; and both ads now carry distinct
+  `utm_content` (`mc_rt_quang`, `mc_rt_scorecards`) from the 08-29 build, so
+  whatever they produce is attributable in GA4 rather than pooling. A real
+  creative read needs their own ad set and budget at the **next** event.
 - **Do not rebuild the audience.** It is correctly scoped and current (§3a).
 
 ### What to watch

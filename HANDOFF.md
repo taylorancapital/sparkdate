@@ -27,8 +27,17 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   not, the pool is delivery-limited not pool-limited (report §3b is explicitly
   unresolved on this) and the extra budget is buying repetition. And Traffic CPL
   was $0.31 at $6/day — above ~$0.68 the increment stops paying for itself.
-- **Not done, not requested:** pausing MC-RT-QUANG and MC-RT-NO-SCORECARDS, which
-  still cannot be tested at $6/day across three ads.
+- **MC-RT-QUANG and MC-RT-NO-SCORECARDS stay running — deliberate, not an
+  oversight.** Taylor's call 2026-09-02, for the data. **Do not pause them as
+  tidy-up.** Expect only ~250–400 impressions each: enough to spot a dead ad, not
+  to rank them. A real creative read needs their own ad set at the next event.
+- **Loxleys is the next thread, deliberately held for its own chat.** The method
+  from Marion Court is what transfers: pull reach/frequency and disjoint weekly
+  buckets from the API (the nightly CSVs carry neither), check what the
+  retargeting audience actually contains by resolving object_ids to names, and
+  read cost per *female* LP view rather than blended. Note Loxleys already has a
+  budget ladder recorded in memory (`lx-campaign-live`) and its own event on
+  2026-09-22 — so it is not a copy of this situation.
 - **Do NOT rebuild the `MC Retargeting` audience.** An earlier revision of that
   report said it contained none of our videos; that was wrong. It is correctly
   scoped — 88 Marion Court renditions, 08-17 → 08-29, kept current.
