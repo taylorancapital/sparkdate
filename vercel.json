@@ -160,8 +160,8 @@
       "permanent": false
     },
     {
-      "source": "/l/mc-meetup-existing",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=meetup&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_meetup_existing",
+      "source": "/l/mc-meetup",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=meetup&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_meetup",
       "permanent": false
     },
     {
@@ -235,8 +235,8 @@
       "permanent": false
     },
     {
-      "source": "/l/lx-meetup-existing",
-      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=meetup&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_meetup_existing",
+      "source": "/l/lx-meetup",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=meetup&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_meetup",
       "permanent": false
     },
     {
