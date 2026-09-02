@@ -22,6 +22,7 @@
     "ads:plan": "node scripts/build-paid-campaign.js",
     "ads:handoff": "node scripts/build-paid-campaign.js --handoff",
     "ads:review": "node scripts/meta-ads-review.js",
+    "ads:pixel": "node scripts/meta-attach-pixel.js",
     "social:plan": "node scripts/social.js plan",
     "social:approve": "node scripts/social.js approve",
     "social:run": "node scripts/social.js run",
