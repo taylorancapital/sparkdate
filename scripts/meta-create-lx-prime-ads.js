@@ -93,9 +93,9 @@ const ADS = [
     ].join('\n'),
     headline: 'Lancaster, PA · Sep 22',
     description: 'Doors 6:30 PM',
-    // {event}_{phase}_{ad set}_{creative}. The slug is the hook, so the GA4
-    // row says which ad ran, not just who saw it -- see the note below.
-    utmContent: 'lx_prime_female_showup',
+    // The tag is COMPUTED from these, not typed. The slug is the hook, so the
+    // GA4 row says which ad ran and not just who saw it.
+    utm: { event: 'LX', phase: 'prime', adSet: 'female', creative: 'showup' },
   },
   {
     key: 'male',
@@ -112,12 +112,18 @@ const ADS = [
     ].join('\n'),
     headline: 'Lancaster, PA · Sep 22',
     description: 'Doors 6:30 PM',
-    utmContent: 'lx_prime_male_noplan',
+    utm: { event: 'LX', phase: 'prime', adSet: 'male', creative: 'noplan' },
   },
 ];
 
-const urlTags = (content) =>
-  `utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign=LX_202609&utm_content=${content}`;
+// url_tags is built from content/brand.json by scripts/ad-utm.js rather than
+// typed here. The literal this replaced was correct; typing it is still how
+// utm_content=proof_rsa1 reached thirteen ads, so the shape is no longer a
+// thing a call site can get wrong. assertCleanLink enforces _never_both
+// against LINK, and assertUniqueContent catches two ads sharing a tag BEFORE
+// anything is POSTed -- url_tags cannot be edited after creation.
+const { urlTags: buildUrlTags, utmContent, assertCleanLink, assertUniqueContent } = require('./ad-utm.js');
+const urlTags = (utm) => buildUrlTags(utm);
 
 const token = process.env.META_ADS_ACCESS_TOKEN;
 
@@ -164,6 +170,13 @@ async function waitForVideo(videoId, maxSeconds = 180) {
 }
 
 async function main() {
+  // Check the tags BEFORE anything is uploaded, and in the dry run too -- the
+  // dry run is the only chance to see them, because url_tags cannot be edited
+  // after the creative exists. Both throw, so a bad batch stops with nothing
+  // written rather than after the first ad.
+  assertCleanLink(LINK);
+  assertUniqueContent(ADS.map((a) => utmContent(a.utm)));
+
   // Plan, whether or not we execute.
   for (const ad of ADS) {
     console.log(`\n${ad.adName}  ->  ad set ${ad.adsetId}`);
@@ -174,7 +187,7 @@ async function main() {
       if (!ok) process.exitCode = 1;
     }
     console.log(`  link      ${LINK}`);
-    console.log(`  url_tags  ${urlTags(ad.utmContent)}`);
+    console.log(`  url_tags  ${urlTags(ad.utm)}`);
     console.log(`  headline  ${ad.headline}   description  ${ad.description}`);
     console.log('  message   ' + ad.message.split('\n')[0] + ' …');
   }
@@ -212,7 +225,7 @@ async function main() {
           call_to_action: { type: 'LEARN_MORE', value: { link: LINK } },
         },
       }),
-      url_tags: urlTags(ad.utmContent),
+      url_tags: urlTags(ad.utm),
     });
     console.log(`  creative ${creative.id}`);
 
