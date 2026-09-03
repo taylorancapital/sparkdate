@@ -8,6 +8,12 @@
       "port": 5050
     },
     {
+      "name": "sparkdate-dev",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/dev-preview.js", "5051"],
+      "port": 5051
+    },
+    {
       "name": "sparkdate-main",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["--yes", "serve", "C:/Users/penns/source/repos/sparkdate/public", "-l", "5052"],

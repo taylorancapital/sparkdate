@@ -538,19 +538,14 @@ module.exports = async function handler(req, res) {
       if (po.gender !== 'woman' && po.gender !== 'man') {
         return res.status(400).json({ error: 'Invalid +1 gender' });
       }
-      // The 2-for-1 is a WOMEN-ONLY promotion (Taylor, 2026-09-02). event.html
-      // hides the toggle for a male buyer, but that is presentation: the box
-      // is a DOM checkbox and the request is a plain POST, so the offer has to
-      // be enforced where the free seat is actually granted.
-      //
-      // This is the second half of the same defect brand.json already names --
-      // caption_rules.banned_outside_female_ad_set bans the words "2-for-1"
-      // outside the female ad set, while the product shipped the offer itself
-      // to everyone. The linter policed the advertising and nothing policed
-      // the checkout.
-      if (gender !== 'woman') {
-        return res.status(400).json({ error: '2-for-1 is available to women only' });
-      }
+      // The 2-for-1 is offered to EVERY buyer and only ADVERTISED to women.
+      // For part of 2026-09-02 this block rejected a male buyer's +1; Taylor
+      // reversed that the same day on legal grounds -- gender-conditioned
+      // pricing at a place of public accommodation is the riskier shape, so
+      // the product treats everyone alike and only the marketing is targeted
+      // (content/brand.json caption_rules.banned_outside_female_ad_set is the
+      // rule that survives, and it governs copy, not checkout). The +1's own
+      // gender is validated below and otherwise unconstrained.
       plusOne = {
         name: String(po.name).trim().slice(0, 200),
         email: String(po.email).trim(),

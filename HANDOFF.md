@@ -16,6 +16,22 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **The paid-path fixes from `reports/PAID_FUNNEL_AUDIT_2026-09-02.md` §7 (items
+  1–6) shipped 09-03: `/lp` sells inline, the dialog's first screen is rebuilt,
+  phone and the webview warning are gone, the 2-for-1 is OPEN TO EVERY BUYER
+  and only advertised to women (Taylor, 09-02 evening, on legal grounds —
+  the same-day women-only gate was reversed).** Two things only Taylor can do:
+  (1) GA4 Admin → Custom definitions: register event-scoped `field`,
+  `skipped_details`, `page_started_hidden` and `started_hidden` — the Admin
+  API is disabled on this project, so it is a UI click; until then
+  `checkout_field_started` and the ghost-session split read `(not set)`.
+  (2) After 09-08, item 4: the destination split inside one Loxleys ad set,
+  same creative, three ads — `/lp?eventId=KL4onXm7hJbqiwI9quAZ`,
+  `/events?event=KL4onXm7hJbqiwI9quAZ&checkout=1`,
+  `/event?id=KL4onXm7hJbqiwI9quAZ` — url_tags from `scripts/ad-utm.js`.
+  Score per `ANALYTICS_METHOD.md` §10's 2026-09-03 row. `npm run preview` is
+  not a thing; `scripts/dev-preview.js` (launch.json `sparkdate-dev`) serves a
+  worktree's `public/` with GET `/api/*` proxied to production and writes refused.
 - **Marion Court is hands-off until 2026-09-08 16:30, when both campaigns end.**
   Four ad changes went live 09-02 (`reports/META_ADS_REVIEW_2026-09-02.md` §10)
   and the pixel was attached to the two Traffic ads; both campaigns are in
