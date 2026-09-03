@@ -266,10 +266,71 @@
     {
       "key": "tickettailor",
       "name": "Ticket Tailor",
-      "status": "rejected",
-      "cost": "free for free events; flat fee per paid ticket",
-      "rejected_reason": "It is a box office, not a discovery channel. Ticket Tailor has no event marketplace -- nobody browses it looking for something to do, which is the entire job being hired for here. Adding it would mean running a THIRD checkout (site + Eventbrite + this) and splitting the attendee record across it, for zero new eyeballs.",
-      "reconsider_if": "The question changes from 'where do people find us' to 'what do Eventbrite's fees cost us'. As a fee play against Eventbrite it is a real option; as a listing surface it is not one."
+      "status": "not_pursued",
+      "market": "any",
+      "cost": "$0.85/ticket pay-as-you-sell (~$0.30 prepaid), plus our own Stripe; free for free events",
+      "submit_url": "https://www.tickettailor.com/",
+      "utm_source": "tickettailor",
+      "role": "indexable public event page + a cheaper box office than Eventbrite",
+      "priority": 4,
+      "why_now": "Taylor's call 2026-09-02, after the reasoning below was corrected. The honest value is an indexed event page carrying schema.org Event markup, NOT discovery and NOT fees.",
+      "_correction": "This entry previously said 'rejected' and offered a reconsider_if: 'as a fee play against Eventbrite it is a real option'. THAT WAS WRONG, and it was wrong because it compared Ticket Tailor to Eventbrite instead of to what we already own. Fees per $24.99 ticket: Eventbrite ~$3.43 (3.7% + $1.79 service, plus 2.9% processing), Ticket Tailor ~$1.87 ($0.85 + Stripe), sparkdate.date ~$1.02 (Stripe alone). We already run a Stripe checkout in public/event.html, so ANY third-party box office is more expensive than our own. The fee play is moving volume from Eventbrite to our own site, not adding a platform.",
+      "_why_not_discovery": "Ticket Tailor has no marketplace. Nobody browses it. Eventbrite's fees buy exactly one thing we cannot replicate -- a consumer marketplace that produced 170 sessions and 23 key events unprompted -- which is why Eventbrite stays despite costing 3x.",
+      "gotchas": [
+        "It is a THIRD checkout after sparkdate.date and Eventbrite. Every checkout is another place price, date and capacity drift out of sync -- the failure this repo spent 2026-09-01 unpicking, when one event had four different end times across five surfaces.",
+        "Buyers there will need the same manual /admin Enroll step Eventbrite buyers need (docs/EVENTBRITE_ENROLLMENT.md). They arrive with no account and no chemistry profile, and the seating tool cannot put someone at a table without one.",
+        "Payment runs through our own Stripe and connecting it is an account action. Do not publish a sellable event before that is done -- a live page with broken checkout is worse than no page.",
+        "Judge this one on whether its event pages actually emit schema.org Event JSON-LD. That is the entire case for it; without it there is no reason to keep it."
+      ]
+    },
+    {
+      "key": "visitpa",
+      "name": "Visit PA (state tourism)",
+      "status": "not_pursued",
+      "market": "any",
+      "cost": "free",
+      "submit_url": "https://www.visitpa.com/events/",
+      "utm_source": "visitpa",
+      "role": "discovery + the strongest SEO backlink on this list",
+      "priority": 2,
+      "why_now": "State-level tourism board, higher domain authority than any county calendar here, and nothing of ours is on it. Verified live 2026-09-02.",
+      "gotchas": [
+        "The submission path is NOT /submit-event/ -- that 404s. Find it from the events page itself.",
+        "State tourism boards moderate for tourist relevance. A weeknight singles mixer may not fit their editorial line; if it is rejected, record that here rather than retrying each event."
+      ]
+    },
+    {
+      "key": "facebook_groups",
+      "name": "Facebook — local singles groups",
+      "status": "not_pursued",
+      "market": "lancaster",
+      "cost": "free",
+      "submit_url": "https://www.facebook.com/groups/633575940178896/",
+      "utm_source": "facebook_group",
+      "role": "community posting into the closest audience match available",
+      "priority": 2,
+      "why_now": "docs/MARKETING_PLAYBOOK.md named three Lancaster singles groups in June 2026 and none was ever worked. 'Lancaster Area Singles Mingles' verified live 2026-09-02. Best audience fit of anything on this list.",
+      "gotchas": [
+        "NOT a form to fill. These are other people's groups with their own rules, and a listing-shaped post reads as spam and gets removed -- same reason reddit_lancaster is out_of_scope. It needs hand-written copy and a read of the group's promo rules first.",
+        "Distinct from `facebook_event`, which is our own Page's Event. Do both; they reach different people.",
+        "Facebook wraps outbound links. Confirm the utm_ parameters survive the l.facebook.com hop before trusting any GA4 row -- the short link exists partly for this."
+      ]
+    },
+    {
+      "key": "yelp",
+      "name": "Yelp for Business — Events",
+      "status": "not_pursued",
+      "market": "any",
+      "cost": "free",
+      "submit_url": "https://business.yelp.com/",
+      "utm_source": "yelp",
+      "role": "discovery on local intent search",
+      "priority": 5,
+      "why_now": "Free, and it posts events from a business page.",
+      "gotchas": [
+        "PRECONDITION: there must be a claimed SparkDate Yelp business page first. Events post FROM a business page, so with no page this is a page-claiming job, not a listing job. Check before planning around it.",
+        "Same shape of precondition as google_business. If neither profile exists, do them together -- it is one afternoon of identity setup that unblocks two channels."
+      ]
     },
     {
       "key": "eventful",

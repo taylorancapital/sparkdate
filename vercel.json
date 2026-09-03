@@ -175,6 +175,26 @@
       "permanent": false
     },
     {
+      "source": "/l/mc-tickettailor",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=tickettailor&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_tickettailor",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-visitpa",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=visitpa&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_visitpa",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-facebook-groups",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=facebook_group&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_facebook_groups",
+      "permanent": false
+    },
+    {
+      "source": "/l/mc-yelp",
+      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=yelp&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_yelp",
+      "permanent": false
+    },
+    {
       "source": "/l/lx-eventbrite",
       "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=eventbrite&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_eventbrite",
       "permanent": false
@@ -247,6 +267,26 @@
     {
       "source": "/l/lx-events-org",
       "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=eventsorg&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_events_org",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-tickettailor",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=tickettailor&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_tickettailor",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-visitpa",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=visitpa&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_visitpa",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-facebook-groups",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=facebook_group&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_facebook_groups",
+      "permanent": false
+    },
+    {
+      "source": "/l/lx-yelp",
+      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=yelp&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_yelp",
       "permanent": false
     }
   ],
