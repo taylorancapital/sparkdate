@@ -105,8 +105,10 @@
             50% { opacity: 0; }
         }
         .city-cta-quote { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,107,107,0.18); border-radius: 10px; padding: 20px 22px; margin: 28px auto 0; max-width: 480px; text-align: left; }
-        /* Two lines reserved: the longest quote in the rotation wraps to two
-           on a phone, and the box would otherwise resize at every rotation. */
+        /* A floor only, for the moment before the script runs. The real
+           reservation is set inline by reserve() in the rotator, which
+           measures every quote at the box's actual width -- no constant can
+           be right at both 375px and 320px. */
         .city-cta-quote p { font-size: 15px; line-height: 1.6; color: rgba(245,243,240,0.92); font-style: italic; margin-bottom: 8px; min-height: 3.2em; }
         .city-cta-quote p::before { content: '"'; }
         /* Two states on ONE pseudo-element. The closing quote mark is what
@@ -116,7 +118,7 @@
            watches advance simply BECOMES the closing mark when the sentence
            lands. */
         .city-cta-quote p::after { content: '"'; }
-        .city-cta-quote.typing .city-cta-quote p::after {
+        .city-cta-quote.typing p::after {
             content: '';
             display: inline-block;
             width: 2px;
@@ -127,7 +129,7 @@
             animation: sdCaretBlink 1s step-end infinite;
         }
         @media (prefers-reduced-motion: reduce) {
-            .city-cta-quote.typing .city-cta-quote p::after { animation: none; }
+            .city-cta-quote.typing p::after { animation: none; }
         }
         /* min-height reserved: the name is withheld while typing, and an
            empty line box would collapse and shrink the card by one line at
@@ -271,12 +273,14 @@
           // Rotating testimonial — see index.html for the canonical copy of this pattern.
           (function () {
             var TESTIMONIALS = [
-              // Short quotes only. This is a small proof box beside a buy button: a
-              // quote that wraps past two lines outgrows the reserved min-height and
-              // shoves the CTA around at every rotation, and brand.json's own note says
-              // the short ones are what read at a glance on a quote frame. Molly's and
-              // Quang's longer quotes are set properly in the homepage testimonials
-              // section, which has the room for them.
+              // Molly leads. This box used to run four men -- Jeff, Luke, James,
+              // Alex -- not by choice but by side effect: it only took short quotes,
+              // and the one approved quote from a woman is the long one, so she was
+              // excluded by a layout rule. reserve() below removes that rule by
+              // measuring instead of guessing, which is what lets her lead here.
+              // Quang's (a man, and longer still) stays in the homepage testimonials
+              // section.
+              { q: "Everyone was so lively and some of us connected so well we chatted well into the evening.", who: "Molly" },
               { q: "Good networking opportunities!", who: "Jeff" },
               { q: "Truly a lot more fun than any other dating event I attended!", who: "Luke" },
               { q: "Relaxed rooftop bar and easy conversations!", who: "James" },
@@ -288,11 +292,62 @@
             if (!textEl || !whoEl || !boxEl) return;
             var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             // HOLD_MS stays comfortably longer than the longest quote takes to type
-            // (60 chars x 28ms = 1.7s). A hold shorter than the typing leaves a quote
+            // (89 chars x 28ms = 2.5s, Molly's). A hold shorter than the typing leaves a quote
             // half-written for more of its life than it is whole.
             var idx = 0, TYPE_MS = 28, ERASE_MS = 12, HOLD_MS = 3600;
+            var reserved = false;
+
+            // Reserve the height of the TALLEST quote, measured at the width the
+            // box actually has. A constant cannot do this job, which is why the
+            // rotation was capped at short quotes instead: Molly's quote is three
+            // lines at 375px and four at 320px, so any hand-picked em value is
+            // either too small on some phone -- and the CTA jumps at every
+            // rotation, the bug this box has already had twice -- or too big
+            // everywhere else, leaving blank lines under a 30-character quote.
+            // Measuring also means the next quote added here cannot bring either
+            // failure back, and no one has to keep quotes short to avoid it.
+            function reserve() {
+              // Measure only a box that is really on screen. Two ways it is not:
+              // no layout at all (the checkout copies start inside a closed modal,
+              // so this is how those two pages always load), and laid out at zero
+              // width, where the quote wraps to one character a line and the
+              // measurement comes back many times too tall. Either way an inline
+              // min-height would OVERRIDE the CSS floor and make things worse than
+              // no reservation, so leave the floor alone; typeNext() and the resize
+              // handler both retry, and one of them will catch the box on screen.
+              var rect = boxEl.getBoundingClientRect();
+              if (!rect.width || !rect.height) return;
+              var savedText = textEl.textContent, savedWho = whoEl.textContent;
+              // The name is withheld while typing, so it is not part of this
+              // element's tallest state -- and .who reserves its own line below.
+              whoEl.textContent = '';
+              textEl.style.minHeight = '0px';
+              var tallest = 0;
+              for (var i = 0; i < TESTIMONIALS.length; i++) {
+                textEl.textContent = TESTIMONIALS[i].q;
+                tallest = Math.max(tallest, textEl.getBoundingClientRect().height);
+              }
+              textEl.style.minHeight = Math.ceil(tallest) + 'px';
+              textEl.textContent = savedText;
+              whoEl.textContent = savedWho;
+              reserved = true;
+            }
+            reserve();
+            // A reservation is only correct for the width it was measured at, so
+            // re-measure when that changes -- an orientation flip otherwise leaves
+            // the box a line short and the jumping comes back.
+            if (window.addEventListener) {
+              var reserveTimer;
+              window.addEventListener('resize', function () {
+                clearTimeout(reserveTimer);
+                reserved = false;
+                reserveTimer = setTimeout(reserve, 150);
+              });
+            }
 
             function typeNext() {
+              // Still unmeasured means the box was hidden at load -- retry now.
+              if (!reserved) reserve();
               var item = TESTIMONIALS[idx];
               // Name and closing quote mark are both withheld until the last character
               // lands; .typing puts a caret in the closing mark's slot meanwhile.

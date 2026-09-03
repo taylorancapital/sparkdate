@@ -95,12 +95,51 @@ function selectors(src) {
  * tab's setTimeout to ~1s, so a wall-clock run samples a handful of frames and
  * proves nothing about the frames it missed. This visits every frame.
  */
-function run(src, { reduceMotion = false, steps = 4000 } = {}) {
+function run(src, { reduceMotion = false, steps = 4000, hiddenTicks = 0, zeroWidthTicks = 0 } = {}) {
   const sel = selectors(src);
   const nodes = {};
+  // Two ways a box is present but unmeasurable, both hit for real on
+  // 2026-09-03. `hiddenTicks` gives it no layout at all for the first N
+  // queued callbacks -- two of the six rotators live inside a checkout modal
+  // that is closed when the page loads. `zeroWidthTicks` gives it height but
+  // no width, where every quote wraps to one character a line.
+  let ticks = 0;
+
+  // A fake layout engine: CHARS_PER_LINE characters wrap to a line, each
+  // LINE_PX tall. Crude, but enough to tell a reservation that measured every
+  // quote from one that measured only the first, or none -- which is the
+  // difference the tests below are actually about.
+  const CHARS_PER_LINE = 40;
+  const LINE_PX = 20;
+  const BOX_W = CHARS_PER_LINE * 8;
+  const rect = (key) => {
+    // Hidden: no layout at all, the way a display:none ancestor reports.
+    if (ticks < hiddenTicks) return { width: 0, height: 0 };
+    // Laid out but zero-width: every quote wraps to one character a line, so
+    // the box has plenty of height and the measurement is still worthless.
+    if (ticks < zeroWidthTicks) {
+      const chars = (key === sel.box ? node(sel.text).textContent : node(key).textContent).length;
+      return { width: 0, height: Math.max(1, chars) * LINE_PX };
+    }
+    // Two of the six pages reserve on the BOX rather than on the paragraph:
+    // their quote is typed into a <span>, and min-height does not apply to an
+    // inline element. So the box is modelled as wrapping the text and the
+    // attribution, which is what those pages measure.
+    const content =
+      key === sel.box
+        ? node(sel.text).textContent + node(sel.who).textContent
+        : node(key).textContent;
+    return {
+      width: BOX_W,
+      height: Math.max(1, Math.ceil(content.length / CHARS_PER_LINE)) * LINE_PX,
+    };
+  };
+
   const node = (key) =>
     (nodes[key] ||= {
       textContent: '',
+      style: {},
+      getBoundingClientRect: () => rect(key),
       classes: new Set(),
       classList: {
         add(c) { nodes[key].classes.add(c); },
@@ -143,10 +182,17 @@ function run(src, { reduceMotion = false, steps = 4000 } = {}) {
     queue.sort((a, b) => a.at - b.at || a.seq - b.seq);
     const next = queue.shift();
     now = next.at;
+    ticks++;
     next.fn();
     states.push(snapshot());
   }
-  return { states, quotes: quotesIn(src), elapsed: now };
+  // The reservation lands on whichever element that page sizes -- the
+  // paragraph on four of them, the box on the two whose quote is a <span>.
+  const reserved = Math.max(
+    parseFloat(node(sel.text).style.minHeight) || 0,
+    parseFloat(node(sel.box).style.minHeight) || 0,
+  );
+  return { states, quotes: quotesIn(src), elapsed: now, reserved, LINE_PX, CHARS_PER_LINE };
 }
 
 /** The quote strings a rotator was given. */
@@ -199,6 +245,60 @@ describe('testimonial rotators', () => {
       for (const q of quotes) expect(signed).toContain(q.q);
     });
 
+    it('reserves the height of its TALLEST quote, not its first', () => {
+      // Why this is a test and not a CSS constant: the box used to reserve a
+      // hand-picked two lines, so anything longer shoved the section at every
+      // rotation -- and the fix for THAT was to allow only short quotes,
+      // which is why all four quotes on the site were from men. The one
+      // approved quote from a woman is the long one. A measured reservation
+      // is what lets her be in the rotation at all, so it is pinned here.
+      const { reserved, quotes, LINE_PX, CHARS_PER_LINE } = run(rot.src);
+      const lines = (s) => Math.max(1, Math.ceil(s.length / CHARS_PER_LINE));
+      const tallest = Math.max(...quotes.map((q) => lines(q.q))) * LINE_PX;
+      expect(reserved).toBeGreaterThanOrEqual(tallest);
+    });
+
+    it('never writes a reservation it measured while hidden', () => {
+      // Found in the browser on 2026-09-03, not by this suite. event.html and
+      // events.html put the quote box inside a checkout modal that is
+      // display:none at load, so the first measurement returned 0 for every
+      // quote -- and an inline min-height:0px OVERRIDES the CSS floor, so
+      // those two pages ended up with no reservation at all, worse than the
+      // constant they started with. A reservation must come from a box that
+      // was actually on screen, and must arrive once it is.
+      const { reserved, quotes, LINE_PX, CHARS_PER_LINE } = run(rot.src, { hiddenTicks: 40 });
+      const lines = (s) => Math.max(1, Math.ceil(s.length / CHARS_PER_LINE));
+      const tallest = Math.max(...quotes.map((q) => lines(q.q))) * LINE_PX;
+      expect(reserved).toBeGreaterThanOrEqual(tallest);
+    });
+
+    it('never writes a reservation it measured at zero width', () => {
+      // Also found in the browser, and the nastier of the two: a zero-width
+      // box still HAS height -- the quote just wraps to one character a line
+      // -- so a guard that only checks height sails straight past it and
+      // writes a reservation several times too tall. Seen at innerWidth 0.
+      const { reserved, quotes, LINE_PX, CHARS_PER_LINE } = run(rot.src, { zeroWidthTicks: 40 });
+      const lines = (s) => Math.max(1, Math.ceil(s.length / CHARS_PER_LINE));
+      const tallest = Math.max(...quotes.map((q) => lines(q.q))) * LINE_PX;
+      expect(reserved).toBeGreaterThanOrEqual(tallest);
+      // The point of the guard: it must not have taken the bogus measurement.
+      const bogus = Math.max(...quotes.map((q) => q.q.length)) * LINE_PX;
+      expect(reserved).toBeLessThan(bogus);
+    });
+
+    it('leads with a woman', () => {
+      // Taylor asked for this directly on 2026-09-03, and it is the reason
+      // the reservation above had to change. WOMEN is a list because the
+      // rotation is meant to grow: getting a second woman's testimonial is
+      // action #3 in reports/WOMEN_ACQUISITION_BRAINSTORM_2026-09-02.md, and
+      // when one lands it goes in this array and at the front of every
+      // rotator. Quang is a man -- see reports/AD_LEVER_WOMEN_2026-09-02.md.
+      const WOMEN = ['Molly'];
+      const quotes = quotesIn(rot.src);
+      expect(quotes.length).toBeGreaterThan(0);
+      expect(WOMEN).toContain(quotes[0].who);
+    });
+
     it('holds a finished quote longer than it spent typing it', () => {
       // The other half of why this read badly before: at 32ms/char against a
       // 3.4s hold, the longest quote spent more of its life half-written than
@@ -226,6 +326,28 @@ describe('testimonial rotators', () => {
       const css = read(file);
       expect(css).toMatch(/\.typing[^{]*::after\s*\{[^}]*animation:\s*sdCaretBlink/);
       expect(css).toMatch(/@keyframes sdCaretBlink/);
+    });
+
+    it('scopes the caret rule to something that can actually match', () => {
+      // Five of the six pages shipped this rule as
+      //     .box.typing .box p::after
+      // -- the box nested inside ITSELF, which matches nothing. So no caret
+      // was ever drawn and the closing quote mark stayed on screen through
+      // the whole type, which is precisely the "reads as truncated" bug the
+      // caret exists to prevent. The assertion above passed anyway, because
+      // its [^{]* swallowed the stray descendant without noticing it.
+      //
+      // So assert on the selector's SHAPE: no class appearing before .typing
+      // may appear again after it. Verified against the live pages on
+      // 2026-09-03 -- index.html was the only one drawing a caret.
+      const css = read(file);
+      const m = css.match(/([^{}]*?\.typing[^{}]*?)::after\s*\{[^}]*sdCaretBlink/);
+      expect(m).toBeTruthy();
+      const sel = m[1].trim();
+      const cut = sel.indexOf('.typing');
+      const before = sel.slice(0, cut).match(/\.[\w-]+/g) || [];
+      const after = sel.slice(cut + '.typing'.length);
+      for (const cls of before) expect(after).not.toContain(cls);
     });
 
     it('stops the caret blinking under prefers-reduced-motion', () => {
