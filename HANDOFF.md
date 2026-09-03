@@ -16,22 +16,23 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **The paid-path fixes from `reports/PAID_FUNNEL_AUDIT_2026-09-02.md` §7 (items
-  1–6) shipped 09-03: `/lp` sells inline, the dialog's first screen is rebuilt,
-  phone and the webview warning are gone, the 2-for-1 is OPEN TO EVERY BUYER
-  and only advertised to women (Taylor, 09-02 evening, on legal grounds —
-  the same-day women-only gate was reversed).** Two things only Taylor can do:
-  (1) GA4 Admin → Custom definitions: register event-scoped `field`,
-  `skipped_details`, `page_started_hidden` and `started_hidden` — the Admin
-  API is disabled on this project, so it is a UI click; until then
-  `checkout_field_started` and the ghost-session split read `(not set)`.
-  (2) After 09-08, item 4: the destination split inside one Loxleys ad set,
-  same creative, three ads — `/lp?eventId=KL4onXm7hJbqiwI9quAZ`,
-  `/events?event=KL4onXm7hJbqiwI9quAZ&checkout=1`,
-  `/event?id=KL4onXm7hJbqiwI9quAZ` — url_tags from `scripts/ad-utm.js`.
-  Score per `ANALYTICS_METHOD.md` §10's 2026-09-03 row. `npm run preview` is
-  not a thing; `scripts/dev-preview.js` (launch.json `sparkdate-dev`) serves a
-  worktree's `public/` with GET `/api/*` proxied to production and writes refused.
+- **The paid path is rebuilt on main (09-03; `reports/PAID_FUNNEL_AUDIT_2026-09-02.md`
+  §7 items 1–6) and the 2-for-1 is OPEN TO EVERY BUYER, advertised to women only
+  — Taylor's call, 09-02 evening, on legal grounds; never gate it by gender again.**
+  Three things remain, none of them code. (1) **Taylor, in GA4 Admin → Custom
+  definitions:** register event-scoped `field`, `skipped_details`,
+  `page_started_hidden`, `started_hidden`. The Admin API is disabled on this
+  project, so it is a UI click; until it is done `checkout_field_started` and
+  the ghost-session split read `(not set)`. (2) **The 09-04 nightly is the first
+  read of `/lp` selling inline** — `view_item`, `begin_checkout`, `add_to_cart`
+  and `lp_visible` now fire there; `ANALYTICS_METHOD.md` §4 and the 2026-09-03
+  row in §10 say what to expect, and a rise in the checkout-by-landing-page
+  funnel's `/lp` row is instrumentation before it is demand. (3) **After
+  09-08, audit item 4:** three ads in one Loxleys set, same creative,
+  `/lp?eventId=KL4onXm7hJbqiwI9quAZ`, `/events?event=KL4onXm7hJbqiwI9quAZ&checkout=1`,
+  `/event?id=KL4onXm7hJbqiwI9quAZ`, url_tags via `scripts/ad-utm.js`. Still
+  never done by anyone: **buy a real ticket through the new `/lp` form from
+  inside the Instagram app** — the one test that settles the webview question.
 - **Marion Court is hands-off until 2026-09-08 16:30, when both campaigns end.**
   Four ad changes went live 09-02 (`reports/META_ADS_REVIEW_2026-09-02.md` §10)
   and the pixel was attached to the two Traffic ads; both campaigns are in
@@ -154,3 +155,9 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `reports/GA4_ANALYSIS_2026-08-30.md`.
 - Promotions CTR is only computable on windows starting 2026-08-28 or later
   (report §H1) — earlier rows read clicks > views.
+- **The rebuilt checkout form is scored by two ratios, from 2026-09-03 on:**
+  `add_to_cart ÷ begin_checkout` (24% paid, 30% all-channel before the rebuild)
+  and `add_payment_info ÷ begin_checkout` (10%). A climbing `checkout_error`
+  with category `gender_missing` means the two-button gender step is not being
+  understood; `card_incomplete` was 8 users lifetime and should not grow faster
+  than form views do.
