@@ -28,6 +28,7 @@ const { makeProfileUrl } = require('../lib/profile-link');
 const { sameEmailIdentity } = require('../lib/email-identity');
 const { normalizeAttribution, toStripeMetadata, channelOf } = require('../lib/attribution');
 const { EMAIL_FROM, EMAIL_REPLY_TO } = require('../lib/email-sender');
+const { hasGender } = require('../lib/eventbrite');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const db = admin.firestore();
@@ -427,9 +428,15 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
 //
 // Best-effort: a lead-write failure must never affect the ticket response.
 
-async function recordLead({ email, name, phone, eventId, eventName, ref }) {
+async function recordLead({ email, name, phone, gender, eventId, eventName, ref }) {
   const norm = String(email || '').toLowerCase().trim();
   if (!norm) return;
+  // Same whitelist as the checkout validator above and lead-signup.js:
+  // anything unrecognized becomes null, never silently the men's pool.
+  // `leads` is the collection the nurture/newsletter passes iterate, and it
+  // carried no gender from ANY write path — so a woman who bought a ticket
+  // was indistinguishable there from an anonymous exit-intent capture.
+  const normGender = gender === 'woman' || gender === 'man' ? gender : null;
   try {
     const snap = await db.collection('leads').where('email', '==', norm).limit(1).get();
     if (snap.empty) {
@@ -437,6 +444,10 @@ async function recordLead({ email, name, phone, eventId, eventName, ref }) {
         name:    String(name  || '').trim().slice(0, 120),
         email:   norm,
         phone:   String(phone || '').trim().slice(0, 40),
+        // Written even when null, so the field is present rather than absent.
+        // Consumers must still treat missing/null as "unknown" and filter in
+        // code — see the warning at cron-send-emails.js sendNewsletter().
+        gender:  normGender,
         source:  'ticket_purchase',
         // First-touch attribution, same as lead-signup.js — someone who
         // clicks a referral link and buys a ticket directly, without ever
@@ -474,6 +485,13 @@ async function recordLead({ email, name, phone, eventId, eventName, ref }) {
       if (!existing.name  && name)  patch.name  = String(name).trim().slice(0, 120);
       if (!existing.phone && phone) patch.phone = String(phone).trim().slice(0, 40);
       if (!existing.referredBy && ref) patch.referredBy = ref;
+      // Fill-if-missing, same first-touch rule. Both values are self-reported
+      // at a checkout, so a later one is no more authoritative than the one
+      // already on file — and overwriting would silently rewrite the segment
+      // a past campaign was measured against. hasGender() rather than a truthy
+      // test, for the same reason lib/enroll.js uses it: a field that has been
+      // through a sheet or JSON can arrive as the literal string "null".
+      if (normGender && !hasGender(existing.gender)) patch.gender = normGender;
       await doc.ref.update(patch);
       console.log(`[lead] existing lead updated for ${norm} (count=${(existing.ticket_count || 0) + 1})`);
     }
@@ -928,7 +946,7 @@ module.exports = async function handler(req, res) {
       // the nurture-email cron pick them up. recordLead upserts by email and
       // is fully best-effort (it never throws). Guests aren't otherwise
       // captured as leads; members already have a user doc.
-      await recordLead({ email, name: cleanName, phone: cleanPhone, eventId, eventName, ref: cleanRef });
+      await recordLead({ email, name: cleanName, phone: cleanPhone, gender, eventId, eventName, ref: cleanRef });
     }
 
     // ── Same enrollment + lead capture for the +1 companion ────────
@@ -942,7 +960,7 @@ module.exports = async function handler(req, res) {
       }).catch((err) => {
         console.error('[purchase-ticket] +1 auto-enroll failed:', err.message);
       });
-      await recordLead({ email: plusOne.email, name: plusOne.name, phone: plusOne.phone, eventId, eventName, ref: cleanRef });
+      await recordLead({ email: plusOne.email, name: plusOne.name, phone: plusOne.phone, gender: plusOne.gender, eventId, eventName, ref: cleanRef });
     }
 
     // ── Activity log (best-effort, doesn't block success). ─────────
