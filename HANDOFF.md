@@ -145,10 +145,12 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   unresolved on that — and the extra budget is buying repetition, not reach.
 - **Marion Court Traffic cost per LP view at $10/day.** It ran $0.31 at $6/day and
   the model assumed ~$0.38 blended; above ~$0.68 the increment is not paying.
-- **`funnel-checkout-by-landing-page` gets its first real read tonight.** It
-  showed `/lp` taking 2,566 sessions to 7 purchases while `/` took 349 to the
-  same 7. Before believing a 7x page-quality gap, control for channel — paid
-  social lands almost entirely on `/lp`, so some of that is traffic mix.
+- **The `/lp`-vs-`/` gap was read with the channel control on 09-02**
+  (`reports/PAID_FUNNEL_AUDIT_2026-09-02.md`): the two paid leaks are the tap
+  (in-app 1.4% vs normal browser 26%) and the form's first field (23 of 77
+  touched it; 8 of 8 who entered a card bought). Score any checkout-form change
+  on `add_to_cart ÷ begin_checkout`, and the in-app cohort on
+  `select_promotion ÷ view_promotion` (2.3% on 344 impressions, 08-28..31).
 - GA4 `facebook / paid_social` should read near-zero sessions from here on. New
   sessions there mean an ad re-introduced June's hand-typed lowercase-no-
   `eventId` URL shape. Same for `Facebook / paid`. Context:
