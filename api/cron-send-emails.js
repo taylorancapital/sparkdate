@@ -15,6 +15,7 @@
 const { Resend } = require('resend');
 const { admin } = require('../lib/auth');
 const { makeUnsubscribeUrl } = require('../lib/unsubscribe');
+const { makeAddGuestUrl } = require('../lib/add-guest');
 const { resolveLeadName } = require('../lib/lead-name');
 const { logEventAttended } = require('../lib/activity-log');
 const { makeProfileUrl, makeMatchUrl } = require('../lib/profile-link');
@@ -564,9 +565,26 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 const infoBox = (html) =>
   `<div style="background:#f5f3f0;border-left:3px solid #ff6b6b;padding:16px 20px;margin:16px 0;font-size:15px;line-height:1.8;color:#1a1f3a;">${html}</div>`;
 
+// The "your +1 is still free" block. Rendered ONLY when the caller passes a
+// URL, and the caller passes one only for women — the 2-for-1 is offered to
+// every buyer at checkout and ADVERTISED to women, and an email is
+// advertising. content/brand.json enforces the same rule on ad copy via
+// caption_rules.banned_outside_female_ad_set, which lists these exact words.
+//
+// The offer used to be reachable from exactly one place — the checkout modal
+// — so it expired at the moment a buyer was least able to use it: deciding on
+// her phone, before she had asked anyone. This is the path back.
+function plusOneBlockHtml(addGuestUrl) {
+  if (!addGuestUrl) return '';
+  return infoBox(`<strong>Your +1 is still free.</strong><br>
+Bringing someone makes the first ten minutes easier for both of you — and their seat costs nothing.<br>
+<a href="${esc(addGuestUrl)}" style="color:#ff6b6b;font-weight:700">Add your guest &rarr;</a>`);
+}
+
 // stage: 't7' | 't1'. `ev` is a normalizeEvent() result; `firstName` is
-// pre-escaped by the caller; `tonight` only matters for t1.
-function preEventEmailFor(stage, firstName, ev, tonight) {
+// pre-escaped by the caller; `tonight` only matters for t1. `addGuestUrl` is
+// null for anyone the offer is not advertised to — see plusOneBlockHtml.
+function preEventEmailFor(stage, firstName, ev, tonight, addGuestUrl) {
   const doors = ev.timeLabel ? esc(ev.timeLabel) : 'the listed start time';
   if (stage === 't7') {
     return {
@@ -581,6 +599,7 @@ function preEventEmailFor(stage, firstName, ev, tonight) {
 <strong>You'll move between conversations</strong> so you meet plenty of people &mdash; but it's relaxed. No bell, no stopwatch.<br>
 <strong>Then: open mingling.</strong> Stay as long as you like.`) +
           eventCardHtml(ev) +
+          plusOneBlockHtml(addGuestUrl) +
           p(`And the best part: at <strong>9pm that night</strong>, we'll email you a private link to tell us who you clicked with. If they pick you too, we swap contact info — no missed signals, no awkward Instagram hunt.`) +
           p('Nothing to prep. Come as you are — everyone in the room chose to be there for the same reason.') +
           p('See you soon,<br>The SparkDate Team'),
@@ -598,6 +617,9 @@ function preEventEmailFor(stage, firstName, ev, tonight) {
 Arrive a few minutes early to check in — the first 15&ndash;20 minutes are open mixing, so there's no hard start to miss.<br>
 Just bring your phone — everything else is handled.`) +
         eventCardHtml(ev) +
+        // t1 too, deliberately: "I'll ask my friend" on day seven becomes an
+        // actual invitation on the last day, and the seat is still free.
+        plusOneBlockHtml(addGuestUrl) +
         p(`At <strong>9pm ${when}</strong>, check your email: you'll get a private link to pick who you clicked with. Mutual picks swap contact info directly.`) +
         p('See you there,<br>The SparkDate Team'),
     }),
@@ -636,7 +658,34 @@ async function sendPreEventEmails(nowMs, emailedThisRun) {
         if (emailedThisRun.has(email)) { skipped++; continue; }
 
         const firstName = esc((r.name ? String(r.name).trim().split(/\s+/)[0] : '') || '');
-        const msg = preEventEmailFor(stage, firstName, ev, tonight);
+
+        // WHO GETS THE +1 LINK. Three conditions, all required:
+        //
+        //  1. gender === 'woman'. The 2-for-1 is offered to every buyer at
+        //     checkout and ADVERTISED to women; an email is advertising. This
+        //     is a targeting decision, NOT a product gate — api/add-guest.js
+        //     deliberately does not check gender, because a product gate is
+        //     the shape that was reversed on 2026-09-02 on legal grounds.
+        //  2. A ticketId to hang it on. Check-in registrations carry
+        //     `ticketId: null` (lead-signup.js handleCheckin), so there is no
+        //     ticket for a companion to link to.
+        //  3. Not a companion themselves — a +1 does not get a +1.
+        //
+        // Missing gender means UNKNOWN, and unknown does not get the link.
+        // That is the honest reading: ~22% of leads have no gender on file at
+        // all, and guessing is how a women-only offer reaches men.
+        let addGuestUrl = null;
+        if (r.gender === 'woman' && r.ticketId && !r.isPlusOne) {
+          try {
+            addGuestUrl = makeAddGuestUrl(r.ticketId, r.email);
+          } catch (e) {
+            // Unset signing secret. Loud, but never at the cost of the email
+            // itself — the run of show matters more than the offer.
+            console.error('[pre-event] add-guest link skipped:', e.message);
+          }
+        }
+
+        const msg = preEventEmailFor(stage, firstName, ev, tonight, addGuestUrl);
         try {
           const result = await resend.emails.send({
             from: EMAIL_FROM,
@@ -1019,7 +1068,17 @@ async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAt
         // The 2-for-1 already works end to end (api/purchase-ticket.js) and
         // costs nothing to mention. For someone deciding whether to come back
         // it turns a solo night into one they can bring a friend to.
-        p(`Bringing someone? Your <strong>+1 comes free</strong> — add them at checkout.`) +
+        //
+        // WOMEN ONLY, corrected 2026-09-03. This line previously went to every
+        // returning attendee, men included — the one place in the product that
+        // ADVERTISED the 2-for-1 outside a female audience, which is exactly
+        // what content/brand.json's caption_rules.banned_outside_female_ad_set
+        // forbids in ad copy. The offer itself stays open to everyone at
+        // checkout; only the advertising is targeted. `u` is the users doc,
+        // which carries gender from every enrollment path.
+        (u.gender === 'woman'
+          ? p(`Bringing someone? Your <strong>+1 comes free</strong> — add them at checkout.`)
+          : '') +
         p('Hope to see you again,<br>The SparkDate Team')
       ).replace(/__UNSUB__/g, unsubUrl);
 

@@ -287,6 +287,32 @@ async function enrollGuestAsMember({ email, paymentMethodId, gender, eventName, 
   }
 
   if (existing) {
+    // Stamp the uid onto the registration this purchase just wrote.
+    //
+    // The new-user branch below does this as part of promoting the guest reg
+    // to reg_{uid}_{eventId}. This branch returned WITHOUT it, so a buyer (or
+    // a 2-for-1 companion) whose email already had an account kept
+    // `userId: null` for ever. Four passes in api/cron-send-emails.js skip a
+    // registration without a userId — the chemistry-profile reminder, the
+    // post-event prompt, the match flow and the attendance log — so that
+    // person arrives unmatched and is invisible afterwards.
+    //
+    // Same matching rule as the promotion below: filter on the indexed fields,
+    // compare email identity in code, because Firestore equality is exact and
+    // a differently-cased or aliased address silently misses.
+    if (eventId) {
+      try {
+        const orphans = await db.collection('event_registrations')
+          .where('eventId', '==', eventId).where('userId', '==', null)
+          .get();
+        const mine = orphans.docs.filter((d) => sameEmailIdentity(d.data().email, norm));
+        for (const d of mine) await d.ref.update({ userId: existing.uid });
+        if (mine.length) console.log(`[auto-enroll] stamped uid on ${mine.length} reg(s) for existing user`);
+      } catch (e) {
+        console.error('[auto-enroll] existing-user uid stamp failed:', e.message);
+      }
+    }
+
     // "Magic link for everyone": existing buyers get the no-login profile link
     // too — but only when their chemistry profile isn't already done, so we
     // never nag someone who's finished. Read the user doc to decide; fail-open
