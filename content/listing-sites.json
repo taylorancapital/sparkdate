@@ -266,7 +266,7 @@
     {
       "key": "tickettailor",
       "name": "Ticket Tailor",
-      "status": "active",
+      "status": "abandoned",
       "market": "any",
       "cost": "$0.85/ticket pay-as-you-sell (~$0.30 prepaid), plus our own Stripe; free for free events",
       "submit_url": "https://www.tickettailor.com/",
@@ -291,7 +291,8 @@
         "loxleys": "https://www.tickettailor.com/events/sparkdatedate/2396299",
         "_posted": "2026-09-02"
       },
-      "_the_finding": "TICKET TAILOR CANNOT BE A LISTING-ONLY SURFACE. Verified on the live pages 2026-09-03: with every ticket type held unavailable, Ticket Tailor titles the page 'Sold out - <event name>' and emits \"offers\": [] in its schema.org Event JSON-LD. So the two things that were the ENTIRE case for being here -- an indexable page and event rich-result eligibility -- are both defeated by not selling. Google wants at least one offer, and 'Sold out' is the worst possible string to have cached against a live event. The page only earns its keep while tickets are genuinely on sale, which means this is a third live checkout or it is nothing. That was the trade named in the gotchas below; it is now measured rather than predicted."
+      "_the_finding": "TICKET TAILOR CANNOT BE A LISTING-ONLY SURFACE. Verified on the live pages 2026-09-03: with every ticket type held unavailable, Ticket Tailor titles the page 'Sold out - <event name>' and emits \"offers\": [] in its schema.org Event JSON-LD. So the two things that were the ENTIRE case for being here -- an indexable page and event rich-result eligibility -- are both defeated by not selling. Google wants at least one offer, and 'Sold out' is the worst possible string to have cached against a live event. The page only earns its keep while tickets are genuinely on sale, which means this is a third live checkout or it is nothing. That was the trade named in the gotchas below; it is now measured rather than predicted.",
+      "_abandoned": "Stopped 2026-09-03, Taylor: the dashboard asks to confirm a password he does not have, and the channel does not justify a credential recovery. Both pages remain LIVE and titled \"Sold out\", because the account cannot be reached to unpublish them. Residual risk is small and self-limiting: the pages were created 2026-09-02, nothing links to them, they are in no sitemap and no listing, and both events pass by 2026-09-22 -- after which the titles stop mattering. The failure mode if Google does index them is a brand search showing SparkDate events as sold out when they are not. TO CLOSE IT PROPERLY, if anyone ever wants to: reset the Ticket Tailor password, unpublish both events. Do not turn sales on instead -- that reopens the third-checkout problem below."
     },
     {
       "key": "visitpa",
