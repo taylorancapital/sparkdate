@@ -139,11 +139,23 @@ the deploy, not user behaviour. Refuse the comparison rather than caveat it.
 
 `add_payment_info` did not exist at all before the same date.
 
-## 4. `view_item` does not fire on `/lp`
+## 4. `view_item` does not fire on `/lp` — until 2026-09-03
 
-`/lp` is a landing page, not a product page. A funnel that expects
-`view_item` before `add_to_cart` will read `/lp` traffic as skipping a step it
-was never instrumented to take.
+**Before 2026-09-03:** `/lp` is a landing page, not a product page. A funnel
+that expects `view_item` before `add_to_cart` will read `/lp` traffic as
+skipping a step it was never instrumented to take.
+
+**From 2026-09-03:** `/lp` sells the targeted event inline (the Get Tickets
+tap opens a checkout form under the card instead of navigating to the
+`/events` dialog). When that form opens, `/lp` fires `view_item`,
+`begin_checkout` and `checkout_form_started` (`source: lp`,
+`skipped_details: true`), then `add_to_cart` on the first gender pick,
+`add_payment_info` once Stripe accepts the card, and `purchase`. The
+`/events?event=…&checkout=1` path still exists for sold-out events, for a
+landing page whose event never resolved, and for browsing. Any window
+spanning 2026-09-03 mixes the two shapes: the checkout-by-landing-page
+funnel's `/lp` row rises first for instrumentation reasons and only then, if
+at all, for demand.
 
 ## 5. `form_start` and `lead_form_started` are different things
 
@@ -206,6 +218,7 @@ Re-check the account rather than reading a stale table.
 | 2026-08-28 | `view_promotion` introduced (#310) — a brand-new event, so all of its "growth" is instrumentation arriving. |
 | 2026-08-28 | `fbclid` no longer carried to `/events` (#309) — distinct landing URLs collapse sharply. 93.6% of paid rows previously held exactly one session because every visitor had a unique URL. **Cleanup, not a traffic drop.** |
 | 2026-09-01 | **Funnel purchase counts step UP without more sales (#380).** `add_to_cart` was a mandatory step in every purchase funnel for one night. A closed funnel counts only users who completed every step in order, and on this property most buyers skip the cart — `begin_checkout` has 146 users against `add_to_cart`'s 57. Measured over `20260519-20260901`: `session_start→purchase` finds 34 buyers, `+view_item` 24, `+begin_checkout` 12, `+add_to_cart` **5**, against GA4's own 37 transactions / 34 purchasing users. Dropping the step moved the channel funnel's purchase row from 5 to 12 — Paid Social 2→5, Direct 1→3, Email **0→1**. **That jump is the definition changing, not conversion improving.** `GA4_ANALYSIS_2026-09-01` quoted the pre-fix chain counts as purchases; do not trend against them. |
+| 2026-09-03 | **The paid path changed shape (paid funnel fixes, after `reports/PAID_FUNNEL_AUDIT_2026-09-02.md`).** (a) `/lp` sells inline — see §4; `view_item`, `begin_checkout`, `add_to_cart`, `add_payment_info` and `purchase` appear on `/lp` from this date, and `select_promotion` on `/lp` no longer implies a navigation. (b) The `/events` dialog and the `/lp` form no longer ask for **phone**, and their Reserve button is enabled from the first frame, so `add_to_cart` (first gender pick) is the first field interaction on both. (c) The **2-for-1** is offered to every buyer (marketed to women only); the women-only gate that existed for part of 2026-09-02 is gone. (d) New events: `checkout_field_started` (`field`: gender / name / email / card / two_for_one; `source`: lp / events), `lp_visible` (`started_hidden`), and a config-level `page_started_hidden` on `/lp`. All three parameters need registering as event-scoped custom dimensions in GA4 Admin before they are queryable — the Admin API is disabled on this project, so that is a UI step; until then they read `(not set)`. (e) `in_app_browser_copy_link` gains `source: lp_checkout`; the in-app **warning** on the checkout step is gone, so `in_app_browser_*` volume from the dialog falls for that reason alone. (f) A new `checkout_error` category, `gender_missing`, replaces what the disabled "Select Gender" button used to prevent silently. |
 
 **A funnel's last step is never a conversion count.** It counts complete chains,
 so it undercounts by however many buyers skipped a step — 12 of 34 even after

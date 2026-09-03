@@ -263,14 +263,14 @@
         "budget_share": 0.45,
         "live_from": "prime",
         "offer": "MAY carry the 2-for-1 offer.",
-        "_offer_restriction": "2-for-1 is FEMALE ADS ONLY. It is a marketing restriction, not a code one -- checkout's toggle is unconditional, so nothing stops the offer being honoured from a male ad. Never put it in male or retargeting copy."
+        "_offer_restriction": "2-for-1 COPY is female ads only. It is a MARKETING rule, not a product one: the offer itself is available to every buyer at checkout, on purpose (Taylor, 2026-09-02 -- gender-conditioned pricing at a public accommodation is the riskier legal shape, so the product treats everyone alike and only the advertising is aimed at women). A same-day attempt to gate it to women in the code was reversed for that reason. Never put it in male or retargeting copy."
       },
       {
         "key": "male",
         "targeting": "men, 22-45, campaign geo",
         "budget_share": 0.30,
         "live_from": "prime",
-        "offer": "None. No 2-for-1 under any circumstances."
+        "offer": "None in the copy. The offer exists at checkout for everyone; it is simply not advertised here."
       },
       {
         "key": "retargeting",
@@ -312,7 +312,7 @@
           "description": "{price}"
         },
         "offer_line": "Bring a friend - 2-for-1 on tickets.",
-        "_offer_line_note": "APPEND to primary_text ONLY in the female ad set, and only when the event is actually running the offer. It is a marketing restriction, not a code one: checkout's toggle is unconditional, so a male ad carrying this line would be honoured and the restriction would be broken silently."
+        "_offer_line_note": "APPEND to primary_text ONLY in the female ad set, and only when the event is actually running the offer. Marketing rule only: checkout honours the offer for every buyer by design (2026-09-02), so a male ad carrying this line would not be dishonest -- it would be off-strategy."
       },
       "male": {
         "prime": {

@@ -53,4 +53,10 @@ describe('SERVICE_FEE_CENTS source-of-truth', () => {
     const expectedDollars = SERVICE_FEE_CENTS / 100;
     expect(serviceFeeDollarsIn('public/events.html')).toBeCloseTo(expectedDollars, 2);
   });
+
+  it('matches the hardcoded SERVICE_FEE in public/lp.html (inline checkout)', () => {
+    // The third copy, added 2026-09-03 when /lp started selling inline.
+    const expectedDollars = SERVICE_FEE_CENTS / 100;
+    expect(serviceFeeDollarsIn('public/lp.html')).toBeCloseTo(expectedDollars, 2);
+  });
 });

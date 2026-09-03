@@ -851,6 +851,26 @@
         }
         .checkout-btn:hover { transform: translateY(-2px); }
         .checkout-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        /* Gender as two tap targets instead of a <select>. On the paid path the
+           first thing a buyer saw was a dropdown reading "Select..." and a
+           disabled button reading "Select Gender"; 22 of 29 paid form viewers
+           never touched it (reports/PAID_FUNNEL_AUDIT_2026-09-02.md §2). The
+           hidden #modalGender input keeps every existing `.value` read intact. */
+        .gender-choice { display: flex; gap: 10px; }
+        .gender-btn {
+            flex: 1; padding: 13px 10px; background: #ffffff; color: #0a0e27;
+            border: 2px solid rgba(255, 107, 107, 0.4); border-radius: 4px;
+            font-family: inherit; font-size: 16px; font-weight: 600; cursor: pointer;
+        }
+        .gender-btn[aria-checked="true"] { border-color: var(--coral); box-shadow: inset 0 0 0 1px var(--coral); }
+        .gender-btn[aria-checked="true"]::before { content: '✓ '; color: var(--coral); }
+        .gender-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+        .gender-btn:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+        /* Tighter than the page's other forms: the Reserve button has to land
+           on screen on a phone without a scroll. */
+        #modalCheckoutForm .form-group { margin-bottom: 14px; }
+        .checkout-help { font-size: 12.5px; color: rgba(245,243,240,0.6); margin: 10px 0 0; line-height: 1.5; }
+        .checkout-help button { background: none; border: 0; padding: 0; color: var(--cream); text-decoration: underline; font: inherit; cursor: pointer; }
         /* Honeypot for the sold-out waitlist — same trick as lp.html and
            event.html: off-screen and hidden from assistive tech, so only a
            bot fills it. */
@@ -861,21 +881,12 @@
            #modalTrialDisclosure div keeps its own id so applyUserContext()
            can still hide just that line for card-on-file members while the
            reassurance line underneath stays visible for everyone. */
-        /* In-app-browser warning inside the checkout step. Amber rather than
-           the usual coral: this is a "this will probably fail" caution, and
-           it needs to out-rank the green reassurance box directly beneath it. */
-        .modal-iab-warn {
-            display: block; background: rgba(212, 175, 55, 0.1);
-            border: 1px solid rgba(212, 175, 55, 0.45); border-radius: 4px;
-            padding: 12px 14px; margin-bottom: 14px; font-size: 12.5px;
-            line-height: 1.5; color: var(--cream);
-        }
-        .modal-iab-warn strong { display: block; color: var(--gold); margin-bottom: 4px; }
-        .modal-iab-warn button {
-            margin: 8px 8px 0 0; padding: 8px 14px; font-size: 12px; font-weight: 700;
-            border-radius: 4px; border: 1px solid rgba(212, 175, 55, 0.5);
-            background: rgba(212, 175, 55, 0.15); color: var(--cream); cursor: pointer;
-        }
+        /* The amber "Checkout may fail in this app's browser" block that used
+           to sit above the button is gone (2026-09-02): 3-D Secure has never
+           once fired on this property and Stripe held zero incomplete
+           payments, yet the warning was shown to ~80% of paid visitors at the
+           moment of payment. A quiet .checkout-help line below the button
+           remains for the rare card that does need a full browser. */
         /* One quiet block, BELOW the CTA.
            Everything here used to sit between the testimonial and the button:
            a gold-bordered .checkout-trust box plus a separate .legal line after
@@ -976,6 +987,7 @@
         }
         .checkout-testimonial .who { font-style: normal; font-weight: 600; color: var(--success); }
         .two-for-one-toggle {
+            margin-top: 14px;
             display: flex; align-items: flex-start; gap: 10px; background: rgba(212, 175, 55, 0.08);
             border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 4px; padding: 12px 14px; margin-bottom: 20px;
         }
@@ -1301,26 +1313,29 @@
                 <div class="modal-error-message" id="modalErrorMessage"></div>
 
                 <form id="modalCheckoutForm">
+                    <!-- Gender first, as two tap targets. The hidden input is
+                         what the rest of the checkout reads (#modalGender), so
+                         pricing, submit and the member pre-fill are unchanged. -->
                     <div class="form-group">
-                        <label for="modalGender">Gender</label>
-                        <select id="modalGender" required>
-                            <option value="">Select...</option>
-                            <option value="woman">Woman</option>
-                            <option value="man">Man</option>
-                        </select>
+                        <label id="modalGenderLabel">I am a</label>
+                        <div class="gender-choice" role="radiogroup" aria-labelledby="modalGenderLabel">
+                            <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="woman">Woman</button>
+                            <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="man">Man</button>
+                        </div>
+                        <input type="hidden" id="modalGender" value="">
                     </div>
                     <div class="form-group">
                         <label for="modalName">Name</label>
-                        <input type="text" id="modalName" placeholder="Jane Doe" required>
+                        <input type="text" id="modalName" placeholder="Jane Doe" autocomplete="name" required>
                     </div>
                     <div class="form-group">
                         <label for="modalEmail">Email</label>
                         <input type="email" id="modalEmail" placeholder="you@example.com" autocomplete="email" required>
                     </div>
-                    <div class="form-group">
-                        <label for="modalPhone">Phone <span style="font-weight:400;color:rgba(245,243,240,0.45);text-transform:none;">(optional)</span></label>
-                        <input type="tel" id="modalPhone" placeholder="+1 (555) 123-4567" autocomplete="tel">
-                    </div>
+                    <!-- Phone is no longer asked here. Five fields before the
+                         card was the form's own finding (PAID_FUNNEL_AUDIT
+                         2026-09-02 §3); the API treats phone as optional and the
+                         profile link after purchase collects it. -->
 
 
                     <div class="form-group" id="modalCardFormGroup">
@@ -1336,12 +1351,34 @@
                         </div>
                     </div>
 
-                    <!-- 2-for-1 sits AFTER the card, immediately above the price breakdown it
-                         changes. It used to sit between the phone field and Payment Card, which
-                         put an optional offer -- and, when ticked, a second full set of name /
-                         email / phone inputs -- in the middle of the buyer's own details, pushing
-                         the card further down the form for everyone including the majority who
-                         never take it. Here it is adjacent to the subtotal line it relabels. -->
+                    <div class="price-breakdown">
+                        <div class="price-row subtotal"><span id="modalSubtotalLabel">Ticket</span><span id="modalSubtotalPrice">$0.00</span></div>
+                        <div class="price-row"><span>Service fee</span><span id="modalServiceFee">$0.00</span></div>
+                        <div class="price-row total"><span>Total</span><span class="gold-text" id="modalTotalPrice">$0.00</span></div>
+                    </div>
+
+                    <!-- The button sits directly under the total, above the
+                         testimonial and the fine print, so it is on screen on a
+                         phone without scrolling. It is enabled from the start
+                         and carries the price; a missing gender is caught on
+                         submit rather than by a disabled button reading
+                         "Select Gender" -- 22 of 29 paid form viewers never got
+                         past that (reports/PAID_FUNNEL_AUDIT_2026-09-02.md §2).
+
+                         The amber "Checkout may fail in this app's browser"
+                         block that used to sit here is gone: 3-D Secure has
+                         never once fired on this property, and the warning was
+                         shown to ~80% of paid visitors at the moment of payment.
+                         What remains is a quiet line, below the button, for the
+                         rare card that does need a full browser. -->
+                    <button type="submit" class="checkout-btn" id="modalCheckoutBtn">Reserve Spot</button>
+                    <p class="checkout-help" id="modalIabHelp" hidden>Trouble paying inside this app? <button type="button" id="modalIabCopy">Copy the link</button> and open it in Safari or Chrome. <button type="button" id="modalIabChrome" hidden>Or open in Chrome now.</button></p>
+
+                    <!-- 2-for-1 sits BELOW the button now, so the button stays on
+                         screen on a phone; it is offered to every buyer and only
+                         ADVERTISED to women (content/brand.json caption_rules).
+                         Ticking it relabels the button and the subtotal above and
+                         reveals the +1 fields here. -->
                     <div class="two-for-one-toggle">
                         <input type="checkbox" id="modalTwoForOne">
                         <label for="modalTwoForOne"><strong>🎉 2-for-1:</strong> bring someone for free. Add their info below — you're only charged for one ticket.</label>
@@ -1365,30 +1402,6 @@
                             <label for="modalPlusOneEmail">Their Email</label>
                             <input type="email" id="modalPlusOneEmail" placeholder="them@example.com" autocomplete="email">
                         </div>
-                        <div class="form-group">
-                            <label for="modalPlusOnePhone">Their Phone <span style="font-weight:400;color:rgba(245,243,240,0.45);text-transform:none;">(optional)</span></label>
-                            <input type="tel" id="modalPlusOnePhone" placeholder="+1 (555) 123-4567" autocomplete="tel">
-                        </div>
-                    </div>
-
-                    <div class="price-breakdown">
-                        <div class="price-row subtotal"><span id="modalSubtotalLabel">Ticket</span><span id="modalSubtotalPrice">$0.00</span></div>
-                        <div class="price-row"><span>Service fee</span><span id="modalServiceFee">$0.00</span></div>
-                        <div class="price-row total"><span>Total</span><span class="gold-text" id="modalTotalPrice">$0.00</span></div>
-                    </div>
-
-                    <!-- In-app-browser warning. This page had no user-facing
-                         handling at all despite being a checkout surface --
-                         Stripe's 3DS step can't run inside the Instagram /
-                         Facebook webview, so say so here rather than letting
-                         the card silently fail. Revealed by script below only
-                         for those webviews; the Chrome button within it is
-                         Android-only (iOS has no way out of a webview). -->
-                    <div class="modal-iab-warn" id="modalIabWarn" style="display:none">
-                        <strong>Checkout may fail in this app's browser.</strong>
-                        <span>Instagram and Facebook block the security step your card needs. Open this page in Chrome or Safari to pay.</span>
-                        <button type="button" id="modalIabChrome" style="display:none">🚀 Open in Chrome</button>
-                        <button type="button" id="modalIabCopy">📋 Copy link</button>
                     </div>
 
                     <div class="checkout-testimonial" id="rqBox"><span id="rqText"></span> <span class="who" id="rqWho"></span></div>
@@ -1467,7 +1480,6 @@
                       })();
                     </script>
 
-                    <button type="submit" class="checkout-btn" id="modalCheckoutBtn" disabled>Select Gender</button>
 
                     <!-- Fine print, consolidated and moved BELOW the button. Order is
                          usefulness-descending: what the buyer gets, then what a purchase is
@@ -1930,12 +1942,12 @@
             tryEscapeInAppBrowser(true);
             if (typeof gtag === 'function') gtag('event', 'in_app_browser_detected', { source: 'events' });
 
-            const warn = document.getElementById('modalIabWarn');
-            if (warn) warn.style.display = 'block';
+            const help = document.getElementById('modalIabHelp');
+            if (help) help.hidden = false;
 
             const chromeBtn = document.getElementById('modalIabChrome');
             if (chromeBtn && /Android/i.test(navigator.userAgent)) {
-                chromeBtn.style.display = '';
+                chromeBtn.hidden = false;
                 chromeBtn.addEventListener('click', () => tryEscapeInAppBrowser(false));
             }
 
@@ -1943,8 +1955,8 @@
             if (copyBtn) copyBtn.addEventListener('click', () => {
                 try {
                     navigator.clipboard.writeText(location.href);
-                    copyBtn.textContent = '✓ Copied!';
-                    setTimeout(() => { copyBtn.textContent = '📋 Copy link'; }, 2000);
+                    copyBtn.textContent = 'Copied';
+                    setTimeout(() => { copyBtn.textContent = 'Copy the link'; }, 2000);
                 } catch (_) {}
                 if (typeof gtag === 'function') gtag('event', 'in_app_browser_copy_link', { source: 'events' });
             });
@@ -2259,6 +2271,7 @@
             document.getElementById('modalSuccessMessage').style.display = 'none';
             document.getElementById('modalErrorMessage').style.display = 'none';
             cardElementModal.clear();
+            modalFieldsTracked = new Set();
             applyUserContextToModal();
             updateModalPricing();
         }
@@ -2287,8 +2300,11 @@
                 document.getElementById('modalSubtotalPrice').textContent = seeded ? money(seed) : '$0.00';
                 document.getElementById('modalServiceFee').textContent = seeded ? money(SERVICE_FEE) : '$0.00';
                 document.getElementById('modalTotalPrice').textContent = seeded ? money(seed + SERVICE_FEE) : '$0.00';
-                btn.textContent = 'Select Gender';
-                btn.disabled = true;
+                // Enabled and priced from the first frame. A missing gender is
+                // caught on submit ("Choose Woman or Man to continue"), not by
+                // a disabled button -- see the note above the button markup.
+                btn.textContent = seeded ? `Reserve Spot · ${money(seed + SERVICE_FEE)}` : 'Reserve Spot';
+                btn.disabled = false;
                 // No priced total is on screen, so there's no quote to hold the
                 // submit handler to — and clearing it stops a previous dialog's
                 // quote from leaking into the next event's staleness check.
@@ -2316,6 +2332,47 @@
             btn.disabled = false;
         }
         document.getElementById('modalGender').addEventListener('change', updateModalPricing);
+
+        // Gender is two tap targets writing into the hidden #modalGender, so
+        // every existing `.value` read (pricing, submit, member pre-fill) is
+        // untouched. syncGenderButtons() mirrors the input back onto the
+        // buttons, including the disabled state a signed-in member gets.
+        function syncGenderButtons() {
+            const input = document.getElementById('modalGender');
+            document.querySelectorAll('#modalCheckoutForm .gender-btn').forEach((b) => {
+                b.setAttribute('aria-checked', b.dataset.gender === input.value ? 'true' : 'false');
+                b.disabled = input.disabled;
+            });
+        }
+        document.querySelectorAll('#modalCheckoutForm .gender-btn').forEach((b) => {
+            b.addEventListener('click', () => {
+                const input = document.getElementById('modalGender');
+                if (input.disabled) return;
+                input.value = b.dataset.gender;
+                syncGenderButtons();
+                trackModalField('gender');
+                input.dispatchEvent(new Event('change'));
+            });
+        });
+
+        // Per-field first-focus events, so the drop between fields is visible
+        // in GA4 instead of only the gap between begin_checkout and
+        // add_to_cart. Reset per dialog open (resetCheckoutForm). The `field`
+        // parameter needs registering as an event-scoped custom dimension in
+        // GA4 Admin before it is queryable -- the Admin API is disabled on
+        // this project, so that is a UI step.
+        let modalFieldsTracked = new Set();
+        function trackModalField(field) {
+            if (modalFieldsTracked.has(field)) return;
+            modalFieldsTracked.add(field);
+            if (typeof gtag === 'function') gtag('event', 'checkout_field_started', { field, source: 'events' });
+        }
+        [['modalName', 'name'], ['modalEmail', 'email']].forEach(([id, field]) => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('focus', () => trackModalField(field));
+        });
+        cardElementModal.on('focus', () => trackModalField('card'));
+        document.getElementById('modalTwoForOne').addEventListener('change', () => trackModalField('two_for_one'));
         document.getElementById('modalTwoForOne').addEventListener('change', (e) => {
             const fields = document.getElementById('modalPlusOneFields');
             const on = e.target.checked;
@@ -2333,7 +2390,6 @@
             const genderSelect = document.getElementById('modalGender');
             const nameInput = document.getElementById('modalName');
             const emailInput = document.getElementById('modalEmail');
-            const phoneInput = document.getElementById('modalPhone');
             const cardGroup = document.getElementById('modalCardFormGroup');
             const cardOnFileNotice = document.getElementById('modalCardOnFileNotice');
             const trialDisclosure = document.getElementById('modalTrialDisclosure');
@@ -2344,16 +2400,16 @@
             cardOnFileNotice.style.display = 'none';
             trialDisclosure.style.display = '';
 
-            if (!userProfile) return;
+            if (!userProfile) { syncGenderButtons(); return; }
 
             if (userProfile.gender === 'man' || userProfile.gender === 'woman') {
                 genderSelect.value = userProfile.gender;
                 genderSelect.disabled = true;
             }
+            syncGenderButtons();
             const profileName = userProfile.name || userProfile.displayName;
             if (profileName) { nameInput.value = profileName; nameInput.disabled = true; }
             if (userProfile.email && !emailInput.value) emailInput.value = userProfile.email;
-            if (userProfile.phone && !phoneInput.value) phoneInput.value = userProfile.phone;
 
             if (userProfile.stripeCustomerId) {
                 cardGroup.style.display = 'none';
@@ -2380,7 +2436,9 @@
             const gender = document.getElementById('modalGender').value;
             const name = document.getElementById('modalName').value.trim();
             const email = document.getElementById('modalEmail').value.trim();
-            const phone = document.getElementById('modalPhone').value.trim();
+            // Phone is not asked on this form any more; the API treats it as
+            // optional and the post-purchase profile link collects it.
+            const phone = '';
             const btn = document.getElementById('modalCheckoutBtn');
             const errorMsg = document.getElementById('modalErrorMessage');
             const successMsg = document.getElementById('modalSuccessMessage');
@@ -2395,6 +2453,7 @@
             btn.textContent = 'Processing...';
 
             try {
+                if (!gender) throw new Error('Choose Woman or Man to continue.');
                 if (!name) throw new Error('Please enter your name.');
 
                 const twoForOne = document.getElementById('modalTwoForOne').checked;
@@ -2403,7 +2462,7 @@
                     const poGender = document.getElementById('modalPlusOneGender').value;
                     const poName = document.getElementById('modalPlusOneName').value.trim();
                     const poEmail = document.getElementById('modalPlusOneEmail').value.trim();
-                    const poPhone = document.getElementById('modalPlusOnePhone').value.trim();
+                    const poPhone = '';
                     if (!poGender || !poName || !poEmail) {
                         throw new Error("Please fill in your +1's gender, name, and email — or uncheck 2-for-1.");
                     }
@@ -2573,7 +2632,8 @@
                 console.error('[events] checkout error', err);
                 const msg = (err.message || '').toLowerCase();
                 let friendly, category;
-                if (msg.includes('enter your name')) { friendly = err.message; category = 'name_missing'; }
+                if (msg.includes('choose woman')) { friendly = err.message; category = 'gender_missing'; }
+                else if (msg.includes('enter your name')) { friendly = err.message; category = 'name_missing'; }
                 else if (msg.includes('limit') || msg.includes('full on') || msg.includes('event is full')) { friendly = err.message; category = 'capacity'; }
                 else if (msg.includes('declin')) { friendly = 'Your card was declined. Please try a different payment method.'; category = 'card_declined'; }
                 else if (msg.includes('network')) { friendly = 'Network error. Please check your connection and try again.'; category = 'network'; }
@@ -2582,6 +2642,10 @@
                 if (typeof gtag === 'function') gtag('event', 'checkout_error', { in_app_browser: isInAppBrowserModal(), category, reason: msg.slice(0, 100) });
                 errorMsg.textContent = friendly;
                 errorMsg.style.display = 'block';
+                if (category === 'gender_missing') {
+                    const first = document.querySelector('#modalCheckoutForm .gender-btn');
+                    if (first) first.focus();
+                }
                 dialogPaying = false;
                 btn.disabled = false;
                 updateModalPricing();

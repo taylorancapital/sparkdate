@@ -36,8 +36,28 @@
       // they are the same expression on purpose.
       gtag('config', 'G-21YLCC35F1', {
         'page_path': window.location.pathname + window.location.search,
+        // 1 when the page was loaded while hidden. Meta's in-app browser
+        // pre-opens ad destinations before the user swipes to them, and a
+        // hidden load still fires page_view -- so some share of this page's
+        // "sessions" are pages nobody saw. Registered as a custom dimension,
+        // this separates those ghosts from human bounces; the paid funnel
+        // audit could not (reports/PAID_FUNNEL_AUDIT_2026-09-02.md §1).
+        'page_started_hidden': (typeof document.hidden !== 'undefined' && document.hidden) ? 1 : 0,
         'in_app_browser': /FBAN|FBAV|Instagram|Line\/|TikTok|BytedanceWebview|Twitter/i.test(navigator.userAgent)
       });
+      // lp_visible: once, the first time a human can see this page. With
+      // page_started_hidden above, "sessions with lp_visible" is the human
+      // denominator for every /lp rate.
+      (function () {
+        var startedHidden = (typeof document.hidden !== 'undefined' && document.hidden);
+        function fire() { gtag('event', 'lp_visible', { started_hidden: startedHidden ? 1 : 0 }); }
+        if (!startedHidden) { fire(); return; }
+        document.addEventListener('visibilitychange', function once() {
+          if (document.hidden) return;
+          document.removeEventListener('visibilitychange', once);
+          fire();
+        });
+      })();
           // view_promotion -- the impression half of the promotion pair.
       //
       // Until now this site fired select_promotion (the click) and never
@@ -109,7 +129,7 @@
         .logo span { color: var(--coral); }
         h1 { font-family: 'Playfair Display', serif; font-size: clamp(34px, 8vw, 52px); font-weight: 900; line-height: 1.1; letter-spacing: -1px; margin-bottom: 18px; }
         h1 .hl { color: var(--coral); }
-        .sub { font-size: 18px; color: rgba(245,243,240,0.8); margin-bottom: 36px; }
+        .sub { font-size: 18px; color: rgba(245,243,240,0.8); margin-bottom: 28px; }
         .capture { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,107,107,0.25); border-radius: 10px; padding: 30px 24px; margin-bottom: 28px; }
         .capture h2 { font-family: 'Playfair Display', serif; font-size: 24px; margin-bottom: 8px; }
         .capture p { font-size: 14px; color: rgba(245,243,240,0.7); margin-bottom: 18px; }
@@ -141,6 +161,60 @@
         .divider { font-size: 13px; color: rgba(245,243,240,0.5); margin: 24px 0 18px; text-transform: uppercase; letter-spacing: 1px; }
         .foot { margin-top: 40px; font-size: 12px; color: rgba(245,243,240,0.45); }
         .foot a { color: rgba(245,243,240,0.6); }
+        /* One line of what the night is, inside the card the ad lands on. The
+           in-app visitor averages about a second on this page and the quote
+           below the card types itself out; this is the proof they can read in
+           that second. Facts from content/brand.json run_of_show -- no number. */
+        .event .proof { font-size: 13.5px; line-height: 1.45; opacity: 0.95; margin: -4px 0 14px; }
+
+        /* Inline checkout. The tap used to buy a second page (175 KB of HTML,
+           Firebase, a Firestore read, then Stripe) before a form existed --
+           two seconds on a wired desktop, longer in a throttled webview, and
+           the visitor watched an events grid load and a modal pop over it.
+           Now the form opens here, under the card, for the event the card has
+           already resolved: Stripe.js and /api/purchase-ticket are all it
+           needs. /events keeps its dialog for browsing and email links. The
+           form is a copy of that dialog's (no shared bundle); keep the two in
+           step. Phone is deliberately not asked. */
+        .lp-checkout { display: none; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,107,107,0.25); border-radius: 10px; padding: 22px 20px 20px; margin: 14px 0 28px; text-align: left; }
+        .lp-checkout.open { display: block; }
+        .lp-checkout h2 { font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 4px; }
+        .lp-checkout .for { font-size: 13px; color: rgba(245,243,240,0.6); margin-bottom: 12px; }
+        .lp-checkout form { display: block; }
+        .lp-checkout .fg { margin-bottom: 12px; }
+        .lp-checkout label { display: block; font-size: 12px; font-weight: 700; color: var(--cream); margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .lp-checkout input[type=text], .lp-checkout input[type=email], .lp-checkout select { width: 100%; min-width: 0; padding: 12px 14px; background: #fff; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; color: #000; font-family: inherit; font-size: 16px; }
+        .lp-checkout input:focus, .lp-checkout select:focus { outline: none; border-color: var(--coral); }
+        .gender-choice { display: flex; gap: 10px; }
+        .gender-btn { flex: 1; padding: 13px 10px; background: #fff; color: #0a0e27; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; font-family: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
+        .gender-btn[aria-checked="true"] { border-color: var(--coral); box-shadow: inset 0 0 0 1px var(--coral); }
+        .gender-btn[aria-checked="true"]::before { content: '✓ '; color: var(--coral); }
+        .gender-btn:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+        #lpCard { padding: 12px 14px; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; background: #fff; min-height: 46px; }
+        #lpCard.StripeElement--focus { border-color: var(--coral); }
+        #lpCard.StripeElement--invalid { border-color: var(--danger); }
+        .lp-checkout .card-note { font-size: 12px; color: rgba(245,243,240,0.5); margin-top: 6px; }
+        .lp-two { display: flex; gap: 10px; align-items: flex-start; background: rgba(212,175,55,0.08); border: 1px solid rgba(212,175,55,0.35); border-radius: 4px; padding: 12px 14px; margin: 14px 0 0; }
+        .lp-two input { margin-top: 3px; width: 16px; height: 16px; flex-shrink: 0; }
+        .lp-two label { margin: 0; text-transform: none; font-weight: 400; letter-spacing: 0; font-size: 13px; line-height: 1.5; }
+        .lp-two label b { color: #d4af37; }
+        .lp-plus { display: none; border-top: 1px dashed rgba(255,107,107,0.25); margin: 12px 0 0; padding-top: 12px; }
+        .lp-plus.active { display: block; }
+        .lp-plus .po-h { font-size: 12px; font-weight: 700; color: var(--coral); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+        /* One line, not three rows: the button carries the total, this says
+           what it is made of. Keeps the button above the fold on a phone. */
+        .lp-price { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; background: rgba(10,14,39,0.5); padding: 10px 12px; border-radius: 4px; margin-bottom: 12px; font-size: 13px; color: rgba(245,243,240,0.8); }
+        .lp-price #lpCoTotal { font-size: 18px; font-weight: 700; color: #d4af37; white-space: nowrap; }
+        .lp-checkout .pay { width: 100%; padding: 16px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+        .lp-checkout .msg { margin: 0 0 12px; }
+        .lp-checkout .help { font-size: 12.5px; color: rgba(245,243,240,0.6); margin: 10px 0 0; line-height: 1.5; }
+        .lp-checkout .help button { background: none; border: 0; padding: 0; color: var(--cream); text-decoration: underline; font: inherit; font-size: 12.5px; cursor: pointer; }
+        .lp-checkout .fine { font-size: 12px; color: rgba(245,243,240,0.55); margin-top: 12px; line-height: 1.6; }
+        .lp-checkout .fine a { color: rgba(245,243,240,0.75); }
+        .lp-done { display: none; text-align: center; }
+        .lp-done.show { display: block; }
+        .lp-done h2 { font-family: 'Playfair Display', serif; font-size: 24px; margin-bottom: 8px; }
+        .lp-done p { font-size: 14px; color: rgba(245,243,240,0.8); }
         .iab-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; background: rgba(255,107,107,0.12); border: 1px solid rgba(255,107,107,0.35); border-radius: 8px; padding: 10px 14px; margin-bottom: 20px; font-size: 13px; text-align: left; }
         .iab-banner span { flex: 1; min-width: 200px; }
         .iab-banner button { padding: 6px 12px; font-size: 12px; border-radius: 4px; }
@@ -406,6 +480,10 @@
                  urgency the ad promised. The placeholder now says nothing it might
                  have to take back. -->
             <div class="meta" id="lpMeta">📍 Lancaster &amp; Philadelphia · tap for dates</div>
+            <!-- What the night is, in one line the one-second visitor can
+                 read. Both sentences are approved copy: the run of show in
+                 content/brand.json and the female close template. No number. -->
+            <div class="proof">Hosts make the introductions. Drinks, then an icebreaker, then conversations.</div>
             <a class="ticket" id="lpTicketBtn" href="/events">Get Tickets</a>
             <!-- $2.50 mirrors SERVICE_FEE_CENTS in lib/pricing.js, the same way the
                  SERVICE_FEE consts in events.html and event.html do. Disclosed here so
@@ -415,8 +493,53 @@
             <div class="fine">Secure checkout · no account needed · + $2.50 service fee</div>
         </div>
 
+        <!-- Inline checkout: opens under the card on the Get Tickets tap and
+             sells the event the card resolved. See .lp-checkout in the
+             stylesheet for why it exists, and the script below for the flow. -->
+        <section class="lp-checkout" id="lpCheckout" aria-label="Checkout">
+            <div id="lpCheckoutForm">
+                <h2>Reserve your spot</h2>
+                <div class="for" id="lpFor">—</div>
+                <form id="lpPay">
+                    <div class="fg">
+                        <label id="lpGenderLabel">I am a</label>
+                        <div class="gender-choice" role="radiogroup" aria-labelledby="lpGenderLabel">
+                            <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="woman">Woman</button>
+                            <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="man">Man</button>
+                        </div>
+                    </div>
+                    <div class="fg"><label for="lpName">Name</label><input type="text" id="lpName" autocomplete="name" placeholder="Jane Doe" required></div>
+                    <div class="fg"><label for="lpEmail">Email</label><input type="email" id="lpEmail" autocomplete="email" placeholder="you@example.com" required></div>
+                    <div class="fg"><label>Payment card</label><div id="lpCard"></div><div class="card-note">🔒 Payments processed securely by Stripe</div></div>
+                    <div class="lp-price"><span id="lpCoLine">Ticket + $2.50 service fee</span><span id="lpCoTotal"></span></div>
+                    <div class="msg" id="lpPayMsg" role="alert"></div>
+                    <button type="submit" class="pay" id="lpPayBtn">Reserve Spot</button>
+                    <p class="help" id="lpIabHelp" hidden>Trouble paying inside this app? <button type="button" id="lpIabCopy">Copy the link</button> and open it in Safari or Chrome. <button type="button" id="lpIabChrome" hidden>Or open in Chrome now.</button></p>
+                    <!-- Offered to every buyer; only ADVERTISED to women
+                         (content/brand.json caption_rules). Below the button
+                         so the button stays above the fold on a phone; ticking
+                         it re-labels the button and reveals the +1 fields. -->
+                    <div class="lp-two">
+                        <input type="checkbox" id="lpTwo">
+                        <label for="lpTwo"><b>🎉 2-for-1:</b> bring someone for free. Add their details below - you're only charged for one ticket.</label>
+                    </div>
+                    <div class="lp-plus" id="lpPlus">
+                        <div class="po-h">Your +1 (free)</div>
+                        <div class="fg"><label for="lpPoGender">Their gender</label><select id="lpPoGender"><option value="">Select...</option><option value="woman">Woman</option><option value="man">Man</option></select></div>
+                        <div class="fg"><label for="lpPoName">Their name</label><input type="text" id="lpPoName" placeholder="Jane Doe"></div>
+                        <div class="fg"><label for="lpPoEmail">Their email</label><input type="email" id="lpPoEmail" placeholder="them@example.com"></div>
+                    </div>
+                    <div class="fine">🎫 One-time ticket purchase · 🔒 Secure checkout · 🔄 Free ticket transfer · 👤 Real host on-site<br>By purchasing you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>. Must be 21+ with valid ID.</div>
+                </form>
+            </div>
+            <div class="lp-done" id="lpDone">
+                <h2>You're confirmed.</h2>
+                <p id="lpDoneLine">Check your email for event details.</p>
+            </div>
+        </section>
+
         <div class="iab-banner" id="iabBanner" style="display:none">
-            <span>Checkout can fail inside Instagram/Facebook. Tap <strong>⋮</strong> or <strong>•••</strong> → <strong>"Open in browser"</strong> to buy — or join the list below and we'll email you a link that works.</span>
+            <span>Using Instagram or Facebook's browser? If anything misbehaves, tap <strong>⋮</strong> or <strong>•••</strong> → <strong>"Open in browser"</strong>, or join the list below and we'll email you a link.</span>
             <!-- Android only: revealed by the script below, which can hand the
                  page straight to Chrome. Hidden on iOS, where no such jump
                  exists and the instructions above are the only route out. -->
@@ -476,9 +599,23 @@
             // (60 chars x 28ms = 1.7s). A hold shorter than the typing leaves a quote
             // half-written for more of its life than it is whole.
             var idx = 0, TYPE_MS = 28, ERASE_MS = 12, HOLD_MS = 3600;
+            // The first quote renders whole and signed; the typewriter takes
+            // over from the first rotation. Paid in-app sessions average about
+            // a second on this page (PAID_FUNNEL_AUDIT_2026-09-02 §1), and the
+            // first frame they saw was "Good ne". The rotation itself is
+            // unchanged, so the rules in tests/testimonial-rotator.test.js hold.
+            var first = true;
 
             function typeNext() {
               var item = TESTIMONIALS[idx];
+              if (first) {
+                first = false;
+                boxEl.classList.remove('typing');
+                textEl.textContent = item.q;
+                whoEl.textContent = '— ' + item.who;
+                setTimeout(erase, HOLD_MS);
+                return;
+              }
               // Name and closing quote mark are both withheld until the last character
               // lands; .typing puts a caret in the closing mark's slot meanwhile.
               whoEl.textContent = '';
@@ -913,7 +1050,7 @@
         }
 
         var btn = $('lpTicketBtn');
-        fetchNextEventWithRetry(0).then(function (data) {
+        function applyEvent(data) {
           var ev = data && data.event;
           if (!ev || !ev.id || !btn) {
             // A requested eventId that resolves to nothing (deleted/expired
@@ -973,6 +1110,12 @@
           // never point at different events.
           var sBtn = $('lpStickyBtn');
           if (sBtn) sBtn.href = btn.href;
+          // The inline checkout below the card sells THIS event. Kept on the
+          // resolved object so the form, its prices and the deep link can
+          // never disagree about which event is being sold.
+          coEvent = ev;
+          coEvent.dateLabel = dl;
+          if (coOpen) coUpdatePrice();
           if ($('lpStickyTitle')) $('lpStickyTitle').textContent = ev.title || 'SparkDate Mixer';
           if ($('lpStickyMeta') && $('lpMeta')) $('lpStickyMeta').textContent = $('lpMeta').textContent;
 
@@ -1007,7 +1150,8 @@
             // city-personalized waitlist line.
             if ($('lpWaitlistCopy') && !isInAppBrowser()) $('lpWaitlistCopy').textContent = 'Be first to hear about our next ' + city + ' mixer. No spam, unsubscribe anytime.';
           }
-        }).catch(function () {
+        }
+        function eventFailed() {
           // Previously swallowed silently. When /api/next-event fails, the
           // ticket button keeps its static /events fallback, but the failure
           // is now visible in analytics instead of only inferable from Vercel
@@ -1025,7 +1169,8 @@
             reason: lastFetchError || 'unknown',
             page_started_hidden: pageStartedHidden ? 1 : 0
           });
-        });
+        }
+        fetchNextEventWithRetry(0).then(applyEvent).catch(eventFailed);
         // The Get Tickets tap now navigates for everyone. It used to be
         // intercepted inside in-app browsers and answered with a copy-paste
         // wall; Meta Insights for Aug 7-13 showed that costing more than it
@@ -1048,7 +1193,7 @@
         // together events from unrelated journeys. The in-app-browser
         // comparison above is unaffected — it only needs a consistent first
         // step, and this is a more honest one.
-        if (btn) btn.addEventListener('click', function () {
+        if (btn) btn.addEventListener('click', function (e) {
           if (typeof gtag === 'function') {
             gtag('event', 'select_promotion', {
               promotion_name: 'lp_get_tickets',
@@ -1056,6 +1201,257 @@
               in_app_browser: isInAppBrowser(),
               target_event_id: requestedEventId || undefined
             });
+          }
+          // Open the form here instead of navigating -- unless the event is
+          // sold out or never resolved, in which case the link goes through
+          // to /events, where the waitlist lives.
+          openInlineCheckout(e);
+        });
+
+        // ── Inline checkout ────────────────────────────────────────────
+        // A copy of the events.html dialog's checkout, without the page. The
+        // server prices every charge itself (api/purchase-ticket.js), so this
+        // form only has to show the right number and send the right fields.
+        // SERVICE_FEE mirrors SERVICE_FEE_CENTS in lib/pricing.js; tests/
+        // pricing.test.js checks this copy alongside the other two.
+        const SERVICE_FEE = 2.50;
+        var STRIPE_PK ='pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1';
+        var coEvent = null;      // the resolved event the card sells (set in applyEvent)
+        var coOpen = false;
+        var coGender = '';
+        var coPaying = false;
+        var coStripe = null, coCard = null, coCardReady = false;
+        var coFields = {};       // first-focus tracking, per page load
+        var coAddedToCart = false;
+        var coQuoted = null;     // ticket price the buyer was last shown with a gender chosen
+        var fmt2 = function (n) { return '$' + Number(n).toFixed(2); };
+
+        // Gender-aware price. /api/next-event returns priceWoman/priceMan for
+        // legacy gender-split events and the resolved price for the rest;
+        // the server re-resolves at charge time either way.
+        function coPrice(gender) {
+          if (!coEvent) return 0;
+          var p = (gender === 'woman' && coEvent.priceWoman != null) ? coEvent.priceWoman
+                : (gender === 'man' && coEvent.priceMan != null) ? coEvent.priceMan
+                : coEvent.price;
+          p = Number(p);
+          return (isFinite(p) && p > 0) ? p : 0;
+        }
+        function coSellable(ev) {
+          if (!ev || !ev.id) return false;
+          if (ev.status === 'full') return false;
+          if (ev.spotsRemaining != null && Number(ev.spotsRemaining) <= 0) return false;
+          return Number(ev.price) > 0;
+        }
+        function coItem(price) {
+          return { item_id: coEvent.id, item_name: coEvent.title || 'SparkDate Mixer', price: price };
+        }
+        // Per-field first-focus events; `field` needs registering as a custom
+        // dimension in GA4 Admin before it is queryable (same as events.html).
+        function coTrack(field) {
+          if (coFields[field]) return;
+          coFields[field] = 1;
+          if (typeof gtag === 'function') gtag('event', 'checkout_field_started', { field: field, source: 'lp' });
+        }
+        function coUpdatePrice() {
+          var ticket = coPrice(coGender), two = $('lpTwo') && $('lpTwo').checked;
+          var seeded = ticket > 0;
+          // Ids are prefixed lpCo-: the page already owns #lpSub (the subline).
+          if ($('lpCoLine')) $('lpCoLine').textContent = seeded
+            ? (fmt2(ticket) + (two ? ' for 2 tickets (2-for-1)' : ' ticket') + ' + ' + fmt2(SERVICE_FEE) + ' service fee')
+            : 'Ticket + ' + fmt2(SERVICE_FEE) + ' service fee';
+          if ($('lpCoTotal')) $('lpCoTotal').textContent = seeded ? fmt2(ticket + SERVICE_FEE) : '';
+          // Enabled and priced from the first frame; a missing gender is
+          // caught on submit, not by a disabled button.
+          if ($('lpPayBtn') && !coPaying) $('lpPayBtn').textContent = seeded
+            ? ((two ? 'Reserve 2 Spots (2-for-1) · ' : 'Reserve Spot · ') + fmt2(ticket + SERVICE_FEE))
+            : 'Reserve Spot';
+          coQuoted = coGender ? ticket : null;
+        }
+        // Stripe.js is preloaded once the event resolves (see applyEvent) but
+        // only EXECUTED on the tap: it is 60 KB of script the 96% who never tap
+        // should not have to parse inside a throttled webview.
+        function loadStripe() {
+          if (coStripe || !coEvent) return;
+          function mount() {
+            if (coStripe || typeof Stripe !== 'function') return;
+            coStripe = Stripe(STRIPE_PK);
+            var els = coStripe.elements({ appearance: { theme: 'stripe', variables: { colorPrimary: '#ff6b6b', colorBackground: '#ffffff', colorText: '#000000', colorDanger: '#f87171', fontFamily: 'Inter, sans-serif', fontSizeBase: '16px', borderRadius: '4px' } } });
+            coCard = els.create('card');
+            coCard.mount('#lpCard');
+            coCard.on('ready', function () { coCardReady = true; });
+            coCard.on('focus', function () { coTrack('card'); });
+          }
+          if (typeof Stripe === 'function') { mount(); return; }
+          var s = document.createElement('script');
+          s.src = 'https://js.stripe.com/v3/'; s.async = true; s.onload = mount;
+          document.head.appendChild(s);
+        }
+        function openInlineCheckout(e) {
+          if (!coSellable(coEvent)) return false; // let the link navigate
+          if (e && e.preventDefault) e.preventDefault();
+          var sec = $('lpCheckout');
+          if (!sec) return false;
+          if (!coOpen) {
+            coOpen = true;
+            sec.classList.add('open');
+            if ($('lpFor')) $('lpFor').textContent = [coEvent.title || 'SparkDate Mixer', coEvent.dateLabel].filter(Boolean).join(' · ');
+            coUpdatePrice();
+            loadStripe();
+            var p = coPrice('');
+            // Same events the /events dialog fires on opening straight to
+            // checkout, so the funnels read this path and that one alike.
+            // view_item on /lp is new from 2026-09-03 (ANALYTICS_METHOD §4).
+            if (typeof gtag === 'function') {
+              gtag('event', 'view_item', { currency: 'USD', value: p, items: [coItem(p)] });
+              gtag('event', 'begin_checkout', { currency: 'USD', value: p, items: [coItem(p)] });
+              gtag('event', 'checkout_form_started', { source: 'lp', skipped_details: true });
+            }
+            if (typeof fbq === 'function') {
+              fbq('track', 'ViewContent', { content_ids: [coEvent.id], content_name: coEvent.title || 'SparkDate Mixer', content_type: 'product', value: p, currency: 'USD' });
+              fbq('track', 'InitiateCheckout', { content_ids: [coEvent.id], value: p, currency: 'USD' });
+            }
+            if (isInAppBrowser()) {
+              if ($('lpIabHelp')) $('lpIabHelp').hidden = false;
+              if ($('lpIabChrome') && /Android/i.test(navigator.userAgent)) $('lpIabChrome').hidden = false;
+            }
+            // The sticky bar would cover the Reserve button; the form is the
+            // call to action now.
+            var bar = $('lpSticky');
+            if (bar) { bar.classList.remove('show'); document.body.classList.remove('has-sticky'); }
+          }
+          try { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) { sec.scrollIntoView(); }
+          var g = sec.querySelector('.gender-btn');
+          if (g) setTimeout(function () { try { g.focus({ preventScroll: true }); } catch (_) {} }, 350);
+          return true;
+        }
+        window.sdOpenCheckout = openInlineCheckout;
+        window.sdCheckoutOpen = function () { return coOpen; };
+
+        function coSetGender(g) {
+          coGender = g;
+          document.querySelectorAll('#lpPay .gender-btn').forEach(function (b) {
+            b.setAttribute('aria-checked', b.getAttribute('data-gender') === g ? 'true' : 'false');
+          });
+          coTrack('gender');
+          // add_to_cart / AddToCart once per page load, on the first gender
+          // pick -- the same milestone the /events dialog uses.
+          if (!coAddedToCart && coEvent) {
+            coAddedToCart = true;
+            var p = coPrice(g);
+            if (typeof fbq === 'function') fbq('track', 'AddToCart', { content_ids: [coEvent.id], content_name: coEvent.title || 'SparkDate Mixer', content_type: 'product', value: p, currency: 'USD' });
+            if (typeof gtag === 'function') gtag('event', 'add_to_cart', { currency: 'USD', value: p, items: [coItem(p)] });
+          }
+          coUpdatePrice();
+        }
+        document.querySelectorAll('#lpPay .gender-btn').forEach(function (b) {
+          b.addEventListener('click', function () { coSetGender(b.getAttribute('data-gender')); });
+        });
+        [['lpName', 'name'], ['lpEmail', 'email']].forEach(function (pair) {
+          var el = $(pair[0]);
+          if (el) el.addEventListener('focus', function () { coTrack(pair[1]); });
+        });
+        if ($('lpTwo')) $('lpTwo').addEventListener('change', function (ev) {
+          var on = ev.target.checked;
+          if ($('lpPlus')) $('lpPlus').classList.toggle('active', on);
+          ['lpPoGender', 'lpPoName', 'lpPoEmail'].forEach(function (id) { if ($(id)) $(id).required = on; });
+          coTrack('two_for_one');
+          coUpdatePrice();
+        });
+        if ($('lpIabCopy')) $('lpIabCopy').addEventListener('click', function () {
+          try {
+            navigator.clipboard.writeText(location.href);
+            $('lpIabCopy').textContent = 'Copied';
+            setTimeout(function () { $('lpIabCopy').textContent = 'Copy the link'; }, 2000);
+          } catch (_) {}
+          if (typeof gtag === 'function') gtag('event', 'in_app_browser_copy_link', { source: 'lp_checkout' });
+        });
+        if ($('lpIabChrome')) $('lpIabChrome').addEventListener('click', function () { tryEscapeInAppBrowser(false); });
+
+        if ($('lpPay')) $('lpPay').addEventListener('submit', async function (e) {
+          e.preventDefault();
+          if (coPaying) return;
+          var payBtn = $('lpPayBtn'), pm = $('lpPayMsg');
+          pm.style.display = 'none';
+          coPaying = true; payBtn.disabled = true; payBtn.textContent = 'Processing...';
+          var name = $('lpName').value.trim(), email = $('lpEmail').value.trim();
+          var ticket = coPrice(coGender);
+          try {
+            if (!coGender) throw new Error('Choose Woman or Man to continue.');
+            if (!name) throw new Error('Please enter your name.');
+            if (!coCard || !coCardReady) throw new Error('The card field is still loading. Please try again in a moment.');
+            var plusOne = null;
+            if ($('lpTwo').checked) {
+              var pg = $('lpPoGender').value, pn = $('lpPoName').value.trim(), pe = $('lpPoEmail').value.trim();
+              if (!pg || !pn || !pe) throw new Error("Please fill in your +1's gender, name, and email - or untick 2-for-1.");
+              plusOne = { gender: pg, name: pn, email: pe, phone: '' };
+            }
+            // The server re-resolves the price at charge time. If early bird
+            // ended while this form sat open, re-fetch and stop rather than
+            // charge a number that was never on screen.
+            if (coEvent.isEarlyBird && coEvent.earlyBirdEnds && Date.now() >= new Date(coEvent.earlyBirdEnds).getTime()) {
+              fetchNextEventWithRetry(0).then(applyEvent).catch(function () {});
+              throw new Error('Heads up - early-bird pricing for this event just ended, so the total changed. Tap again to continue at the new price.');
+            }
+            var pmr = await coStripe.createPaymentMethod({ type: 'card', card: coCard, billing_details: { name: name, email: email } });
+            if (pmr.error) throw new Error(pmr.error.message);
+            if (typeof gtag === 'function') gtag('event', 'add_payment_info', { currency: 'USD', value: ticket + SERVICE_FEE, payment_type: 'card', items: [coItem(ticket)] });
+            if (typeof fbq === 'function') fbq('track', 'AddPaymentInfo', { content_ids: [coEvent.id], value: ticket + SERVICE_FEE, currency: 'USD' });
+            var payload = { paymentMethodId: pmr.paymentMethod.id, email: email, name: name, phone: '', gender: coGender, eventId: coEvent.id, plusOne: plusOne, ref: refOf(),
+              // First-touch attribution captured at the top of this page, read
+              // at purchase so an ad click still credits the ad weeks later.
+              attribution: (function () { try { return JSON.parse(localStorage.getItem('sparkdate_attr') || 'null'); } catch (_) { return null; } })(),
+              // Meta's cookies, carried so the server-side Purchase event from
+              // the Stripe webhook can match the browser one.
+              fbp: (typeof spdCookie === 'function' ? spdCookie('_fbp') : null),
+              fbc: (typeof spdCookie === 'function' ? spdCookie('_fbc') : null) };
+            var res = await fetch('/api/purchase-ticket', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            var result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Payment failed');
+            var piId = result.paymentIntentId || null, authed = false;
+            if (result.requiresAction) {
+              if (typeof gtag === 'function') gtag('event', 'checkout_3ds_required', { in_app_browser: isInAppBrowser() });
+              var c = await coStripe.confirmCardPayment(result.clientSecret);
+              if (c.error) throw new Error(c.error.message || 'Payment authentication failed.');
+              if (c.paymentIntent && c.paymentIntent.status !== 'succeeded') throw new Error('Payment did not complete. Please try again.');
+              if (c.paymentIntent) piId = c.paymentIntent.id;
+              authed = true;
+              if (typeof gtag === 'function') gtag('event', 'checkout_3ds_completed', { in_app_browser: isInAppBrowser() });
+            }
+            if (!result.duplicate || authed) {
+              var value = typeof result.amount === 'number' ? result.amount / 100 : ticket + SERVICE_FEE;
+              var seats = plusOne ? 2 : 1, perSeat = parseFloat((ticket / seats).toFixed(2));
+              if (typeof gtag === 'function') gtag('event', 'purchase', {
+                transaction_id: piId || result.ticketId || ('tx_' + coEvent.id + '_' + Date.now()),
+                value: parseFloat(value.toFixed(2)), currency: 'USD',
+                items: [{ item_id: coEvent.id, item_name: coEvent.title || 'SparkDate Mixer', price: perSeat, quantity: seats }]
+              });
+              if (typeof fbq === 'function') fbq('track', 'Purchase', {
+                content_ids: [coEvent.id], content_name: coEvent.title || 'SparkDate Mixer', content_type: 'product',
+                num_items: seats, value: parseFloat(value.toFixed(2)), currency: 'USD'
+              }, piId ? { eventID: piId } : undefined);
+            }
+            $('lpDoneLine').textContent = (result.alreadyConfirmed && !authed)
+              ? "You already have a ticket for this event - we haven't charged you again."
+              : 'We emailed your ' + (plusOne ? 'tickets' : 'ticket') + ' to ' + email + '. Bring nothing but yourself.';
+            $('lpCheckoutForm').style.display = 'none';
+            $('lpDone').classList.add('show');
+            coPaying = false;
+          } catch (err) {
+            var m = ((err && err.message) || '').toLowerCase(), friendly, category;
+            if (m.indexOf('choose woman') !== -1) { friendly = err.message; category = 'gender_missing'; }
+            else if (m.indexOf('enter your name') !== -1) { friendly = err.message; category = 'name_missing'; }
+            else if (m.indexOf('limit') !== -1 || m.indexOf('full on') !== -1 || m.indexOf('event full') !== -1 || m.indexOf('event is full') !== -1) { friendly = err.message; category = 'capacity'; }
+            else if (m.indexOf('declin') !== -1) { friendly = 'Your card was declined. Please try a different payment method.'; category = 'card_declined'; }
+            else if (m.indexOf('still loading') !== -1) { friendly = err.message; category = 'network'; }
+            else if (m.indexOf('network') !== -1) { friendly = 'Network error. Please check your connection and try again.'; category = 'network'; }
+            else if (m.indexOf('incomplete') !== -1) { friendly = 'Please complete all payment details.'; category = 'card_incomplete'; }
+            else if (m.indexOf('early-bird') !== -1 || m.indexOf('+1') !== -1) { friendly = err.message; category = 'other'; }
+            else { friendly = 'We could not complete your purchase. Please try again, or contact support@sparkdate.date.'; category = 'other'; }
+            if (typeof gtag === 'function') gtag('event', 'checkout_error', { in_app_browser: isInAppBrowser(), category: category, reason: m.slice(0, 100), source: 'lp' });
+            pm.style.display = 'block'; pm.style.color = 'var(--danger)'; pm.textContent = friendly;
+            if (category === 'gender_missing') { var gb = document.querySelector('#lpPay .gender-btn'); if (gb) gb.focus(); }
+            coPaying = false; payBtn.disabled = false; coUpdatePrice();
           }
         });
 
@@ -1117,8 +1513,11 @@
 
     new IntersectionObserver(function (entries) {
       var visible = entries[0].isIntersecting;
-      bar.classList.toggle('show', !visible);
-      document.body.classList.toggle('has-sticky', !visible);
+      // Once the inline checkout is open the bar would cover its Reserve
+      // button, so it stays down; the form is the call to action now.
+      var suppressed = !!(window.sdCheckoutOpen && window.sdCheckoutOpen());
+      bar.classList.toggle('show', !visible && !suppressed);
+      document.body.classList.toggle('has-sticky', !visible && !suppressed);
       // Both /lp promotions get their impression from this one observer: the
       // main CTA is on screen, or the bar it triggers is. They are mutually
       // exclusive by construction, which is exactly the denominator each of
@@ -1127,14 +1526,15 @@
       else window.sdViewPromotion('lp_sticky_bar', 'lp_sticky');
     }, { threshold: 0.5 }).observe(cta);
 
-    document.getElementById('lpStickyBtn').addEventListener('click', function () {
-      // select_promotion, not begin_checkout -- this navigates to the event
-      // page, it does not start a checkout. Same reasoning as index.html.
+    document.getElementById('lpStickyBtn').addEventListener('click', function (e) {
+      // select_promotion, not begin_checkout -- the tap is the promotion
+      // click; begin_checkout fires when the inline form actually opens.
       // The distinct promotion_name is what will show whether the bar is
       // what produced the tap.
       if (typeof gtag === 'function') {
         gtag('event', 'select_promotion', { promotion_name: 'lp_sticky_bar', creative_slot: 'lp_sticky' });
       }
+      if (window.sdOpenCheckout) window.sdOpenCheckout(e);
     });
   })();
 </script>

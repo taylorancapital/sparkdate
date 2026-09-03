@@ -426,6 +426,12 @@ module.exports = async function handler(req, res) {
           regularPrice: ep.regularPrice,
           isEarlyBird: ep.isEarlyBird,
           earlyBirdEnds: ep.earlyBirdEnds,
+          // Per-gender prices for the inline checkout on /lp, which prices
+          // the form before the server re-resolves at charge time. Equal to
+          // `price` on every single-price event; they differ only on legacy
+          // gender-split docs.
+          priceWoman: effectivePrice(e, 'woman').price,
+          priceMan: effectivePrice(e, 'man').price,
           spotsRemaining: sr ? sr.remaining : null,
           spotsTotal: sr ? sr.total : null,
           blurb: e.blurb || '',
@@ -477,6 +483,8 @@ module.exports = async function handler(req, res) {
         regularPrice: ep.regularPrice,
         isEarlyBird: ep.isEarlyBird,
         earlyBirdEnds: ep.earlyBirdEnds,
+        priceWoman: effectivePrice(e, 'woman').price,
+        priceMan: effectivePrice(e, 'man').price,
         // Used only to decide whether to show a vague "Filling up" signal —
         // never rendered as an exact count (see public/lp.html).
         spotsRemaining: sr ? sr.remaining : null,
