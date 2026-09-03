@@ -266,7 +266,7 @@
     {
       "key": "tickettailor",
       "name": "Ticket Tailor",
-      "status": "not_pursued",
+      "status": "active",
       "market": "any",
       "cost": "$0.85/ticket pay-as-you-sell (~$0.30 prepaid), plus our own Stripe; free for free events",
       "submit_url": "https://www.tickettailor.com/",
@@ -277,11 +277,21 @@
       "_correction": "This entry previously said 'rejected' and offered a reconsider_if: 'as a fee play against Eventbrite it is a real option'. THAT WAS WRONG, and it was wrong because it compared Ticket Tailor to Eventbrite instead of to what we already own. Fees per $24.99 ticket: Eventbrite ~$3.43 (3.7% + $1.79 service, plus 2.9% processing), Ticket Tailor ~$1.87 ($0.85 + Stripe), sparkdate.date ~$1.02 (Stripe alone). We already run a Stripe checkout in public/event.html, so ANY third-party box office is more expensive than our own. The fee play is moving volume from Eventbrite to our own site, not adding a platform.",
       "_why_not_discovery": "Ticket Tailor has no marketplace. Nobody browses it. Eventbrite's fees buy exactly one thing we cannot replicate -- a consumer marketplace that produced 170 sessions and 23 key events unprompted -- which is why Eventbrite stays despite costing 3x.",
       "gotchas": [
+        "NOTHING SYNCS. There is no webhook, no script and no /admin path for Ticket Tailor -- unlike Eventbrite, which at least has lib/eventbrite.js and a documented manual Enroll step. A buyer here exists ONLY in Ticket Tailor: not in Firestore, no chemistry profile, absent from the seating tool, and missed by the pre-event emails. The host would not know they are coming. Check the Ticket Tailor order list by hand before every event until this is built or the surface is dropped.",
         "It is a THIRD checkout after sparkdate.date and Eventbrite. Every checkout is another place price, date and capacity drift out of sync -- the failure this repo spent 2026-09-01 unpicking, when one event had four different end times across five surfaces.",
         "Buyers there will need the same manual /admin Enroll step Eventbrite buyers need (docs/EVENTBRITE_ENROLLMENT.md). They arrive with no account and no chemistry profile, and the seating tool cannot put someone at a table without one.",
         "Payment runs through our own Stripe and connecting it is an account action. Do not publish a sellable event before that is done -- a live page with broken checkout is worse than no page.",
-        "Judge this one on whether its event pages actually emit schema.org Event JSON-LD. That is the entire case for it; without it there is no reason to keep it."
-      ]
+        "Judge this one on whether its event pages actually emit schema.org Event JSON-LD. That is the entire case for it; without it there is no reason to keep it.",
+        "The header image cannot be set programmatically -- the uploader accepts a file, renders a preview, then drops it on save, and the picker stops rendering after a couple of attempts. It is a manual upload. The slot is 2048x652 (3.14:1) against our 1.9:1 og-image, so it crops top and bottom.",
+        "The venue field is name + postcode + country only -- no city, state or street. The full address currently lives inside the venue NAME so it reaches the schema and the map, which makes the displayed venue line long. Deliberate trade.",
+        "Its sales-window picker moves in 5-minute steps, so 11:59 PM is not selectable. Midnight into the following day is the exact equivalent and is what is set."
+      ],
+      "live": {
+        "marion_court": "https://www.tickettailor.com/events/sparkdatedate/2396236",
+        "loxleys": "https://www.tickettailor.com/events/sparkdatedate/2396299",
+        "_posted": "2026-09-02"
+      },
+      "_the_finding": "TICKET TAILOR CANNOT BE A LISTING-ONLY SURFACE. Verified on the live pages 2026-09-03: with every ticket type held unavailable, Ticket Tailor titles the page 'Sold out - <event name>' and emits \"offers\": [] in its schema.org Event JSON-LD. So the two things that were the ENTIRE case for being here -- an indexable page and event rich-result eligibility -- are both defeated by not selling. Google wants at least one offer, and 'Sold out' is the worst possible string to have cached against a live event. The page only earns its keep while tickets are genuinely on sale, which means this is a third live checkout or it is nothing. That was the trade named in the gotchas below; it is now measured rather than predicted."
     },
     {
       "key": "visitpa",
