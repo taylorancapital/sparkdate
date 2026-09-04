@@ -98,7 +98,7 @@ CHECKS.push(() => {
     canonical,
     source: 'Taylor, 2026-09-01. brand.json events.*.ends now records it.',
     findings: wrong,
-    extra: 'ALSO WRONG AT SOURCE: the Firestore event docs carry a 3-hour duration, so /event?id=... publishes endDate 9:30 PM in its schema.org Event JSON-LD. Google reads that. Fixing the copy does not fix the structured data -- the event record has to be edited in /admin.',
+    extra: 'RESOLVED 2026-09-04, verified against the live server-rendered pages: /event?id=... publishes startDate 22:30Z / endDate 00:30Z for both live events, which is 6:30-8:30 PM ET. Correct. This note previously said the Firestore docs carried a 3-hour duration and told the reader to edit the event record in /admin -- that was true before 2026-09-01 and false after, and it survived the fix by four days. What actually fixed it was DEFAULT_EVENT_DURATION_HOURS going 3 -> 2 in lib/next-event.js: NO event doc sets durationHours, so that constant IS the published end time. The check stays, because a 3 there reaches Google.',
   };
 });
 
@@ -127,7 +127,7 @@ CHECKS.push(() => ({
     /.{0,70}no\s+(?:bell|forced rotation|rigid rotation|rotation|timer|whistle|scorecard|awkward icebreakers|(?:seven|three)[- ]minute).{0,60}/i,
     'denies a structure the product actually has',
   ),
-  extra: 'IMPORTANT NUANCE, confirmed by Taylor 2026-09-01: there IS an open-mingling block between the tables and the 1-on-1s. So "conversations at your own pace" was never invented -- it describes that block accurately and then presents it as the whole evening. The defect was never the phrase; it was the phrase standing alone. Copy that keeps at-your-own-pace AND names it as one movement of three is correct and should not be flagged. blog/speed-dating-vs-singles-mixer.html stays excluded from any fix: its thesis is "we are a mixer, not speed dating", which is a positioning decision rather than an edit -- though the hybrid is now a much easier story to tell than it looked.',
+  extra: 'IMPORTANT NUANCE, confirmed by Taylor 2026-09-01: there IS an open-mingling block between the tables and the 1-on-1s. So "conversations at your own pace" was never invented -- it describes that block accurately and then presents it as the whole evening. The defect was never the phrase; it was the phrase standing alone. Copy that keeps at-your-own-pace AND names it as one movement of three is correct and should not be flagged. UPDATED 2026-09-04: every hit this check now returns is the string "No scorecard", which is TRUE and is the sanctioned contrast with speed dating (run_of_show sequence[0]._name_tags) -- expect them and do not "fix" them. The DENIAL family is gone from public/ entirely: grep for "no bell", "no whistle", "no rotation", "not a rigid rotation", "no timer", "no seven-minute", "no three-minute timer", "no awkward icebreaker" and expect zero. blog/speed-dating-vs-singles-mixer.html is NO LONGER excluded -- Taylor asked for it on 2026-09-04, and its two false claims were rewritten to describe the three movements while keeping the mixer-not-speed-dating thesis intact. Its heading is still "How a singles mixer works instead"; that is the positioning and it stays.',
 }));
 
 // 4. Capacity.
