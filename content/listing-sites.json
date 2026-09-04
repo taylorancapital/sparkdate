@@ -183,6 +183,13 @@
         "The wizard's last step is 'Notify audience', which EMAILS the audience and page followers. Saving the Publish step lands you on it. Do not click Notify unless a send is actually intended.",
         "It syndicates onward. The same import appears on stayhappening.com and happeningnext.com, which are the same network. Fixing AllEvents is what fixes all three; there is no separate submission to make."
       ],
+      "decision": {
+        "date": "2026-09-04",
+        "by": "Taylor",
+        "call": "PARKED, not dropped. Leave the listings up and leave the price display wrong. Do not re-raise it.",
+        "reasoning": "The copy is fixed and free traffic is free traffic, so there is no reason to delete. But the only remaining defects -- the 'Starting at USD 13/15' headline and the banner -- cannot be edited, so clearing them means deleting both listings and rebuilding by hand, losing their accrued reach and indexed URLs (including on the stayhappening and happeningnext mirrors). For a market this size that is not worth the squeeze. Explicitly NOT the Ticket Tailor outcome: nothing is being abandoned, it is being left alone.",
+        "reopen_if": "`allevents / listing` shows up in GA4 with any sessions at all -- right now it has produced zero -- or the Lancaster market grows enough that a mispriced discovery surface is costing real seats. Either makes the rebuild worth an hour."
+      },
       "observed": {
         "checked": "2026-09-04",
         "live": [
