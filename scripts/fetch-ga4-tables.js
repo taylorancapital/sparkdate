@@ -119,9 +119,10 @@ const isoIn = (tz, d = new Date()) =>
 const compact = (s) => s.replace(/-/g, '');
 
 /**
- * The twelve tables. Each mirrors something the nightly report reads, and the
- * `title` matches the manual export's naming closely enough that a reader
- * recognises it.
+ * The runReport tables. Each mirrors something the nightly report reads, and
+ * the `title` matches the manual export's naming closely enough that a reader
+ * recognises it. (This block said "the twelve tables" until 2026-09-04; it had
+ * been wrong for a while, so it now says no number at all.)
  */
 const TABLES = [
   {
@@ -338,6 +339,102 @@ const TABLES = [
     title: 'utm_content (sessionManualAdContent) - sessions, key events, revenue',
     dimensions: ['sessionManualAdContent', 'sessionCampaignName'],
     metrics: ['sessions', 'keyEvents', 'totalRevenue'],
+    orderBy: { metric: { metricName: 'sessions' }, desc: true },
+  },
+  {
+    // Added 2026-09-04 after a coverage audit against the property's own
+    // metadata endpoint (379 dimensions, 92 metrics available; we read 20 and
+    // 17). This is the table that audit turned up as the largest single gap.
+    //
+    // Since 05-19: new = 3,826 users -> 24 transactions -> $651.76, and
+    // returning = 221 users -> 15 transactions -> $409.36. That is $0.17 per
+    // new user against $1.85 per returning one. Returning visitors are 5.5% of
+    // the users and 38.6% of the revenue.
+    //
+    // It reconciles: 24+15 = the 39 `purchase` events, and the two revenue
+    // figures sum to revenue-daily's $1,061.12 grand total.
+    //
+    // '(not set)' is a real bucket here (212 sessions), not an error.
+    file: 'new-vs-returning',
+    title: 'New vs returning - sessions, users, key events, revenue',
+    dimensions: ['newVsReturning'],
+    metrics: ['sessions', 'totalUsers', 'keyEvents', 'totalRevenue', 'transactions'],
+    orderBy: { metric: { metricName: 'sessions' }, desc: true },
+  },
+  {
+    // 168 rows, always -- 7 days x 24 hours, in the PROPERTY's timezone, which
+    // is the same clock the posting schedule is written in. Nothing else in the
+    // pull can answer "is 1 PM actually when anyone is here", which is the time
+    // every queued post and every ad schedule currently assumes.
+    file: 'by-day-hour',
+    title: 'Day of week x hour of day - sessions, key events',
+    dimensions: ['dayOfWeekName', 'hour'],
+    metrics: ['sessions', 'keyEvents'],
+    orderBy: { metric: { metricName: 'sessions' }, desc: true },
+  },
+  {
+    // bounceRate is 1 - engagementRate, so it inherits the same two-day
+    // settling lag the header warns about: 09-03 read bounceRate 1.0 and
+    // engagedSessions 0 on the 09-04 pull purely because the day had not
+    // finished processing. Read the third-newest row, not the newest.
+    file: 'session-quality-daily',
+    title: 'Session quality by day - bounce rate, duration, sessions per user',
+    dimensions: ['date'],
+    metrics: ['bounceRate', 'averageSessionDuration', 'sessionsPerUser'],
+    orderBy: { dimension: { dimensionName: 'date' } },
+  },
+  {
+    // totalUsers (which the rest of the pull uses) does not split new from
+    // returning, so a flat user count could not distinguish "we reached more
+    // people" from "the same people came back".
+    file: 'users-daily',
+    title: 'Users by day - new, active, purchasers, first-time purchasers',
+    dimensions: ['date'],
+    metrics: ['newUsers', 'activeUsers', 'totalPurchasers', 'firstTimePurchasers'],
+    orderBy: { dimension: { dimensionName: 'date' } },
+  },
+  {
+    // landingPage only sees the entry page. This sees every page, so a page
+    // that is never a landing page (the checkout, /matches) has a row at all.
+    file: 'page-views',
+    title: 'All pages - screen page views and sessions by path and title',
+    dimensions: ['pagePath', 'pageTitle'],
+    metrics: ['screenPageViews', 'sessions'],
+    orderBy: { metric: { metricName: 'screenPageViews' }, desc: true },
+  },
+  {
+    // Same event-scoped trap as checkout-errors above: unfiltered this is 54
+    // rows, 50 of them page_view / session_start carrying '(not set)' because
+    // those events never had a `reason` parameter at all.
+    //
+    // GA4 registers this dimension under the uiName "Fetch failure reason",
+    // which is wrong and cost a wrong filter on the first attempt. Measured
+    // 2026-09-04, `reason` is set by exactly one event, checkout_error:
+    //   checkout_error                  25 (not set), 3 "your postal code is incomplete."
+    //   next_event_fetch_failed         62 (not set), 0 with a value
+    //   targeted_event_not_found         6 (not set), 0 with a value
+    //   in_app_browser_checkout_blocked 12 (not set), 0 with a value
+    //
+    // So it is filtered to checkout_error, and it is thin on purpose: 3 of 28.
+    // The site sets `reason` on a minority of checkout errors. That is a gap in
+    // the site, not in this table -- but the 3 rows are the only place the
+    // literal decline text is visible, which `category` alone never shows.
+    file: 'checkout-error-reasons',
+    title: 'Checkout error reason (customEvent:reason, checkout_error only)',
+    dimensions: ['customEvent:reason'],
+    metrics: ['eventCount', 'totalUsers'],
+    dimensionFilter: { filter: { fieldName: 'eventName', stringFilter: { value: 'checkout_error' } } },
+    orderBy: { metric: { metricName: 'eventCount' }, desc: true },
+  },
+  {
+    // Only two audiences are defined on the property: All Users, and
+    // Purchasers (393 sessions / 35 users). Worth pulling mainly so the report
+    // can see when a third one appears -- and so 'Purchasers' is available as a
+    // segment without re-deriving it.
+    file: 'audiences',
+    title: 'GA4 audiences - sessions, users, key events, revenue',
+    dimensions: ['audienceName'],
+    metrics: ['sessions', 'totalUsers', 'keyEvents', 'totalRevenue'],
     orderBy: { metric: { metricName: 'sessions' }, desc: true },
   },
 ];
