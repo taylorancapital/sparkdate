@@ -1118,14 +1118,26 @@
       // that was cut off. The bug was punctuation, not motion.
       (function () {
         var TESTIMONIALS = [
-          // Molly leads. Every rotator on the site used to run four men --
-          // Jeff, Luke, James, Alex -- not by choice but by side effect: this
-          // box only took short quotes, and the one approved quote from a
-          // woman is the long one, so she was excluded by a layout rule.
-          // reserve() below removes that rule by measuring instead of
-          // guessing, which is what lets her lead here. Quang's (a man, and
-          // longer still) stays in the testimonials section further down.
+          // WOMEN FIRST, then the men. A standing rule from Taylor, not an
+          // accident of ordering, and tests/testimonial-rotator.test.js fails if
+          // a man is ever placed above a woman here. The reason is the business
+          // one: women are the constrained side of the room, and social proof is
+          // the only thing that has demonstrably converted them.
+          //
+          // It took a code change to become possible. This box used to accept
+          // short quotes ONLY, because the height was a hand-picked constant --
+          // so the only approved quote from a woman, being the long one, was
+          // excluded by a layout rule and the list was four men. reserve() below
+          // measures instead of guessing, which is what removed the cap.
+          //
+          // Two of these carry caveats recorded in content/brand.json and worth
+          // knowing before you quote them anywhere else: Helesha hosts for us now
+          // (she came as a guest first), and Anonymous M. is anonymised at her
+          // own request, her line tightened from an email rather than supplied.
+          // Quang's, longer still, stays in the testimonials section further down.
           { q: "Everyone was so lively and some of us connected so well we chatted well into the evening.", who: "Molly" },
+          { q: "A Majestic night!", who: "Helesha" },
+          { q: "Brought my wing-girl!", who: "Anonymous M." },
           { q: "Good networking opportunities!", who: "Jeff" },
           { q: "Truly a lot more fun than any other dating event I attended!", who: "Luke" },
           { q: "Relaxed rooftop bar and easy conversations!", who: "James" },

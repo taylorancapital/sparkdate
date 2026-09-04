@@ -13,7 +13,7 @@
     "_pulled_images_note": "These are pulled from every use, organic and paid. NO REASON IS RECORDED. The source (SparkDate_Brand_Source_of_Truth_1_Multi_Event.md) says only that they are pulled and that substitutes must come from the confirmed-consent list. Do not state or infer a cause -- an earlier generated brief asserted \"consent withdrawn\", which was never established and is a claim about a real person's decision. The rule is absolute; the reason is unknown.",
     "pulled_images": ["IMG_9203", "IMG_9204", "IMG_9207"],
     "consented_images": ["IMG_8859", "IMG_8861", "IMG_8862", "IMG_8865", "IMG_9001", "IMG_9004", "IMG_9005", "IMG_9343", "IMG_9350"],
-    "_testimonials_note": "Supplied 2026-08-22. Until then only the Quang quote existed, so both testimonial posts (MC-08, LX-20) ran it and the carousels split one quote across three frames. With six, a 3-slide testimonial post can show three different people -- which is what that beat is for. Short ones (Alex, James, Jeff) work best on a quote frame; they read at a glance. Note the CAPTIONS on MC-08 and LX-20 still quote only Quang; the slides now show more. UPDATED 2026-08-29: Alex, Luke and James supplied newer quotes, which the site now shows (#316); the superseded text is kept per-entry as previous_quote. Replaced in place rather than added under new ids because pickTestimonials() in scripts/build-campaign-export.js dedupes by id to keep one person off a slide wall twice -- a second id for the same person would defeat that. If both quotes per person are ever wanted, change that dedupe to key on attribution first. Note the short-quote guidance above still holds, but the shortest three are now Alex, Jeff and James.",
+    "_testimonials_note": "Supplied 2026-08-22. Until then only the Quang quote existed, so both testimonial posts (MC-08, LX-20) ran it and the carousels split one quote across three frames. With six, a 3-slide testimonial post can show three different people -- which is what that beat is for. Short ones (Alex, James, Jeff) work best on a quote frame; they read at a glance. Note the CAPTIONS on MC-08 and LX-20 still quote only Quang; the slides now show more. UPDATED 2026-08-29: Alex, Luke and James supplied newer quotes, which the site now shows (#316); the superseded text is kept per-entry as previous_quote. Replaced in place rather than added under new ids because pickTestimonials() in scripts/build-campaign-export.js dedupes by id to keep one person off a slide wall twice -- a second id for the same person would defeat that. If both quotes per person are ever wanted, change that dedupe to key on attribution first. Note the short-quote guidance above still holds, but the shortest three are now Alex, Jeff and James. UPDATED 2026-09-04: Helesha and Anonymous M. added, both women, taking this to eight. The site rotators show three of the eight women-first, by Taylor's instruction on 2026-09-03 -- a rule tests/testimonial-rotator.test.js enforces, so a ninth entry that is a man cannot quietly land at the front. Two of the eight now carry caveats in their own entries and BOTH must be read before reuse: Helesha is_staff (she hosts now), and Anonymous M. is a tightened paraphrase of an email rather than a supplied quote, from someone who asked for privacy. Neither caveat is a reason not to use them; both are reasons not to use them carelessly.",
     "approved_testimonials": [
       {
         "id": "alex",
@@ -27,6 +27,22 @@
         "quote": "Everyone was so lively and some of us connected so well we chatted well into the evening.",
         "attribution": "Molly",
         "reusable_across_events": true
+      },
+      {
+        "id": "helesha",
+        "quote": "A Majestic night!",
+        "attribution": "Helesha",
+        "reusable_across_events": true,
+        "is_staff": true,
+        "_is_staff": "She HOSTS now. She came to Event 1 as a guest and took the job because she liked it, which is a good story and is exactly why Taylor wants the quote -- but it does mean this is not an arm's-length attendee review. Flagged rather than hidden so anyone reusing this can decide: fine beside the other quotes on our own site, where every testimonial is self-published anyway; think twice before submitting it anywhere that solicits customer reviews specifically. If it ever needs disclosing, 'Helesha, guest turned host' says it in three words and is a better line than the bare name.",
+        "_provenance": "Supplied by Taylor 2026-09-04. She first appears in this repo in Event 1's match data as a guest, and by late August is 'Helesha and I' in Taylor's own mail to a registrant."
+      },
+      {
+        "id": "anonymous_m",
+        "quote": "Brought my wing-girl!",
+        "attribution": "Anonymous M.",
+        "reusable_across_events": true,
+        "_provenance": "Approved by Taylor 2026-09-04, anonymised at his instruction. The speaker attended Event 1 with her sister and wrote, unprompted: 'She's my wing girl lol!' The published line is Taylor's tightening of that, not her words verbatim, and she has not been shown it. She raised a privacy concern at the time -- her surname and phone number were visible in the app -- which is why the attribution is an initial and why her name must not be restored here."
       },
       {
         "id": "quang",
