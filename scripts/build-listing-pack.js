@@ -80,15 +80,26 @@ const FORMAT_NOTE = {
   _icebreaker: 'The game IS the tables, not a warm-up before them. Confirmed by Taylor 2026-09-01 after an earlier version of this file got it the other way round.',
 };
 
-const SITE_COPY_DEFECTS = [
-  'public/blog/how-same-night-matching-works.html:177 -- "no bell, no forced rotation, no seven-minute timer"',
-  'public/blog/speed-dating-vs-singles-mixer.html:182 -- "A mixer has no rotation and no timer"',
-  'public/blog/speed-dating-vs-singles-mixer.html:205 -- "No whistle, no scorecard, no three-minute timer"',
-  'public/city.html:453, :577, :639 -- "no whistle, no rigid rotation" (all four city pages)',
-  'public/city.html:655 -- same claim inside the FAQ structured data Google surfaces',
-  'public/event.html:788 -- "Natural introductions, no awkward icebreakers." The ticket page denies the icebreaker exists.',
-  'public/careers.html:250, :278 -- the host spec has the icebreaker at 7:00 and "the actual evening" at 7:20, which reads as two segments. It is one: round 1 (at the 20-minute setting) and the rounds after it. Also never mentions the tables.',
-];
+// Surfaces on sparkdate.date that DENY the format above. Empty is the correct
+// state: a listing that describes the real night while the site contradicts it
+// is worse than either alone, which is why this list prints with every pack.
+//
+// Cleared 2026-09-04. All seven original entries are resolved -- two had been
+// fixed earlier and were still listed here (how-same-night-matching-works.html
+// now describes the game AT the tables; event.html now says the host "runs the
+// icebreaker and keeps the rounds moving"), and the rest were fixed in that
+// pass, along with public/lp.html which stated "drinks, then an icebreaker,
+// then conversations" and was never on this list at all.
+//
+// NOTE the line numbers in the original entries had drifted and pointed at the
+// wrong lines. If you add an entry, quote the offending TEXT -- a grep for the
+// phrase survives an edit above it, a line number does not.
+//
+// Re-populate from a grep for the denial family: "no bell", "no whistle",
+// "no rotation", "no forced rotation", "no rigid rotation", "no timer",
+// "no seven-minute", "no three-minute", "no awkward icebreaker", plus any
+// stated duration for a round or a 1-on-1.
+const SITE_COPY_DEFECTS = [];
 
 // Event fetching, brand-key matching and UTM tagging all live in
 // lib/listing-links.js, shared with scripts/build-listing-redirects.js.
@@ -126,13 +137,18 @@ function buildCopy(event, brandEv) {
   const streetIsRedundant = !street || !/^\d/.test(street.trim());
   const wherefull = streetIsRedundant ? where : `${where} (${street})`;
 
-  // END TIME: brand.json wins over the live page, and this is not a
-  // preference -- the Firestore event docs carry a three-hour duration, so
-  // /event?id=... publishes endDate 9:30 PM when the night actually ends at
-  // 8:30. Reading the live page here would print the wrong hour onto a
-  // moderated listing that cannot be edited afterwards. See
-  // reports/FACT_AUDIT_2026-09-01.md section 1. Fix the event record in
-  // /admin and this override stops mattering.
+  // END TIME: brand.json wins over the live page. The two AGREE as of
+  // 2026-09-04 -- both say 8:30 PM, verified against the server-rendered
+  // /event?id=... JSON-LD -- so this override currently changes nothing.
+  //
+  // It stays because of what it was written for. Before 2026-09-01 the
+  // published endDate was 9:30 PM (DEFAULT_EVENT_DURATION_HOURS was 3, and
+  // no event doc sets durationHours, so that constant is the published end
+  // time). Reading the live page here would have printed the wrong hour onto
+  // a moderated listing that cannot be edited afterwards. A listing site is
+  // the one surface where being wrong is permanent, so it takes the
+  // canonical record rather than the rendered one, agreement or not.
+  // See reports/FACT_AUDIT_2026-09-01.md section 1.
   const endsFromBrand = brandEv && brandEv.ends;
   const endsFromPage = event.end ? timeOf(event.end) : null;
   const ends = endsFromBrand || endsFromPage;
@@ -225,10 +241,12 @@ function renderMarkdown(events, sites, utmCfg, brand) {
   out.push(`> The copy states that shape but not ${FORMAT_NOTE.omitted} — a moderated listing`);
   out.push(`> cannot be edited afterwards, so it must not commit the host to a number.`);
   out.push(``);
-  out.push(`> ⚠ **The live site still contradicts this in ${SITE_COPY_DEFECTS.length} places.**`);
-  out.push(`> These listings will describe the real format while sparkdate.date denies it:`);
-  SITE_COPY_DEFECTS.forEach((d) => out.push(`> - ${d}`));
-  out.push(``);
+  if (SITE_COPY_DEFECTS.length) {
+    out.push(`> ⚠ **The live site still contradicts this in ${SITE_COPY_DEFECTS.length} place${SITE_COPY_DEFECTS.length === 1 ? '' : 's'}.**`);
+    out.push(`> These listings will describe the real format while sparkdate.date denies it:`);
+    SITE_COPY_DEFECTS.forEach((d) => out.push(`> - ${d}`));
+    out.push(``);
+  }
 
   const active = sites.sites.filter((s) => s.status === 'active' || s.status === 'not_pursued' || s.status === 'dormant');
 
@@ -249,7 +267,7 @@ function renderMarkdown(events, sites, utmCfg, brand) {
     const endsP = event.end ? timeOf(event.end) : null;
     out.push(`| When | ${dateLong(event.start)}, ${timeOf(event.start)}${endsB || endsP ? `–${endsB || endsP}` : ''} ET |`);
     if (endsB && endsP && endsB !== endsP) {
-      out.push(`| | ⚠ the live event page says it ends at **${endsP}**. brand.json says **${endsB}** and that is what the copy uses. Fix the event record in /admin — its schema.org endDate is what Google reads. |`);
+      out.push(`| | ⚠ the live event page says it ends at **${endsP}**. brand.json says **${endsB}** and that is what the copy above uses. They should agree — check \`DEFAULT_EVENT_DURATION_HOURS\` in \`lib/next-event.js\` first, then whether this event doc has set \`durationHours\` and overridden it. The page's schema.org endDate is what Google reads. |`);
     }
     out.push(`| Where | ${event.venue}${event.address && event.address.streetAddress ? `, ${event.address.streetAddress}` : ''} |`);
     const reg = brandEv && brandEv.pricing && brandEv.pricing.regular;
