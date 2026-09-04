@@ -1,10 +1,50 @@
-# Meta ads: the delivery is fine, the sales stopped nine days ago (2026-09-04)
+# Meta ads: the delivery is fine, and the headline of this report was wrong (2026-09-04)
+
+> # ⚠ RETRACTION — read before citing anything below
+>
+> **The original title, "the sales stopped nine days ago", is FALSE, and so is
+> the Four-numbers strip that carried it.** Corrected 2026-09-04 evening after
+> reading Firestore instead of Meta's attributed conversions.
+>
+> **Sales never stopped.** In the exact nine-day window this report called
+> *"$193.25 spent for zero"*, **14 paid tickets worth $381.12** were sold. The
+> longest run of zero-sale days since 08-05 is **three**, not nine. Marion Court
+> — the event called dead here — has **11 paid tickets, $282.18**, and is
+> *accelerating*: its disjoint weekly counts run **0, 1, 4, 6**, with its best
+> week the most recent one. At T-5 it ranks **3rd of 5** against every completed
+> predecessor.
+>
+> **The error was a category mistake:** every "sales" figure in §1–§5 is Meta's
+> *attributed conversions*, not sales. Meta sees **6 of 53** real tickets — 11%
+> — because 60% arrive as Eventbrite/Meetup imports that fire no pixel, and the
+> rest depend on cookie matching. §9 disclaimed this in one line; the title,
+> the stat strip and §2 ignored it. That is on me.
+>
+> **What the numbers actually are.** A complete spend-to-revenue join already
+> existed in Firestore and nobody had read it: `ad_spend.byEvent` (written by
+> `scripts/sync-meta-spend.js`, `_unattributed` **$0.00 since 08-01**) crossed
+> with `tickets.eventId`. Gross ROAS 08-05 → 09-04: **Loxleys 5.75, Tellus 2.56,
+> Marion Court 1.38, Good Good 1.29, account 1.79** — against Meta's
+> self-reported 0.23. **The truth is bounded 0.23 … 1.79**, not "losing money".
+>
+> **Two real defects, both since fixed:** `spdCookie()` compiled `(^|;)s*_fbps*=`
+> because `\s` collapses to `s` inside a JS string, so `_fbp`/`_fbc` were dropped
+> for any buyer whose Meta cookie was not first in `document.cookie`; and
+> first-touch attribution had no TTL, so one June Eventbrite visit masked every
+> later ad click forever.
+>
+> **What survives:** §6 (the audience findings) and §7f (the objective is
+> p = 0.224, not proven) are unaffected. §7e's stale-price finding stands for
+> Marion Court's "$18.99 thru Aug 24" but was WRONGLY extended to Loxleys —
+> "Early bird $24.99 through Sept 7" states its own deadline and is honest.
+>
+> Superseded in full by `reports/META_ADS_ROOT_CAUSE_2026-09-04.md`.
 
 **This report changes no ad and no site code.** It reads the account live and
 writes this file. Every recommended change in §8 is stated as a decision for
 Taylor, not taken.
 
-> **Revised twice, same day. Read §7 before acting on §1–§5.**
+> **Revised twice on the day of writing. Read §7 before acting on §1–§5.**
 >
 > **§6** answers *"I think it's serving me to the wrong audience."* It is. The
 > demographics asked for are honoured exactly — but a relationship-status filter
@@ -58,12 +98,26 @@ verified it works.
 
 ## Four numbers
 
+**~~STRUCK OUT — see the retraction.~~** Every row below counts Meta's attributed
+conversions and was presented as if it counted sales. The corrected figures are:
+
 | | |
 |---|---:|
-| Lifetime paid ROAS, 08-05 → 09-04 ($769.23 spent, $179.94 back) | **0.23** |
-| Days since the last attributed purchase (08-26) | **9** |
-| Spent since that purchase, for zero attributed sales | **$193.25** |
-| Purchases from the two events still on sale ($214.48 spent, 437 LP views) | **0** |
+| Gross ROAS, all channels, 08-05 → 09-04 ($776 spent, $1,387 in tickets) | **1.79** |
+| Meta's pixel-matched floor for the same window | **0.23** |
+| Paid tickets in the "nine days of zero" (08-27 → 09-04) | **14, $381.12** |
+| Marion Court, called dead here | **11 paid, $282.18, accelerating** |
+
+<details><summary>The original four numbers, kept for the record</summary>
+
+| | |
+|---|---:|
+| Lifetime paid ROAS, 08-05 → 09-04 ($769.23 spent, $179.94 back) | 0.23 |
+| Days since the last attributed purchase (08-26) | 9 |
+| Spent since that purchase, for zero attributed sales | $193.25 |
+| Purchases from the two events still on sale ($214.48 spent, 437 LP views) | 0 |
+
+</details>
 
 ---
 
