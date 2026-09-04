@@ -82,6 +82,35 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   and the Traffic ads' shared `utm_content`, which cannot be fixed on a live
   creative. Do not re-raise them as findings. MC-RT-QUANG and MC-RT-NO-SCORECARDS
   stay running for the data; do not pause them as tidy-up.
+- **"Should Marion Court and Loxleys move to a Sales objective?" was asked
+  2026-09-04 and never answered — the session was interrupted mid-analysis.**
+  The evidence is gathered and points somewhere non-obvious, so do not restart
+  it from scratch. **Marion Court: no, and not a close call** — the event is
+  09-08, both campaigns stop 09-08 16:30, and an objective change restarts
+  learning with days left (same reason as the hands-off entry above).
+  **Loxleys is the only live version of the question** (09-22, so there is
+  time), and the honest answer is *probably not a straight switch*: memory
+  `traffic-objective-never-sold` shows the traffic-vs-sales gap is **p = 0.224
+  per dollar, NOT significant**, while `automatic-placements-buy-stories` has
+  the mechanism that *does* have power (in-app-browser tap rate 1.39% vs 25.6%,
+  18.4x, p ~ 4e-15). **Placements, not objective, is the lever with evidence
+  behind it.** The real blocker on switching: `OUTCOME_SALES` wants ~50
+  conversions/week and this account has **6 lifetime pixel purchases**, so a
+  PURCHASE-optimised set may not deliver at all — the untested middle path is
+  optimising for `add_to_cart` (39) or `initiate_checkout` (24). **Next
+  concrete step, after 09-08:** price the change with
+  `GET /act_<id>/delivery_estimate` before making it, and decide placements
+  separately from objective. *(09-04)*
+- **Two Loxleys Traffic campaigns exist and only one carries the Single
+  filter.** Pulled live 09-04 20:15: `Loxleys | Traffic` (`120251085229290542`)
+  is ACTIVE at $3/day with **no `flexible_spec`**, while `Loxley's | Traffic`
+  (`120251072593050542`) is PAUSED at $10/day **with
+  `relationship_statuses:[1]`**. The active one matches the ladder in memory
+  `lx-campaign-live`, so this reads as an intentional replacement rather than a
+  duplicate — but it is why `single-filter-costs-80-percent` can say "Loxleys
+  does not carry it" and a glance at the account can suggest otherwise. **Next
+  step: confirm the paused pair is dead and archive it, or say why it is
+  being kept, before the 09-22 retirement.** *(09-04)*
 - **The score comes 09-09, not before.** The pixel bought measurement, not lift —
   both Traffic sets still optimise `LINK_CLICKS`. Run `npm run ads:review` and
   read **purchases by gender per ad**, never landing-page views.
