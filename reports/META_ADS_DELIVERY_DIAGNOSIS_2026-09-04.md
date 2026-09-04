@@ -490,6 +490,104 @@ is profitable on ticket revenue alone. **That gap — not the objective — is t
 problem**, and closing it needs the tap rate to move, which is §6b's lever and
 #419's rebuilt checkout, not a setting in Ads Manager.
 
+## 7g. THE TELLUS PRECEDENT, AND HOW TO KEEP A SALES OBJECTIVE FEMALE
+
+Taylor, on reading §7f: *"tier 4 might work for marion court no? I had done this
+once and got a flood of orders last time on tellus, but I want to make sure I get
+female."* Both halves check out. Also: **he is right that pausing the Marion
+Court retargeting leaves only a funnel that has never converted** — §8 item 2 is
+withdrawn below.
+
+### The Tellus switch is real, and it is the best precedent the account has
+
+The Tellus `OUTCOME_SALES` campaigns were created **2026-08-13, at T-13.**
+
+| date | spend | view_content | add_to_cart | init_checkout | purchases |
+|---|---:|---:|---:|---:|---:|
+| 08-06 … 08-12 | $3.95–$11.38/day | **0 every day** | **0** | **0** | **0** |
+| **08-13** | $47.74 | 2 | 1 | 1 | 0 |
+| 08-14 | $33.46 | 31 | 2 | 5 | 0 |
+| 08-15 | $38.63 | 34 | 1 | 5 | **1** |
+| 08-17 | $62.38 | 32 | 5 | 6 | **1** |
+| 08-18 | $57.48 | 24 | 3 | 8 | **1** |
+| 08-19 | $43.56 | 7 | 2 | 4 | **1** |
+
+**Four purchases in five days, after none ever.** For this account that is a
+flood, and it is the only period it has happened.
+
+**Two caveats, stated so the precedent is not oversold.** Spend jumped **4.5×**
+on the same day ($10.58 → $47.74), so objective and budget changed together. And
+`view_content` / `add_to_cart` / `initiate_checkout` were **zero on every day
+before 08-13** — the pixel's ecommerce events were not reporting at all, so
+there is no valid "before" to compare against. The switch is confounded three
+ways. It is still the strongest thing in the account's history, and it is
+first-hand experience, which outranks a p-value computed on six conversions.
+
+### The female question has an exact answer: gender expansion
+
+`targeting_automation.individual_setting.gender: 1` is Advantage+ audience
+**gender expansion**, and it **overrides `genders: [2]`**:
+
+| ad set | asked for | expansion | delivered |
+|---|---|---:|---|
+| Good Good Campaign-Retargeting | WOMEN | **1** | **63% of money on men** ($63.73 of $100.38) |
+| Good Good "Sale Obj Women" | WOMEN | 1 | **64% men — its one purchase was a man** |
+| Tellus Retargeting | all (unset) | 1 | 41% men |
+| **Tellus "Sales-Obj-Women"** | WOMEN | **0** | **100% women**, $60.74 |
+| `Marion Court \| Female \| Traffic` | WOMEN | unset | **100% women**, $70.89 |
+
+**With expansion off, gender holds at exactly 100% — every time.** A campaign
+named "Sale Obj Women" that spent 64% on men is not a naming error; it is this
+one field. Of the six lifetime purchases, **three were women and three men**,
+despite women-first intent.
+
+**A sales objective does not cost the gender control.** Tellus "Sales-Obj-Women"
+was `OUTCOME_SALES` with expansion off and held 100% women. The two settings are
+independent.
+
+**The trap:** Ads Manager turns Advantage+ audience **on by default** in the
+creation flow — which is how the Good Good sales campaigns got it and the older
+Tellus one did not. And `advantage_audience: 0` is **not** sufficient: every live
+ad set has that set to 0 while three still carried gender expansion. The field to
+check is `individual_setting.gender`.
+
+**Marion Court's ad sets already have expansion off.** The targeting is right; it
+is the objective and the placement that are not.
+
+### The operational catch: objective is not editable
+
+Meta does not allow `objective` to be changed on an existing campaign. A sales
+objective means **a new campaign, ad set and ad** — and therefore a new creative,
+which is the only way `url_tags` can be fixed (§7d). `scripts/meta-create-lx-prime-ads.js`
+already does exactly this correctly and is the template.
+
+**At T-4 that is a poor bet for Marion Court**, for one measurable reason:
+
+| optimisation event | volume, last 7 days | can it exit learning? |
+|---|---:|---|
+| `purchase` | **0** | no |
+| `add_to_cart` | 3 | no |
+| `initiate_checkout` | 2 | no |
+| `view_content` | 17 | no |
+| **`landing_page_view`** | **519** | **yes — clears Meta's ~50/week** |
+
+A purchase-optimised campaign would have **zero events to learn from**. Tellus
+had 13 days of runway; Marion Court has four.
+
+**The cheaper move that gets most of the benefit, and is editable on the live ad
+set:** change `optimization_goal` from `LINK_CLICKS` to `LANDING_PAGE_VIEW` on
+`Marion Court | Female | Traffic`. It is one field, no rebuild, no new creative.
+It makes Meta optimise for people who actually *load the page* rather than
+people who *tap* — which is precisely the accidental-tap problem measured in §6b
+(`facebook/reels_overlay`: 11 clicks, **1** landing-page view). And at 519 events
+a week it is the only goal in the account that can actually leave the learning
+phase. It resets learning, which at T-4 is a real cost — worth it only alongside
+the placement restriction, not instead of it.
+
+**Loxleys at T-18 is where the full Tier 4 belongs** — enough runway for a new
+sales-objective campaign to learn, correct tagging from birth, and expansion
+explicitly off.
+
 ## 8. DECISION — what is actually on the table
 
 None of this is done. Each is Taylor's call. **Ranked by the strength of the
@@ -501,10 +599,13 @@ evidence behind it, per §7f — not by how appealing the theory is.**
    Eleven days expired and **45% below** the real price. Editing a link
    description does not touch the frozen `url_tags` and does not force
    re-review. There is no version of this that is not a defect.
-2. **Marion Court retargeting is at frequency 8.77 into 224 people** at ~$6/day
-   (§4). Nine impressions per person per week, 11 clicks, no sales. Pausing it
-   is arithmetic, not a hypothesis — and it frees the only spare money inside
-   the T-4 window.
+2. **~~Pause the Marion Court retargeting.~~ WITHDRAWN — see §7g.** Taylor's
+   objection is correct and I missed it: MC Retargeting is the **only**
+   `OUTCOME_SALES` delivery Marion Court has. Pausing it four days out leaves
+   nothing but the traffic funnel that has never converted, and no fresh
+   retargeting pool can be built in four days. The frequency-8.77 waste is real,
+   but it is roughly **$24 for the rest of the run** — the cheaper of the two
+   mistakes. **Leave it running; revisit after 09-08.**
 3. **The five ended-but-ACTIVE campaigns** (§3): archive or extend. Costs
    nothing either way; leaving them just keeps the account unreadable.
 
@@ -528,15 +629,21 @@ evidence behind it, per §7f — not by how appealing the theory is.**
 
 ### Tier 4 — a reasonable bet, explicitly NOT a demonstrated cause
 
-6. **The objective.** §7f: **p = 0.224 per dollar.** The mechanism is coherent —
-   `LINK_CLICKS` is what selects the cheap Stories click that Tier 2 is about —
-   and Meta flags it on five ads. But the sales data does not establish it, and
-   proving it would take ~$5,671 per arm. Two further costs: a new objective
-   restarts the learning phase, and at **6 lifetime pixel purchases** against the
-   ~50/week Meta wants, a `purchase`-optimised campaign may deliver badly.
-   Optimising for `add_to_cart` or `initiate_checkout` (39 and 24 on record) is
-   the standard answer. **Do it as a bet you can afford, on Loxleys, which has
-   runway to 09-22 — not as the fix.**
+6. **The objective, split by event (§7g).** The statistics still say p = 0.224 —
+   but Taylor's Tellus precedent (4 sales in 5 days after the 08-13 switch, none
+   before) is first-hand and outranks a p-value on six conversions. Two
+   different calls:
+   - **Loxleys, T-18: build the full sales-objective campaign.** Objective is not
+     editable, so this is a new campaign/ad set/ad — which is also the only way
+     to fix `url_tags` (§7d). `scripts/meta-create-lx-prime-ads.js` is the
+     template. **Gender expansion explicitly off** (§7g).
+   - **Marion Court, T-4: do NOT rebuild.** `purchase` has **0 events in 7 days**
+     to learn from; Tellus had 13 days of runway, this has four. Instead change
+     `optimization_goal` from `LINK_CLICKS` to `LANDING_PAGE_VIEW` on
+     `Marion Court | Female | Traffic` — editable on the live ad set, one field,
+     no new creative, and the only goal in the account with the volume (519/week)
+     to leave the learning phase. It optimises for people who *load the page*
+     rather than people who *tap*, which is §6b's exact defect.
 
 ### Timing, not a lever
 
