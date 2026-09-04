@@ -158,9 +158,14 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   hole. `RunOnlyIfNetworkAvailable` is still `False`, which is what made the
   08-29 run fail both network steps 14 minutes after a boot. Same elevated-shell
   fix, one more setting.
-- **No woman's testimonial exists in any ad.** The only testimonial creative is
-  Quang's. `reports/AD_LEVER_WOMEN_2026-09-02.md` wants one for the women's
-  prime; someone has to ask an attendee.
+- **No woman's testimonial exists in any AD — but three now exist to build
+  from, so this is a build job, not an asking job (corrected 09-04).** Molly,
+  Helesha and Anonymous M. are in `content/brand.json` and live on all six
+  rotators (#441) and the homepage wall (#444). The ad side is unchanged and
+  still the gap: checked every ad in the account on 09-04 via
+  `npm run ads:review` — zero creatives reference any of the three, one
+  references Quang. `reports/AD_LEVER_WOMEN_2026-09-02.md` wants one for the
+  women's prime. Next step: build the creative, not ask an attendee.
 - `reports/META_CAPI_PROMPT.md` is untracked and has never been run.
 - **One report branch the sweep still refuses as STALE and nobody has replayed
   onto main:** `claude/content-freshness-analysis-2026-08-29`. Cherry-pick or
@@ -201,6 +206,12 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   unresolved on that — and the extra budget is buying repetition, not reach.
 - **Marion Court Traffic cost per LP view at $10/day.** It ran $0.31 at $6/day and
   the model assumed ~$0.38 blended; above ~$0.68 the increment is not paying.
+  **Reading on 09-04, four days out and NOT the score:** the Traffic ad itself is
+  at **$0.33** lifetime ($70.95 / 217 LPV) — still on the $0.31 baseline, so the
+  increment is paying at ad level. Blended across all eight MC ads it is **$0.68**
+  ($200.91 / 295 LPV), and the whole gap is retargeting: MC-RT-STILL-THINKING
+  $2.26, V2 $2.75, MC All Genders $4.56. Read this as "which ad is expensive",
+  not as the verdict — the score is still purchases by gender on 09-09.
 - **The `/lp`-vs-`/` gap was read with the channel control on 09-02**
   (`reports/PAID_FUNNEL_AUDIT_2026-09-02.md`): the two paid leaks are the tap
   (in-app 1.4% vs normal browser 26%) and the form's first field (23 of 77
