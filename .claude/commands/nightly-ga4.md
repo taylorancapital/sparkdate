@@ -47,11 +47,34 @@ Read BOTH, in full:
    questions list in its §3b.
 
 State ANALYTICS_CONTEXT.md's `Last updated:` date in the report's first
-paragraph. If it is older than the newest `reports/GA4_ANALYSIS_*.md` on this
-branch, say so in ONE sentence and check §3b before raising anything. Do not
-spend a paragraph on the stamp. Where the two files disagree on a measurement
-question, the tracked one wins. Where a caveat in either contradicts a number
-you compute, say so explicitly rather than silently trusting either.
+paragraph — it is cheap provenance and says which copy you read.
+
+**Do NOT raise the stamp as an item for Taylor unless it disagrees with the
+file's own modified time.** Compare the stamp to the file's mtime, nothing
+else. If they agree, the file is self-consistent: say the date and move on. If
+the stamp is OLDER than the mtime, the file was edited without bumping it —
+that, and only that, is worth one sentence.
+
+REWRITTEN 2026-09-04, after this instruction produced the same request seven
+nights running. It used to say "if it is older than the newest
+`reports/GA4_ANALYSIS_*.md` on this branch, say so". A report is generated
+every night, so the newest one is always newer than any hand-edited stamp:
+the condition was permanently true and fired every single run. Seven
+"NEEDS TAYLOR INPUT" slots went to a date while real findings — an unreplaced
+`<campaign-name>` tracking placeholder carrying 41 key events among them —
+queued behind it.
+
+The stamp was a FORK DETECTOR, and the fork it detected is gone. It existed
+because the Cowork sandbox kept its own copy of this file, refreshed only when
+Taylor re-uploaded it, and the 2026-08-26 report ran against a stale one and
+wasted a night re-asking answered questions. Since 2026-09-02 the nightly runs
+on this machine and reads the single canonical copy by absolute path — Cowork
+is paused, and there is exactly one copy on disk. A fork can no longer happen,
+so a stamp that merely looks old is not evidence of anything.
+
+Where the two files disagree on a measurement question, the tracked one wins.
+Where a caveat in either contradicts a number you compute, say so explicitly
+rather than silently trusting either.
 
 ## 2. Find tonight's data
 
