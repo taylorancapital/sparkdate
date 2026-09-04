@@ -286,17 +286,44 @@ describe('testimonial rotators', () => {
       expect(reserved).toBeLessThan(bogus);
     });
 
-    it('leads with a woman', () => {
-      // Taylor asked for this directly on 2026-09-03, and it is the reason
-      // the reservation above had to change. WOMEN is a list because the
-      // rotation is meant to grow: getting a second woman's testimonial is
-      // action #3 in reports/WOMEN_ACQUISITION_BRAINSTORM_2026-09-02.md, and
-      // when one lands it goes in this array and at the front of every
-      // rotator. Quang is a man -- see reports/AD_LEVER_WOMEN_2026-09-02.md.
-      const WOMEN = ['Molly'];
+    it('puts every woman ahead of every man', () => {
+      // Taylor's standing instruction, given 2026-09-03 and repeated on
+      // 09-04 when he supplied two more. It is the reason the reservation
+      // above had to change: the box took short quotes only, the one
+      // approved quote from a woman was the long one, so the rotation was
+      // four men purely as a side effect of a layout constant.
+      //
+      // Asserted as an ORDERING, not as "the first one is a woman" -- the
+      // weaker version passes a list that reads Molly, Jeff, Helesha, and
+      // that is not what was asked for.
+      //
+      // Sourced from content/brand.json's attributions. Evidence for the
+      // genders, since guessing from names is exactly how this goes wrong:
+      // Molly is the woman brand.json was built around; Anonymous M. is
+      // anonymised BECAUSE she is a specific woman who asked for privacy;
+      // Helesha was identified as a woman by another guest in writing.
+      // Alex reads ambiguous and is a man -- established 2026-09-04 from a
+      // guest email ("i dont even remember who he is"), which is worth
+      // keeping written down because the name invites the opposite guess.
+      // Quang is a man per reports/AD_LEVER_WOMEN_2026-09-02.md.
+      const WOMEN = ['Molly', 'Helesha', 'Anonymous M.'];
       const quotes = quotesIn(rot.src);
       expect(quotes.length).toBeGreaterThan(0);
-      expect(WOMEN).toContain(quotes[0].who);
+
+      // A ninth name nobody has classified must not slip through as a man.
+      const KNOWN_MEN = ['Jeff', 'Luke', 'James', 'Alex', 'Quang'];
+      const unclassified = quotes
+        .map((q) => q.who)
+        .filter((w) => !WOMEN.includes(w) && !KNOWN_MEN.includes(w));
+      expect(unclassified).toEqual([]);
+
+      const isWoman = quotes.map((q) => WOMEN.includes(q.who));
+      const firstMan = isWoman.indexOf(false);
+      if (firstMan !== -1) {
+        // No woman may appear after the first man.
+        expect(isWoman.slice(firstMan).filter(Boolean)).toEqual([]);
+      }
+      expect(isWoman[0]).toBe(true);
     });
 
     it('holds a finished quote longer than it spent typing it', () => {
