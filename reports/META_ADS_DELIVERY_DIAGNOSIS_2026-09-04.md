@@ -418,51 +418,148 @@ any single defect, is why it keeps not making sense.
   measurement** that this is costing anything — flagging it as wrong, not as
   proven harmful.
 
+## 7f. CORRECTION — the objective claim does not survive its own test
+
+Taylor asked whether the objective is *causally* the reason. I tested it instead
+of asserting it again, and **§7a overstated the case. It is not established.**
+
+§7a computed the expected number of traffic-arm sales using the *sales arm's own
+rate*. That assumes the conclusion. The correct test pools both arms and asks
+how likely it is that both sales landed in the sales arm by chance.
+
+**It depends entirely on the denominator, and the two answers disagree:**
+
+| denominator | comparison | test | p | verdict |
+|---|---|---|---:|---|
+| landing-page views | 2/132 vs 0/1,156 | Fisher exact, 1-tailed | **0.010** | significant |
+| **dollars spent** | 2 on $227.91 vs 0 on $254.14 | Fisher exact, 1-tailed | **0.224** | **not significant** |
+
+**Dollars is the decision-relevant denominator** — it is the thing being
+allocated. Per *visitor* a sales-objective click is better; per *dollar* the
+sales objective buys nine times fewer visitors, and that cancels the advantage
+out almost exactly. On the measure that matters for a budget decision, **2 versus
+0 is what you would expect from chance about one time in five.**
+
+**Nothing else in the account clears the bar either:**
+
+| comparison | figures | p |
+|---|---|---:|
+| retargeting vs cold prospecting | $63.03/sale vs $241.03/sale (4 vs 2) | 0.110 |
+
+**The root cause of the uncertainty is that the account has six conversions.**
+To detect a genuine 2× per-dollar difference at 80% power would take roughly
+**$5,671 per arm** — about **fifteen times** the money either arm has seen, and
+seven times the account's entire lifetime spend of $769.23. A 3× difference
+would still take ~$1,891 per arm. **At $10–16/day this question cannot be
+settled by running the experiment.**
+
+### What *is* established, and it is not the objective
+
+The in-app-browser tap gap from `PAID_FUNNEL_AUDIT_2026-09-02.md` is measured on
+**869 sessions** rather than 6 conversions, and it is behaviour, not attribution:
+
+| | tap Get Tickets | rate |
+|---|---|---:|
+| in-app browser (Instagram/Facebook) | 11 of 791 | **1.39%** |
+| normal browser | 20 of 78 | **25.6%** |
+
+**An 18.4× difference, Fisher exact p ≈ 4 × 10⁻¹⁵.** That is the single
+best-evidenced fact about this funnel.
+
+**And placement is the lever on it.** §6b measured that 86% of Marion Court's
+money runs in Instagram Stories and 88% of Loxleys' in Reels — placements whose
+taps open in the in-app browser essentially always. So the causal chain that
+holds up is:
+
+> **placement → in-app browser → 18× worse tap rate** (p ≈ 4e-15, n = 869)
+
+and the one that does not is:
+
+> **objective → cheaper clicks → fewer sales** (p = 0.22 per dollar, n = 6)
+
+The objective change remains a *reasonable bet* — it is the mechanism that
+selects the cheap Stories click in the first place, and Meta's own
+`recommendations` field flags it on five ads. But it is a bet, not a
+demonstrated cause, and it should not be sold as one.
+
+### The number that no objective change fixes
+
+Cold prospecting, **across both objectives**, has cost **$241.03 per sale**
+($482.05, 2 sales) against a **$24.99 ticket**. Retargeting costs $63.03. Neither
+is profitable on ticket revenue alone. **That gap — not the objective — is the
+problem**, and closing it needs the tap rate to move, which is §6b's lever and
+#419's rebuilt checkout, not a setting in Ads Manager.
+
 ## 8. DECISION — what is actually on the table
 
-None of this is done. Each is Taylor's call. Ordered by evidence behind it, not
-by ease.
+None of this is done. Each is Taylor's call. **Ranked by the strength of the
+evidence behind it, per §7f — not by how appealing the theory is.**
 
-1. **The objective (§7a) — the biggest one.** `OUTCOME_TRAFFIC` has never
-   produced a sale on any event, and both live prospecting campaigns run it.
-   Switching Loxleys to `OUTCOME_SALES` is the highest-evidence change available.
-   Note two real costs: a new objective restarts the learning phase, and Meta
-   needs conversion volume to optimise against — at 6 lifetime pixel purchases
-   this account is far below the ~50/week Meta wants, so a sales objective may
-   optimise poorly. Optimising for `add_to_cart` or `initiate_checkout` instead
-   of `purchase` is the standard answer to that, and this account has 39 and 24
-   of those respectively. **The 09-09 review was scheduled for this — that is
-   the day after Marion Court.**
-2. **Marion Court is Tue 09-08 — T-4**, and its campaigns stop that day. §7b
-   says its selling window is *now*, and it is funded at $10 + $6 a day through
-   it. Whatever happens for it happens this week or not at all. Judging it
-   before 09-08 is judging it early.
-3. **Marion Court retargeting** at frequency 8.77 into 224 people is the
-   clearest waste on the board — roughly $6/day. Pausing it frees the only money
-   that could move in the window that matters.
-4. **The Single filter (§6a).** Dropping `relationship_statuses` from the two
-   Marion Court prospecting ad sets multiplies reachable audience by five. One
-   field, no creative re-review. Counter-argument: it is the only interest-style
-   signal on the ad set at all, so removing it makes targeting purely
-   geo/age/gender — which is how Loxleys already runs, giving a live comparison
-   either way.
-5. **The five ended-but-ACTIVE campaigns**: extend `stop_time`, or archive them
-   so the account stops reading as busier than it is. Leaving them is the only
-   option that costs nothing and also fixes nothing.
-6. **Loxleys has the runway** (stops 09-22, currently $3/day, ladder to $9 on
-   09-08 per memory `lx-campaign-live`). At T-18 it is on the flat part of the
-   sales curve, so its zero is expected. It is the event where an objective
-   change has time to matter.
-7. **`MC All Genders` advertises $18.99 through Aug 24 (§7e)** while checkout
-   charges $27.49. Fixing the link description is free and does not touch
-   `url_tags`. The `BOOK_TRAVEL` CTA on all four Marion Court ads is wrong in
-   the same place, though unmeasured.
+### Tier 1 — true by inspection. No statistics required, nothing to be wrong about.
+
+1. **`MC All Genders` promises "$18.99 thru Aug 24"; checkout charges $27.49.**
+   Eleven days expired and **45% below** the real price. Editing a link
+   description does not touch the frozen `url_tags` and does not force
+   re-review. There is no version of this that is not a defect.
+2. **Marion Court retargeting is at frequency 8.77 into 224 people** at ~$6/day
+   (§4). Nine impressions per person per week, 11 clicks, no sales. Pausing it
+   is arithmetic, not a hypothesis — and it frees the only spare money inside
+   the T-4 window.
+3. **The five ended-but-ACTIVE campaigns** (§3): archive or extend. Costs
+   nothing either way; leaving them just keeps the account unreadable.
+
+### Tier 2 — the best-evidenced causal lever in the account (p ≈ 4e-15, n = 869)
+
+4. **Restrict placements.** The in-app browser converts **18.4× worse** at the
+   tap, measured on 869 sessions, and §6b shows 86% of Marion Court's money in
+   Instagram Stories and 88% of Loxleys' in Reels — both of which open in it
+   nearly always. Excluding Audience Network and Reels overlay outright, and
+   weighting toward feed, attacks the one mechanism this account has actually
+   demonstrated. **Expect CPC to rise sharply. That is the intended effect** —
+   §7f shows cheap clicks are precisely what is not working.
+
+### Tier 3 — a measured audience fact, though its effect on sales is untested
+
+5. **The Single filter (§6a)** removes **80%** of reachable audience — that is
+   Meta's own estimator, not an inference. Whether the other 80% *buys* is
+   untested. Dropping it is one field and no re-review; it also makes the two
+   Marion Court ad sets match Loxleys, giving a like-for-like comparison for the
+   first time.
+
+### Tier 4 — a reasonable bet, explicitly NOT a demonstrated cause
+
+6. **The objective.** §7f: **p = 0.224 per dollar.** The mechanism is coherent —
+   `LINK_CLICKS` is what selects the cheap Stories click that Tier 2 is about —
+   and Meta flags it on five ads. But the sales data does not establish it, and
+   proving it would take ~$5,671 per arm. Two further costs: a new objective
+   restarts the learning phase, and at **6 lifetime pixel purchases** against the
+   ~50/week Meta wants, a `purchase`-optimised campaign may deliver badly.
+   Optimising for `add_to_cart` or `initiate_checkout` (39 and 24 on record) is
+   the standard answer. **Do it as a bet you can afford, on Loxleys, which has
+   runway to 09-22 — not as the fix.**
+
+### Timing, not a lever
+
+7. **Marion Court is T-4** (§7b). Its selling window is now, it is funded at $10
+   + $6 a day, and its campaigns stop 09-08. Tier 1 items 1–2 are the only ones
+   that can land inside it. **Judging the event before 09-08 is judging it early.**
 8. **The `proof_rsa1` tagging (§7d) cannot be fixed on the live ads** —
    `url_tags` is frozen at creation, so a correct tag costs a new dark post,
    which memory `dont-swap-creatives-under-live-retargeting` says not to do
-   under a live retargeting audience. The decision is whether Marion Court stays
-   unmeasurable through 09-08 (recommended — it is four days) and every ad built
-   after it goes through `scripts/ad-utm.js`, which Loxleys already does.
+   under a live retargeting audience. Recommend Marion Court stays unmeasurable
+   through 09-08 — it is four days — and every ad after it goes through
+   `scripts/ad-utm.js`, as Loxleys already does.
+
+### The thing none of these fixes
+
+Cold prospecting costs **$241.03 per sale across both objectives** against a
+**$24.99 ticket**; retargeting costs $63.03. **No setting in Ads Manager closes
+a 10× gap.** The tap rate has to move — Tier 2, plus #419's rebuilt checkout,
+which is two days old and unmeasured. If that does not move it, the honest
+conclusion is that cold paid acquisition does not pay for this product at this
+ticket price, and the money belongs in the channels that already work: Eventbrite
+listings, email, and the retargeting pool that costs $63 a sale when it has
+anyone in it.
 6. **The Single filter (§6a).** Dropping `relationship_statuses` from the two
    Marion Court prospecting ad sets multiplies the reachable audience by five.
    It is a one-field edit and it does not force creative re-review. The counter-
