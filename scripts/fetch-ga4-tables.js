@@ -437,6 +437,235 @@ const TABLES = [
     metrics: ['sessions', 'totalUsers', 'keyEvents', 'totalRevenue'],
     orderBy: { metric: { metricName: 'sessions' }, desc: true },
   },
+  {
+    // THERE IS GOOGLE ADS SPEND IN THIS PROPERTY AND NOTHING HAS EVER READ IT.
+    //
+    // The advertiserAd* family and returnOnAdSpend error out on their own --
+    // "Please add sessionCampaignName to make the request compatible" -- which
+    // is why a naive probe reports them unavailable and why they were missed.
+    // Paired with sessionCampaignName they return, since 05-19:
+    //   Website traffic-Search-1  $35.35, 110 clicks, 448 impressions, ROAS 0
+    //   Campaign #1                $2.56,   4 clicks,  61 impressions, ROAS 10.73
+    //
+    // $37.91 of spend that no report, no CAC figure and no recurring_costs row
+    // accounts for. Meta is not the only paid channel after all.
+    file: 'google-ads-cost',
+    title: 'Google Ads cost by campaign (advertiserAd* needs sessionCampaignName)',
+    dimensions: ['sessionCampaignName'],
+    metrics: ['advertiserAdCost', 'advertiserAdClicks', 'advertiserAdImpressions',
+      'advertiserAdCostPerClick', 'advertiserAdCostPerKeyEvent', 'returnOnAdSpend'],
+    orderBy: { metric: { metricName: 'advertiserAdCost' }, desc: true },
+    notes: [
+      'advertiserAdCostPerKeyEvent reads 0.00 on Website traffic-Search-1. That does NOT mean the clicks were free -- the campaign produced ZERO key events, and GA4 prints 0 for undefined. It is the most misreadable cell in this file: the campaign that bought nothing shows the best cost per outcome.',
+      'Revenue and ROAS here are LAST-CLICK. GA4 data-driven attribution credits Campaign #1 $0.00 and 1.14 key events for the same period, so the 10.73 ROAS below is the optimistic end of a range, not a fact.',
+      'The Grand total row divides property-wide outcomes by Google spend. Read ROAS and the per-click/per-key-event columns PER ROW; their totals are meaningless.',
+    ],
+  },
+  {
+    // 24 rows -- the spend is not evenly spread, it clusters in 07-10..07-24.
+    // Daily, so a spend spike can be lined up against the revenue series
+    // instead of sitting as one lump total.
+    file: 'google-ads-cost-daily',
+    title: 'Google Ads cost by day and campaign',
+    dimensions: ['date', 'sessionCampaignName'],
+    metrics: ['advertiserAdCost', 'advertiserAdClicks', 'advertiserAdImpressions'],
+    orderBy: { dimension: { dimensionName: 'date' } },
+  },
+  {
+    // The diagnostic table, and the reason the one above is not enough.
+    //
+    // Cost and sessions DO NOT JOIN. Measured 2026-09-04:
+    //   Website traffic-Search-1 | Google Ads | google / cpc  -> $35.35, 0 sessions
+    //   Campaign #1              | Google Ads | google / cpc  ->  $2.56, 2 sessions
+    //   (not set)                | Google Ads | google / cpc  ->  $0.00, 9 sessions
+    //   (not set)                | Google Ads | googleads/cpc ->  $0.00, 11 sessions
+    //
+    // So ~$38 of spend sits on campaigns with ~2 sessions, while the 20 sessions
+    // GA4 does attribute to Google Ads carry no campaign name and no cost. Any
+    // cost-per-acquisition computed from either half alone is wrong. This table
+    // is what makes that visible rather than silently averaging it away.
+    //
+    // sessionSourcePlatform is also the only field that separates "Meta Ads"
+    // from "Google Ads" from "Unlabeled", and nothing else in the pull reads it.
+    file: 'paid-cost-vs-sessions',
+    title: 'Cost vs sessions by campaign, source platform and source/medium',
+    dimensions: ['sessionCampaignName', 'sessionSourcePlatform', 'sessionSourceMedium'],
+    metrics: ['advertiserAdCost', 'sessions', 'keyEvents', 'totalRevenue'],
+    orderBy: { metric: { metricName: 'sessions' }, desc: true },
+  },
+  {
+    // transactionId is a real per-purchase key and nothing read it. Pulling it
+    // with `date` immediately shows that IT IS BEING REUSED:
+    //   8E9WZTat32JyoUjWuIE7 appears on 08-15 (3 txns) AND 08-18 (2 txns)
+    //   DHHBNANFlrfEEB6SMLMy carries 8 transactions on one id
+    //   pi_3U7y8yRsTCYDr2LL1LPtpFAy (a Stripe payment-intent id) carries exactly 1
+    // 16 distinct ids for 39 transactions. The Stripe-style ids behave; the
+    // Firestore-style doc ids do not, which is what #200 set out to fix.
+    // Whether that is legacy data or a live regression is NOT established here.
+    file: 'transactions',
+    title: 'Transactions by transaction_id and date (exposes id reuse)',
+    dimensions: ['transactionId', 'date'],
+    metrics: ['totalRevenue', 'transactions', 'itemsPurchased'],
+    orderBy: { metric: { metricName: 'totalRevenue' }, desc: true },
+    // NOTE on the metric choice, which is load-bearing. Do NOT add itemName
+    // here: it forces the whole request into ITEM scope, `transactions`
+    // becomes unavailable, and itemRevenue totals $968.60 against the
+    // property's $1,061.12 -- a ledger that under-reports by $92.52. Verified
+    // 2026-09-04; the item-scoped variant was designed, tested and rejected.
+    // As written this reconciles exactly: $1,061.12 and 39 transactions.
+    //
+    // itemsPurchased totals 41, not 39, and that is correct -- two Stripe
+    // orders carried two tickets each. Transactions is the order count.
+    notes: [
+      'transaction_id IS BEING REUSED. 8E9WZTat32JyoUjWuIE7 appears on 08-15 (3 transactions) and again on 08-18 (2). Firestore-style doc ids carry up to 8 orders each; Stripe payment-intent ids (pi_...) carry exactly 1. 16 distinct ids for 39 transactions, so GA4 de-duplication is inoperative on most purchases. Whether this is legacy data or a live regression is NOT established -- see PR #200.',
+      'itemsPurchased (41) exceeds transactions (39) because two orders bought two tickets. That is not a fault.',
+    ],
+  },
+  {
+    // Where the Google spend actually went. Costs nothing (4 rows) and is the
+    // only place the account, the campaign type and the ad network appear.
+    // Measured 2026-09-04:
+    //   Sparkdate | Website traffic-Search-1 | Search          | Google search           $32.77, 106 clicks, 405 impr
+    //   Sparkdate | Website traffic-Search-1 | Search          | Search partners          $2.58,   4 clicks,  36 impr
+    //   Sparkdate | Website traffic-Search-1 | Search          | Google Display Network   $0.00,   0 clicks,   7 impr
+    //   Sparkdate | Campaign #1              | Performance Max | Cross-network            $2.56,   4 clicks,  61 impr
+    //
+    // Note this contradicts an earlier claim of mine that the sessionGoogleAds*
+    // family is a constant placeholder. That is true of sa360*/dv360* (which
+    // return a literal "cpc"/"cpm" on every row regardless of real source);
+    // the googleAds* family carries real values, because an account is linked.
+    file: 'google-ads-by-network',
+    title: 'Google Ads cost by account, campaign type and ad network',
+    dimensions: ['sessionGoogleAdsAccountName', 'sessionGoogleAdsCampaignName',
+      'sessionGoogleAdsCampaignType', 'sessionGoogleAdsAdNetworkType'],
+    metrics: ['advertiserAdCost', 'advertiserAdClicks', 'advertiserAdImpressions'],
+    orderBy: { metric: { metricName: 'advertiserAdCost' }, desc: true },
+  },
+  {
+    // Creative-level cost. The read that earns the file: one creative is 12x
+    // more expensive per click than the other -- 816106298597 took $25.71 for
+    // 20 clicks ($1.286 each) against 816738636689's $9.64 for 90 ($0.107).
+    file: 'google-ads-creatives',
+    title: 'Google Ads cost by ad group and creative',
+    dimensions: ['sessionGoogleAdsAdGroupId', 'sessionGoogleAdsCreativeId'],
+    metrics: ['advertiserAdCost', 'advertiserAdClicks', 'advertiserAdImpressions'],
+    orderBy: { metric: { metricName: 'advertiserAdCost' }, desc: true },
+    notes: [
+      "This file's advertiserAdCost total is 35.35, NOT the property's 37.91. Google Ads does not report Performance Max cost at ad-group granularity, so Campaign #1's $2.56 disappears here. Quote money from google-ads-cost, not from this file.",
+    ],
+  },
+  {
+    // The disjoint WEEKLY bucket that CLAUDE.md's "disjoint buckets, never
+    // rolling windows" rule presupposes exists, and did not.
+    //
+    // sessions/revenue/transactions here could be summed out of the daily
+    // tables. activeUsers CANNOT: its 15 weekly rows sum to 3,969 against a
+    // deduplicated 3,841, because a user active in two weeks counts once per
+    // week and once overall. That is the column that justifies the table.
+    //
+    // ISO (Monday-start) not `yearWeek` (Sunday-start), to match the Monday
+    // cohort boundaries cohort-retention already uses. They are NOT
+    // interchangeable: week 202635 reads 1,071 sessions on isoYearIsoWeek and
+    // 980 on yearWeek. Same label, different number.
+    file: 'weekly-trend',
+    title: 'Weekly trend, ISO weeks (Monday-start) - sessions, users, revenue',
+    dimensions: ['isoYearIsoWeek'],
+    metrics: ['sessions', 'activeUsers', 'newUsers', 'keyEvents', 'transactions', 'totalRevenue'],
+    orderBy: { dimension: { dimensionName: 'isoYearIsoWeek' } },
+    notes: [
+      'The NEWEST week is almost always PARTIAL. 202636 covers Mon 08-31 to Thu 09-03 only (574 sessions) against 202635\'s full 1,071. Reading that as a 47% collapse is the trap this table invites.',
+      'ISO weeks are Monday-start. The `week`/`yearWeek`/`nthWeek` dimensions are SUNDAY-start and produce different numbers for the same label -- do not compare this file against a Sunday-start chart.',
+    ],
+  },
+  {
+    // The pull had city and region but nothing above region, so the
+    // bot/datacenter check that cities exists for stopped at the state line.
+    // Measured: 4,820 of 5,190 sessions are United States, and the 191 foreign
+    // sessions produce almost no key events (Sweden 70/0, Ireland 45/0, China
+    // 35/0, India 21/0, UK 18/0).
+    //
+    // The reason to pull it is the anomaly it exposes: 118 sessions with
+    // country '(not set)' carry 82 key events and $0 revenue. That is a 58%
+    // key-event rate against a property-wide rate near 3%, and it inflates
+    // every conversion rate the nightly computes. continentId is 'ZZ' on those
+    // rows -- the explicit unknown marker -- which is why the id columns are
+    // here despite looking redundant. All six dimensions cost 61 rows; four
+    // cost 61 rows too.
+    file: 'geo-country-language',
+    title: 'Country, continent and language - sessions, users, key events, revenue',
+    dimensions: ['continent', 'continentId', 'country', 'countryId', 'language', 'languageCode'],
+    metrics: ['sessions', 'totalUsers', 'keyEvents', 'totalRevenue'],
+    orderBy: { metric: { metricName: 'sessions' }, desc: true },
+    notes: [
+      "118 sessions report country '(not set)' / continentId 'ZZ' and fire 82 key events -- a 58% rate against roughly 3% property-wide, on $0 revenue. Treat that bucket as suspect traffic before quoting any engagement or conversion rate.",
+    ],
+  },
+  {
+    // Per-AD attribution, which utm-content could not do. sessionManualTerm
+    // carries the Meta AD id (120250622050160542) under the campaign id
+    // 120250622050150542, so "which ad" is answerable without going anywhere
+    // near landingPagePlusQueryString and its fbclid explosion.
+    // 287 rows; totals reconcile to 5,190 / 231 / $1,061.12 / 39.
+    file: 'utm-ad-detail',
+    title: 'Manual UTM detail - source/medium, campaign, content and term (Meta ad id)',
+    dimensions: ['sessionManualSourceMedium', 'sessionManualCampaignName',
+      'sessionManualAdContent', 'sessionManualTerm'],
+    metrics: ['sessions', 'keyEvents', 'totalRevenue', 'transactions'],
+    orderBy: { metric: { metricName: 'sessions' }, desc: true },
+    notes: [
+      'To split sessionManualSourceMedium into source and medium, split on " / " -- with ONE exception, measured: the null pair comes back as a bare "(not set)", not "(not set) / (not set)". That is the LARGEST row in the file at 791 sessions, so a naive split mislabels the biggest bucket. There is no " | " value.',
+    ],
+  },
+  {
+    // The auto-tagging overwrite diagnostic. Google Ads auto-tagging REPLACES
+    // the hand-written utm_campaign, and the manual twin is the only place the
+    // real campaign name survives. Measured 2026-09-04, 126 rows, two rows
+    // diverge with a real value on both sides:
+    //   firstUserCampaignName 'Campaign #1'  vs manual 'week1_math'
+    //   'google / cpc' vs 'googleads / offline'  (18 sessions)
+    //   'googleads / cpc' vs 'googleads / (not set)' (11 sessions)
+    // Nothing else in the pull would show that the two disagree.
+    //
+    // Also the pull's only first-user (acquisition-scope) coverage: every
+    // other table is session-scope, so "where did this person originally come
+    // from" was unanswerable.
+    file: 'first-user-tagging',
+    title: 'First-user acquisition: auto-tagged vs manual campaign (overwrite diagnostic)',
+    dimensions: ['firstUserSourceMedium', 'firstUserManualSourceMedium',
+      'firstUserCampaignName', 'firstUserManualCampaignName',
+      'firstUserCampaignId', 'firstUserManualCampaignId'],
+    metrics: ['sessions'],
+    orderBy: { metric: { metricName: 'sessions' }, desc: true },
+    notes: [
+      'Rows where the auto-tagged and manual columns DISAGREE are the point of this file. Google Ads auto-tagging overwrites utm_campaign, so the manual column is the only surviving record of what the link was actually tagged with.',
+      'The API caps a request at 9 dimensions, which is why this file carries only the pairs that diverge.',
+    ],
+  },
+  {
+    // GA4's DATA-DRIVEN attribution, which is a different number from every
+    // other table here and is the one Google's own UI shows by default.
+    // Credit is FRACTIONAL: 'eventbrite / listing' gets 22.872082 key events
+    // and $290.39; session-scope tables would give it whole numbers.
+    //
+    // The first read is a live bug: the top row by key events is
+    //   googleads / paid | <campaign-name>  ->  41 key events, $0
+    // `<campaign-name>` is an UNREPLACED placeholder in a tracking template --
+    // a real link somewhere is shipping the literal text. 41 key events are
+    // filed under it.
+    //
+    // `sessions` and `transactions` are deliberately absent: the API rejects
+    // transactions here ("Please remove transactions to make the request
+    // compatible"), and sessions is not an attribution-scope measure.
+    file: 'attribution-credit',
+    title: 'Data-driven attribution credit by source/medium and campaign (fractional)',
+    dimensions: ['sourceMedium', 'campaignName'],
+    metrics: ['keyEvents', 'totalRevenue'],
+    orderBy: { metric: { metricName: 'keyEvents' }, desc: true },
+    notes: [
+      'These are DATA-DRIVEN attribution credits and they are FRACTIONAL by design (22.872082 key events). They will NOT match the whole numbers in the session-scope tables, and that is not a data fault -- the two answer different questions.',
+      'The row "googleads / paid | <campaign-name>" is an unreplaced tracking-template placeholder, not a campaign. 41 key events are filed under it.',
+    ],
+  },
 ];
 
 // The funnels. `v1alpha:runFunnelReport`, not runReport -- different endpoint,
@@ -730,7 +959,11 @@ function header(spec, start, end, pulledAt, notes = []) {
 }
 
 function toCsv(spec, report, start, end, pulledAt) {
-  const head = header(spec, start, end, pulledAt);
+  // `spec.notes` was silently dropped until 2026-09-04: header() has taken a
+  // `notes` parameter all along, but only toCsvFunnel() ever passed one, so a
+  // notes array on a TABLES entry rendered nowhere. Every caveat below that
+  // says "stated in the file header" depended on this line.
+  const head = header(spec, start, end, pulledAt, spec.notes || []);
   const cols = [...spec.dimensions, ...spec.metrics];
   const rows = (report.rows || []).map((r) => [
     ...r.dimensionValues.map((d) => d.value),
