@@ -63,11 +63,19 @@ the context runs out — a compacted session writes a vague handoff.
 | Rules for working here | `CLAUDE.md` | Still true next month? |
 | Facts learned about the system | memory files | True regardless of task? |
 | Analyses and findings | `reports/` | Someone might cite it? |
-| What I was mid-way through | `HANDOFF.md`, ≤25 lines | Dead once merged? |
+| What I was mid-way through | `HANDOFF.md`, dated, with a next step | Dead once merged? |
 | Open PRs, worktrees, stashes | **nowhere** | `npm run brief` derives it |
 
 That last row is the one that keeps getting violated. Hand-written inventories
 of PRs and worktrees were wrong within hours, every time.
+
+**The `HANDOFF.md` row said "≤25 lines" until 2026-09-04. That cap is retired.**
+It was set in #357 when the file was 29 lines and never held once — 29 → 48 →
+94 → 115 → 129 → 152 → 195 across seven sessions, with no session ever trimming
+to it. Its only real effect was pressure to delete other chats' live intent to
+hit a number, and at least one watch signal was lost that way. Length was never
+the failure; **derivable inventory going stale** was, and that is the row above.
+Date each entry, give it a next step, and delete it when it is done.
 
 **Size a chat to a PR.** One chat → one branch → one PR → close it. The merge is
 then the natural end of the chat, and you stop hitting the context wall
