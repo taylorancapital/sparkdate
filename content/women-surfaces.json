@@ -1,0 +1,156 @@
+{
+  "_comment": "Registry of WOMEN-FACING outreach surfaces -- local businesses whose audience is mostly women, and community groups where women are the members. This is NOT a calendar registry; content/listing-sites.json holds those, and the two must not be merged. A calendar takes a form. These take a human. .claude/commands/women-outreach.md reads this to drive the browser; scripts/build-outreach-pack.js reads it to generate the copy and the tagged links.",
+  "_created": "2026-09-04",
+
+  "_why": {
+    "_comment": "The argument this file exists to act on. Source: reports/WOMEN_ACQUISITION_BRAINSTORM_2026-09-02.md ideas 5 and 6, which Taylor endorsed on 2026-09-04.",
+    "the_problem": "Eventbrite and Meta ads do the same job -- put a decision to buy one ticket in front of one woman, alone, on a phone. Both are surfaces we RENT.",
+    "the_bet": "In a market this size the women we want are already on somebody's list. A studio, a salon, a book club, a neighbourhood group. Reaching them through that list costs a trade rather than a bid, and the message arrives carrying an endorsement we cannot buy.",
+    "not_measured": "No outreach has been attempted. The audience-fit argument is reasoning, not data. Judge this channel on ticket sales at the tagged links, not on how good the list looks."
+  },
+
+  "_two_motions": {
+    "_comment": "The single most important distinction in this file. Conflating them is how a good idea turns into a spam report.",
+    "partner": "A BUSINESS. The action is an ASK -- would you share this with your people. It is a negotiation, so the terms are Taylor's to state and never Claude's. See _never_offer_terms.",
+    "community": "A GROUP. The action is a POST, written as a person, inside someone else's room. Most groups delete promotional posts and some ban the poster. Read the rules first, every time."
+  },
+
+  "_never_offer_terms": {
+    "_comment": "Standing rule, and it is not new -- memory `never-ask-a-venue-for-its-minimum` records the same mistake being made with venues.",
+    "rule": "Never write a specific offer into an outreach message: no comped seat counts, no revenue share, no discount code, no exclusivity. Draft the ask with the offer left as a bracketed blank for Taylor to fill.",
+    "why": "Stating terms is negotiating on his behalf, and a number written down first becomes the ceiling. It also pre-refuses deals he might have taken."
+  },
+
+  "_utm": {
+    "medium_partner": "partner",
+    "medium_community": "community",
+    "_medium_why": "Deliberately NOT 'listing' and NOT 'referral'. 'listing' is the calendar bucket and mixing these in makes both unreadable; GA4 assigns 'referral' by itself to any uncontrolled inbound link, so a hand-tagged row would drown in it. Two mediums rather than one because a business's audience and a community's are different channels with different economics -- 'did the studios work' and 'did the groups work' are separate questions.",
+    "campaign_format": "{event_key}_{YYYYMM}",
+    "content_format": "{event_key}_{surface_key}",
+    "_content_why": "Unique per surface per event, so one studio's contribution is separable from another's. Same rule brand.json enforces on ad copy after utm_content=proof_rsa1 landed on thirteen ads at once.",
+    "destination": "event_page",
+    "_destination_why": "Someone arriving from a trusted recommendation has already been sold the event. /lp has no cart and would add a hop.",
+    "_link_construction": "lib/listing-links.js taggedUrl() builds these. Do not hand-assemble a URL anywhere else -- that function is the only place UTMs are attached, on purpose."
+  },
+
+  "_seeding_honesty": {
+    "_comment": "READ THIS BEFORE ADDING ROWS. The categories below are a recommendation; the named rows are the only verified ones.",
+    "verified": "The three `community` rows carrying a real URL came from docs/MARKETING_PLAYBOOK.md, where they were recorded in June 2026. They are general-audience singles/local groups, NOT women-specific -- they are here as a known baseline, flagged as such.",
+    "not_verified": "Every `partner_categories` entry is a CATEGORY, not a business. No Lancaster business has been checked for existence, audience, or willingness. Inventing plausible-sounding local business names into this file would be fabrication, and a fabricated row is worse than an empty list because the next session treats it as researched.",
+    "how_rows_get_added": "Section 2 of .claude/commands/women-outreach.md runs a discovery pass in the browser, shows the user what it found, and only then writes rows here. Nothing enters this file unseen."
+  },
+
+  "partner_categories": [
+    {
+      "key": "fitness_studios",
+      "label": "Barre, yoga, pilates and spin studios",
+      "why": "Class-based fitness runs on a membership list and an active Instagram, the audience skews heavily female and local, and the owner is usually the person who posts. Highest expected fit of anything on this list.",
+      "ask_shape": "A story share or a post to their members, in exchange for something Taylor decides."
+    },
+    {
+      "key": "salons_blowout",
+      "label": "Salons, blowout bars, nail and brow studios",
+      "why": "Appointment-based, high dwell time, and the conversation in the chair is already about people's lives. A physical card at the desk works here where it does not elsewhere.",
+      "ask_shape": "Cards at the desk, or a post. Physical placement is the differentiator."
+    },
+    {
+      "key": "boutiques",
+      "label": "Independent clothing and gift boutiques",
+      "why": "Owner-run, local following, and they already cross-promote other small businesses as a matter of habit.",
+      "ask_shape": "A post, or a joint 'what to wear' angle if the owner is game."
+    },
+    {
+      "key": "wine_coffee",
+      "label": "Wine shops, bottle shops and coffee roasters",
+      "why": "Mixed audience but strongly local and event-friendly -- several already host tastings, so an evening event is a familiar idea rather than a strange one.",
+      "ask_shape": "A post, or co-hosting the low-commitment format (brainstorm idea 11)."
+    },
+    {
+      "key": "book_clubs_run_clubs",
+      "label": "Book clubs, run clubs and craft groups",
+      "why": "Not businesses -- recurring groups with an organiser. Nearly all-female in this category, and the organiser is one person who can say yes.",
+      "ask_shape": "A conversation with the organiser. Never a post into the group without one."
+    }
+  ],
+
+  "surfaces": [
+    {
+      "key": "fb_lancaster_singles_mingles",
+      "name": "Facebook — Lancaster Area Singles Mingles Meetup",
+      "motion": "community",
+      "status": "not_pursued",
+      "market": "lancaster",
+      "url": "https://facebook.com/groups/633575940178896",
+      "utm_source": "fb_group_singles_mingles",
+      "audience": "general_singles",
+      "_audience_note": "NOT women-specific. Recorded in the playbook in June 2026 and never posted to. Here as a baseline, not as an answer to the women question.",
+      "gotchas": [
+        "Read the pinned rules before drafting. Several local singles groups ban ticketed promotion outright.",
+        "Post as Taylor, not as the SparkDate page, if the group allows either -- a page post reads as an ad and gets less reach in group feeds."
+      ]
+    },
+    {
+      "key": "fb_lancaster_christian_singles",
+      "name": "Facebook — Lancaster Christian Singles of PA",
+      "motion": "community",
+      "status": "not_pursued",
+      "market": "lancaster",
+      "url": "https://facebook.com/groups/Lancaster.Christian.Singles",
+      "utm_source": "fb_group_christian_singles",
+      "audience": "general_singles",
+      "_audience_note": "Playbook flagged this one as tone-dependent. Judge fit before posting; a mismatch here costs the relationship, not just the post.",
+      "gotchas": [
+        "Tone matters more than reach. If the event copy would read wrong to this group, skip it rather than rewriting the event to suit."
+      ]
+    },
+    {
+      "key": "fb_lancaster_pa_community",
+      "name": "Facebook — Lancaster PA Community",
+      "motion": "community",
+      "status": "not_pursued",
+      "market": "lancaster",
+      "url": "https://facebook.com/LancasterPA",
+      "utm_source": "fb_group_lancaster_pa",
+      "audience": "general_local",
+      "_audience_note": "General 'things to do' audience, not singles and not women. Lowest priority of the three; included because it is already recorded.",
+      "gotchas": [
+        "Post it as a local event, not a sales pitch. This audience is not looking to be sold a ticket."
+      ]
+    }
+  ],
+
+  "discovery_targets": {
+    "_comment": "What section 2 of the command goes looking for. Written as SEARCHES rather than names, because naming a business we have not verified is fabrication.",
+    "community_searches": [
+      "Facebook groups: \"Lancaster women\", \"Lancaster PA women\", \"Lancaster moms\", \"Lancaster girl\", \"women of Lancaster\"",
+      "Facebook groups: \"Lancaster newcomers\", \"new to Lancaster\" -- people who moved recently and are actively looking for a social life",
+      "Meetup: women's groups in the Lancaster / Harrisburg / York triangle",
+      "Nextdoor: neighbourhood groups within the ad radius already being paid for"
+    ],
+    "partner_searches": [
+      "Instagram + Google Maps: yoga / barre / pilates / spin within 15 miles of Lancaster city, sorted by follower count",
+      "Instagram: salons and blowout bars in Lancaster city",
+      "Instagram: independent boutiques on and around Prince St / Queen St",
+      "Local run clubs and book clubs with a public Instagram or Facebook presence"
+    ],
+    "qualify_on": [
+      "Is the audience actually local? A studio with 40k followers and no Lancaster tag is worth less than one with 1,200 who all live here.",
+      "Is anyone home? A last post six months old means the ask will not be seen.",
+      "Do they already cross-promote? A business that shares other local businesses will understand the request immediately.",
+      "Is there a reachable human? An owner who replies to comments is a yes-or-no; a form is a maybe forever."
+    ]
+  },
+
+  "rejected": [
+    {
+      "key": "buy_sell_groups",
+      "name": "Local buy/sell/swap groups",
+      "rejected_reason": "High female membership and zero tolerance for anything that is not an item for sale. These are the groups most likely to remove the post AND ban the account, and the account is Taylor's personal profile."
+    },
+    {
+      "key": "dm_scraping",
+      "name": "Direct-messaging individual women found in local groups",
+      "rejected_reason": "Not a channel. It is unsolicited contact with private individuals, it will get the account reported, and it is the exact behaviour the events are positioned AGAINST. Never do this, and do not re-propose it in a different wrapper."
+    }
+  ]
+}

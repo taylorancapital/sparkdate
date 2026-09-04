@@ -138,6 +138,11 @@ content/*
 # ones were rejected. Source, not an export: scripts/build-listing-pack.js and
 # .claude/commands/syndicate-events.md both read it.
 !content/listing-sites.json
+# The women-facing outreach registry -- local businesses and community groups,
+# which are a different motion from the calendars above (a human, not a form).
+# Source, not an export: scripts/build-outreach-pack.js and
+# .claude/commands/women-outreach.md both read it.
+!content/women-surfaces.json
 
 # Source art and superseded exports live in OneDrive, not the repo:
 #   OneDrive\SparkDate\SourceArt              <- the PNG masters
