@@ -3,13 +3,33 @@
 **Contract for this file. Read before editing it.**
 
 This holds only what a machine cannot derive: what someone was mid-way through,
-why, and what they would do next. Keep it under ~25 lines.
+why, and what they would do next.
 
 **Never write here:** open PRs, worktree inventories, stash lists, recent
 commits, or "X is merged." `npm run brief` derives all of that live and is
 correct; a typed copy is wrong within hours. The 2026-08-30 version of this file
 listed two PRs as open (one had merged) and three worktrees that no longer
-existed, while missing all four that did.
+existed, while missing all four that did. **That is the rule this file exists
+for.** It is about the KIND of content, not the amount.
+
+**THE ~25 LINE CAP IS GONE (2026-09-04).** It was added in #357 when the file
+was 29 lines, as shorthand for "intent only". It never held once: 29 → 48 → 94
+→ 115 → 129 → 152 → 195 lines across seven sessions, and no session ever
+trimmed to it. What it did instead was create pressure to delete live intent
+from other people's chats to hit a number — which is a worse failure than
+length, because a dropped thread is invisible and a long file is merely long.
+
+**What replaces it, so the file cannot rot instead:**
+
+1. **Date every entry** you add, `(MM-DD)`. Rot is then visible to a reader
+   rather than requiring `git log`.
+2. **Every entry names a next concrete step.** If you cannot write one, it is
+   not in-flight intent — it is a finding (`reports/`), a fact (memory file) or
+   a rule (`CLAUDE.md`). Move it and delete it here.
+3. **Delete on completion, not on length.** Finishing a thread means removing
+   its entry in the same PR.
+4. **Never delete another session's entry to make room.** Correct it if you
+   have evidence it is wrong or done, and say what the evidence was.
 
 **Durable rules go in `CLAUDE.md`. Durable facts go in memory files. Findings go
 in `reports/`.** If an entry here stops being "in flight," move it or delete it.
@@ -199,6 +219,13 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   with category `gender_missing` means the two-button gender step is not being
   understood; `card_incomplete` was 8 users lifetime and should not grow faster
   than form views do.
+- **A rise in the checkout-by-landing-page funnel's `/lp` row is instrumentation
+  before it is demand (09-03 on).** `view_item`, `begin_checkout`, `add_to_cart`
+  and `lp_visible` only started firing on `/lp` when it began selling inline, so
+  the first reads after 09-03 measure new events, not new interest.
+  `ANALYTICS_METHOD.md` §4 and the 2026-09-03 row in §10 say what to expect.
+  *(Restored 09-04 — dropped during a prune to hit the old line cap, which is
+  exactly the failure mode that cap caused.)*
 - **Google Ads spend now lands in `ad_spend` as `{date}__google` documents.**
   Any third spend source must namespace its doc id the same way — the Meta sync
   writes `ad_spend/{date}` with a whole-document `set`, so a shared id silently
