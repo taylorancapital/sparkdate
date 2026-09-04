@@ -59,4 +59,42 @@ describe('SERVICE_FEE_CENTS source-of-truth', () => {
     const expectedDollars = SERVICE_FEE_CENTS / 100;
     expect(serviceFeeDollarsIn('public/lp.html')).toBeCloseTo(expectedDollars, 2);
   });
+
+  // public/city.html is the odd one out: it has no checkout and so no
+  // `const SERVICE_FEE`. It states the fee in PROSE, inside FAQ answers that
+  // are emitted verbatim into FAQPage JSON-LD -- so the number is a
+  // machine-readable claim Google can surface, and drift there is a false
+  // price in structured data rather than a wrong total on a button.
+  //
+  // Added 2026-09-04, when those answers said "$24.99 ... no hidden fees"
+  // while checkout charged $27.49. Prose, so it is matched as prose.
+  it('states a service fee in public/city.html that agrees with lib/pricing.js', () => {
+    const html = readFileSync(join(__dirname, '..', 'public/city.html'), 'utf8');
+    const matches = [...html.matchAll(/\$([\d.]+)\s+service fee/g)].map((m) => parseFloat(m[1]));
+
+    expect(matches.length, 'public/city.html: expected at least one "$<n> service fee"').toBeGreaterThan(0);
+
+    const expectedDollars = SERVICE_FEE_CENTS / 100;
+    matches.forEach((dollars) => expect(dollars).toBeCloseTo(expectedDollars, 2));
+  });
+
+  // The claim the fee disclosure replaced. "No hidden fees" beside a mandatory
+  // service fee is false however the price is worded, and it shipped into
+  // structured data for months. Cheap to retype, so it is pinned.
+  it('does not claim "no hidden fees" anywhere a fee is actually charged', () => {
+    // Comments are stripped first: this rule is about what SHIPS, and the
+    // comment in city.html that explains the rule quotes the banned phrase.
+    // Only whole-line // comments and <!-- --> blocks go, so a `https://`
+    // inside real markup survives.
+    const stripComments = (s) => s
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .split('\n')
+      .filter((line) => !line.trim().startsWith('//'))
+      .join('\n');
+
+    ['public/city.html', 'public/lp.html', 'public/event.html', 'public/events.html'].forEach((p) => {
+      const shipped = stripComments(readFileSync(join(__dirname, '..', p), 'utf8'));
+      expect(/no hidden fees/i.test(shipped), `${p}: says "no hidden fees" while ` + 'lib/pricing.js charges one').toBe(false);
+    });
+  });
 });
