@@ -344,8 +344,8 @@ async function handleCheckin(req, res) {
   // roster rows with a split match list. Two real failure modes, both
   // observed in production:
   //
-  //   (a) Apple aliases — lukedebonis@mac.com (Eventbrite ticket) and
-  //       lukedebonis@me.com (typed at the door) are one inbox to Apple and
+  //   (a) Apple aliases — samrivera@mac.com (Eventbrite ticket) and
+  //       samrivera@me.com (typed at the door) are one inbox to Apple and
   //       three unrelated addresses to Firebase Auth.
   //   (b) An account exists for this event under a spelling Auth won't match
   //       on, but THIS event's own registration/ticket rows already record

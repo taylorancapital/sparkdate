@@ -3,6 +3,12 @@
 Dive bar venue. **20 ticket docs, 23 registrations, 4 women ticketed, 2 women in
 the room.** MEASURED via `scripts/audit-event-gender-mix.js` on 2026-09-01.
 
+> **Attendee names in this file are pseudonyms.** This repository is public.
+> Robin, Marco, Nadia and Priya are stand-ins, applied consistently — where two
+> rows share a name, they shared one in the real records too, which is the whole
+> point of the check-in section below. Match them against Firestore, not against
+> each other's real identities.
+
 This file has been rewritten. The first version reasoned from the code alone and
 got the central claim wrong — it blamed 2-for-1 comps. The real data says the
 2-for-1 played no part whatsoever. What follows is the corrected read; the
@@ -13,8 +19,8 @@ is worse than no cause.
 
 | | seats | paid | free | scanned | **actually attended** |
 |---|---|---|---|---|---|
-| women | 4 | 1 ($32.49, own-site) | 3 (all Eventbrite, $0) | 0 | **1** (Kate) |
-| men | 16 | 13 | 3 (2 are 2-for-1 +1s) | 12 | **14** (+Daniel, +Taylor) |
+| women | 4 | 1 ($32.49, own-site) | 3 (all Eventbrite, $0) | 0 | **1** (Robin) |
+| men | 16 | 13 | 3 (2 are 2-for-1 +1s) | 12 | **14** (+Marco, +Taylor) |
 
 The scanned column is what the export says. The attended column is what happened
 — see the check-in section below, which is the single biggest correction here.
@@ -23,9 +29,9 @@ Plus **3 registrations with no ticket at all**, every one created at the door
 with `src=checkin`, and every one marked attended:
 
 ```
-woman  Helesha  22:36 UTC   ← 6:36pm local, at the door
-woman  Kate     23:35 UTC
-man    Daniel   22:40 UTC
+woman  Nadia  22:36 UTC   ← 6:36pm local, at the door
+woman  Robin     23:35 UTC
+man    Marco   22:40 UTC
 ```
 
 ## Three things the first version got wrong
@@ -46,7 +52,7 @@ produced zero women here and a 100% attendance rate for the men it did bring.
 Whatever is wrong, the companion mechanism is not it.
 
 **3. Free seats are not obviously the driver, because the paying woman also did
-not come.** Heather Colosi paid $32.49 — top of the price ladder, own-site — and
+not come.** Priya Raman paid $32.49 — top of the price ladder, own-site — and
 has no check-in. One person is not a finding, but it is the only paid-woman
 observation there is, and it points away from a clean comp story.
 
@@ -60,8 +66,8 @@ ticketed "no-show":
 
 | ticketed, marked absent | created at door, marked present |
 |---|---|
-| Kate Kim (woman, Eventbrite, $0) | Kate (woman) |
-| Daniel Anderson (man, Eventbrite, $26.22) | Daniel (man) |
+| Robin Lee (woman, Eventbrite, $0) | Robin (woman) |
+| Marco Silva (man, Eventbrite, $26.22) | Marco (man) |
 
 **CONFIRMED by Taylor, 2026-09-01: same people, both pairs.** The door flow
 created a second account because its email lookup missed — the known failure
@@ -79,14 +85,14 @@ attend was filed as a no-show.
 
 Ranked by what the data actually supports.
 
-**A. A measurement failure, CONFIRMED, for three of them.** Kate and Daniel were
+**A. A measurement failure, CONFIRMED, for three of them.** Robin and Marco were
 each recorded twice — absent on their ticket, present on a door-created account —
 and Taylor is mis-scanned besides. That is three people, 15% of the room, that
 the export got wrong. This is no longer a candidate explanation; it is a
 measured fact, and it is the largest single correction to the night.
 
 **B. Free-on-Eventbrite underperformed, and now the sample is smaller still.**
-Kate was one of the three free-on-Eventbrite women, and she came. So it is one of
+Robin was one of the three free-on-Eventbrite women, and she came. So it is one of
 three attending, not zero of three. Directionally still weak, but n=3 and now
 carrying an attendance — this cannot support a conclusion in either direction.
 
@@ -111,8 +117,8 @@ comfortable to walk in alone.
    or every future event carries the same silent undercount.
 2. **Stop issuing free Eventbrite tickets to women, or make them confirm.** They
    are invisible to `isComp` and they skew the mix on paper. Note the attendance
-   argument for this is now weak — Kate was one of them and she came.
-3. **Record the door.** A walk-in with no ticket doc (Helesha) is revenue and a
+   argument for this is now weak — Robin was one of them and she came.
+3. **Record the door.** A walk-in with no ticket doc (Nadia) is revenue and a
    lead with no origin attached to it.
 4. **Test a non-bar venue.** The cheapest way to probe hypothesis C.
 5. **Give guest registrations the profile prompt.** Still true and still unfixed:
@@ -122,8 +128,8 @@ comfortable to walk in alone.
 ## Kernels from the room — REPORTED, not verified
 
 - **One woman effectively carried the night.** Engaged, helpful, enjoyed herself
-  by the end. Two women were in the room — Helesha, who walked in with no ticket
-  at all, and Kate, who held a free Eventbrite ticket and was recorded as a
+  by the end. Two women were in the room — Nadia, who walked in with no ticket
+  at all, and Robin, who held a free Eventbrite ticket and was recorded as a
   no-show. Worth a personal follow-up, not a nurture email.
 - **A prospective partner/regional operator** with Date Faster and Date
   Philadelphia history. Taylor notes the approach is not uncommon and is treating
