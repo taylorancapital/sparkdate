@@ -1,6 +1,7 @@
 {
   "_comment": "Registry of event-listing surfaces -- the free discovery channels a SparkDate event should appear on, plus the ones deliberately NOT pursued and why. scripts/build-listing-pack.js reads this to generate per-site copy and UTM'd links; .claude/commands/syndicate-events.md reads it to drive the browser. Add a site HERE, not in a runbook paragraph, so the generator and the driver both pick it up.",
   "_created": "2026-09-01",
+  "_status_means": "`status` records what WE have done about a surface -- not what is live on it. `not_pursued` means nobody here submitted; it does NOT mean the surface is empty. On 2026-09-04 that distinction cost a wrong answer: this file was read as proof that nothing was syndicated anywhere, and reported as such, while AllEvents was carrying both live events (auto-imported, stale, priced from the cheapest tier), Patch was carrying a July event, and a 26-member Meetup group was sitting there. AllEvents' own gotcha had predicted the auto-import. Where a surface has been checked, an `observed` block or a CONFIRMED gotcha records what was actually found and when -- read those, and re-check rather than trusting either field to still be true.",
   "_evidence": {
     "_comment": "Why the statuses below say what they say. Source: Night Tasks/ga4-api-traffic-by-source-2026-09-01.csv, window 2026-05-19 to 2026-09-01. Re-derive before trusting; these numbers age.",
     "eventbrite_listing": "170 sessions / 81 users / 23 key events / $290.39 -- the highest revenue of any source except (direct), and the ONLY event-listing surface producing anything at all.",
@@ -172,8 +173,20 @@
       "why_now": "Aggregator with real search presence for '<city> events' queries and a genuinely free listing tier. Cheap to maintain because it will also ingest an Eventbrite listing.",
       "gotchas": [
         "It may auto-import the Eventbrite listing. Check for an existing auto-imported copy first and claim/edit that instead of creating a duplicate.",
-        "An auto-imported listing carries EVENTBRITE's link, not a UTM'd one -- claiming it is what lets the tag be set."
-      ]
+        "An auto-imported listing carries EVENTBRITE's link, not a UTM'd one -- claiming it is what lets the tag be set.",
+        "CONFIRMED 2026-09-04: the auto-import is real and it is STALE. It snapshots the Eventbrite body at import time and does NOT re-sync. Both listings still carried the pre-2026-09-04 copy hours after Eventbrite was rewritten -- '7-minute conversations', 'Summer Edition', 'just sold out', 'Pre-screened attendees', and a dead early bird. Loxleys carried MARION COURT's early-bird line, which was never its price.",
+        "It leads with the CHEAPEST ticket tier as the headline price. Marion Court shows 'Starting at USD 13' and Loxleys 'USD 15' -- those are the Bring-A-Friend seats. Its Event JSON-LD publishes lowPrice 12.99 / 14.99, so the discovery surface advertises roughly half the real price.",
+        "There is no self-serve claim button on an auto-imported listing -- only 'Report event' and 'Feedback & Suggestions', both of which need an AllEvents account. Claiming has to be done by a human with a login.",
+        "It syndicates onward. The same import appears on stayhappening.com and happeningnext.com, which are the same network. Fixing AllEvents is what fixes all three; there is no separate submission to make."
+      ],
+      "observed": {
+        "checked": "2026-09-04",
+        "live": [
+          "https://allevents.in/lancaster/sparkdate-real-people-real-drinks-real-court/100001997508475622",
+          "https://allevents.in/lancaster/sparkdate-the-loxleys-social/100001997508062386"
+        ],
+        "note": "Also holds past events (Tellus AfterDark, Summer Nights). The numeric id is the Eventbrite event id with a 10000 prefix, which is how you can tell an import from a hand-made listing."
+      }
     },
     {
       "key": "patch",
@@ -187,7 +200,8 @@
       "priority": 4,
       "why_now": "Already in the hand-kept UTM sheet and has produced exactly 1 session ever, which means it was planned and then dropped rather than tried and rejected. Low cost to revive.",
       "gotchas": [
-        "The community slug is `lancaster-pa`, not `lancaster` -- the bare slug 404s."
+        "The community slug is `lancaster-pa`, not `lancaster` -- the bare slug 404s.",
+        "CONFIRMED 2026-09-04: 'dormant' understates it. A Summer Nights listing (2026-07-29) is still live and indexed at patch.com/pennsylvania/lancaster-pa/calendar/event/20260729. Something was posted here and then abandoned, so check for and update the existing entry rather than assuming a clean slate."
       ]
     },
     {
@@ -220,7 +234,8 @@
       "gotchas": [
         "The 2 tickets it has sold appear NOWHERE in GA4 and carry no attribution on any attendee record -- they went through Meetup's own checkout, the same blind spot Eventbrite has. Do not judge this channel by what the dashboard shows.",
         "Member emails are NOT obtainable on a standard organizer plan. Only Meetup Pro can export them, and even then only for members who RSVP'd AND consented to share. Do not plan around getting the list.",
-        "Because the list cannot be extracted, the event post itself has to carry the signup CTA -- that is how a Meetup member becomes a SparkDate member with real consent, rather than a scraped address."
+        "Because the list cannot be extracted, the event post itself has to carry the signup CTA -- that is how a Meetup member becomes a SparkDate member with real consent, rather than a scraped address.",
+        "CONFIRMED 2026-09-04: the group is live at meetup.com/sparkdate-philly-singles-mixers with 26 members and ZERO events on it. The membership grew from the ~20 recorded on 09-02 with nothing posted, so it accrues on its own. It is a Philadelphia group, and both live events are Lancaster -- posting a Lancaster date to a Philly group is a judgement call, not an automatic win."
       ]
     },
     {
