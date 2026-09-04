@@ -18,15 +18,15 @@ import {
 
 describe('normalizeEmail', () => {
   it('lowercases and trims', () => {
-    expect(normalizeEmail('  Redrose1246@Gmail.com ')).toBe('redrose1246@gmail.com');
+    expect(normalizeEmail('  SomeName42@Gmail.com ')).toBe('somename42@gmail.com');
   });
 
   it('collapses Apple alias domains onto one identity', () => {
-    // Luke DeBonis, live on two events: mac.com on the Eventbrite ticket,
+    // Sam Rivera, live on two events: mac.com on the Eventbrite ticket,
     // me.com at the door.
-    expect(normalizeEmail('lukedebonis@mac.com')).toBe('lukedebonis@icloud.com');
-    expect(normalizeEmail('lukedebonis@me.com')).toBe('lukedebonis@icloud.com');
-    expect(normalizeEmail('lukedebonis@icloud.com')).toBe('lukedebonis@icloud.com');
+    expect(normalizeEmail('samrivera@mac.com')).toBe('samrivera@icloud.com');
+    expect(normalizeEmail('samrivera@me.com')).toBe('samrivera@icloud.com');
+    expect(normalizeEmail('samrivera@icloud.com')).toBe('samrivera@icloud.com');
   });
 
   it('leaves non-Apple domains alone', () => {
@@ -51,19 +51,19 @@ describe('normalizeEmail', () => {
 
 describe('sameEmailIdentity', () => {
   it('matches the real case-only duplicate (Rose)', () => {
-    expect(sameEmailIdentity('redrose1246@gmail.com', 'Redrose1246@gmail.com')).toBe(true);
+    expect(sameEmailIdentity('somename42@gmail.com', 'SomeName42@gmail.com')).toBe(true);
   });
 
   it('matches the real Apple-alias duplicate (Luke)', () => {
-    expect(sameEmailIdentity('lukedebonis@me.com', 'lukedebonis@mac.com')).toBe(true);
+    expect(sameEmailIdentity('samrivera@me.com', 'samrivera@mac.com')).toBe(true);
   });
 
   it('matches the real case-only duplicate (Casey)', () => {
-    expect(sameEmailIdentity('wright.795.c@gmail.com', 'Wright.795.C@gmail.com')).toBe(true);
+    expect(sameEmailIdentity('dotted.7.name@gmail.com', 'Dotted.7.Name@gmail.com')).toBe(true);
   });
 
   it('does not match two genuinely different people', () => {
-    expect(sameEmailIdentity('ed.atreides@gmail.com', 'ed.kidhardt@gmail.com')).toBe(false);
+    expect(sameEmailIdentity('first.alias@gmail.com', 'first.real@gmail.com')).toBe(false);
   });
 
   it('does not match same local part on unrelated domains', () => {
@@ -83,15 +83,15 @@ describe('emailLookupVariants', () => {
   });
 
   it('returns every Apple alias so an exact-match store can still find the account', () => {
-    const v = emailLookupVariants('lukedebonis@me.com');
-    expect(v[0]).toBe('lukedebonis@me.com'); // input form tried first
-    expect(v).toContain('lukedebonis@mac.com');
-    expect(v).toContain('lukedebonis@icloud.com');
+    const v = emailLookupVariants('samrivera@me.com');
+    expect(v[0]).toBe('samrivera@me.com'); // input form tried first
+    expect(v).toContain('samrivera@mac.com');
+    expect(v).toContain('samrivera@icloud.com');
     expect(v.length).toBe(3);
   });
 
   it('does not duplicate the input when it is already the canonical alias', () => {
-    const v = emailLookupVariants('lukedebonis@icloud.com');
+    const v = emailLookupVariants('samrivera@icloud.com');
     expect(v.length).toBe(3);
     expect(new Set(v).size).toBe(3);
   });

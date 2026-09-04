@@ -47,8 +47,8 @@
  *
  *   # Same person under unrelated addresses — only a human can assert this:
  *   node scripts/merge-cross-account-attendees.js <eventId> \
- *     --alias=ed.atreides@gmail.com=ed.kidhardt@gmail.com \
- *     --alias=amyc305@yahoo.com=amanganella29@gmail.com
+ *     --alias=first.alias@gmail.com=first.real@gmail.com \
+ *     --alias=second.alt@yahoo.com=second.real@gmail.com
  *
  * Requires env vars (same as the other scripts/ tools):
  *   FIREBASE_PROJECT_ID
@@ -88,14 +88,14 @@ const eventId = process.argv.slice(2).find((a) => !a.startsWith('--'));
 
 // Human-asserted identity pairs, for the duplicates no algorithm can find.
 // lib/email-identity only merges what is provably the same inbox (case, Apple
-// aliases). It cannot know that ed.atreides@gmail.com and ed.kidhardt@gmail.com
-// are one person, or that amyc305@yahoo.com and amanganella29@gmail.com are —
+// aliases). It cannot know that first.alias@gmail.com and first.real@gmail.com
+// are one person, or that second.alt@yahoo.com and second.real@gmail.com are —
 // those share nothing to normalize on, and guessing from a shared first name
 // would eventually join two strangers and leak one's phone number to the other
 // on a mutual match. So the only safe source for these is a person who knows,
 // stated explicitly here:
 //
-//   --alias=ed.atreides@gmail.com=ed.kidhardt@gmail.com
+//   --alias=first.alias@gmail.com=first.real@gmail.com
 //
 // Both sides are normalized first, so casing/alias variants still work. Left
 // side folds into the right side's identity group; the usual keeper rule,

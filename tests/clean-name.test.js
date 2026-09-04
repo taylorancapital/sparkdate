@@ -3,14 +3,14 @@
 // On 2026-08-30 two live Eventbrite signups arrived with their names wrapped
 // in Python bytes-literal syntax:
 //
-//   b'Chase' b'Nash'          masterchasenash@yahoo.com
-//   b'Christopher' b'McElroy' mackey516@comcast.net
+//   b'Jordan' b'Reyes'          jordanreyes@yahoo.com
+//   b'Alexis' b'Moore' amoore88@comcast.net
 //
 // JavaScript has no `b'...'` spelling, so nothing in this codebase produced
 // it — it was already that way in Eventbrite's attendee profile. What WAS ours
 // is that enrollEventbriteOne splits the name on whitespace and passes
 // nameParts[0] to ebWelcomeHTML, so both of them received a welcome email
-// addressed to "b'Chase'" and "b'Christopher'".
+// addressed to "b'Jordan'" and "b'Alexis'".
 //
 // The risk in fixing this is over-stripping. A name mangled by an
 // over-eager sanitiser is worse than one mangled by the bug, because the bug
@@ -25,8 +25,8 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('cleanName — the names that broke', () => {
   it.each([
-    ["b'Chase' b'Nash'", 'Chase Nash'],
-    ["b'Christopher' b'McElroy'", 'Christopher McElroy'],
+    ["b'Jordan' b'Reyes'", 'Jordan Reyes'],
+    ["b'Alexis' b'Moore'", 'Alexis Moore'],
   ])('unwraps %s', (raw, want) => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     expect(cleanName(raw)).toBe(want);
@@ -34,25 +34,25 @@ describe('cleanName — the names that broke', () => {
 
   it('unwraps double-quoted bytes literals too', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(cleanName('b"Chase" b"Nash"')).toBe('Chase Nash');
+    expect(cleanName('b"Jordan" b"Reyes"')).toBe('Jordan Reyes');
   });
 
   it('handles a partly-corrupted name', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(cleanName("b'Chase' Nash")).toBe('Chase Nash');
+    expect(cleanName("b'Jordan' Reyes")).toBe('Jordan Reyes');
   });
 
   it('warns when it strips, so a recurrence is visible in the sync log', () => {
     // Silent repair would hide an upstream corruption that is still running.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    cleanName("b'Chase' b'Nash'");
+    cleanName("b'Jordan' b'Reyes'");
     expect(warn).toHaveBeenCalledOnce();
-    expect(warn.mock.calls[0][0]).toContain('Chase Nash');
+    expect(warn.mock.calls[0][0]).toContain('Jordan Reyes');
   });
 
   it('says nothing when there is nothing to strip', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    cleanName('Chase Nash');
+    cleanName('Jordan Reyes');
     expect(warn).not.toHaveBeenCalled();
   });
 });
@@ -63,8 +63,8 @@ describe('cleanName — names it must NOT touch', () => {
     ["B'Elanna Torres", "B'Elanna Torres"],   // apostrophe, no closing quote
     ["b'Elanna Torres", "b'Elanna Torres"],   // same, lowercase
     ["O'Brien", "O'Brien"],                   // never even considered
-    ["Chase O'Nash", "Chase O'Nash"],
-    ['Brian Nash', 'Brian Nash'],             // leading b, ordinary name
+    ["Jordan O'Reyes", "Jordan O'Reyes"],
+    ['Brian Reyes', 'Brian Reyes'],             // leading b, ordinary name
     ['Bob', 'Bob'],
     ["Ni'ihau b'aal", "Ni'ihau b'aal"],       // b'aal has no closing quote
     ['', ''],
@@ -78,14 +78,14 @@ describe('cleanName — names it must NOT touch', () => {
     // Only a WHOLE token is unwrapped; this is not the failure mode observed
     // and stripping inside a token would be guesswork.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(cleanName("xb'Chase'")).toBe("xb'Chase'");
+    expect(cleanName("xb'Jordan'")).toBe("xb'Jordan'");
     expect(warn).not.toHaveBeenCalled();
   });
 });
 
 describe('cleanName — shape', () => {
   it('collapses whitespace and trims, as the old inline code did', () => {
-    expect(cleanName('  Chase   Nash  ')).toBe('Chase Nash');
+    expect(cleanName('  Jordan   Reyes  ')).toBe('Jordan Reyes');
   });
 
   it.each([[null, ''], [undefined, ''], [12345, '12345']])('coerces %s safely', (raw, want) => {
@@ -94,6 +94,6 @@ describe('cleanName — shape', () => {
 
   it('drops a token that unwraps to nothing', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(cleanName("b'' Nash")).toBe('Nash');
+    expect(cleanName("b'' Reyes")).toBe('Reyes');
   });
 });
