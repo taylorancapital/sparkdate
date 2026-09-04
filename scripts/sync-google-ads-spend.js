@@ -78,12 +78,18 @@
  * already understands: it counts toward the day's total and is skipped when
  * building per-event spend.
  *
- * Env:
- *   GOOGLE_APPLICATION_CREDENTIALS   path to the GA4 service account JSON
- *                                    (analytics.readonly is enough)
+ * Env -- NO NEW SECRET IS REQUIRED. See token() for why.
+ *   GOOGLE_APPLICATION_CREDENTIALS   path to a service-account JSON. What this
+ *                                    machine uses; absent in CI.
+ *   FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY
+ *                                    the CI path. Already present for the
+ *                                    Firestore write, and the same key can read
+ *                                    GA4 -- the GA4 service account IS the
+ *                                    Firebase Admin account.
+ *   FIREBASE_PROJECT_ID              needed with --execute
+ *   GA4_SERVICE_ACCOUNT_JSON         optional override, if the two accounts are
+ *                                    ever separated
  *   GA4_PROPERTY_ID                  optional -- defaults to 536859339
- *   FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY
- *                                    only needed with --execute
  *
  * Usage:
  *   node scripts/sync-google-ads-spend.js                 # dry run, last 30 days
@@ -119,9 +125,62 @@ const dashed = (yyyymmdd) =>
   `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`;
 const round2 = (n) => Math.round(n * 100) / 100;
 
+const SCOPES = ['https://www.googleapis.com/auth/analytics.readonly'];
+
+/**
+ * Two ways in, and the fallback is the one CI uses.
+ *
+ * On this machine GOOGLE_APPLICATION_CREDENTIALS points at a service-account
+ * file, so the default ADC lookup finds it. GitHub Actions has no such file --
+ * but it does not need a new secret either, because the GA4 service account and
+ * the Firebase Admin account are THE SAME KEY:
+ *
+ *     firebase-adminsdk-fbsvc@sparkdate-philly.iam.gserviceaccount.com
+ *
+ * FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY are already in Actions for the
+ * Firestore write, and google-auth-library will take them inline. Verified
+ * 2026-09-04 by deleting GOOGLE_APPLICATION_CREDENTIALS and authenticating from
+ * those two values alone: GA4 returned the real cost rows.
+ *
+ * Adding a second secret holding the same private key would have meant two
+ * copies to rotate and two to leak, for no capability.
+ *
+ * GA4_SERVICE_ACCOUNT_JSON remains as an override, for the day the two accounts
+ * are separated or the GA4 reader is narrowed to analytics-only.
+ */
 async function token() {
   const { GoogleAuth } = require('google-auth-library');
-  const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/analytics.readonly'] });
+
+  let auth;
+  let via;
+  if (process.env.GA4_SERVICE_ACCOUNT_JSON) {
+    via = 'GA4_SERVICE_ACCOUNT_JSON';
+    auth = new GoogleAuth({ credentials: JSON.parse(process.env.GA4_SERVICE_ACCOUNT_JSON), scopes: SCOPES });
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    via = `GOOGLE_APPLICATION_CREDENTIALS (${process.env.GOOGLE_APPLICATION_CREDENTIALS})`;
+    auth = new GoogleAuth({ scopes: SCOPES });
+  } else if (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+    via = 'FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY';
+    auth = new GoogleAuth({
+      credentials: {
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        // Actions stores the newlines escaped; sync-meta-spend.js un-escapes
+        // the same way for the Admin SDK.
+        private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      },
+      scopes: SCOPES,
+    });
+  } else {
+    throw new Error(
+      'No GA4 credentials. Set GOOGLE_APPLICATION_CREDENTIALS to a service-account\n' +
+      '  file, or provide FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY, or\n' +
+      '  GA4_SERVICE_ACCOUNT_JSON. Which one was used is printed on every run.'
+    );
+  }
+
+  // Printed on purpose. A sync that silently authenticated by an unexpected
+  // route is how "0 documents" becomes indistinguishable from "wrong account".
+  console.log(`Auth: ${via}`);
   const t = await (await auth.getClient()).getAccessToken();
   return t.token;
 }

@@ -101,32 +101,34 @@ jobs:
       # and its own OAuth client for the same number.
       - name: Sync Google Ads spend into Firestore
         env:
-          GA4_SERVICE_ACCOUNT_JSON: ${{ secrets.GA4_SERVICE_ACCOUNT_JSON }}
+          # No GA4-specific secret. The GA4 service account IS the Firebase
+          # Admin account (firebase-adminsdk-fbsvc@sparkdate-philly), so the
+          # credentials already here for the Firestore write also read GA4 --
+          # verified 2026-09-04 by authenticating from these two values alone.
+          # A second secret holding the same private key would be two copies to
+          # rotate and two to leak, for no capability.
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
           FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
           FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          # Optional override, for the day the two accounts are separated.
+          GA4_SERVICE_ACCOUNT_JSON: ${{ secrets.GA4_SERVICE_ACCOUNT_JSON }}
           DAYS: ${{ github.event.inputs.days || '30' }}
         run: |
           # Same rule as the Meta step: a missing secret must not look like a
           # successful sync. Google spend has been dormant since 2026-07-24, so
           # "0 documents" is a legitimate result and would otherwise be
-          # indistinguishable from "never authenticated".
+          # indistinguishable from "never authenticated". The script prints
+          # which credential route it used on every run, for the same reason.
           MISSING=""
-          [ -z "$GA4_SERVICE_ACCOUNT_JSON" ] && MISSING="$MISSING GA4_SERVICE_ACCOUNT_JSON"
-          [ -z "$FIREBASE_PROJECT_ID" ]      && MISSING="$MISSING FIREBASE_PROJECT_ID"
-          [ -z "$FIREBASE_CLIENT_EMAIL" ]    && MISSING="$MISSING FIREBASE_CLIENT_EMAIL"
-          [ -z "$FIREBASE_PRIVATE_KEY" ]     && MISSING="$MISSING FIREBASE_PRIVATE_KEY"
+          [ -z "$FIREBASE_PROJECT_ID" ]   && MISSING="$MISSING FIREBASE_PROJECT_ID"
+          [ -z "$FIREBASE_CLIENT_EMAIL" ] && MISSING="$MISSING FIREBASE_CLIENT_EMAIL"
+          [ -z "$FIREBASE_PRIVATE_KEY" ]  && MISSING="$MISSING FIREBASE_PRIVATE_KEY"
 
           if [ -n "$MISSING" ]; then
             echo "::warning::Not writing Google Ads spend -- missing secret(s):$MISSING"
-            echo "GA4_SERVICE_ACCOUNT_JSON is the whole service-account JSON, pasted as one secret."
-            echo "Add it under Settings -> Secrets -> Actions. Skipping this step."
+            echo "These are the same secrets the Meta step needs. Skipping this step."
             exit 0
           fi
-
-          # The Data API client reads a FILE path, not the JSON itself.
-          printf '%s' "$GA4_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/ga4-sa.json"
-          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/ga4-sa.json"
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.execute }}" != "true" ]; then
             echo "Manual run without 'execute' ticked -- dry run."
