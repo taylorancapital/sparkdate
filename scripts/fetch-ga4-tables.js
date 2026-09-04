@@ -437,6 +437,72 @@ const TABLES = [
     metrics: ['sessions', 'totalUsers', 'keyEvents', 'totalRevenue'],
     orderBy: { metric: { metricName: 'sessions' }, desc: true },
   },
+  {
+    // THERE IS GOOGLE ADS SPEND IN THIS PROPERTY AND NOTHING HAS EVER READ IT.
+    //
+    // The advertiserAd* family and returnOnAdSpend error out on their own --
+    // "Please add sessionCampaignName to make the request compatible" -- which
+    // is why a naive probe reports them unavailable and why they were missed.
+    // Paired with sessionCampaignName they return, since 05-19:
+    //   Website traffic-Search-1  $35.35, 110 clicks, 448 impressions, ROAS 0
+    //   Campaign #1                $2.56,   4 clicks,  61 impressions, ROAS 10.73
+    //
+    // $37.91 of spend that no report, no CAC figure and no recurring_costs row
+    // accounts for. Meta is not the only paid channel after all.
+    file: 'google-ads-cost',
+    title: 'Google Ads cost by campaign (advertiserAd* needs sessionCampaignName)',
+    dimensions: ['sessionCampaignName'],
+    metrics: ['advertiserAdCost', 'advertiserAdClicks', 'advertiserAdImpressions',
+      'advertiserAdCostPerClick', 'advertiserAdCostPerKeyEvent', 'returnOnAdSpend'],
+    orderBy: { metric: { metricName: 'advertiserAdCost' }, desc: true },
+  },
+  {
+    // 24 rows -- the spend is not evenly spread, it clusters in 07-10..07-24.
+    // Daily, so a spend spike can be lined up against the revenue series
+    // instead of sitting as one lump total.
+    file: 'google-ads-cost-daily',
+    title: 'Google Ads cost by day and campaign',
+    dimensions: ['date', 'sessionCampaignName'],
+    metrics: ['advertiserAdCost', 'advertiserAdClicks', 'advertiserAdImpressions'],
+    orderBy: { dimension: { dimensionName: 'date' } },
+  },
+  {
+    // The diagnostic table, and the reason the one above is not enough.
+    //
+    // Cost and sessions DO NOT JOIN. Measured 2026-09-04:
+    //   Website traffic-Search-1 | Google Ads | google / cpc  -> $35.35, 0 sessions
+    //   Campaign #1              | Google Ads | google / cpc  ->  $2.56, 2 sessions
+    //   (not set)                | Google Ads | google / cpc  ->  $0.00, 9 sessions
+    //   (not set)                | Google Ads | googleads/cpc ->  $0.00, 11 sessions
+    //
+    // So ~$38 of spend sits on campaigns with ~2 sessions, while the 20 sessions
+    // GA4 does attribute to Google Ads carry no campaign name and no cost. Any
+    // cost-per-acquisition computed from either half alone is wrong. This table
+    // is what makes that visible rather than silently averaging it away.
+    //
+    // sessionSourcePlatform is also the only field that separates "Meta Ads"
+    // from "Google Ads" from "Unlabeled", and nothing else in the pull reads it.
+    file: 'paid-cost-vs-sessions',
+    title: 'Cost vs sessions by campaign, source platform and source/medium',
+    dimensions: ['sessionCampaignName', 'sessionSourcePlatform', 'sessionSourceMedium'],
+    metrics: ['advertiserAdCost', 'sessions', 'keyEvents', 'totalRevenue'],
+    orderBy: { metric: { metricName: 'sessions' }, desc: true },
+  },
+  {
+    // transactionId is a real per-purchase key and nothing read it. Pulling it
+    // with `date` immediately shows that IT IS BEING REUSED:
+    //   8E9WZTat32JyoUjWuIE7 appears on 08-15 (3 txns) AND 08-18 (2 txns)
+    //   DHHBNANFlrfEEB6SMLMy carries 8 transactions on one id
+    //   pi_3U7y8yRsTCYDr2LL1LPtpFAy (a Stripe payment-intent id) carries exactly 1
+    // 16 distinct ids for 39 transactions. The Stripe-style ids behave; the
+    // Firestore-style doc ids do not, which is what #200 set out to fix.
+    // Whether that is legacy data or a live regression is NOT established here.
+    file: 'transactions',
+    title: 'Transactions by transaction_id and date (exposes id reuse)',
+    dimensions: ['transactionId', 'date'],
+    metrics: ['totalRevenue', 'transactions', 'itemsPurchased'],
+    orderBy: { metric: { metricName: 'totalRevenue' }, desc: true },
+  },
 ];
 
 // The funnels. `v1alpha:runFunnelReport`, not runReport -- different endpoint,
