@@ -1,17 +1,22 @@
 # Three venues, one October — is the ad schedule able to carry it? (2026-09-03)
 
-**Question asked:** three new partnerships — Tellus360, Stratus Rooftop Lounge
-(Philadelphia) and Lucky Dog Cafe — proposed for Tue Oct 6, Thu Oct 15 and Tue
-Oct 20. Is that feasible, and can it be folded into the ad schedule?
+**Question asked:** three new venue threads need dates — Tellus360, Stratus
+Rooftop Lounge (Philadelphia) and Lucky Dog Cafe — proposed for Tue Oct 6, Thu
+Oct 15 and Tue Oct 20. Is that feasible, and can it fold into the ad schedule?
 
-**Answer: yes, on the money and on the runway. Two things have to move.** The
-Lucky Dog date, because at Oct 20 its whole audience-building phase runs
-underneath Tellus's heaviest spend in the same Lancaster auction. And the
-Tellus booking, because its ad runway starts **Sunday Sep 6 — three days from
-now** — and nothing for it exists yet.
+**Revised the same day** after a second question: skip Lucky Dog and repeat
+Loxleys instead. **That is the better slate, and the Firestore record says so
+more strongly than the argument for it did.** The ad-schedule conclusion does
+not change, because the collision was never about Lucky Dog — it was about a
+*second Lancaster event*, and Loxleys is Lancaster too.
 
-The dates themselves check out: Oct 6 and Oct 20 are Tuesdays, Oct 15 is a
-Thursday, which is the only day Stratus offered.
+**Recommended slate**
+
+| Event | Date | Market | Status |
+|---|---|---|---|
+| Tellus360 | Tue Oct 6 | Lancaster | Runway starts **Sun Sep 6** — 3 days |
+| Stratus | Thu Oct 15 | Philadelphia | Awaiting reply to Diandra |
+| Loxleys #2 | **Tue Oct 27**, not Oct 20 | Lancaster | Pencil now, confirm Sep 23 |
 
 ---
 
@@ -19,148 +24,188 @@ Thursday, which is the only day Stratus offered.
 
 | | |
 |---|---|
-| Ad spend to carry all three, 30-day runways | **$650** |
-| Recent actual run rate, four events at once (08-26..09-01) | $24.67/day |
-| Peak day under the proposed dates | **$32.50/day (Oct 6)** |
-| Days Lucky Dog's prime sits under Tellus's close, same geo | **15 of 15** |
+| Ad spend to carry all three | **$650** |
+| Recent actual run rate, four campaigns live (08-26..09-01) | $24.67/day |
+| **Days until Tellus's runway starts** | **3** |
+| Loxleys tickets at T-19, against Tellus's 2 at the same point | **9** |
 
 ---
 
-## EVIDENCE — the runway model says all three dates clear
+## EVIDENCE — Loxleys is the best-selling room on file, at matched T-minus
 
-`content/brand.json` → `paid_template` sets a 30-day reference runway, a 21-day
-minimum and an 18-day floor below which the prime phase disappears entirely.
-Measured on this account, **73% of tickets sell in the final 14 days**, which is
-why the phase ladder is anchored to absolute days before the event rather than
-scaled.
+Every ticket in Firestore, bucketed by how many days before its own event it was
+bought. Read down a column: what each event had sold at that point in its run.
 
-Against today (2026-09-03):
+| Event | T-35 | T-30 | T-25 | T-21 | **T-19** | T-15 | T-10 | T-7 | T-0 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Founders Mixer | 0 | 0 | 0 | 0 | 0 | 2 | 6 | 9 | 20 |
+| Summer Nights | 0 | 4 | 7 | 9 | 10 | 12 | 16 | 19 | 27 |
+| Tellus | 0 | 0 | 0 | 0 | **2** | 7 | 13 | 20 | 28 |
+| Good Good | 0 | 0 | 2 | 4 | 5 | 6 | 11 | 11 | 19 |
+| Marion Court | 0 | 0 | 1 | 2 | 2 | 3 | 8 | 12 | *live, T-5* |
+| **Loxleys** | 6 | 7 | 8 | 9 | **9** | — | — | — | *live, T-19* |
 
-| Event | Date | Market | Runway starts | Slack |
-|---|---|---|---|---|
-| Tellus360 | Tue Oct 6 | Lancaster | **Sep 6** | 3 days |
-| Stratus | Thu Oct 15 | Philadelphia | Sep 15 | 12 days |
-| Lucky Dog Cafe | Tue Oct 20 | Lancaster | Sep 20 | 17 days |
+Women only, same grid — the number that actually governs these nights:
 
-No date needs a compressed runway. That part is comfortable.
+| Event | T-25 | T-21 | **T-19** | T-15 | T-10 | T-0 |
+|---|---:|---:|---:|---:|---:|---:|
+| Summer Nights | 2 | 2 | 2 | 2 | 2 | 8 |
+| Tellus | 0 | 0 | **2** | 4 | 6 | 13 |
+| Good Good | 1 | 3 | 3 | 3 | 4 | 4 |
+| Marion Court | 0 | 1 | 1 | 1 | 4 | *live* |
+| **Loxleys** | 4 | 4 | **4** | — | — | *live* |
 
-## MECHANISM — why Lucky Dog on Oct 20 is the one that breaks
+**Loxleys at T-19 is ahead of every event on file except Summer Nights, and has
+the strongest women's opening of any of them.** Tellus — the best night this
+business has run — had two tickets at the same point and finished at 30.
 
-Phases were computed with the same window arithmetic as
-`scripts/build-paid-campaign.js`, then overlaid day by day, with Loxleys (still
-live to Sep 22) included.
+Completed events, for what a room is worth once the night arrives:
 
-Lucky Dog at Oct 20 puts its prime phase at **Sep 20 – Oct 4**. Tellus's convert
-and close run **Sep 22 – Oct 5**. Both target the Lancaster geo — Lancaster +
-Harrisburg + York, 20mi each.
+| Event | Tickets | Women | W-share | Gross | Checked in | Women in room |
+|---|---:|---:|---:|---:|---:|---:|
+| Founders Mixer | 22 | 6 | 27% | $396.42 | 19 | 7 |
+| Summer Nights | 29 | 9 | 31% | $468.29 | 14 | 3 |
+| **Tellus** | **30** | **13** | **43%** | **$599.24** | **23** | **7** |
+| Good Good (PHL) | 20 | 4 | 20% | $412.32 | 15 | 1 |
+| Marion Court | 16 | 6 | 38% | $282.18 | *T-5* | — |
+| Loxleys | 9 | 4 | 44% | $92.96 | *T-19* | — |
 
-```
-Sep 20 ─────────────────────────────── Oct 4
-        LuckyDog: prime      $2.00/day   ← building the retargeting pool
-        Tellus:   convert   $10.00/day   ← same women, same auction
-        Tellus:   close     $12.86/day
-```
+**Tellus is the best event on every axis on file** — most tickets, most revenue,
+most people in the room, most women in the room. The two rooms now proposed for
+October are the two best-performing rooms this business has.
 
-CBO allocates *within* a campaign. Two campaigns in the same geo are two
-separate auctions bidding for the same people, and the one paying $12.86 wins.
-Lucky Dog's prime is not merely outbid — **it is the phase whose entire job is
-to build the pool retargeting needs at T-14.** `paid_template` already names
-this failure mode: launching retargeting with no pool "produces a campaign with
-an empty audience", which is why Loxleys retargeting was deliberately not built
-in #255.
+Two cautions on that, both real:
 
-So Lucky Dog would reach Oct 6 with a starved audience and spend its 35% convert
-share on it.
+- **Loxleys has not happened yet.** Presale is not a night. Summer Nights sold 29
+  and 14 walked in — 48%. Tellus sold 30 and 23 walked in — 77%. Room quality
+  shows up at the door.
+- **Six of Loxleys' nine sold by T-35**, which is unusually early for this
+  account and may be the early bird pulling demand forward rather than depth.
 
-### Moving Lucky Dog to Tue Oct 27 fixes it
+## MECHANISM — the Oct 27 date is unchanged, and now it costs less
 
-A 21-day runway from Oct 27 starts **Oct 6** — the day Tellus ends. The two
-Lancaster campaigns stop overlapping almost entirely.
+Campaign budget optimisation allocates *within* a campaign. Two campaigns aimed
+at one geography — Lancaster + Harrisburg + York, 20mi each — are two separate
+auctions bidding for the same people, and $12.86/day beats $2.00/day.
 
-| | As proposed (Oct 20) | Lucky Dog → Oct 27 |
-|---|---|---|
+A second Lancaster event on **Oct 20** puts its whole 15-day prime at Sep 20 –
+Oct 4, inside Tellus's convert and close. Prime's only job is building the pool
+retargeting needs at T-14, so it would reach convert against the empty audience
+`paid_template` explicitly warns about. **Moving it to Tue Oct 27** starts its
+runway on Oct 6, the day Tellus ends.
+
+| Measured across the slate | Oct 20 | Oct 27 |
+|---|---:|---:|
 | Days with 2+ Lancaster campaigns live | 21 | **8** |
 | Days with 3 Lancaster campaigns live | 2 | **0** |
-| Days with two closes at once | 2 (Oct 13–14) | **0** |
+| Days running two close phases at once | 2 | **0** |
+| Second event's prime days under a heavier campaign | 15 | **1** |
 | Peak daily spend | $32.50 | **$27.50** |
-| Lucky Dog prime, days spent under a heavier Lancaster campaign | 15 | **1** |
+| Second event's prime length | 15 days | 6 days |
 
-The cost of the move: a 21-day runway gives Lucky Dog a 6-day prime instead of
-15. That is above the 18-day floor and at the stated 21-day minimum, but it is
-thinner. **If you want Lucky Dog to keep a full 30-day runway with a clean
-prime, the date is Tue Nov 3** — 28 days out from Oct 6, no Lancaster overlap at
-all. Oct 27 is the best answer that stays inside October.
+**Repeating Loxleys cancels the one cost of that move.** The 21-day runway's
+6-day prime was the price of Oct 27 — a thin pool for retargeting to work.
+A repeat does not need to build that pool: Loxleys' own September run, plus
+Tellus's October run, are pouring Lancaster video-viewers and site-visitors into
+it for seven weeks beforehand. The phase whose loss made Oct 27 expensive is the
+phase a repeat booking does not need.
 
-## EVIDENCE — the budget is not the binding constraint
+That is conditional on one unfixed thing: memory `website-audiences-are-orphans`
+records all three website audiences as built, "ready for use", and **attached to
+no ad set.** The pool accumulates either way; using it is a step someone has to
+actually take.
 
-Three campaigns at the Loxleys shape ($200) plus a slightly heavier Stratus
-($250, a new room in the weaker market) is **$650 total**. Spread across the
-ladder, the peak is $27.50/day under the corrected dates.
+## EVIDENCE — the money is not the binding constraint
 
-The account ran **$172.72 in the seven days to Sep 1 — $24.67/day — with four
-campaigns live** (Marion Court Traffic $43.20, Good Good Event 3 $64.51, Good
-Good Retargeting $31.57, Marion Court Retargeting $21.53, Loxleys $9.85, three
-Tellus remnants $2.06). The October slate asks for roughly the same daily rate
-the account is already spending, not an increase.
+Three campaigns at $200, with $250 for Stratus as a new room in the weaker
+market, is **$650**, peaking at $27.50/day under the corrected dates. The
+account already spent **$172.72 in the seven days to Sep 1 — $24.67/day — with
+four campaigns live.** October asks for about the same daily rate.
 
-For scale: lifetime spend is $1,197.77 across 40 delivered ads, with six
-Meta-attributed purchases. The slate is a ~54% increase on everything ever spent
-on this account. That is a real commitment; it is not a cash-flow problem.
+A Loxleys repeat should cost *less* than $200 to run: `content/queue.csv` already
+holds 13 Loxleys rows, the asset library exists, and the campaign shape is built.
+Swapping Lucky Dog for Loxleys takes the content load from roughly 40 new organic
+rows to about 27.
 
-## NOT VERIFIED — Stratus is a rooftop, on October 15, and nobody has asked
+## RISK — the thing this slate actually spends is Lancaster, not money
 
-`Business Plan/files/Venue_Outreach_Package.md` sets the criteria that produced
-this outreach, and one of them is unambiguous:
+Under the recommended slate, Lancaster runs **four events in seven weeks**:
+Marion Court Sep 8, Loxleys Sep 22, Tellus Oct 6, Loxleys Oct 27.
 
-> **Covered or indoor fallback: REQUIRED.**
+What is being sold into:
 
-with a seasonality note that "Philadelphia outdoor season ends in late October"
-and that year-round or covered venues should be approached first. Stratus is
-listed in that same file under "Rooftops", annotated **"Rooftop = outdoor"**,
-with no covered-space note next to it.
+- **99 distinct buyers, lifetime, across all six events.**
+- **18 of them (18.2%) have ever bought for more than one event** — and one of
+  those eighteen is Taylor's own address. Repeat business is real but thin, so a
+  fourth Lancaster night is sold mostly to *new* Lancaster buyers, not to the
+  people already on the list.
+- **134 leads total, none of them market-tagged**, so the list cannot even be
+  split by city without inference.
+- **Marion Court is the early warning.** 16 tickets at T-5 against Tellus's 20 at
+  T-7, in the same market, six weeks apart.
 
-Diandra Gore's reply says nothing about weather. A 7 PM start on a Philadelphia
-rooftop on **Oct 15** is inside the window the package flags — near its edge,
-but inside it. **This is the cheapest question to answer and the most expensive
-one to skip:** an unanswered rain plan on a paid event is a refund event.
+Same-venue fatigue is *not* the risk the data supports — at 18% repeat, a second
+Loxleys sells to people who never saw the first. **Lancaster acquisition depth
+is the risk.** Four nights in seven weeks asks that funnel for roughly 90–110
+tickets when its best single result is 30.
 
-It goes in the reply, not in a later email.
+## DECISION — take the slate, but do not close Loxleys yet
 
-## DECISION — what has to happen, and by when
-
-**Sep 6 is the real deadline, and it is for Tellus.** A campaign cannot be built
-against an event that has no ticket link, so the booking, the event record and
-the on-sale page all have to precede the runway start, not follow it.
+**The calendar hands you a free option.** Loxleys runs Sep 22. The second
+Lancaster event's runway does not start until **Oct 6 — fourteen days later.**
+There is no reason to commit to a repeat before the first night has happened.
 
 | By | What |
 |---|---|
-| **Sep 4–5** | Reply to Diandra (draft below). Get a date from Lucky Dog — the Sep 3 reply is a yes with no date in it. Confirm Oct 6 with Tellus360. |
-| **Sep 6** | Tellus event live and on sale; `brand.json` entry; campaign built PAUSED. |
-| Sep 15 | Same for Stratus. |
-| Oct 6 | Same for Lucky Dog (on the Oct 27 date). |
+| **Sep 4–5** | Reply to Diandra (draft below). Ask Loxleys to **pencil Oct 27**, not book it. Confirm Oct 6 with Tellus360. |
+| **Sun Sep 6** | **Hard deadline.** Tellus live and on sale, `brand.json` entry, campaign built paused. A campaign cannot be built against an event with no ticket link. |
+| Mon Sep 15 | Same for Stratus. Twelve days of slack — comfortable. |
+| **Tue Sep 23** | Decide Loxleys #2 on the night's actual numbers: how many walked in, and how many were women. |
+| Mon Oct 6 | Loxleys #2 runway starts, on the Oct 27 date. |
 
-**Content is the load nobody has costed.** `content/queue.csv` ends at
-**2026-09-23** — there is nothing queued past Loxleys. Marion Court carried 15
-rows and Loxleys 13, so three events is **roughly 40 new organic rows plus paid
-creative**, on top of the ad build. Both Lancaster events can reuse the existing
-Lancaster asset library; **Stratus cannot** — it is a new room, in the market
-with one completed event, and that event ran 19:1 men-to-women.
+**Answer Lucky Dog anyway.** They replied Sep 3 after waiting five weeks —
+"I wouldn't mind doing this" — against a July 28 message that asked for August.
+A "not October, but let's look at November" costs nothing and keeps the only new
+Lancaster-area room in the pipeline. **Nov 3 is a Tuesday** and was already the
+alternative date if a full 30-day runway ever matters more than staying in
+October.
+
+## NOT VERIFIED — Stratus is a rooftop, and Oct 15 is mid-October
+
+`Business Plan/files/Venue_Outreach_Package.md` states the criteria that produced
+this outreach, and one is unambiguous:
+
+> **Covered or indoor fallback: REQUIRED.**
+
+The same file notes Philadelphia's outdoor season ends in late October and lists
+Stratus under *Rooftops*, annotated "Rooftop = outdoor", with no covered-space
+note. Diandra Gore's reply says nothing about weather. A 7 PM start on a
+Philadelphia rooftop on Oct 15 is inside the window that file flags.
+
+**Cheapest question to ask, most expensive to skip.** An unanswered rain plan on
+a paid event is a refund event. It belongs in the reply, not a later email.
 
 ## What I did not verify
 
-- **Tellus360 Oct 6 is not confirmed anywhere I can see.** No booking thread for
-  an October date exists in Gmail. Tellus is a proven room (Aug 26 ran), so this
-  is likely a conversation held off-email — but it is an assumption, not a fact.
-- **Lucky Dog has agreed in principle and to no date.** The Sep 3 reply reads
-  "I wouldn't mind doing this", against a July 28 message that asked for an
-  *August* date. Someone still has to propose Oct 27 and get a yes.
-- **Whether Stratus has covered space.** Not stated by the venue, not recorded
-  in the outreach package.
-- **The $200/$250 budgets are a choice, not a measurement.** They mirror the
-  Loxleys shape. Nothing on this account establishes the right spend per event.
-- I did not touch the ad account. No campaign was created, no budget changed.
-- The 45/30/25 female/male/retargeting split is `paid_template`'s stated
-  starting point and is explicitly not measured.
+- **Tellus360 on Oct 6 is not confirmed anywhere I can see.** No booking thread
+  for an October date exists in the mailbox. Tellus is a proven room, so this is
+  plausibly an off-email conversation — it is still an assumption.
+- **Nobody has asked Loxleys for a second date.** The repeat is a plan, not an
+  agreement, and their answer may not be Oct 27.
+- **Whether Stratus has covered space.**
+- **The `venues` collection is not a reliable pipeline record.** Tellus360 and
+  Loxley's both read `status=not_contacted` despite one having run and the other
+  being on sale. Do not read booking state from it.
+- **The "Lucky Dog" in `venues` is "Lucky Dog Bar And Grill, Telford"** — a
+  different town from Lancaster, in neither configured market geo. Whether that
+  is the same business as the Lucky Dog Cafe on the Popmenu thread is unresolved,
+  and it would matter if the November conversation goes anywhere.
+- **The $200 / $250 budgets are a choice, not a measurement.** They mirror the
+  Loxleys shape. The 45/30/25 female/male/retargeting split is explicitly an
+  unmeasured starting point.
+- Ticket counts and timestamps are Firestore's; check-in counts are a floor, per
+  memory `checkin-counts-undercount-attendance`.
+- I did not touch the ad account. No campaign, budget or audience was changed.
 
 ---
 
@@ -197,9 +242,8 @@ takes her earlier slot, and asks the weather question.
 > Founder, SparkDate
 > 717-344-4176
 
-Two notes on sending it. The signature says `hello@sparkdate.date` while the
-thread is going out from `taylor.ancapital@gmail.com` — HANDOFF flags this for
-the eight unsent outreach drafts and it applies here too; check the From line is
-a send-as alias or drop the address from the signature. And the run-of-show
-wording above quotes no durations for the individual movements, per
-`run-of-show-is-contradicted` — only the 7–9 window, which is ours to set.
+Two notes on sending. The signature says `hello@sparkdate.date` while the thread
+goes out from `taylor.ancapital@gmail.com` — HANDOFF flags this for the eight
+unsent outreach drafts and it applies here too. And the run-of-show wording
+quotes no duration for any individual movement, only the 7–9 window, per
+`run-of-show-is-contradicted`.
