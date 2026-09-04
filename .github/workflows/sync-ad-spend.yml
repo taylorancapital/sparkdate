@@ -1,7 +1,13 @@
 name: sync ad spend
 
-# Pulls Meta ad spend into Firestore so the admin dashboard can trend it and
+# Pulls PAID ad spend into Firestore so the admin dashboard can trend it and
 # attribute it per event, instead of showing a figure somebody typed once.
+#
+# Two sources since 2026-09-04: Meta (from the Graph API) and Google Ads (from
+# GA4, which holds the cost via the linked account). They write to the same
+# `ad_spend` collection but never to the same document -- Meta owns
+# `{date}`, Google owns `{date}__google` -- because the writes are whole-document
+# `set` calls and a shared id would silently destroy the other source's day.
 #
 # Why here and not Vercel: api/ holds exactly 12 functions, which is the Hobby
 # plan's cap, so a thirteenth would mean deleting one or paying for Pro. Same
@@ -79,4 +85,52 @@ jobs:
             node scripts/sync-meta-spend.js --days="$DAYS"
           else
             node scripts/sync-meta-spend.js --days="$DAYS" --execute
+          fi
+
+      # Google Ads spend, added 2026-09-04. Meta was never the only paid
+      # channel -- $37.91 ran on Google between 06-15 and 07-24 and reached
+      # neither `ad_spend` nor any CAC figure, because sync-meta-spend.js was
+      # the collection's only writer.
+      #
+      # Its own step rather than a second command in the one above, so that a
+      # Google failure cannot mark the Meta sync red (or vice versa) and the
+      # log says plainly which source moved.
+      #
+      # Cost comes from GA4, not the Google Ads API: GA4 already holds it via
+      # the linked account, and the Google Ads API would need a developer token
+      # and its own OAuth client for the same number.
+      - name: Sync Google Ads spend into Firestore
+        env:
+          GA4_SERVICE_ACCOUNT_JSON: ${{ secrets.GA4_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          DAYS: ${{ github.event.inputs.days || '30' }}
+        run: |
+          # Same rule as the Meta step: a missing secret must not look like a
+          # successful sync. Google spend has been dormant since 2026-07-24, so
+          # "0 documents" is a legitimate result and would otherwise be
+          # indistinguishable from "never authenticated".
+          MISSING=""
+          [ -z "$GA4_SERVICE_ACCOUNT_JSON" ] && MISSING="$MISSING GA4_SERVICE_ACCOUNT_JSON"
+          [ -z "$FIREBASE_PROJECT_ID" ]      && MISSING="$MISSING FIREBASE_PROJECT_ID"
+          [ -z "$FIREBASE_CLIENT_EMAIL" ]    && MISSING="$MISSING FIREBASE_CLIENT_EMAIL"
+          [ -z "$FIREBASE_PRIVATE_KEY" ]     && MISSING="$MISSING FIREBASE_PRIVATE_KEY"
+
+          if [ -n "$MISSING" ]; then
+            echo "::warning::Not writing Google Ads spend -- missing secret(s):$MISSING"
+            echo "GA4_SERVICE_ACCOUNT_JSON is the whole service-account JSON, pasted as one secret."
+            echo "Add it under Settings -> Secrets -> Actions. Skipping this step."
+            exit 0
+          fi
+
+          # The Data API client reads a FILE path, not the JSON itself.
+          printf '%s' "$GA4_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/ga4-sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/ga4-sa.json"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.execute }}" != "true" ]; then
+            echo "Manual run without 'execute' ticked -- dry run."
+            node scripts/sync-google-ads-spend.js --days="$DAYS"
+          else
+            node scripts/sync-google-ads-spend.js --days="$DAYS" --execute
           fi
