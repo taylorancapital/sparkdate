@@ -212,68 +212,76 @@ a paid event is a refund event. It belongs in the reply, not a later email.
 ## The Stratus reply
 
 To Diandra Gore, on the existing thread. Says yes to Thursday, names Oct 15,
-takes her earlier slot, states the commercial terms rather than asking for
-hers, and asks the weather question.
+takes her earlier slot, and asks the two things that actually need answering.
+**No mention of money.**
 
 > Hi Diandra,
 >
 > Thursdays work — and it's good to hear the format isn't new to the room.
 >
-> I'd like to look at **Thursday, October 15**, using your earlier window:
-> guests arriving 7:00, the structured part of the night running 7:00–9:00,
-> and people staying on afterward as long as they're buying. The night runs in
-> three movements — seated rounds with a game to open, then open mingling, then
-> one-on-ones — so the two hours are the part we run, and the tail is yours.
->
-> Since the arrangement is a little unusual, to be explicit about it: **no room
-> fee, no spend minimum, nothing owed in either direction.** Guests buy off your
-> regular menu at regular prices, on their own tabs, and you keep every dollar
-> of it. We're paid by the guests, not the venue — which is the only reason the
-> model works.
+> I'd like to look at **Thursday, October 15**, on your earlier window: guests
+> arriving 7:00, the structured part running 7:00–9:00, and people staying on
+> afterward as long as they're buying. The night runs in three movements —
+> seated rounds with a game to open, then open mingling, then one-on-ones — so
+> the two hours are the part we run, and the tail is yours.
 >
 > Two things that would help me plan:
 >
 > 1. **Is there covered or indoor space if the weather turns?** Mid-October is
->    the reason I ask. If there's a fallback, I'll book without hesitating; if
->    the night is weather-dependent, I'd rather plan for that now than move a
+>    the reason I ask. If there's a fallback I'll book without hesitating; if
+>    the night is weather-dependent I'd rather plan for that now than move a
 >    room full of people on the day.
 > 2. **How would you lay out a group that needs to move?** We need seating for
->    the first stretch and open floor for the second. If one section suits that
+>    the first stretch and open floor for the second — if one section suits that
 >    better than another, I'll build the run of show around it.
 >
-> I'll give you a firm headcount a week out — that's when our numbers settle.
+> I'll give you a firm headcount a week out.
 >
-> Happy to do 15 minutes on the phone if that's faster than email.
+> Happy to do 15 minutes on the phone if that's easier.
 >
 > Best,
 > Taylor
 > Founder, SparkDate
 > 717-344-4176
 
-### Why this does not ask about minimums
+### Why money is not mentioned at all
 
-An earlier draft asked "if there's a minimum or a preferred layout, tell me."
-**That question should never be sent to a venue under this model,** and the
-reason is worth recording so it does not come back.
+Two earlier drafts got this wrong, and the second was worse than the first.
 
-- **It contradicts the pitch she already accepted.** Every venue email on file
-  says "we don't charge you anything to host" and "you keep all the F&B
-  revenue." Asking about a minimum reframes a free-customers-on-a-dead-night
-  offer as an event booking with a spend commitment.
-- **Stratus is the venue class most likely to have one.** Kimpton Hotel Monaco's
-  rooftop has a catering sales process; asking the question is what routes the
-  conversation into it. `Philadelphia_GTM_Strategy.md` §318 pairs a guaranteed
-  F&B minimum of **$800–1,200** with a *room-rental discount* — a trade this
-  model does not want and is not asking for.
-- **The economics cannot carry it.** Ticket gross runs $412.32 (Good Good) to
-  $599.24 (Tellus). A shortfall against a four-figure minimum would exceed the
-  entire revenue of the night.
-- **It could not even be verified.** Per memory `fnb-is-structurally-unmeasurable`,
-  guests run separate tabs into the venue's POS. SparkDate never sees F&B, so it
-  would be liable for a number it cannot measure.
+Draft one **asked**: "if there's a minimum or a preferred layout, tell me."
+Draft two replaced the question with an **assertion**: "no room fee, no spend
+minimum, nothing owed in either direction."
 
-State the terms; do not ask for theirs. Layout is the safe version of the same
-question — it gets what is operationally needed with no commercial exposure.
+**Draft two is the serious error, because those terms were invented.** The
+cold-email template says "we don't charge you anything to host" and "you keep all
+the F&B revenue" — a marketing claim about how the model usually works. It says
+nothing about refusing a room fee or declining a minimum, because nobody had
+raised either. Turning it into "no room fee, no spend minimum, nothing owed in
+either direction" writes a term sheet and **commits Taylor to a refusal he never
+made, in a live thread, unprompted.**
+
+Stratus is the venue where that costs the most. It is the best-fit room in the
+pipeline — bigger market, rooftop, a nightlife manager who already hosts dating
+events and is actively interested. If Diandra came back with "we could do a
+Thursday against a modest minimum," that could well be a deal worth taking. A
+volunteered "no minimum" closes it off before she has named anything.
+
+Asking is wrong too, for its own reasons:
+
+- **It invites a number that was never on the table.** Stratus is the Kimpton
+  Hotel Monaco rooftop — the venue class that runs a catering sales process, and
+  asking is what routes the conversation into it.
+  `Philadelphia_GTM_Strategy.md` §318 pairs a guaranteed F&B minimum of
+  **$800–1,200** with a *room-rental discount*, a trade this model is not seeking.
+- **It could not be honoured or checked.** Ticket gross runs $412.32 (Good Good)
+  to $599.24 (Tellus), and per memory `fnb-is-structurally-unmeasurable` guests
+  run separate tabs into the venue's POS — the liability would be for a number
+  nobody on this side can measure.
+
+**Say nothing, and let the venue raise terms if it wants to.** Layout is the
+question that was actually wanted underneath the money one, and it carries no
+commercial exposure. If terms do need settling, that is Taylor's decision to
+make and to word — not something to draft for him.
 
 ### And why it no longer restates a headcount
 
