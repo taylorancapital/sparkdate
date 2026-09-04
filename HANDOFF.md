@@ -16,19 +16,40 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **The nightly's data pull runs from the MAIN CHECKOUT's working tree, while its
+  analysis cuts from `origin/main`.** So merging a change to
+  `scripts/fetch-ga4-tables.js` does nothing until someone runs `git pull` there.
+  This cost a whole run on 09-04: a change landed taking the pull 28 → 46 tables,
+  the re-run still wrote 28, and the report was written by current code against
+  stale data with nothing in the log saying so — exit 0, PR opened. **Fix not built:** have the launcher
+  fast-forward the checkout, or run the pull scripts out of the nightly clone, so
+  steps 1-3 and step 6 cannot disagree. Memory:
+  `nightly-pulls-from-stale-main-checkout`.
+- **Two Google Ads questions are Taylor's alone, in the Ads console, not code.**
+  (1) `Website traffic-Search-1` spent **$35.35 for ZERO attributed sessions**
+  while the 20 sessions GA4 credits to Google Ads carry no campaign and no cost.
+  (2) An unreplaced `<campaign-name>` tracking-template placeholder is carrying
+  **41 key events**. Cause untested for both — auto-tagging off, an off-property
+  destination URL, and gclid stripping all fit the data. The tables state the
+  fact and no cause; do not let a report assert one.
+- **Taylor: bump `ANALYTICS_CONTEXT.md`'s `Last updated:` to 2026-08-28.** It
+  says 08-26, its mtime is 08-28, and it contains a section headed "SPLIT
+  2026-08-28". Under the rule in the stamp-check PR that is a TRUE positive and
+  clears once bumped — the old rule compared the stamp to the newest nightly
+  report, which is regenerated daily, so it fired every night by construction and
+  had consumed seven consecutive NEEDS-TAYLOR-INPUT slots.
+- **One line to redact:** `scripts/fetch-ga4-tables.js` carries a real Stripe
+  payment-intent id in a comment, in a public repo. Not a credential and not what
+  #434 was about, but needless. Fold into the next PR touching that file.
 - **The paid path is rebuilt on main (09-03; `reports/PAID_FUNNEL_AUDIT_2026-09-02.md`
   §7 items 1–6) and the 2-for-1 is OPEN TO EVERY BUYER, advertised to women only
   — Taylor's call, 09-02 evening, on legal grounds; never gate it by gender again.**
-  Three things remain, none of them code. (1) **Taylor, in GA4 Admin → Custom
+  Two things remain, neither code. (1) **Taylor, in GA4 Admin → Custom
   definitions:** register event-scoped `field`, `skipped_details`,
   `page_started_hidden`, `started_hidden`. The Admin API is disabled on this
   project, so it is a UI click; until it is done `checkout_field_started` and
-  the ghost-session split read `(not set)`. (2) **The 09-04 nightly is the first
-  read of `/lp` selling inline** — `view_item`, `begin_checkout`, `add_to_cart`
-  and `lp_visible` now fire there; `ANALYTICS_METHOD.md` §4 and the 2026-09-03
-  row in §10 say what to expect, and a rise in the checkout-by-landing-page
-  funnel's `/lp` row is instrumentation before it is demand. (3) **After
-  09-08, audit item 4:** three ads in one Loxleys set, same creative,
+  the ghost-session split read `(not set)`. (2) **After 09-08, audit item 4:**
+  three ads in one Loxleys set, same creative,
   `/lp?eventId=KL4onXm7hJbqiwI9quAZ`, `/events?event=KL4onXm7hJbqiwI9quAZ&checkout=1`,
   `/event?id=KL4onXm7hJbqiwI9quAZ`, url_tags via `scripts/ad-utm.js`. Still
   never done by anyone: **buy a real ticket through the new `/lp` form from
@@ -74,7 +95,6 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   eight-event total, all assuming a mid-tier room — while the new target list is
   casual tier (~$20-25/head). Taylor's decision to make, not a copy fix. Working:
   `reports/VENUE_PITCH_FACT_AUDIT_2026-09-01.md`.
-
 - **The free-listing syndication run is part-done and the rest is unverified.**
   Eventbrite is fixed and confirmed live: Loxley's now reads $24.99 through
   Sep 7 then $29.99 (it had been selling $6 under the site, expiring Sep 1),
@@ -112,17 +132,21 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   never transferred, they exist in no ticket, registration or lead record.
   Needs `EVENTBRITE_TOKEN` to count attendees; then either point the 08-31 doc
   at it, or confirm it is empty and leave it.
-- **The nightly still cannot catch up or wait for a network.**
-  `StartWhenAvailable` and `RunOnlyIfNetworkAvailable` are both `False` on the
-  02:00 task, which is why 8 of 23 nights never ran and why the 08-29 run failed
-  both network steps 14 minutes after a boot. Needs an elevated shell.
+- **The 02:00 task can now catch up and wake the machine, but still will not
+  wait for a network.** Taylor set `StartWhenAvailable` and `WakeToRun` to True
+  in an elevated shell on 09-04, which closes the "8 of 23 nights never ran"
+  hole. `RunOnlyIfNetworkAvailable` is still `False`, which is what made the
+  08-29 run fail both network steps 14 minutes after a boot. Same elevated-shell
+  fix, one more setting.
 - **No woman's testimonial exists in any ad.** The only testimonial creative is
   Quang's. `reports/AD_LEVER_WOMEN_2026-09-02.md` wants one for the women's
   prime; someone has to ask an attendee.
 - `reports/META_CAPI_PROMPT.md` is untracked and has never been run.
-- **Two report branches the sweep refuses as STALE and nobody has replayed onto
-  main:** `claude/accessibility-analysis-2026-08-27` and
-  `claude/content-freshness-analysis-2026-08-29`. Cherry-pick or drop them.
+- **One report branch the sweep still refuses as STALE and nobody has replayed
+  onto main:** `claude/content-freshness-analysis-2026-08-29`. Cherry-pick or
+  drop it. (`claude/ga4-analysis-2026-08-28` is resolved — its report reached
+  main via #308 under a different branch; the branch itself is a duplicate and
+  can be deleted.)
 - **The pixel records more checkouts than carts.** Seven days to 09-02:
   `InitiateCheckout` 50 against `AddToCart` 19, so checkout is being reached
   without a cart firing. (`Purchase` 18 over `AddPaymentInfo` 12 is *explained* —
@@ -137,6 +161,18 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   room with nowhere to go. Same root as the hetero-only pairing the code
   already flags as waiting on a "looking to meet" field. Decide: seat them
   anyway, or make gender required at checkout.
+- **118 sessions report country `(not set)` / continentId `ZZ`, fire 82 key
+  events and produce $0.** A 58% key-event rate against roughly 3%
+  property-wide, one session per user. Consistent with automated traffic, not
+  proof of it — no IP or user-agent evidence was examined. It inflates every
+  engagement and conversion rate the nightly computes. `ga4-api-geo-country-
+  language-*.csv` carries the annotation in its own header.
+- **`transaction_id` is being reused.** 16 distinct ids for 39 transactions;
+  Firestore-style doc ids carry up to 8 orders each while Stripe
+  payment-intent ids carry exactly 1, and one id appears on two different days.
+  That is what #200 set out to fix. Whether this is legacy data or a live
+  regression was NOT established — the range straddles the fix and nobody
+  bisected it.
 
 ## Watch signals
 
@@ -163,3 +199,7 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   with category `gender_missing` means the two-button gender step is not being
   understood; `card_incomplete` was 8 users lifetime and should not grow faster
   than form views do.
+- **Google Ads spend now lands in `ad_spend` as `{date}__google` documents.**
+  Any third spend source must namespace its doc id the same way — the Meta sync
+  writes `ad_spend/{date}` with a whole-document `set`, so a shared id silently
+  deletes a day of Meta spend. Memory: `google-ads-spend-is-unread`.
