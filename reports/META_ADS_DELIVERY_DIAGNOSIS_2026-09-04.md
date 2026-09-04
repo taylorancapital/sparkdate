@@ -1,15 +1,27 @@
 # Meta ads: the delivery is fine, the sales stopped nine days ago (2026-09-04)
 
 **This report changes no ad and no site code.** It reads the account live and
-writes this file. Every recommended change in §7 is stated as a decision for
+writes this file. Every recommended change in §8 is stated as a decision for
 Taylor, not taken.
 
-> **Revision, same day.** §6 was added after Taylor's read: *"I think it's
-> serving me to the wrong audience."* It is. The demographics asked for are
-> being honoured exactly — but a relationship-status filter removes **80%** of
-> the reachable audience, automatic placements put **86%** of Marion Court's
-> money into Instagram Stories, and the objective steers the rest to the
-> youngest, cheapest women it can find. Nothing above §6 changed.
+> **Revised twice, same day. Read §7 before acting on §1–§5.**
+>
+> **§6** answers *"I think it's serving me to the wrong audience."* It is. The
+> demographics asked for are honoured exactly — but a relationship-status filter
+> removes **80%** of the reachable audience, automatic placements put **86%** of
+> Marion Court's money into Instagram Stories, and the objective spends the rest
+> on the youngest women it can find.
+>
+> **§7** answers *"what else could we be missing?"* — and it **corrects the
+> weight of §2**. The `OUTCOME_TRAFFIC` objective has never produced a sale on
+> any event ($254.14, 1,156 landing-page views, zero), and both live prospecting
+> campaigns run it. Marion Court is at **T-4**, and 73% of tickets have always
+> sold in the final 14 days, so its selling window has not happened yet. And
+> **zero sales on 437 landing-page views is not statistically meaningful** —
+> about 1.7 were expected. The nine-day drought is the symptom that made us look,
+> not proof on its own; §7a and §6 carry the actual evidence.
+>
+> Nothing in §1–§5 changed. §2's *numbers* stand; §7c revises what they prove.
 
 **Data.** Meta Marketing API v21.0 read live at 2026-09-04 ~11:20 local against
 account `act_1672342180672647` — account status, every campaign / ad set / ad
@@ -270,25 +282,187 @@ women click cheapest and spent accordingly.
 - **Advantage Audience is off** (`advantage_audience: 0`) on every live ad set.
   Meta is not expanding past the targeting; no `targeting_optimization` is set.
 
-## 7. DECISION — what is actually on the table
+## 7. EVIDENCE — why it has been hard to understand
 
-None of this is done. Each is Taylor's call.
+Added on Taylor's second read: *"What else could we be missing? I don't
+understand why it doesn't work."* Four things, and the first two change what
+"doesn't work" even means.
 
-1. **Marion Court is Tue 09-08 — four days out**, and its campaigns stop that
-   day. Whatever happens for it happens this week or not at all.
-2. **The five ended-but-ACTIVE campaigns**: extend `stop_time`, or archive them
+### 7a. The Traffic objective has never produced a sale. Not once, on any event.
+
+Every campaign the account has run, grouped by `objective`, 08-05 → 09-04:
+
+| objective | spend | LP views | purchases | revenue | CAC |
+|---|---:|---:|---:|---:|---:|
+| `OUTCOME_SALES` | $373.49 | 279 | **5** | $147.45 | $74.70 |
+| `OUTCOME_TRAFFIC` | **$254.14** | **1,156** | **0** | $0.00 | — |
+| ended/renamed (mixed) | $142.11 | 72 | 1 | $32.49 | $142.11 |
+
+**Traffic bought four times the landing-page views and sold nothing.**
+
+Isolating cold prospecting only — retargeting removed from both sides, because
+warm audiences convert better and would flatter the sales objective:
+
+| cold prospecting only | spend | LP views | purchases |
+|---|---:|---:|---:|
+| sales objective | $227.91 | 132 | **2** |
+| traffic objective | $254.14 | 1,156 | **0** |
+
+Near-identical money. The traffic objective bought **nine times the visitors**
+and converted none of them. If those 1,156 visitors had converted at the
+sales-objective rate (1.52%), they would have produced about **17 sales**;
+Poisson puts the chance of seeing zero at roughly **1 in 40 million**.
+
+**The honest caveat:** the other side of that comparison is `n = 2`. Two sales
+is a thin base to derive a rate from, so treat the *direction* as strong and
+the *magnitude* as indicative. But every independent line points the same way —
+Meta's own `recommendations` field (code 1942006, importance HIGH, on five ads),
+the audit's 1.4%-vs-26% tap gap, and §6b's finding that `LINK_CLICKS` spends 86%
+of the money on a swipe surface.
+
+**What is live right now:** `Marion Court | Traffic` and `Loxleys | Traffic`,
+both `OUTCOME_TRAFFIC`. The only live `OUTCOME_SALES` campaign is Marion Court
+Retargeting, pointed at the exhausted 224-person pool from §4. **So every dollar
+of live prospecting is on the one objective that has never sold a ticket.**
+
+### 7b. Marion Court is at T-4, and 73% of tickets sell in the final 14 days
+
+From `content/brand.json` → `paid_template._measured`, built from Firestore on
+2026-08-23 across the **two completed** events (n=51 tickets; events still on
+sale are excluded because their late window has not happened yet):
+
+| window | tickets | cumulative |
+|---|---:|---:|
+| T-60..T-31 | 4 | 8% |
+| T-30..T-22 | 5 | 18% |
+| T-21..T-15 | 5 | 27% |
+| T-14..T-8 | 14 | 55% |
+| **T-7..T-1** | **19** | **92%** |
+| T-0 | 4 | 100% |
+
+*"73% of tickets sell in the final 14 days. The last week alone (19 tickets)
+outsells everything before T-15 (14 tickets)."*
+
+**Marion Court is 2026-09-08. Today is 09-04. That is T-4** — inside the single
+highest-selling week of the cycle, which historically carries sales from 55% to
+92% of the total. Calling it a failure today is calling it before the window in
+which three quarters of tickets have always sold.
+
+And the money is thin in exactly that window: Marion Court | Traffic is at
+$10/day and its retargeting at $6/day, in the week that matters most.
+
+Loxleys is 09-22, i.e. **T-18** — the flat part of the curve, where $3/day is
+the ladder working as designed. Its zero is expected, not alarming.
+
+### 7c. Zero sales on 437 landing-page views is not evidence of anything
+
+The account's own LP → purchase rate is **6 / 1,504 = 0.40%**. Marion Court and
+Loxleys together bought 437 landing-page views, so the expected number of sales
+is **1.7**. The chance of observing zero when 1.7 are expected is about **18%**.
+
+**So the nine-day drought, on its own, is a weak signal** — I should have said
+so in §2 and did not. It is entirely consistent with a funnel working exactly at
+its historical rate on a budget too small to produce a countable result. The
+strong signals in this report are the objective split (§7a) and the audience
+findings (§6); the drought is the symptom that made us look, not proof by itself.
+
+At the current rate, one ticket costs roughly **250 landing-page views**, which
+at Marion Court's $0.26 CPC is about **$65 of clicks per sale** before any
+non-converting spend — against a $24.99 ticket. That ratio, not any single
+broken thing, is why this does not work.
+
+### 7d. The instrument has been broken since 08-25 — which is why nothing explains itself
+
+`npm run ads:lint`, run live just now, returns **1 error and 8 warnings**:
+
+```
+ERROR utm-content-shared (1)
+  (account-wide)  utm_content="proof_rsa1" is on 11 ads
+                  (MC Women - Video Ad, MC All Genders - Video, …)
+                  -- none can be attributed individually
+```
+
+Both live Marion Court traffic ads point at:
+
+```
+https://sparkdate.date/lp?eventId=WUaooYvOq0eC0D1QVCvQ
+  &utm_source=Instagram          <- hardcoded, regardless of placement
+  &utm_campaign=Augweek3_lancaster  <- an AUGUST WEEK 3 name, on a SEPTEMBER 8 event
+  &utm_content=proof_rsa1        <- the seeded EXAMPLE value, shared by 11 ads
+```
+
+`content/brand.json` names all three as known defects, and
+`reports/GA4_ANALYSIS_2026-08-28.md` recorded this exact URL on 08-28 as "not
+done." The build-time gate (#411) fixed *future* ads — Loxleys is correctly
+tagged with `url_tags` and a real `lx_prime_female_showup` slug — but
+`url_tags` is frozen at creation (memory `meta-organic-vs-ads-two-paths`), so
+the Marion Court ads still carry it.
+
+**This does not stop a single sale. It stops us learning anything.** Marion
+Court's traffic lands in GA4 under an August campaign name, in a bucket shared
+with ten other ads. So the question "which Marion Court ad works" has been
+unanswerable the entire time the event has been on sale — and that, more than
+any single defect, is why it keeps not making sense.
+
+### 7e. Two things in the live creative I had not read until now
+
+- **`MC All Genders - Video Ad` advertises a price that expired eleven days
+  ago.** Its link description reads **"$18.99 thru Aug 24."** The checkout
+  charges **$27.49** ($24.99 + $2.50 fee) — **45% more than the ad promises.**
+  It is the smaller ad set ($12.92 in the window), but a price mismatch between
+  ad and checkout is a conversion killer wherever it appears. The larger ad
+  (`MC Women`, $68.20) is accurate: "2-for-1 tickets live now."
+- **Every Marion Court ad uses `call_to_action_type: BOOK_TRAVEL`.** Loxleys
+  uses `LEARN_MORE`. Meta uses the CTA type as an intent signal for who to serve
+  the ad to, and "Book Travel" is not what a Lancaster mixer is. I have **no
+  measurement** that this is costing anything — flagging it as wrong, not as
+  proven harmful.
+
+## 8. DECISION — what is actually on the table
+
+None of this is done. Each is Taylor's call. Ordered by evidence behind it, not
+by ease.
+
+1. **The objective (§7a) — the biggest one.** `OUTCOME_TRAFFIC` has never
+   produced a sale on any event, and both live prospecting campaigns run it.
+   Switching Loxleys to `OUTCOME_SALES` is the highest-evidence change available.
+   Note two real costs: a new objective restarts the learning phase, and Meta
+   needs conversion volume to optimise against — at 6 lifetime pixel purchases
+   this account is far below the ~50/week Meta wants, so a sales objective may
+   optimise poorly. Optimising for `add_to_cart` or `initiate_checkout` instead
+   of `purchase` is the standard answer to that, and this account has 39 and 24
+   of those respectively. **The 09-09 review was scheduled for this — that is
+   the day after Marion Court.**
+2. **Marion Court is Tue 09-08 — T-4**, and its campaigns stop that day. §7b
+   says its selling window is *now*, and it is funded at $10 + $6 a day through
+   it. Whatever happens for it happens this week or not at all. Judging it
+   before 09-08 is judging it early.
+3. **Marion Court retargeting** at frequency 8.77 into 224 people is the
+   clearest waste on the board — roughly $6/day. Pausing it frees the only money
+   that could move in the window that matters.
+4. **The Single filter (§6a).** Dropping `relationship_statuses` from the two
+   Marion Court prospecting ad sets multiplies reachable audience by five. One
+   field, no creative re-review. Counter-argument: it is the only interest-style
+   signal on the ad set at all, so removing it makes targeting purely
+   geo/age/gender — which is how Loxleys already runs, giving a live comparison
+   either way.
+5. **The five ended-but-ACTIVE campaigns**: extend `stop_time`, or archive them
    so the account stops reading as busier than it is. Leaving them is the only
    option that costs nothing and also fixes nothing.
-3. **Marion Court retargeting** at frequency 8.77 into 224 people is the
-   clearest waste on the board — roughly $6/day. Pausing that ad set moves it
-   somewhere with reach; the pool is too small to be worth re-showing.
-4. **The objective.** Every live campaign buys link clicks. The audit, Meta's
-   own recommendation, and the 1.4%-vs-26% tap gap all point the same way. The
-   09-09 review was scheduled for this — but that is the day *after* Marion
-   Court.
-5. **Loxleys is the one with runway** (stops 09-22, currently $3/day, ladder to
-   $9 on 09-08 per memory `lx-campaign-live`). It is the event where a changed
-   objective has time to matter.
+6. **Loxleys has the runway** (stops 09-22, currently $3/day, ladder to $9 on
+   09-08 per memory `lx-campaign-live`). At T-18 it is on the flat part of the
+   sales curve, so its zero is expected. It is the event where an objective
+   change has time to matter.
+7. **`MC All Genders` advertises $18.99 through Aug 24 (§7e)** while checkout
+   charges $27.49. Fixing the link description is free and does not touch
+   `url_tags`. The `BOOK_TRAVEL` CTA on all four Marion Court ads is wrong in
+   the same place, though unmeasured.
+8. **The `proof_rsa1` tagging (§7d) cannot be fixed on the live ads** —
+   `url_tags` is frozen at creation, so a correct tag costs a new dark post,
+   which memory `dont-swap-creatives-under-live-retargeting` says not to do
+   under a live retargeting audience. The decision is whether Marion Court stays
+   unmeasurable through 09-08 (recommended — it is four days) and every ad built
+   after it goes through `scripts/ad-utm.js`, which Loxleys already does.
 6. **The Single filter (§6a).** Dropping `relationship_statuses` from the two
    Marion Court prospecting ad sets multiplies the reachable audience by five.
    It is a one-field edit and it does not force creative re-review. The counter-
@@ -300,15 +474,24 @@ None of this is done. Each is Taylor's call.
    This is the lever that most directly attacks the in-app-browser problem
    without touching the objective. Note it will raise CPC — that is the point.
 
-## 8. What I did not verify
+## 9. What I did not verify
 
 - **Whether Marion Court and Loxleys have actually sold tickets.** Meta's zero
   is attributed conversions only; Eventbrite fires no pixel. PR #427 concluded
   Marion Court's two sales trace to email and organic Facebook — I did not
   re-derive that, and I did not read Stripe or the dashboard here. *"Zero
   purchases from ads"* is not *"zero tickets sold."*
-- **The creatives themselves.** I read delivery, not whether the copy or the
-  video is any good. `META_ADS_REVIEW_2026-09-02.md` covers that ground.
+- **The video creative.** §7e reads every live ad's headline, body, CTA and
+  destination link — but not the footage itself. Whether the video is any good
+  is unmeasured here; `META_ADS_REVIEW_2026-09-02.md` covers that ground.
+- **Whether a sales objective would actually optimise.** Decision 1 notes this
+  account has 6 lifetime pixel purchases against the ~50/week Meta wants. I did
+  not model what that does to delivery — it is the strongest argument against
+  the change I am recommending, and it is untested.
+- **The purchase-timing curve is n=51 across two Lancaster events** (§7b),
+  both from `brand.json`'s own reading of Firestore on 08-23. I did not
+  re-derive it, and `brand.json` itself says to treat the shape as directional
+  and the percentages as imprecise.
 - **Whether #419 improved the tap rate.** 54 visitors is not a measurement. The
   earliest honest read is several days of the new page at current volume.
 - **Ad-review / policy state beyond the API.** `effective_status` and
@@ -317,7 +500,7 @@ None of this is done. Each is Taylor's call.
   `meta-gender-rows-do-not-reconcile` says the breakdown and the total disagree
   in this account, so they need the treatment `ads:review` gives them.
 
-## 9. One thing I did to the data
+## 10. One thing I did to the data
 
 Walking the live checkout fired one real `ViewContent` + `InitiateCheckout` and
 one `AddToCart` into the production pixel and into GA4 on 2026-09-04, from this
