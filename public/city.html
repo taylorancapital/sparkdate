@@ -491,6 +491,25 @@
         const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
         // ── City configuration ──────────────────────────────────────────────
+        //
+        // PRICE COPY, and why it reads the way it does. Every `a:` answer below
+        // is emitted verbatim into FAQPage JSON-LD further down this file, so a
+        // price sentence here is a machine-readable claim Google can surface as
+        // a rich result -- not just prose.
+        //
+        // These answers used to say "Tickets are $24.99 ... no hidden fees".
+        // Both halves were wrong. api/purchase-ticket.js charges
+        // `base + SERVICE_FEE_CENTS` (lib/pricing.js, 250), so $24.99 is
+        // charged $27.49 -- and the ticket is not a flat $24.99 either:
+        // brand.json has Loxleys at 24.99 through 2026-09-07 and 29.99 after,
+        // and Good Good Things was 29.99. A page that names one price goes
+        // stale the day the ladder moves; "no hidden fees" beside a mandatory
+        // fee is false whatever the price.
+        //
+        // So: state a RANGE, disclose the fee, and send the exact total to
+        // checkout, which itemises it (event.html, events.html, lp.html all do).
+        // The $2.50 literal mirrors SERVICE_FEE_CENTS the same way lp.html:1271
+        // does; tests/pricing.test.js asserts this file agrees with it.
         const CITIES = {
             philadelphia: {
                 name: 'Philadelphia',
@@ -509,7 +528,7 @@
                     <p>That night at 9pm, you tell us who you'd like to stay in touch with. If they feel the same way, we exchange your contact information directly — name and phone number. No Instagram hunting, no "did they mean it?" guessing. Just a direct connection.</p>
                     <h2>Philadelphia venues we love</h2>
                     <p>We carefully choose venues that match the tone we're going for: upscale enough to feel like a real occasion, relaxed enough that you don't feel like you're being evaluated. Our recent events have been held in Rittenhouse Square, Center City, and Society Hill — neighborhoods with easy parking, great transit access, and a walkable strip of bars for those who want to continue the night. See our <a href="/blog/philly-date-night-spots">guide to these neighborhoods</a> for what makes each one work.</p>
-                    <p>Each event runs from about 6:30 to 8:30 PM, so it fits into a weeknight without taking over your schedule. Tickets are $24.99, which covers entry. Drinks are on you at the bar.</p>
+                    <p>Each event runs from about 6:30 to 8:30 PM, so it fits into a weeknight without taking over your schedule. Tickets run $24.99 to $29.99 depending on the event, plus a $2.50 service fee at checkout, and cover entry. Drinks are on you at the bar.</p>
                 `,
                 faqs: [
                     {
@@ -542,7 +561,7 @@
                     },
                     {
                         q: 'How much does a SparkDate event cost in Philadelphia?',
-                        a: "Tickets are $24.99, which covers entry. No subscription and no hidden fees. Drinks are on you at the bar."
+                        a: "Tickets run $24.99 to $29.99 depending on the event and how early you book, plus a $2.50 service fee added at checkout — the exact total is shown before you pay. No subscription. Drinks are on you at the bar."
                     },
                     {
                         q: 'What should I wear to a Philadelphia SparkDate event?',
@@ -568,7 +587,7 @@
                     <p>We bring curated mixers to Lancaster — intimate events of 20 to 30 guests, with an eye toward a balanced gender mix, held at the city's most interesting venues. Every guest is reviewed before the event: we look at what they're looking for, their vibe, and shared interests. The goal is a room where everyone belongs.</p>
                     <h2>Lancaster venues worth meeting at</h2>
                     <p>Lancaster has seen a real restaurant and bar renaissance over the last few years — Central Market, the Marriott district, Binns Park, and the walking strip around Prince Street offer settings that feel like a real occasion without the pretension. We choose venues that make a first conversation feel effortless.</p>
-                    <p>Events run weeknight evenings, typically from 6:30 to 8:30 PM. Tickets are $24.99. The guest list stays under 30 people by design — we'd rather run two smaller events than one overcrowded one. Read our <a href="/blog/first-timer-guide-lancaster">full first-timer's guide</a> for exactly what to expect — including <a href="/blog/what-to-wear">what to wear</a>.</p>
+                    <p>Events run weeknight evenings, typically from 6:30 to 8:30 PM. Tickets run $24.99 to $29.99 depending on the event and how early you book, plus a $2.50 service fee at checkout. The guest list stays under 30 people by design — we'd rather run two smaller events than one overcrowded one. Read our <a href="/blog/first-timer-guide-lancaster">full first-timer's guide</a> for exactly what to expect — including <a href="/blog/what-to-wear">what to wear</a>.</p>
                     <h2>The same-night part most dating events skip</h2>
                     <p>That night at 9pm, you get a private prompt: tell us who you'd like to keep in touch with. It's completely discreet — no one sees your picks until there's a mutual match. When two people pick each other, we exchange their contact info directly. No hunting on Instagram, no hoping the other person caught your name right.</p>
                     <p>It's a small thing, but it's the part people remember most. Lancaster is a small city; we want your connections to actually go somewhere.</p>
@@ -604,7 +623,7 @@
                     },
                     {
                         q: 'How much does a SparkDate event cost in Lancaster?',
-                        a: "Tickets are $24.99, which covers entry. No subscription and no hidden fees. Drinks are on you at the bar."
+                        a: "Tickets run $24.99 to $29.99 depending on the event and how early you book, plus a $2.50 service fee added at checkout — the exact total is shown before you pay. No subscription. Drinks are on you at the bar."
                     },
                     {
                         q: 'What should I wear to a Lancaster SparkDate event?',
@@ -633,7 +652,7 @@
                     <p>That night, you tell us who you'd like to stay in touch with. If they feel the same way, we exchange your contact information directly — name and phone number. No Instagram hunting, no "did they mean it?" guessing. Just a direct connection.</p>
                     <h2>The kind of venue we're building around</h2>
                     <p>We're not chasing upscale cocktail bars here — we're looking for laid-back spots with pool tables, cold beer, and room to actually talk. Legends Brews and Cues (2790 Hancock Expy, Colorado Springs, CO 80910) is a good example of the kind of place we're targeting: casual, game-forward, and built for people to loosen up and talk to someone new without the room feeling like a job interview.</p>
-                    <p>We're still building out the Colorado Springs venue lineup ahead of our August 2026 launch — more locations will be added as the calendar fills in. Events run about 6:30 to 8:30 PM on weeknights, and tickets are $24.99, which covers entry. Drinks are on you at the bar.</p>
+                    <p>We're still building out the Colorado Springs venue lineup ahead of our August 2026 launch — more locations will be added as the calendar fills in. Events run about 6:30 to 8:30 PM on weeknights, and tickets run $24.99 to $29.99 depending on the event, plus a $2.50 service fee at checkout, covering entry. Drinks are on you at the bar.</p>
                 `,
                 faqs: [
                     {
@@ -666,7 +685,7 @@
                     },
                     {
                         q: 'How much does a SparkDate event cost in Colorado Springs?',
-                        a: "Tickets are $24.99, which covers entry. No subscription and no hidden fees. Drinks are on you at the bar."
+                        a: "Tickets run $24.99 to $29.99 depending on the event and how early you book, plus a $2.50 service fee added at checkout — the exact total is shown before you pay. No subscription. Drinks are on you at the bar."
                     },
                     {
                         q: 'What should I wear to a Colorado Springs SparkDate event?',
@@ -694,7 +713,7 @@
                     <p>Traditional speed dating gives you 3 minutes per person and a scorecard. Our events don't work that way. You arrive, meet a trained host, and get seated at a small table where a game breaks the ice. Each round the men move one table along, so you meet the room rather than one corner of it, then the structure drops away for open mingling, and one-on-ones close the night. Read our guide on <a href="/blog/how-same-night-matching-works">how same-night matching works</a> and <a href="/blog/what-to-wear">what to wear</a> for exactly what to expect.</p>
                     <p>That night, you tell us who you'd like to stay in touch with. If they feel the same way, we exchange your contact information directly — name and phone number. No Instagram hunting, no "did they mean it?" guessing. Just a direct connection.</p>
                     <h2>The kind of venue we're building around</h2>
-                    <p>We're looking at spots around the Riverfront and Trolley Square — Wilmington's two liveliest strips for bars and restaurants — for the same relaxed-but-real-occasion energy that's worked well in our other cities. See our <a href="/blog/wilmington-date-night-spots">guide to Wilmington's date-night neighborhoods</a> for what makes each one work. We're still finalizing the Wilmington venue lineup; details will land here as the calendar fills in. Events will run about 6:30 to 8:30 PM on weeknights, with tickets at $24.99, covering entry. Drinks are on you at the bar.</p>
+                    <p>We're looking at spots around the Riverfront and Trolley Square — Wilmington's two liveliest strips for bars and restaurants — for the same relaxed-but-real-occasion energy that's worked well in our other cities. See our <a href="/blog/wilmington-date-night-spots">guide to Wilmington's date-night neighborhoods</a> for what makes each one work. We're still finalizing the Wilmington venue lineup; details will land here as the calendar fills in. Events will run about 6:30 to 8:30 PM on weeknights. Pricing is set per event once the calendar is live, with a $2.50 service fee added at checkout. Drinks are on you at the bar.</p>
                 `,
                 faqs: [
                     {
@@ -727,7 +746,7 @@
                     },
                     {
                         q: 'How much does a SparkDate event cost in Wilmington?',
-                        a: "Tickets will be $24.99, which covers entry. No subscription and no hidden fees. Drinks are on you at the bar."
+                        a: "Pricing is set per event once the Wilmington calendar is live, and a $2.50 service fee is added at checkout. The exact total is shown before you pay. No subscription. Drinks are on you at the bar."
                     },
                     {
                         q: 'What should I wear to a Wilmington SparkDate event?',
