@@ -1,8 +1,15 @@
 # Meta ads: the delivery is fine, the sales stopped nine days ago (2026-09-04)
 
 **This report changes no ad and no site code.** It reads the account live and
-writes this file. Every recommended change in §6 is stated as a decision for
+writes this file. Every recommended change in §7 is stated as a decision for
 Taylor, not taken.
+
+> **Revision, same day.** §6 was added after Taylor's read: *"I think it's
+> serving me to the wrong audience."* It is. The demographics asked for are
+> being honoured exactly — but a relationship-status filter removes **80%** of
+> the reachable audience, automatic placements put **86%** of Marion Court's
+> money into Instagram Stories, and the objective steers the rest to the
+> youngest, cheapest women it can find. Nothing above §6 changed.
 
 **Data.** Meta Marketing API v21.0 read live at 2026-09-04 ~11:20 local against
 account `act_1672342180672647` — account status, every campaign / ad set / ad
@@ -167,7 +174,103 @@ have seen the new checkout. At the audit's own measured rate that is an expected
 yield near zero. Nine days of no sales is real; the last two of them are not yet
 evidence about the fix.
 
-## 6. DECISION — what is actually on the table
+## 6. EVIDENCE — who the money actually reached
+
+Added on Taylor's read. Window **08-22 → 09-03**, whole days, live campaigns
+only. Breakdown spend reconciles with the unbroken total to within $0.07 on
+Marion Court | Traffic, so the memory `meta-gender-rows-do-not-reconcile`
+caveat does not bite here — but it applies to *conversions*, and there are none
+to reconcile.
+
+### 6a. The "Single" filter removes 80% of the audience
+
+Both Marion Court prospecting ad sets carry
+`flexible_spec: [{"relationship_statuses": [1]}]` — Facebook's **Single**
+relationship status. Meta's own `delivery_estimate`, holding geo, age and
+gender constant:
+
+| targeting | monthly reachable people |
+|---|---:|
+| women 22-45, Lancaster/York/Harrisburg/Reading 15mi, **as targeted** | **105,700 – 124,300** |
+| the same, **without** the Single filter | **530,600 – 624,200** |
+| Loxleys' women 22-45, 20mi cities, no filter (for comparison) | 484,600 – 570,100 |
+
+**The filter removes 80% of who could be reached.** And it is not a random 80%:
+it keeps only people who publicly declared "Single" on a Facebook profile field
+that most users never fill in and that Meta has been quietly retiring. The slice
+it keeps skews toward heavy, long-tenured Facebook users — not the person most
+likely to buy a $25 mixer ticket in Lancaster.
+
+`MARION_COURT_RETARGETING_FATIGUE_2026-09-01.md` §3 already named this filter as
+halving the retargeting pool. It is also on the **prospecting** ad sets, which is
+where the 224-person ceiling actually comes from. **Loxleys does not carry it at
+all** — so the two events are not comparable, and any read across them is a read
+across two different audiences.
+
+### 6b. Placements are automatic, and 86% of Marion Court went to Stories
+
+Every live ad set leaves `publisher_platforms`, `facebook_positions`,
+`instagram_positions` and `device_platforms` **unset** — fully automatic. Paired
+with `LINK_CLICKS`, Meta buys the cheapest click available, and the cheapest
+click is a full-screen swipe surface.
+
+**Marion Court | Traffic — $81.12:**
+
+| placement | spend | share | clicks | LP views | CPC |
+|---|---:|---:|---:|---:|---:|
+| instagram / **stories** | **$70.05** | **86%** | 267 | 216 | $0.26 |
+| facebook / feed | $5.09 | 6% | 18 | 8 | $0.28 |
+| facebook / reels_overlay | $2.77 | 3% | 11 | **1** | $0.25 |
+| audience_network / an_classic | $1.34 | 2% | 8 | 4 | $0.17 |
+| everything else | $1.87 | 2% | 6 | 5 | — |
+
+**Loxleys | Traffic — $14.68:** instagram/reels $9.28 (63%), facebook/reels
+$3.68 (25%), facebook/feed $1.10 (7%). **88% Reels.**
+
+**Marion Court Retargeting — $50.37:** facebook/feed $28.58 (57%) at **$1.79 a
+click**, instagram/feed $10.12 (20%) at **$3.37 a click** — against $0.26 on the
+prospecting campaign. Plus $0.36 on Audience Network rewarded video, which is
+the placement where people tap an ad to earn a game reward.
+
+Two things follow. First, `facebook/reels_overlay` bought **11 clicks and one
+landing-page view** — ten of eleven never arrived, which is what an accidental
+tap looks like. Second, and much larger: Stories and Reels taps open inside the
+**Instagram in-app browser**, which is exactly where
+`PAID_FUNNEL_AUDIT_2026-09-02.md` measured the Get Tickets tap rate at **1.4%
+against 26%** in a real browser. The objective picks the cheapest click; the
+cheapest click is the one that lands somewhere nobody buys.
+
+### 6c. The age skew is Meta's choice, not the targeting
+
+Both Marion Court ad sets target **22-45**. Where the money actually went:
+
+| age × gender | spend | share |
+|---|---:|---:|
+| 25-34 female | $42.71 | 53% |
+| 18-24 female (i.e. 22-24) | $23.46 | 29% |
+| 35-44 female | $6.86 | **8%** |
+| 25-34 male | $3.26 | 4% |
+| 35-44 male | $3.06 | 4% |
+| everything else | $1.77 | 2% |
+
+**82% of the budget went to women under 35, and 8% to women 35-44** — from an
+ad set that asked for 22-45 without a preference. `LINK_CLICKS` found that young
+women click cheapest and spent accordingly.
+
+### 6d. What is NOT wrong
+
+- **Geography.** 100% Pennsylvania on all three live campaigns; $0.02 leaked to
+  Maryland. Targeting is 15mi (MC) / 20mi (LX) around Lancaster, York,
+  Harrisburg and Reading. *Caveat:* Meta's `region` breakdown is state-level, and
+  `comscore_market` returned no rows at this spend, so this confirms **in-state**,
+  not **in-Lancaster**.
+- **Gender.** Honoured exactly. `Marion Court | Female` served 100% women
+  ($68.20). `Marion Court | All Genders` ran 59/41 male/female on $12.92 — the
+  natural skew, on 16% of the campaign. Loxleys ran male $8.05 / female $6.63.
+- **Advantage Audience is off** (`advantage_audience: 0`) on every live ad set.
+  Meta is not expanding past the targeting; no `targeting_optimization` is set.
+
+## 7. DECISION — what is actually on the table
 
 None of this is done. Each is Taylor's call.
 
@@ -186,8 +289,18 @@ None of this is done. Each is Taylor's call.
 5. **Loxleys is the one with runway** (stops 09-22, currently $3/day, ladder to
    $9 on 09-08 per memory `lx-campaign-live`). It is the event where a changed
    objective has time to matter.
+6. **The Single filter (§6a).** Dropping `relationship_statuses` from the two
+   Marion Court prospecting ad sets multiplies the reachable audience by five.
+   It is a one-field edit and it does not force creative re-review. The counter-
+   argument is that it is the only interest-style signal on the ad set at all —
+   removing it makes the targeting purely geo/age/gender. Loxleys already runs
+   that way, so there is a live comparison either way.
+7. **Placements (§6b).** Restricting to feed-style placements, or excluding
+   Audience Network and Reels overlay, stops paying for taps that never arrive.
+   This is the lever that most directly attacks the in-app-browser problem
+   without touching the objective. Note it will raise CPC — that is the point.
 
-## 7. What I did not verify
+## 8. What I did not verify
 
 - **Whether Marion Court and Loxleys have actually sold tickets.** Meta's zero
   is attributed conversions only; Eventbrite fires no pixel. PR #427 concluded
@@ -204,7 +317,7 @@ None of this is done. Each is Taylor's call.
   `meta-gender-rows-do-not-reconcile` says the breakdown and the total disagree
   in this account, so they need the treatment `ads:review` gives them.
 
-## 8. One thing I did to the data
+## 9. One thing I did to the data
 
 Walking the live checkout fired one real `ViewContent` + `InitiateCheckout` and
 one `AddToCart` into the production pixel and into GA4 on 2026-09-04, from this
