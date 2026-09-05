@@ -10,12 +10,18 @@ more strongly than the argument for it did.** The ad-schedule conclusion does
 not change, because the collision was never about Lucky Dog — it was about a
 *second Lancaster event*, and Loxleys is Lancaster too.
 
+**Updated again 2026-09-04:** Stratus came back — **Oct 15 is already booked**,
+they keep their own singles events at least two weeks apart, October is heavy
+wedding season, and Diandra is reviewing late October and November. She offered
+a call **Wed Sep 9, any time after 12:00 PM**, and looped in three colleagues.
+See "Stratus lost Oct 15" below; the Lancaster half of the slate is untouched.
+
 **Recommended slate**
 
 | Event | Date | Market | Status |
 |---|---|---|---|
-| Tellus360 | Tue Oct 6 | Lancaster | Runway starts **Sun Sep 6** — 3 days |
-| Stratus | Thu Oct 15 | Philadelphia | Awaiting reply to Diandra |
+| Tellus360 | Tue Oct 6 | Lancaster | Runway starts **Sun Sep 6** — 2 days |
+| Stratus | **Thu Nov 5** (was Oct 15) | Philadelphia | Date open; call Wed Sep 9 |
 | Loxleys #2 | **Tue Oct 27**, not Oct 20 | Lancaster | Pencil now, confirm Sep 23 |
 
 ---
@@ -157,11 +163,12 @@ There is no reason to commit to a repeat before the first night has happened.
 
 | By | What |
 |---|---|
-| **Sep 4–5** | Reply to Diandra (draft below). Ask Loxleys to **pencil Oct 27**, not book it. Confirm Oct 6 with Tellus360. |
-| **Sun Sep 6** | **Hard deadline.** Tellus live and on sale, `brand.json` entry, campaign built paused. A campaign cannot be built against an event with no ticket link. |
-| Mon Sep 15 | Same for Stratus. Twelve days of slack — comfortable. |
+| **Sep 4–5** | Reply-all to Diandra (draft below) taking the Wednesday call. Ask Loxleys to **pencil Oct 27**, not book it. Confirm Oct 6 with Tellus360. |
+| **Sun Sep 6** | **Hard deadline, and it has nothing to do with Stratus.** Tellus live and on sale, `brand.json` entry, campaign built paused. A campaign cannot be built against an event with no ticket link. |
+| Tue Sep 8 | Marion Court runs; both its campaigns end 16:30. |
+| **Wed Sep 9** | Stratus call, after 12:00. Settle covered space first — it picks the date. Then layout, capacity, and their singles-event calendar. |
 | **Tue Sep 23** | Decide Loxleys #2 on the night's actual numbers: how many walked in, and how many were women. |
-| Mon Oct 6 | Loxleys #2 runway starts, on the Oct 27 date. |
+| Mon Oct 6 | Loxleys #2 runway starts on the Oct 27 date — and, if Stratus lands on Nov 5, its runway starts the same day. |
 
 **Answer Lucky Dog anyway.** They replied Sep 3 after waiting five weeks —
 "I wouldn't mind doing this" — against a July 28 message that asked for August.
@@ -170,7 +177,51 @@ Lancaster-area room in the pipeline. **Nov 3 is a Tuesday** and was already the
 alternative date if a full 30-day runway ever matters more than staying in
 October.
 
-## NOT VERIFIED — Stratus is a rooftop, and Oct 15 is mid-October
+## DECISION — Stratus lost Oct 15, and one fact now picks the new date
+
+Diandra's 2026-09-04 reply: Oct 15 is booked, **they space their own singles
+events at least two weeks apart**, October is heavy wedding season, and she is
+reviewing late October and November. She proposed a call **Wed Sep 9, after
+12:00 PM**, and copied three colleagues — the thread has moved from one manager
+to what is presumably the events team, so expect it to get more formal.
+
+Philadelphia is a different geo from Lancaster, so Stratus never competed with
+Tellus or Loxleys in the auction. The only cost of its date is **budget
+overlap** with Loxleys #2's close (Oct 20–26). Remaining Thursdays:
+
+| Date | Runway starts | Prep days | Stratus close | Days doubling Loxleys' close | Peak $/day |
+|---|---|---:|---|---:|---:|
+| Thu Oct 22 | Sep 22 | 18 | Oct 15–21 | 2 | $28.93 |
+| Thu Oct 29 | Sep 29 | 25 | Oct 22–28 | **5** | $28.93 |
+| **Thu Nov 5** | Oct 6 | 32 | Oct 29–Nov 4 | **0** | **$25.36** |
+| Thu Nov 12 | Oct 13 | 39 | Nov 5–11 | 0 | $16.07 |
+
+**Nov 5 is the best date on the schedule** — no double close, the most prep
+time, and the lowest peak. Oct 29 is the worst of the four: five days of doubled
+close spend *and* it sits on the seasonal boundary.
+
+**But the ranking inverts on one unanswered fact.** The dates that are cleanest
+on budget are the ones furthest into the cold. A Philadelphia rooftop on Nov 5
+is outdoors in November:
+
+- **If Stratus has covered or indoor space → Nov 5, comfortably.** Weather stops
+  mattering and the schedule is clean.
+- **If it does not → Oct 22 is the only viable option**, at a 2-day budget
+  collision, and even that is marginal for a 7 PM outdoor start. Below that, the
+  outreach package's own guidance applies: an uncovered room past October is a
+  **spring conversation**, not an October one.
+
+So the covered-space question is no longer a nice-to-have on the reply. **It is
+the gate**, and it should be settled on Wednesday's call before a date is chosen.
+
+**Consequence if Stratus slides to November: Philadelphia gets nothing in
+October.** Good Good was Aug 31, so the market would go roughly ten weeks
+between events. Given Good Good is the worst night on file — 20% women ticketed,
+one woman in the room — that is not a crisis, but the Philly pixel and audience
+pool go cold, and October becomes two Lancaster events against the acquisition
+depth this report already flags.
+
+## NOT VERIFIED — Stratus is a rooftop, and now the date is later still
 
 `Business Plan/files/Venue_Outreach_Package.md` states the criteria that produced
 this outreach, and one is unambiguous:
@@ -179,11 +230,17 @@ this outreach, and one is unambiguous:
 
 The same file notes Philadelphia's outdoor season ends in late October and lists
 Stratus under *Rooftops*, annotated "Rooftop = outdoor", with no covered-space
-note. Diandra Gore's reply says nothing about weather. A 7 PM start on a
-Philadelphia rooftop on Oct 15 is inside the window that file flags.
+note. **Neither of Diandra's two replies mentions weather.**
 
-**Cheapest question to ask, most expensive to skip.** An unanswered rain plan on
-a paid event is a refund event. It belongs in the reply, not a later email.
+Oct 15 was inside the window that file flags. Every date still on the table is
+later — Oct 22 at the boundary, Nov 5 and Nov 12 past it. **The question got
+more important, not less, when the date slipped.**
+
+One piece of counter-evidence, and it is only suggestive: Diandra herself
+proposed reviewing November, which a venue with a purely open-air room would be
+unlikely to do for a seated evening event. Hotel Monaco does have indoor lounge
+space. **Neither is confirmed and neither should be assumed** — it is a question
+for Wednesday, and it decides the date.
 
 ## What I did not verify
 
@@ -211,38 +268,39 @@ a paid event is a refund event. It belongs in the reply, not a later email.
 
 ## The Stratus reply
 
-To Diandra Gore, on the existing thread. Says yes to Thursday, names Oct 15,
-takes her earlier slot, and asks the two things that actually need answering.
+Reply-all on the existing thread — Richard, Adam and Cassidy are on it now.
+Takes the call, gives her dates to check against her own spacing rule, and puts
+the gating question in front of her so she can have the answer ready.
 **No mention of money.**
 
 > Hi Diandra,
 >
-> Thursdays work — and it's good to hear the format isn't new to the room.
+> No problem on the 15th — and the two-week spacing makes sense.
 >
-> I'd like to look at **Thursday, October 15**, on your earlier window: guests
-> arriving 7:00, the structured part running 7:00–9:00, and people staying on
-> afterward as long as they're buying. The night runs in three movements —
-> seated rounds with a game to open, then open mingling, then one-on-ones — so
-> the two hours are the part we run, and the tail is yours.
+> Wednesday works. I'm free any time after 12:00, and **1:00 or 2:00 PM** would
+> be ideal if either suits. My cell is 717-344-4176 and I'm happy to place the
+> call.
 >
-> Two things that would help me plan:
+> On dates, so you have something to check against: **Thursday, November 5 or
+> November 12 would suit us best**, and **Thursday, October 22** works too if
+> it's open. Anything you find in that stretch, I can build around.
 >
-> 1. **Is there covered or indoor space if the weather turns?** Mid-October is
->    the reason I ask. If there's a fallback I'll book without hesitating; if
->    the night is weather-dependent I'd rather plan for that now than move a
->    room full of people on the day.
-> 2. **How would you lay out a group that needs to move?** We need seating for
->    the first stretch and open floor for the second — if one section suits that
->    better than another, I'll build the run of show around it.
+> One thing worth knowing before Wednesday so we can settle it quickly: **is
+> there covered or indoor space if the weather turns?** If we end up in
+> November, that's the piece that shapes how I plan the rest of the night.
 >
-> I'll give you a firm headcount a week out.
->
-> Happy to do 15 minutes on the phone if that's easier.
+> Looking forward to it.
 >
 > Best,
 > Taylor
 > Founder, SparkDate
 > 717-344-4176
+
+**On the call, terms are Taylor's alone.** Three colleagues joining a hotel
+thread makes a fees-and-minimums conversation more likely, not less. Whatever
+Stratus proposes is his to answer — see the section below, and memory
+`never-ask-a-venue-for-its-minimum`. The layout question moves to the call,
+where she has already offered to cover it.
 
 ### Why money is not mentioned at all
 
