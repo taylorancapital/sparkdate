@@ -27,6 +27,7 @@
     "ads:pause-stale": "node scripts/meta-pause-stale.js",
     "ads:lx-sales": "node scripts/meta-create-lx-sales-campaign.js",
     "ads:lx-switch": "node scripts/meta-lx-switch-to-sales.js",
+    "ads:mc-sales": "node scripts/meta-create-mc-sales-campaign.js",
     "social:plan": "node scripts/social.js plan",
     "social:approve": "node scripts/social.js approve",
     "social:run": "node scripts/social.js run",
