@@ -21,8 +21,10 @@ See "Stratus lost Oct 15" below; the Lancaster half of the slate is untouched.
 | Event | Date | Market | Status |
 |---|---|---|---|
 | Tellus360 | Tue Oct 6 | Lancaster | Runway starts **Sun Sep 6** — 2 days |
-| Stratus | **Thu Oct 22** (was Oct 15) | Philadelphia | Ask about Oct 8 too; call Wed Sep 9 |
-| Loxleys #2 | **Tue Oct 27**, not Oct 20 | Lancaster | Pencil now, confirm Sep 23 |
+| Loxleys #2 | **Thu Oct 15** (Taylor's call, 09-04) | Lancaster | Runway starts Sep 15 — *before* the first Loxleys runs |
+| Stratus | **Thu Oct 22** | Philadelphia | Call Wed Sep 9; Oct 8 is now off the table |
+
+Three events in seventeen days, alternating markets, every 7–9 days.
 
 ---
 
@@ -167,8 +169,9 @@ There is no reason to commit to a repeat before the first night has happened.
 | **Sun Sep 6** | **Hard deadline, and it has nothing to do with Stratus.** Tellus live and on sale, `brand.json` entry, campaign built paused. A campaign cannot be built against an event with no ticket link. |
 | Tue Sep 8 | Marion Court runs; both its campaigns end 16:30. |
 | **Wed Sep 9** | Stratus call, after 12:00. Settle covered space first — it picks the date. Then layout, capacity, and their singles-event calendar. |
-| **Tue Sep 23** | Decide Loxleys #2 on the night's actual numbers: how many walked in, and how many were women. |
-| Mon Oct 6 | Loxleys #2 runway starts on the Oct 27 date — and, if Stratus lands on Nov 5, its runway starts the same day. |
+| **Mon Sep 15** | **Loxleys #2 runway starts** on the Oct 15 date — a week before the first Loxleys runs. Latest launch if it slips: Sep 24, at the 21-day minimum. |
+| Tue Sep 22 | First Loxleys night. The number that would have decided the repeat now arrives after the repeat is already selling. |
+| Thu Oct 1 | Stratus runway starts on the Oct 22 date. |
 
 **Answer Lucky Dog anyway.** They replied Sep 3 after waiting five weeks —
 "I wouldn't mind doing this" — against a July 28 message that asked for August.
@@ -225,6 +228,58 @@ directional:
 Daylight saving ends Sun Nov 1, 2026, which is why Nov 5 loses an hour of light
 on top of the temperature drop. On a rooftop the view is half the draw, and in
 November there is nothing to look at.
+
+### Loxleys moved to Oct 15 — what it buys and what it costs (2026-09-04)
+
+Taylor's call. It is a real trade, not a free win, and both sides are worth
+stating.
+
+**What it buys:**
+
+| | Loxleys Oct 27 | **Loxleys Oct 15** |
+|---|---:|---:|
+| Loxleys runway | 21 d (6-day prime) | **30 d (15-day prime)** |
+| Stratus close vs Loxleys close | 2 days | **0 days** |
+| Peak daily spend | $28.93 | **$26.07** |
+| Event cadence | Oct 6, 22, 27 | **Oct 6, 15, 22** — every 7–9 days |
+
+**What it costs — six days where both Lancaster campaigns spend heavily into
+the same auction:**
+
+```
+Oct 1-5   Tellus close   $12.86/day  +  Loxleys convert  $10.00/day
+Oct 6     Tellus day_of  $10.00/day  +  Loxleys convert  $10.00/day
+```
+
+At Oct 27 that number was **zero**. This is a worse *kind* of collision than the
+Oct 20 version this report originally rejected: there the clash was Loxleys'
+**prime** ($2/day, cheap reach) under Tellus's close. Here it is Loxleys'
+**convert** — the retargeting window, 35% of its budget — bidding against
+Tellus's close in the same Lancaster geo, at the most expensive point of both runs.
+
+One mitigation, and it is real but partial: the two are working different pools.
+Tellus's close targets its own audience plus cold Lancaster; Loxleys #2's convert
+retargets people who engaged with *Loxleys* — its own September attendees and
+site visitors. Meta's auction does not care about that intent, so costs still
+rise, but the two are not fishing the same water as directly as the numbers
+suggest.
+
+**The second cost is the one worth thinking hardest about: it kills the free
+option.** At Oct 27 the runway started Oct 6, fourteen days *after* the first
+Loxleys night — so the repeat could be decided on real numbers. **At Oct 15 the
+runway starts Sep 15, a week before the first Loxleys even happens.** The repeat
+has to be committed blind.
+
+That is recoverable at the venue level but not at the ad level: the Oct 15 email
+below asks Loxleys to **hold** the date rather than book it, which keeps the room
+without forcing the spend. If the 22nd disappoints, the date can still be
+released — the runway just starts late and compresses toward the 21-day minimum
+(latest launch Sep 24).
+
+**Oct 8 for Stratus is now off the table.** With Loxleys on Oct 15, a Stratus
+date of Oct 8 would put three events inside nine days — Tellus Oct 6, Stratus
+Oct 8, Loxleys Oct 15 — with two of them 48 hours apart in different cities.
+The Stratus email below leads with Oct 22 and drops the Oct 8 ask.
 
 ### The revised ranking
 
@@ -291,7 +346,11 @@ for Wednesday, and it decides the date.
   for an October date exists in the mailbox. Tellus is a proven room, so this is
   plausibly an off-email conversation — it is still an assumption.
 - **Nobody has asked Loxleys for a second date.** The repeat is a plan, not an
-  agreement, and their answer may not be Oct 27.
+  agreement, and their answer may not be Oct 15.
+- **Neither Lancaster venue has an email address anywhere on file.** `venues`
+  holds phone numbers only — Tellus360 `(717) 393-1660`, Loxley's
+  `(717) 509-9999` — no contact name, and Gmail has no booking thread for
+  either. The two drafts below are bodies without recipients.
 - **Whether Stratus has covered space,** and whether Oct 8 or Oct 22 is even
   free — she named neither.
 - **The temperature and sunset figures are general climate normals**, not data
@@ -314,12 +373,88 @@ for Wednesday, and it decides the date.
 
 ---
 
-## The Stratus reply
+## The three emails
 
-Reply-all on the existing thread — Richard, Adam and Cassidy are on it now.
-Takes the call, gives her dates to check against her own spacing rule, and puts
-the gating question in front of her so she can have the answer ready.
-**No mention of money.**
+**Two of them have nowhere to go yet.** The `venues` collection holds a phone
+number and no email for both Lancaster rooms — Tellus360 `(717) 393-1660`,
+Loxley's `(717) 509-9999` — and no contact name for either. Nothing in Gmail
+carries a booking thread for either venue, so both were almost certainly
+arranged by phone or in person. Taylor has to supply the recipient, **or just
+call**: for a date change with a room he is already working with, the phone is
+probably faster than any of this.
+
+Stratus is the only one with an address on file, and the only one that is a
+straight reply.
+
+---
+
+### 1 · Tellus360 — Tue Oct 6
+
+Warm repeat. Aug 26 sold 30 tickets and is still the best-attended night on
+file; that is the fact worth leading with. Note the day change — Aug 26 was a
+Wednesday, Oct 6 is a Tuesday.
+
+> **Subject:** SparkDate back at Tellus — Tuesday, October 6?
+>
+> Hi [name],
+>
+> Thanks again for August 26. We sold thirty tickets and it's still the
+> best-attended night we've run — people liked the room, and a few of them have
+> said so in writing since.
+>
+> I'd like to do it again. **Tuesday, October 6** is the date I'm aiming at —
+> a Tuesday this time rather than a Wednesday, if that sits easier on your
+> calendar. Same shape as August: doors around 6:30, the structured part of the
+> night running about two hours, and people staying on after.
+>
+> Does the 6th work? If it's spoken for, tell me what's open in the first half
+> of October and I'll build around it.
+>
+> One note on timing — I need to open ticket sales this weekend to give the
+> night enough runway, so a quick yes or no is worth more to me than a perfect
+> date.
+>
+> Best,
+> Taylor
+> Founder, SparkDate
+> 717-344-4176
+
+### 2 · Loxley's — Thu Oct 15
+
+Asks for a **hold**, not a booking. The first Loxleys night has not happened yet
+— Sep 22 — and Oct 15's ad runway starts Sep 15, a week before it. Holding the
+room keeps the date without forcing the spend. Sep 22 is a Tuesday; Oct 15 is a
+Thursday.
+
+> **Subject:** Holding a second date at Loxley's — Thursday, October 15?
+>
+> Hi [name],
+>
+> Looking forward to the 22nd. Tickets are running ahead of where our last few
+> events were at this point, so I think it'll be a good night.
+>
+> I'm laying out October now, and I'd like to come back. **Thursday, October 15**
+> is the date I'm after — a Thursday rather than a Tuesday this time, otherwise
+> the same as the 22nd.
+>
+> Could you hold it for me rather than book it? I'd rather reserve it now and
+> confirm once we've both seen how the first one goes than find it's gone by
+> then.
+>
+> If the 15th isn't available, let me know which Thursdays in October are and
+> I'll work around you.
+>
+> Best,
+> Taylor
+> Founder, SparkDate
+> 717-344-4176
+
+### 3 · Stratus — Thu Oct 22
+
+Reply-all on the existing thread; Richard, Adam and Cassidy are on it now. Takes
+the call, leads with Oct 22, and asks for her whole open list rather than
+proposing one date at a time. **Oct 8 is dropped** — with Loxleys on Oct 15 it
+would put three events inside nine days. **No mention of money.**
 
 > Hi Diandra,
 >
@@ -329,14 +464,13 @@ the gating question in front of her so she can have the answer ready.
 > be ideal if either suits. My cell is 717-344-4176 and I'm happy to place the
 > call.
 >
-> On dates — is **Thursday, October 8** open at all? Warmth is the reason I ask:
-> a good part of the night lives on the roof, and early October is the
-> difference between people using that space and people standing inside.
-> **October 22** would be my next choice for the same reason.
+> On dates: **Thursday, October 22** is the one I'd most like to make work.
+> Warmth is the reason — a good part of the night lives on the roof, and by
+> November that stops being true. **October 29** would be my next choice.
 >
-> If neither is free, could you send me whichever Thursdays *are* open between
-> October 8 and mid-November? Easier for me to work around your calendar than to
-> keep guessing at it — and it'll save us both a round of emails.
+> If neither is open, could you send whichever Thursdays *are* free through
+> mid-November? Easier for me to work around your calendar than to keep guessing
+> at it, and it'll save us both a round of emails.
 >
 > One other thing worth knowing before Wednesday: **is there covered or indoor
 > space if the weather turns?** Good to know what the fallback looks like.
@@ -350,7 +484,7 @@ the gating question in front of her so she can have the answer ready.
 
 **On the call, terms are Taylor's alone.** Three colleagues joining a hotel
 thread makes a fees-and-minimums conversation more likely, not less. Whatever
-Stratus proposes is his to answer — see the section below, and memory
+Stratus proposes is his to answer — see below, and memory
 `never-ask-a-venue-for-its-minimum`. The layout question moves to the call,
 where she has already offered to cover it.
 
