@@ -70,19 +70,27 @@
  * Loxleys ad sets carry, and then FAILS LOUDLY on read-back if Meta has set
  * individual_setting.gender to 1 anyway. Verify, do not assume.
  *
- * THE PRICE LINE IS COMPUTED, NEVER TYPED
+ * THE COPY CARRIES NO PRICE AT ALL
  *
- * brand.json has LX early_bird 24.99 through 2026-09-07, regular 29.99. The
- * price in the copy is derived from this campaign's start date so it cannot be
- * typed wrong.
+ * This runs 09-05 to 09-22 and early_bird_through is 09-07, so any price
+ * sentence would be true for two days and wrong for fifteen -- and AdCreative is
+ * immutable, so it could not be corrected without minting a new dark post. The
+ * landing page shows the live price on every visit. Omitting the number deletes
+ * the whole class of problem for this ad.
  *
- * The live prime ads are NOT a defect and are not touched. "Early bird $24.99
+ * The live prime ads are NOT a defect and are NOT touched. "Early bird $24.99
  * through Sept 7" states its own deadline, which is honest advertising, not a
- * stale price -- Taylor's call, 2026-09-04, and the right one. That is a
- * different thing from Marion Court's "$18.99 thru Aug 24", which named a price
- * 45% below what checkout actually charged. Loxleys also runs a deliberate
- * BUDGET LADDER ($3/day -> $9 on 09-08 -> $11.57 on 09-15) built around the
- * early-bird step. Nothing here changes any of that.
+ * stale price -- Taylor's call, 2026-09-04, and the right one. Loxleys also runs
+ * a deliberate BUDGET LADDER ($3/day -> $9 on 09-08 -> $11.57 on 09-15) built
+ * around the early-bird step. Nothing here changes any of that.
+ *
+ * WHAT LOXLEYS ACTUALLY LOOKS LIKE, measured 2026-09-05
+ *
+ * The Traffic ads went live 2026-08-30. All four paid Loxleys tickets were
+ * bought 08-14 to 08-24, BEFORE any ad existed. Since the ads started: $18.04,
+ * 183 link clicks, ZERO tickets in seven days. Any ROAS credited to these ads
+ * (the 09-05 nightly reports 5.75) is spurious -- it credits pre-ad organic and
+ * Eventbrite sales to ads that did not yet exist.
  *
  * SAFETY
  *
@@ -143,7 +151,10 @@ const CAMPAIGN_NAME = 'Loxleys | Sales';
 const EVENT = brand.events.LX;
 const EVENT_DATE = EVENT.date;                       // 2026-09-22
 const EARLY_BIRD_THROUGH = EVENT.pricing.early_bird_through; // 2026-09-07
-const START = String(arg('start', '2026-09-08'));    // T-14, the convert window, day after early bird ends
+// Starts NOW, not at T-14. A new campaign needs learning time BEFORE the window
+// where 73% of tickets sell (T-14..T-0), not on its first day. The price is
+// omitted from the copy entirely (see body()), so an early start costs nothing.
+const START = String(arg('start', '2026-09-05'));
 const DAILY_CENTS = Number(arg('daily', 900));       // matches the documented 09-08 ladder step
 const PLACEMENTS = String(arg('placements', 'restricted'));
 
@@ -161,21 +172,31 @@ const money = (c) => `$${(Number(c) / 100).toFixed(2)}`;
 const usd = (n) => `$${Number(n).toFixed(2)}`;
 
 /**
- * Copy is the prime copy with ONE line changed: the price. Same hook, same
- * video, so the objective stays the only variable. The 2-for-1 line is female
- * only -- brand.json caption_rules.banned_outside_female_ad_set, a marketing
- * rule not a product one (checkout honours it for every buyer).
+ * Copy is the prime copy with the PRICE LINE REMOVED. Same hook, same video, so
+ * the objective stays the only variable that changed.
+ *
+ * WHY NO PRICE. This campaign runs 09-05 to 09-22 and early_bird_through is
+ * 09-07, so any price sentence is true for two days and wrong for fifteen.
+ * AdCreative is immutable, so it could not be corrected without minting a new
+ * dark post. The landing page shows the live price on every visit; the ad does
+ * not need to. This is not the "$18.99 thru Aug 24" defect and it is not the
+ * live prime ads' "Early bird $24.99 through Sept 7" either -- that one states
+ * its own deadline and Taylor is right that it stays honest after it passes.
+ * Omitting the number simply removes the whole class of problem for this ad.
+ *
+ * The 2-for-1 line stays female-only -- brand.json
+ * caption_rules.banned_outside_female_ad_set, a marketing rule not a product
+ * one (checkout honours it for every buyer). It is also the only thing in the
+ * dataset that has put women in a room efficiently: all 7 plus-ones matched the
+ * buyer's gender, 5 women bringing women, at zero ad cost.
  */
-const body = (key, price) => {
+const body = (key) => {
   const head = 'Loxleys. Tuesday, September 22 at Loxleys, patio bar, Lancaster, PA. Doors 6:30 PM.';
   const hook = key === 'female'
     ? 'Not an app. Not speed dating. A room of people who actually decided to show up.'
     : 'Weeks of texting and no plan ever made. This is the other option.';
-  const cost = at(START) > at(EARLY_BIRD_THROUGH)
-    ? `${usd(price)}.`
-    : `Early bird ${usd(price)} through Sept 7.`;
   const two = key === 'female' ? '\n\nBring a friend - 2-for-1 on tickets.' : '';
-  return `${head}\n\n${hook}\n\n${cost}${two}`;
+  return `${head}\n\n${hook}${two}`;
 };
 
 const ADS = [
@@ -225,16 +246,22 @@ const targeting = (genders) => {
     targeting_automation: { advantage_audience: 0 },
   };
   if (PLACEMENTS === 'restricted') {
-    // Drops audience_network entirely (rewarded video is where people tap an ad
-    // to collect a game reward) and facebook_reels_overlay (11 link clicks
-    // bought ONE landing-page view -- ten of eleven were mis-taps).
-    // NOTE: this does NOT escape the in-app browser. Nearly every paid-social
-    // tap opens there whatever the placement; only device_platforms:['desktop']
-    // would, and that is too narrow for a local event. The in-app problem is
-    // addressed by the LANDING_PAGE_VIEWS goal and the 09-02 checkout rebuild.
+    // ONLY Audience Network is excluded, and the position restrictions are gone.
+    //
+    // The broader restriction I originally wrote here was WITHDRAWN on 09-04.
+    // It rested on the idea that Instagram Stories buys bad traffic and that
+    // moving to Facebook feed escapes the in-app browser. Both were refuted:
+    // Instagram's clicks ARRIVE BETTER than Facebook's (84.4% vs 75.7% of link
+    // clicks become landing-page views, p=2.3e-8), and the in-app browser is a
+    // BROWSER effect not a placement one -- GA4 shows Facebook's app opens the
+    // webview for 71.5% of its paid users and Instagram's for 74.0%, p=0.31.
+    // The apparent Instagram penalty was Simpson's paradox: 93% of Stories
+    // money sat under Traffic and 88% of Facebook-feed money under Sales.
+    //
+    // Audience Network survives the cut on its own evidence: $71.27 lifetime
+    // bought 210 link clicks that became 58 landing-page views (27.6% arrival
+    // against Instagram's 84.4%, p=1e-63) and zero of anything downstream.
     t.publisher_platforms = ['facebook', 'instagram'];
-    t.facebook_positions = ['feed', 'facebook_reels', 'story'];
-    t.instagram_positions = ['stream', 'story', 'reels'];
   }
   return t;
 };
@@ -280,14 +307,10 @@ async function main() {
   console.log('\nPRE-FLIGHT');
 
   const straddles = at(START) <= at(EARLY_BIRD_THROUGH) && at(EVENT_DATE) > at(EARLY_BIRD_THROUGH);
+  console.log('  ok       copy carries NO price -- nothing to go stale over this 17-day run');
   if (straddles) {
-    // Informational, not a refusal. An early-bird line that states its own
-    // deadline is honest advertising; the copy below says "through Sept 7".
-    console.log(`  note     starts ${START}, inside early bird (ends ${EARLY_BIRD_THROUGH}).`);
-    console.log(`           Copy will read "Early bird ${usd(price)} through Sept 7" -- the deadline is stated,`);
-    console.log(`           so it stays honest after it passes. Regular is ${usd(EVENT.pricing.regular)}.`);
-  } else {
-    console.log(`  ok       price ${usd(price)} is true for the whole run (early bird ended ${EARLY_BIRD_THROUGH})`);
+    console.log(`           (run straddles early_bird_through ${EARLY_BIRD_THROUGH}: ${usd(EVENT.pricing.early_bird)} -> ${usd(EVENT.pricing.regular)};`);
+    console.log('            the landing page shows whichever is live at the moment of the visit)');
   }
 
   try {
@@ -354,7 +377,8 @@ async function main() {
   console.log(`  campaign  ${CAMPAIGN_NAME}`);
   console.log(`            objective OUTCOME_SALES, CBO ${money(DAILY_CENTS)}/day, LOWEST_COST_WITHOUT_CAP, PAUSED`);
   console.log(`            ${START} -> ${EVENT_DATE}T16:30:00-0400   (start is T-${tMinus(START)}, phase "${PHASE}")`);
-  console.log(`  placements ${PLACEMENTS === 'restricted' ? 'fb+ig feed/story/reels -- no audience_network, no reels_overlay' : 'automatic (all)'}`);
+  console.log(`  placements ${PLACEMENTS === 'restricted' ? 'facebook + instagram, ALL positions -- only audience_network excluded' : 'automatic (all)'}`);
+  console.log('  attribution 7-day click / 1-day view  (settable ONLY at creation; live ad sets are frozen on 1-day)');
   for (const a of tags) {
     console.log(`\n  ad set    ${a.adSetName}`);
     console.log(`            OFFSITE_CONVERSIONS / IMPRESSIONS, promoted_object pixel ${PIXEL_ID} PURCHASE`);
@@ -363,8 +387,8 @@ async function main() {
     console.log(`  ad        ${a.adName}   (PAUSED)`);
     console.log(`            video ${a.videoId}  thumb ${a.imageHash}   [reused, not re-uploaded]`);
     console.log(`            headline  ${a.headline}`);
-    console.log(`            body      ${body(a.key, price).split('\n')[0]} ...`);
-    console.log(`            price     ${usd(price)}${a.key === 'female' ? '  + 2-for-1 line' : ''}`);
+    console.log(`            body      ${body(a.key).split('\n')[0]} ...`);
+    console.log(`            price     none in copy${a.key === 'female' ? '  |  carries the 2-for-1 line' : ''}`);
     console.log(`            link      ${LINK}`);
     console.log(`            url_tags  ${a.url_tags}`);
   }
@@ -398,6 +422,18 @@ async function main() {
       billing_event: 'IMPRESSIONS',
       destination_type: 'WEBSITE',
       promoted_object: JSON.stringify({ pixel_id: PIXEL_ID, custom_event_type: 'PURCHASE' }),
+      // SETTABLE ONLY AT CREATION. A live edit returns code 1/1504040,
+      // "Attribution window update is no longer supported after adset creation.
+      // Please create a new adset instead." -- measured 2026-09-04 against all
+      // four live ad sets. Every live prospecting ad set is frozen on a 1-DAY
+      // click window, which cannot credit a purchase to a click that happened
+      // two days earlier, and this account's measured click-to-buy lag reaches
+      // 14 days. That single frozen field is why the Traffic-vs-Sales
+      // comparison was measured on different instruments.
+      attribution_spec: JSON.stringify([
+        { event_type: 'CLICK_THROUGH', window_days: 7 },
+        { event_type: 'VIEW_THROUGH', window_days: 1 },
+      ]),
       targeting: JSON.stringify(targeting(a.genders)),
       start_time: `${START}T00:00:00-0400`,
       end_time: `${EVENT_DATE}T16:30:00-0400`,
@@ -412,7 +448,7 @@ async function main() {
         video_data: {
           video_id: a.videoId,
           image_hash: a.imageHash,
-          message: body(a.key, price),
+          message: body(a.key),
           title: a.headline,
           link_description: a.description,
           call_to_action: { type: 'LEARN_MORE', value: { link: LINK } },
@@ -432,7 +468,7 @@ async function main() {
     console.log(`  ad        ${ad.id}  ${a.adName}`);
 
     // ---- read back. A 200 is not evidence.
-    const backSet = await get(adset.id, { fields: 'optimization_goal,promoted_object,targeting,effective_status' });
+    const backSet = await get(adset.id, { fields: 'optimization_goal,promoted_object,targeting,effective_status,attribution_spec' });
     const backAd = await get(ad.id, { fields: 'name,effective_status,creative{id,url_tags},tracking_specs' });
     const ta = (backSet.targeting || {}).targeting_automation || {};
     const genderExpansion = (ta.individual_setting || {}).gender;
@@ -444,6 +480,9 @@ async function main() {
       ['genders', servedGenders === JSON.stringify(a.genders), servedGenders],
       ['gender expansion OFF', genderExpansion !== 1, genderExpansion === undefined ? 'unset' : String(genderExpansion)],
       ['url_tags', (backAd.creative || {}).url_tags === a.url_tags, (backAd.creative || {}).url_tags],
+      ['attribution 7d click',
+        (backSet.attribution_spec || []).some((x) => x.event_type === 'CLICK_THROUGH' && Number(x.window_days) === 7),
+        JSON.stringify(backSet.attribution_spec || [])],
     ];
     for (const [label, ok, seen] of checks) {
       console.log(`  ${ok ? 'OK  ' : '!!  '}      ${label.padEnd(22)} ${seen}`);
