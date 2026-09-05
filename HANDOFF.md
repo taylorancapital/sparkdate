@@ -74,7 +74,10 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `/event?id=KL4onXm7hJbqiwI9quAZ`, url_tags via `scripts/ad-utm.js`. Still
   never done by anyone: **buy a real ticket through the new `/lp` form from
   inside the Instagram app** — the one test that settles the webview question.
-- **Marion Court is hands-off until 2026-09-08 16:30, when both campaigns end.**
+- **~~Marion Court is hands-off~~ — SUPERSEDED 09-05 by Taylor's instruction.**
+  Its Traffic campaign is now PAUSED and a Sales campaign runs in its place; the
+  retargeting set was left untouched exactly as this entry asked. The rest of
+  the entry still holds for what remains running:
   Four ad changes went live 09-02 (`reports/META_ADS_REVIEW_2026-09-02.md` §10)
   and the pixel was attached to the two Traffic ads; both campaigns are in
   learning and each edit restarts the clock. Two remaining items are deferred BY
@@ -82,25 +85,46 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   and the Traffic ads' shared `utm_content`, which cannot be fixed on a live
   creative. Do not re-raise them as findings. MC-RT-QUANG and MC-RT-NO-SCORECARDS
   stay running for the data; do not pause them as tidy-up.
-- **"Should Marion Court and Loxleys move to a Sales objective?" was asked
-  2026-09-04 and never answered — the session was interrupted mid-analysis.**
-  The evidence is gathered and points somewhere non-obvious, so do not restart
-  it from scratch. **Marion Court: no, and not a close call** — the event is
-  09-08, both campaigns stop 09-08 16:30, and an objective change restarts
-  learning with days left (same reason as the hands-off entry above).
-  **Loxleys is the only live version of the question** (09-22, so there is
-  time), and the honest answer is *probably not a straight switch*: memory
-  `traffic-objective-never-sold` shows the traffic-vs-sales gap is **p = 0.224
-  per dollar, NOT significant**, while `automatic-placements-buy-stories` has
-  the mechanism that *does* have power (in-app-browser tap rate 1.39% vs 25.6%,
-  18.4x, p ~ 4e-15). **Placements, not objective, is the lever with evidence
-  behind it.** The real blocker on switching: `OUTCOME_SALES` wants ~50
-  conversions/week and this account has **6 lifetime pixel purchases**, so a
-  PURCHASE-optimised set may not deliver at all — the untested middle path is
-  optimising for `add_to_cart` (39) or `initiate_checkout` (24). **Next
-  concrete step, after 09-08:** price the change with
-  `GET /act_<id>/delivery_estimate` before making it, and decide placements
-  separately from objective. *(09-04)*
+- **Both live events are now on a SALES objective and every Traffic campaign is
+  paused (09-05).** This closes the "objective question asked and never
+  answered" entry that sat here since 09-04. Taylor directed it; the analysis
+  that preceded it is `reports/META_ADS_ROOT_CAUSE_2026-09-04.md`. Live now:
+  `Loxleys | Sales` ($2.00/day, stops 09-22), `Marion Court | Sales`
+  ($10/day, stops 09-08), `Marion Court Retargeting` (untouched, $6/day).
+  `Loxleys | Traffic` and `Marion Court | Traffic` are PAUSED.
+  **Two things the next session must NOT re-derive.** (1) The objective's
+  evidence changed: on *purchases* it is p=0.224 and worthless, but on
+  *initiate_checkout* — 44 events instead of 6 — it is p=8e-18 and reproduces
+  inside Instagram Stories and Facebook feed separately. Use the checkout
+  endpoint. (2) **Placement was REFUTED as a lever** and my earlier
+  recommendation to restrict it is withdrawn: Instagram's clicks arrive BETTER
+  than Facebook's, and the in-app browser is a browser effect (FB app 71.5%,
+  IG app 74.0%, p=0.31), not a placement one. Only Audience Network is
+  genuinely bad. Memory: `automatic-placements-buy-stories`. *(09-05)*
+- **`Marion Court | Sales` is a T-3 hail mary and must be scored as one.** Built
+  09-05 on the 2-for-1 female creative because Taylor asked for women's sales.
+  It has ~3 days minus review, and `purchase` had ZERO events in the prior 7
+  days against the ~50/week Meta wants, so it will not leave the learning
+  phase. **Judge it on whether women reach checkout, never on purchases** —
+  there will be far too few to read. It also carries the first correct tags on
+  a Marion Court ad (`mc_close_female_bringafriend`, CTA `LEARN_MORE`); the
+  live MC Women ad still carries `proof_rsa1` and `BOOK_TRAVEL` frozen in.
+  *(09-05)*
+- **The budget ladder is automatic now, and it knows about ONE campaign.**
+  `scripts/meta-budget-ladder.js` + the `SparkDate Budget Ladder` scheduled task
+  (daily 03:00, armed by Taylor 09-05, verified end-to-end with
+  `LastTaskResult: 0`). It derives phases from `brand.json`, so it cannot drift
+  from `build-paid-campaign.js`. **Next concrete step: `CAMPAIGNS` in that
+  script holds only Loxleys.** Marion Court ends 09-08 with a deliberately flat
+  budget so that is correct today, but **the October events need a line added
+  each or the ladder will silently skip them.** *(09-05)*
+- **The 09-05 nightly (PR #449) credits Loxleys with 5.75 ROAS, "best in the
+  account", and it is spurious.** The Loxleys ads went live 08-30; all four of
+  its paid tickets were bought 08-14 to 08-24, before any ad existed. Since the
+  ads started: $18 spent, 183 clicks, zero tickets. **Next step: correct or
+  close that PR before the figure gets cited.** The general rule went to memory
+  `meta-attribution-is-not-sales` — check TIMING before crediting ads, and
+  never read Meta's attributed conversions as sales. *(09-05)*
 - **Two Loxleys Traffic campaigns exist and only one carries the Single
   filter.** Pulled live 09-04 20:15: `Loxleys | Traffic` (`120251085229290542`)
   is ACTIVE at $3/day with **no `flexible_spec`**, while `Loxley's | Traffic`
@@ -111,18 +135,23 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   does not carry it" and a glance at the account can suggest otherwise. **Next
   step: confirm the paused pair is dead and archive it, or say why it is
   being kept, before the 09-22 retirement.** *(09-04)*
-- **The score comes 09-09, not before.** The pixel bought measurement, not lift —
-  both Traffic sets still optimise `LINK_CLICKS`. Run `npm run ads:review` and
-  read **purchases by gender per ad**, never landing-page views.
-- **The UTM convention is enforced at BUILD time now (#411); its first real use
-  is the Loxleys retargeting creatives on Sep 8.** `scripts/ad-utm.js` computes
+- **The score comes 09-09, not before.** ~~both Traffic sets still optimise
+  `LINK_CLICKS`~~ — no longer true as of 09-05, both are PAUSED and the live
+  campaigns are `OUTCOME_SALES`. Run `npm run ads:review` and read **purchases
+  by gender per ad**, never landing-page views. Note the new ad sets carry a
+  7-day click window; the paused ones were frozen at 1 day, so the two are not
+  measured on the same instrument.
+- **The UTM convention is enforced at BUILD time now (#411); its first real use was the three
+  creatives built 09-05, not the Sep 8 retargeting.** `scripts/ad-utm.js` computes
   the tag from brand.json and refuses what GA4 cannot split;
   `tests/ad-utm.test.js` gates it with no token, which `ads:lint` never could.
   When those creatives are built, import `urlTags` and let it fail rather than
   typing a tag. Nothing live is retagged — `url_tags` is frozen at creation.
 - **Taylor must pause the Cowork nightly task himself; nothing in the repo can.**
   Until then Cowork and the local run both fire and race for one branch name.
-- **Loxleys is next, held for its own chat.** Its budget ladder is deliberate
+- **~~Loxleys is next, held for its own chat~~ — done 09-05, rebuilt on a sales
+  objective.** Its retargeting is still unbuilt and the entry below still
+  describes why that is by design: Its budget ladder is deliberate
   (memory `lx-campaign-live`) and the event is 09-22, so none of Marion Court's
   six-day pressure applies. Its retargeting is meant to be built at the Sep 8
   ladder step — the paused campaigns and unattached audience are by design.
