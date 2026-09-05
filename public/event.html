@@ -395,6 +395,25 @@
         }
         .checkout-btn:hover { transform: translateY(-2px); }
         .checkout-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        /* Gender as two tap targets instead of a <select>, matching the
+           /events dialog and /lp. Identical rules to events.html:867-876 --
+           deliberately, so the three checkouts look like one product. The
+           white ground and 2px coral border match the select/input rules
+           above, which is what the rest of this form already uses. */
+        .gender-choice { display: flex; gap: 10px; }
+        .gender-btn {
+            flex: 1; padding: 13px 10px; background: #ffffff; color: #0a0e27;
+            border: 2px solid rgba(255, 107, 107, 0.4); border-radius: 4px;
+            font-family: inherit; font-size: 16px; font-weight: 600; cursor: pointer;
+        }
+        .gender-btn[aria-checked="true"] { border-color: var(--coral); box-shadow: inset 0 0 0 1px var(--coral); }
+        .gender-btn[aria-checked="true"]::before { content: '✓ '; color: var(--coral); }
+        .gender-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+        .gender-btn:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+        /* The quiet in-app-browser line under the button, replacing the amber
+           banner this page used to carry at the top. */
+        .checkout-help { font-size: 12.5px; color: rgba(245,243,240,0.6); margin: 10px 0 0; line-height: 1.5; }
+        .checkout-help button { background: none; border: 0; padding: 0; color: var(--cream); text-decoration: underline; font: inherit; cursor: pointer; }
         /* Honeypot for the sold-out waitlist form — same trick lp.html uses:
            off-screen and hidden from assistive tech, so only a bot fills it. */
         .wl-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
@@ -573,11 +592,6 @@
             .booking-card { position: static; }
         }
 
-        .iab-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; max-width: 1100px; margin: 20px auto 0; padding: 10px 40px; }
-        .iab-banner-inner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: rgba(255,107,107,0.12); border: 1px solid rgba(255,107,107,0.35); border-radius: 8px; padding: 10px 14px; font-size: 13px; width: 100%; }
-        .iab-banner-inner span { flex: 1; min-width: 200px; }
-        .iab-banner-inner button { padding: 6px 12px; font-size: 12px; border-radius: 4px; background: var(--coral); color: #fff; border: none; cursor: pointer; font-family: inherit; }
-        .iab-banner-inner #iabDismiss { background: transparent; color: var(--cream); opacity: 0.6; padding: 4px 8px; }
 
         /* Social proof: real event photos, no fabricated stats -- shared
            block, kept in sync across signup.html/events.html/event.html/lp.html. */
@@ -698,22 +712,16 @@
       })();
     </script>
 
-    <!-- In-app browsers (Instagram/Facebook/TikTok's built-in webview)
-         restrict third-party storage, which breaks Stripe's 3D-Secure
-         iframe here at checkout — a limitation enforced by the host app,
-         not fixable in our Stripe integration. Non-blocking: the card form
-         below still works normally underneath. -->
-    <div class="iab-banner">
-        <div class="iab-banner-inner" id="iabBanner" style="display:none">
-            <span>Having trouble? Tap <strong>⋮</strong> or <strong>•••</strong> and choose "Open in Browser" for a smoother checkout.</span>
-            <!-- Android only: revealed by the script below, which can hand the
-                 page straight to Chrome. Hidden on iOS, where no such jump
-                 exists and the copy-link instructions are the only option. -->
-            <button type="button" id="iabOpenChrome" style="display:none">Open in Chrome</button>
-            <button type="button" id="iabCopyLink">Copy link</button>
-            <button type="button" id="iabDismiss" aria-label="Dismiss">×</button>
-        </div>
-    </div>
+    <!-- The amber "Having trouble? … Open in Browser" banner that used to sit
+         here is gone, for the reason the dialog's went on 2026-09-02: 3-D
+         Secure has never once fired on this property (checkout_3ds_required is
+         absent from all 35 of its GA4 event names, and the last Stripe read
+         found zero incomplete PaymentIntents), yet the warning was shown to
+         roughly 80% of paid visitors — the in-app-browser majority — telling
+         them their payment might fail before they had tried it.
+         What replaces it is #iabHelp: one quiet line directly under the
+         Reserve button, where a buyer who actually hits trouble will be
+         looking, offering the same copy-link and Android-Chrome escapes. -->
 
     <!-- Social proof: real photos from real mixers, no fabricated stats -->
     <section class="sp-social-proof">
@@ -855,18 +863,34 @@
                     </div>
 
                     <form id="checkoutForm">
+                        <!-- Gender as two tap targets, matching the /events dialog and
+                             /lp. This page kept the <select> when #419 rebuilt the other
+                             two checkouts' first screen, so every listing link in
+                             vercel.json (Eventbrite, AllEvents, Meetup, the tourism
+                             boards) has been landing on the control the funnel audit
+                             measured as the drop: a dropdown reading "Select..." above a
+                             disabled button reading "Select Gender", which 22 of 29 paid
+                             form viewers never got past
+                             (reports/PAID_FUNNEL_AUDIT_2026-09-02.md §5.3).
+
+                             The hidden #ticketGender input keeps the id and every
+                             existing `.value` read intact, so pricing, submit and the
+                             member pre-fill are untouched. It is NOT `required`:
+                             constraint validation ignores a hidden input, so the missing
+                             gender is caught in the submit handler instead (the
+                             'Choose Woman or Man to continue.' throw below). -->
                         <div class="form-group">
-                            <label for="ticketGender">Gender</label>
-                            <select id="ticketGender" required>
-                                <option value="">Select...</option>
-                                <option value="woman">Woman</option>
-                                <option value="man">Man</option>
-                            </select>
+                            <label id="ticketGenderLabel">I am a</label>
+                            <div class="gender-choice" role="radiogroup" aria-labelledby="ticketGenderLabel" aria-required="true">
+                                <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="woman">Woman</button>
+                                <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="man">Man</button>
+                            </div>
+                            <input type="hidden" id="ticketGender" value="">
                         </div>
 
                         <div class="form-group">
                             <label for="ticketName">Name</label>
-                            <input type="text" id="ticketName" placeholder="Jane Doe" required>
+                            <input type="text" id="ticketName" placeholder="Jane Doe" autocomplete="name" required>
                         </div>
 
                         <div class="form-group">
@@ -874,11 +898,14 @@
                             <input type="email" id="ticketEmail" placeholder="you@example.com" autocomplete="email" required>
                         </div>
 
-                        <div class="form-group">
-                            <label for="ticketPhone">Phone <span style="font-weight: 400; color: rgba(245,243,240,0.45);">(optional)</span></label>
-                            <input type="tel" id="ticketPhone" placeholder="+1 (555) 123-4567" autocomplete="tel">
-                        </div>
-
+                        <!-- Phone is no longer asked here. Five fields before the card was
+                             the form's own finding (PAID_FUNNEL_AUDIT 2026-09-02 §3); the
+                             API treats phone as optional and the profile link after
+                             purchase collects it. A signed-in member's stored phone is
+                             still forwarded by the submit handler, which is why this page
+                             does not hardcode '' the way the dialog does -- the server
+                             merges the payload over the member's registration record, so
+                             a blank would erase a number we already hold. -->
 
                         <div class="form-group" id="cardFormGroup">
                             <label>Payment Card</label>
@@ -894,17 +921,46 @@
                             </div>
                         </div>
 
-                        <!-- 2-for-1 sits AFTER the card, immediately above the price breakdown it
-                             changes. It used to sit between the phone field and Payment Card, which
-                             put an optional offer -- and, when ticked, a second full set of name /
-                             email / phone inputs -- in the middle of the buyer's own details, pushing
-                             the card further down the form for everyone including the majority who
-                             never take it. Here it is adjacent to the subtotal line it relabels. -->
-                        <!-- Hidden until Gender is "woman". The 2-for-1 is a women-only
-                             promotion (Taylor, 2026-09-02); it shipped ungated to everyone,
-                             which quietly turned a targeted offer into a site-wide 50% off.
-                             Hiding it is presentation only -- api/purchase-ticket.js rejects a
-                             +1 from a non-female buyer, because a checkbox is not a gate. -->
+                        <div class="price-breakdown">
+                            <div class="price-row subtotal">
+                                <span id="subtotalLabel">Ticket</span>
+                                <span id="subtotalPrice">$0.00</span>
+                            </div>
+                            <div class="price-row">
+                                <span>Service fee</span>
+                                <span id="serviceFee">$0.00</span>
+                            </div>
+                            <div class="price-row total">
+                                <span>Total</span>
+                                <span class="gold-text" id="totalPrice">$0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- The button sits directly under the total, above the testimonial
+                             and the fine print, so it is on screen on a phone without
+                             scrolling. It is enabled from the start and carries the price; a
+                             missing gender is caught on submit rather than by a disabled
+                             button reading "Select Gender" -- 22 of 29 paid form viewers
+                             never got past that (reports/PAID_FUNNEL_AUDIT_2026-09-02.md §2).
+
+                             The amber "Checkout may fail in this app's browser" banner at the
+                             top of this page is gone for the same reason it went from the
+                             dialog: 3-D Secure has never once fired on this property, and the
+                             warning was shown to ~80% of paid visitors at the moment of
+                             payment. What remains is the quiet line below. -->
+                        <button type="submit" class="checkout-btn" id="checkoutBtn">Reserve Spot</button>
+                        <p class="checkout-help" id="iabHelp" hidden>Trouble paying inside this app? <button type="button" id="iabCopyLink">Copy the link</button> and open it in Safari or Chrome. <button type="button" id="iabOpenChrome" hidden>Or open in Chrome now.</button></p>
+
+                        <!-- 2-for-1 sits BELOW the button now, so the button stays on screen
+                             on a phone; it is offered to every buyer and only ADVERTISED to
+                             women (content/brand.json caption_rules). For a few hours on
+                             2026-09-02 it was gated to women here and in
+                             api/purchase-ticket.js; Taylor reversed that the same day on
+                             legal grounds -- gender-conditioned pricing at a public
+                             accommodation is the riskier shape, so the product treats
+                             everyone alike and only the marketing is targeted.
+                             Ticking it relabels the button and the subtotal above and
+                             reveals the +1 fields here. -->
                         <div class="two-for-one-toggle" id="twoForOneToggle">
                             <input type="checkbox" id="twoForOneCheckbox">
                             <label for="twoForOneCheckbox"><strong>🎉 2-for-1:</strong> bring someone for free. Add their info below — you're only charged for one ticket.</label>
@@ -927,25 +983,6 @@
                             <div class="form-group">
                                 <label for="plusOneEmail">Their Email</label>
                                 <input type="email" id="plusOneEmail" placeholder="them@example.com" autocomplete="email">
-                            </div>
-                            <div class="form-group">
-                                <label for="plusOnePhone">Their Phone <span style="font-weight: 400; color: rgba(245,243,240,0.45);">(optional)</span></label>
-                                <input type="tel" id="plusOnePhone" placeholder="+1 (555) 123-4567" autocomplete="tel">
-                            </div>
-                        </div>
-
-                        <div class="price-breakdown">
-                            <div class="price-row subtotal">
-                                <span id="subtotalLabel">Subtotal</span>
-                                <span id="subtotalPrice">$0.00</span>
-                            </div>
-                            <div class="price-row">
-                                <span>Service fee</span>
-                                <span id="serviceFee">$0.00</span>
-                            </div>
-                            <div class="price-row total">
-                                <span>Total</span>
-                                <span class="gold-text" id="totalPrice">$0.00</span>
                             </div>
                         </div>
 
@@ -1089,8 +1126,6 @@
                           })();
                         </script>
 
-                        <button type="submit" class="checkout-btn" id="checkoutBtn" disabled>Select Gender</button>
-
                         <!-- Fine print, consolidated and moved BELOW the button. Order is
                              usefulness-descending: what the buyer gets, then what a purchase is
                              not, then the legal line.
@@ -1173,36 +1208,34 @@
         (function () {
           if (!isInAppBrowser()) return;
           // Best-effort: try to leave outright. If the webview refuses (no
-          // gesture) we're still here, and the banner below offers the same
-          // jump as a real button press.
+          // gesture) we're still here, and the help line under the button
+          // offers the same jump as a real button press.
           tryEscapeInAppBrowser(true);
-          var dismissed; try { dismissed = sessionStorage.getItem('iabDismissed'); } catch (_) { dismissed = null; }
-          if (dismissed) return;
-          var banner = document.getElementById('iabBanner');
-          if (!banner) return;
-          banner.style.display = 'flex';
           if (typeof gtag === 'function') gtag('event', 'in_app_browser_detected', { source: 'event' });
+
+          // No sessionStorage dismiss flag any more: the line is quiet enough
+          // that there is nothing to dismiss, and a dismissal used to take the
+          // copy-link escape away with it for the rest of the session.
+          var help = document.getElementById('iabHelp');
+          if (help) help.hidden = false;
+
           // Only Android can actually make this jump, so only Android is
           // offered it -- an iOS button that silently did nothing would be
           // worse than the copy-link instructions it sits next to.
           var openChromeBtn = document.getElementById('iabOpenChrome');
           if (openChromeBtn && /Android/i.test(navigator.userAgent)) {
-            openChromeBtn.style.display = '';
+            openChromeBtn.hidden = false;
             openChromeBtn.addEventListener('click', function () { tryEscapeInAppBrowser(false); });
           }
-          var dismissBtn = document.getElementById('iabDismiss');
-          if (dismissBtn) dismissBtn.addEventListener('click', function () {
-            banner.style.display = 'none';
-            try { sessionStorage.setItem('iabDismissed', '1'); } catch (_) {}
-            if (typeof gtag === 'function') gtag('event', 'in_app_browser_banner_dismissed');
-          });
+
           var copyBtn = document.getElementById('iabCopyLink');
           if (copyBtn) copyBtn.addEventListener('click', function () {
             try {
               navigator.clipboard.writeText(location.href);
-              copyBtn.textContent = 'Copied!';
-              setTimeout(function () { copyBtn.textContent = 'Copy link'; }, 2000);
+              copyBtn.textContent = 'Copied';
+              setTimeout(function () { copyBtn.textContent = 'Copy the link'; }, 2000);
             } catch (_) {}
+            if (typeof gtag === 'function') gtag('event', 'in_app_browser_copy_link', { source: 'event' });
           });
         })();
 
@@ -1333,6 +1366,13 @@
         });
         const cardElement = elements.create('card');
         cardElement.mount('#card-element');
+        // The card is a cross-origin iframe, so it never fires DOM focus on
+        // this page — Stripe's own event is the only way to see the buyer
+        // reach the last field. Registered here rather than beside the other
+        // trackCheckoutField wiring because that runs before this mount.
+        cardElement.on('focus', () => {
+            if (typeof trackCheckoutField === 'function') trackCheckoutField('card');
+        });
 
         // Resolve event ID from URL. If missing, redirect to /events —
         // the page-wide hardcoded fallback was a foot-gun (audit #8: it
@@ -1358,6 +1398,10 @@
         let currentUser = null;
         let userTier = 'free';
         let userProfile = null; // cached user doc — has gender, stripeCustomerId
+        // A signed-in member's stored phone, forwarded on the purchase so the
+        // server's merge does not blank it. '' for a guest — the form has no
+        // phone field. Set by applyUserContext().
+        let memberPhone = '';
 
         function currentMonthKey() {
             const now = new Date();
@@ -1437,34 +1481,32 @@
                 });
             }
 
-            // Land the visitor straight into the checkout form: every "Get
-            // Tickets" CTA site-wide already deep-links directly to this
-            // page (/event?id=...), so the remaining friction was that
-            // nothing on arrival told a visitor where to start. Autofocus
-            // the first actionable field once the real event data (and
-            // therefore the form) is ready. Deferred one tick past
-            // applyUserContext() below so a signed-in member whose profile
-            // pre-fills + locks Gender lands in Name instead of a disabled
-            // field.
-            focusFirstCheckoutField();
+            // Re-price now that eventData exists. The first updatePricing()
+            // runs at init, before this fetch resolves, so its seed resolves to
+            // 0 and the breakdown renders $0.00 -- which is exactly the empty
+            // order summary this change set out to remove. The dialog gets this
+            // for free by only ever pricing after its event is in hand; a
+            // standalone page has to say so.
+            updatePricing();
         }
 
-        // Focuses Gender, or Name if Gender is already locked by a signed-in
-        // member's profile (see applyUserContext). Never steals focus from a
-        // field the visitor has already started interacting with, and never
-        // re-fires — auth state can resolve after this first call, but a
-        // returning user mid-keystroke shouldn't get yanked back to the top.
-        let checkoutAutofocused = false;
-        function focusFirstCheckoutField() {
-            if (checkoutAutofocused) return;
-            if (document.activeElement && document.activeElement !== document.body) return;
-            const genderSelect = document.getElementById('ticketGender');
-            const nameInput = document.getElementById('ticketName');
-            const target = (genderSelect && !genderSelect.disabled) ? genderSelect : nameInput;
-            if (!target) return;
-            checkoutAutofocused = true;
-            target.focus({ preventScroll: false });
-        }
+        // The autofocus that used to live here is GONE, for two reasons.
+        //
+        // It corrupted the funnel it was meant to help. It focused the
+        // checkout's first field as soon as event data arrived, which tripped
+        // the form's own `focusin` handler below -- so begin_checkout,
+        // checkout_form_started and Pixel InitiateCheckout all fired on every
+        // page load, with no buyer interaction at all. That makes step one of
+        // this page's funnel a pageview count, not a form-engagement count,
+        // and PAID_FUNNEL_AUDIT_2026-09-02.md §3's `/event 30 -> 17 -> 1 -> 1`
+        // row is measuring against that inflated 30.
+        //
+        // And it no longer has a job. It existed because "nothing on arrival
+        // told a visitor where to start"; what tells them now is the same
+        // thing that tells them on /events and /lp -- a live Reserve button
+        // carrying the real price, sitting directly under the total. Neither
+        // of those two surfaces autofocuses anything, and this one matching
+        // them is the point of the change.
 
         // Real price/scarcity signal in the hero tag — replaces the old
         // static "Founding Event" badge. Priority mirrors the exact pattern
@@ -1795,13 +1837,29 @@
             const gender = document.getElementById('ticketGender').value;
             const btn = document.getElementById('checkoutBtn');
 
+            // No gender yet: show the listing price anyway and keep the button
+            // live. ticketPrice() resolves with selectedGender() === '', which
+            // for a single-pool event is the real price and for a legacy
+            // gender-split doc is priceMen -- the same seed the dialog shows.
+            // The missing gender is caught by the submit handler's
+            // 'Choose Woman or Man to continue.' throw, not by a dead button:
+            // 22 of 29 paid form viewers never got past the disabled one
+            // (reports/PAID_FUNNEL_AUDIT_2026-09-02.md §2).
+            //
+            // The early `return` matters twice over. It keeps AddToCart /
+            // add_to_cart below from firing on a price the buyer never chose,
+            // and it leaves lastQuotedTicket null so the submit-time staleness
+            // check has no seed price to mistake for a real quote.
             if (!gender) {
-                document.getElementById('subtotalLabel').textContent = 'Subtotal';
-                document.getElementById('subtotalPrice').textContent = '$0.00';
-                document.getElementById('serviceFee').textContent = '$0.00';
-                document.getElementById('totalPrice').textContent = '$0.00';
-                btn.textContent = 'Select Gender';
-                btn.disabled = true;
+                const seed = ticketPrice();
+                const seeded = Number.isFinite(seed) && seed > 0;
+                document.getElementById('subtotalLabel').textContent = 'Ticket';
+                document.getElementById('subtotalPrice').textContent = seeded ? `$${seed.toFixed(2)}` : '$0.00';
+                document.getElementById('serviceFee').textContent = seeded ? `$${SERVICE_FEE.toFixed(2)}` : '$0.00';
+                document.getElementById('totalPrice').textContent = seeded ? `$${(seed + SERVICE_FEE).toFixed(2)}` : '$0.00';
+                btn.textContent = seeded ? `Reserve Spot · $${(seed + SERVICE_FEE).toFixed(2)}` : 'Reserve Spot';
+                btn.disabled = false;
+                lastQuotedTicket = null;
                 return;
             }
 
@@ -1867,6 +1925,49 @@
             updatePricing();
         });
         syncTwoForOneVisibility();
+
+        // Gender is two tap targets writing into the hidden #ticketGender, so
+        // every existing `.value` read (pricing, submit, the member pre-fill)
+        // is untouched. syncGenderButtons() mirrors the input back onto the
+        // buttons, including the disabled state a signed-in member gets.
+        function syncGenderButtons() {
+            const input = document.getElementById('ticketGender');
+            document.querySelectorAll('#checkoutForm .gender-btn').forEach((b) => {
+                b.setAttribute('aria-checked', b.dataset.gender === input.value ? 'true' : 'false');
+                b.disabled = input.disabled;
+            });
+        }
+        document.querySelectorAll('#checkoutForm .gender-btn').forEach((b) => {
+            b.addEventListener('click', () => {
+                const input = document.getElementById('ticketGender');
+                if (input.disabled) return;
+                input.value = b.dataset.gender;
+                syncGenderButtons();
+                trackCheckoutField('gender');
+                // Assigning .value on a hidden input fires nothing, so the
+                // change listener above -- which is what re-prices the form --
+                // has to be told by hand. Without this the price stays on its
+                // seed and the button label never picks up the chosen gender.
+                input.dispatchEvent(new Event('change'));
+            });
+        });
+        syncGenderButtons();
+
+        // Per-field first-focus events, so the drop between fields is visible
+        // in GA4 instead of only the gap between begin_checkout and
+        // add_to_cart. Matches the dialog's trackModalField, with source
+        // 'event' so the two surfaces can be told apart in a report.
+        const checkoutFieldsTracked = new Set();
+        function trackCheckoutField(field) {
+            if (checkoutFieldsTracked.has(field)) return;
+            checkoutFieldsTracked.add(field);
+            if (typeof gtag === 'function') gtag('event', 'checkout_field_started', { field, source: 'event' });
+        }
+        [['ticketName', 'name'], ['ticketEmail', 'email']].forEach(([id, field]) => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('focus', () => trackCheckoutField(field));
+        });
+        document.getElementById('twoForOneCheckbox').addEventListener('change', () => trackCheckoutField('two_for_one'));
 
         // 2-for-1 toggle: reveal/hide the +1's fields, mark them required
         // only while visible (so an unchecked box never blocks submission
@@ -1973,7 +2074,14 @@
             const gender = document.getElementById('ticketGender').value;
             const name = document.getElementById('ticketName').value.trim();
             const email = document.getElementById('ticketEmail').value.trim();
-            const phone = document.getElementById('ticketPhone').value.trim();
+            // The phone FIELD is gone (see the markup comment above the card
+            // group), but a signed-in member's stored number is still sent:
+            // api/purchase-ticket.js merges this payload over the member's
+            // registration record, so posting '' would erase a number we
+            // already hold. memberPhone is set by applyUserContext() and stays
+            // '' for a guest, who is asked for it on the profile link after
+            // purchase instead.
+            const phone = memberPhone;
             const btn = document.getElementById('checkoutBtn');
             const errorMsg = document.getElementById('errorMessage');
             const successMsg = document.getElementById('successMessage');
@@ -1984,6 +2092,14 @@
             btn.textContent = 'Processing...';
 
             try {
+                // Gender carries no `required` any more -- constraint
+                // validation ignores a hidden input -- so this throw IS the
+                // validation, not a backstop. Same message and same wording as
+                // the dialog and /lp, because the catch below classifies on it.
+                if (!gender) {
+                    throw new Error('Choose Woman or Man to continue.');
+                }
+
                 // Name is required so we can address the welcome email and
                 // store a real lead row. (HTML `required` catches most cases
                 // but this is a belt-and-suspenders runtime check.)
@@ -2001,7 +2117,10 @@
                     const poGender = document.getElementById('plusOneGender').value;
                     const poName = document.getElementById('plusOneName').value.trim();
                     const poEmail = document.getElementById('plusOneEmail').value.trim();
-                    const poPhone = document.getElementById('plusOnePhone').value.trim();
+                    // The +1 phone field went with the buyer's own -- there is
+                    // no member record to preserve for a guest we have never
+                    // seen, so this one really is empty.
+                    const poPhone = '';
                     if (!poGender || !poName || !poEmail) {
                         throw new Error("Please fill in your +1's gender, name, and email — or uncheck 2-for-1.");
                     }
@@ -2314,13 +2433,27 @@
                 ['plusOneGender', 'plusOneName', 'plusOneEmail'].forEach((id) => {
                     document.getElementById(id).required = false;
                 });
+                // form.reset() blanks the hidden gender input back to its value
+                // attribute but leaves `disabled` alone, so a signed-in member
+                // was left with an empty, still-locked control: the buttons
+                // refuse the click, and every submit from then on throws
+                // "Choose Woman or Man to continue." with no way to comply.
+                // Put the profile gender back before re-syncing the buttons.
+                const genderAfterReset = document.getElementById('ticketGender');
+                if (genderAfterReset.disabled && userProfile && (userProfile.gender === 'man' || userProfile.gender === 'woman')) {
+                    genderAfterReset.value = userProfile.gender;
+                }
+                syncGenderButtons();
                 cardElement.clear();
                 updatePricing();
             } catch (err) {
                 console.error('[event] checkout error', err);
                 const msg = (err.message || '').toLowerCase();
                 let friendly, category;
-                if (msg.includes('enter your name')) {
+                if (msg.includes('choose woman')) {
+                    friendly = err.message;
+                    category = 'gender_missing';
+                } else if (msg.includes('enter your name')) {
                     friendly = err.message;
                     category = 'name_missing';
                 } else if (msg.includes('limit') || msg.includes('full on') || msg.includes('event is full')) {
@@ -2343,9 +2476,17 @@
                 // logic above already computes) + the raw reason text, so GA4
                 // can show which specific checkout field is costing conversions
                 // without needing a separate validation-error event per field.
-                gtag('event', 'checkout_error', { in_app_browser: isInAppBrowser(), category, reason: msg.slice(0, 100) });
+                gtag('event', 'checkout_error', { in_app_browser: isInAppBrowser(), category, source: 'event', reason: msg.slice(0, 100) });
                 errorMsg.textContent = friendly;
                 errorMsg.style.display = 'block';
+                // The gender buttons are the top of a long form and the error
+                // renders above them, so on a phone the buyer can be told
+                // "choose Woman or Man" with neither the message nor the
+                // control on screen. Put the cursor on the thing to fix.
+                if (category === 'gender_missing') {
+                    const first = document.querySelector('#checkoutForm .gender-btn');
+                    if (first) first.focus();
+                }
                 btn.disabled = false;
                 updatePricing();
             }
@@ -2379,11 +2520,15 @@
         function applyUserContext() {
             if (!userProfile) return;
 
-            // Pre-fill gender + lock it (gender on profile is source of truth)
+            // Pre-fill gender + lock it (gender on profile is source of truth).
+            // syncGenderButtons() mirrors both the value and the disabled flag
+            // onto the two buttons — without it a locked member sees a locked
+            // hidden value above two live, unchecked buttons.
             const genderSelect = document.getElementById('ticketGender');
             if (userProfile.gender && (userProfile.gender === 'man' || userProfile.gender === 'woman')) {
                 genderSelect.value = userProfile.gender;
                 genderSelect.disabled = true;
+                syncGenderButtons();
                 updatePricing();
             }
 
@@ -2401,10 +2546,12 @@
                 emailInput.value = userProfile.email;
             }
 
-            // Pre-fill phone (editable — user may want to use a different one for this event)
-            const phoneInput = document.getElementById('ticketPhone');
-            if (userProfile.phone && phoneInput && !phoneInput.value) {
-                phoneInput.value = userProfile.phone;
+            // Carry the member's stored phone through to the purchase payload.
+            // There is no phone field on this form any more, so nothing is
+            // shown or editable here — this only stops the purchase POST from
+            // writing a blank over the number already on the member's record.
+            if (userProfile.phone) {
+                memberPhone = userProfile.phone;
             }
 
             // Use saved card on file — and hide the trial disclosure since
