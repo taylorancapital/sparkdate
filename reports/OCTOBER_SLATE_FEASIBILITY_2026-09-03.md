@@ -21,7 +21,7 @@ See "Stratus lost Oct 15" below; the Lancaster half of the slate is untouched.
 | Event | Date | Market | Status |
 |---|---|---|---|
 | Tellus360 | Tue Oct 6 | Lancaster | Runway starts **Sun Sep 6** — 2 days |
-| Stratus | **Thu Nov 5** (was Oct 15) | Philadelphia | Date open; call Wed Sep 9 |
+| Stratus | **Thu Oct 22** (was Oct 15) | Philadelphia | Ask about Oct 8 too; call Wed Sep 9 |
 | Loxleys #2 | **Tue Oct 27**, not Oct 20 | Lancaster | Pencil now, confirm Sep 23 |
 
 ---
@@ -186,33 +186,76 @@ reviewing late October and November. She proposed a call **Wed Sep 9, after
 to what is presumably the events team, so expect it to get more formal.
 
 Philadelphia is a different geo from Lancaster, so Stratus never competed with
-Tellus or Loxleys in the auction. The only cost of its date is **budget
-overlap** with Loxleys #2's close (Oct 20–26). Remaining Thursdays:
+Tellus or Loxleys in the auction. The only costs of its date are **budget
+overlap** with the two Lancaster closes and **Taylor's own calendar**, since he
+hosts all three. Every remaining Thursday, with the 21-day floor measured from
+Diandra's proposed Wed Sep 9 call:
 
-| Date | Runway starts | Prep days | Stratus close | Days doubling Loxleys' close | Peak $/day |
-|---|---|---:|---|---:|---:|
-| Thu Oct 22 | Sep 22 | 18 | Oct 15–21 | 2 | $28.93 |
-| Thu Oct 29 | Sep 29 | 25 | Oct 22–28 | **5** | $28.93 |
-| **Thu Nov 5** | Oct 6 | 32 | Oct 29–Nov 4 | **0** | **$25.36** |
-| Thu Nov 12 | Oct 13 | 39 | Nov 5–11 | 0 | $16.07 |
+| Thursday | 30d runway starts | Latest launch (21d floor) | Slack after the call | Doubled-close days | Peak $/day | Gap to Tellus |
+|---|---|---|---:|---:|---:|---:|
+| Oct 1 | Sep 1 *(past)* | Sep 10 | 1 d | 2 | $28.93 | −5 d |
+| **Oct 8** | Sep 8 | Sep 17 | 8 d | **5** | **$31.07** | **+2 d** |
+| **Oct 22** | Sep 22 | Oct 1 | 22 d | 2 | $28.93 | +16 d |
+| Oct 29 | Sep 29 | Oct 8 | 29 d | **5** | $28.93 | +23 d |
+| Nov 5 | Oct 6 | Oct 15 | 36 d | 0 | $25.36 | +30 d |
+| Nov 12 | Oct 13 | Oct 22 | 43 d | 0 | $16.07 | +37 d |
 
-**Nov 5 is the best date on the schedule** — no double close, the most prep
-time, and the lowest peak. Oct 29 is the worst of the four: five days of doubled
-close spend *and* it sits on the seasonal boundary.
+### Correction: the earlier Nov 5 recommendation was wrong
 
-**But the ranking inverts on one unanswered fact.** The dates that are cleanest
-on budget are the ones furthest into the cold. A Philadelphia rooftop on Nov 5
-is outdoors in November:
+The first version of this section ranked these on the ad calendar alone and put
+**Nov 5 first**. That optimised the wrong thing. **The rooftop is the product.**
+Taylor's own cold email says so: *"Your space is the reason I'm writing rather
+than a cocktail bar… A rooftop gives the night that openness without it feeling
+like a bar crawl."* A November booking that pushes everyone into the hotel's
+indoor lounge is not the same event with a weather risk attached — it is a
+different, worse event, bought at a two-month delay.
 
-- **If Stratus has covered or indoor space → Nov 5, comfortably.** Weather stops
-  mattering and the schedule is clean.
-- **If it does not → Oct 22 is the only viable option**, at a 2-day budget
-  collision, and even that is marginal for a 7 PM outdoor start. Below that, the
-  outreach package's own guidance applies: an uncovered room past October is a
-  **spring conversation**, not an October one.
+Approximate Philadelphia conditions for a 7–9 PM start. **These are general
+climate normals, not data from anything in this repo** — treat them as
+directional:
 
-So the covered-space question is no longer a nice-to-have on the reply. **It is
-the gate**, and it should be settled on Wednesday's call before a date is chosen.
+| Thursday | Evening temp, 7–9 PM | Sunset | What the roof is like |
+|---|---|---|---|
+| **Oct 8** | ~60°F | ~6:30 PM | Twilight at arrival; comfortable outdoors |
+| **Oct 22** | ~54°F | ~6:08 PM | Brisk, workable with heaters |
+| Oct 29 | ~51°F | ~5:58 PM | Cold; most guests drift inside |
+| Nov 5 | ~46°F | **~4:55 PM** | Dark two hours before doors. Indoors in practice |
+| Nov 12 | ~44°F | ~4:47 PM | Indoors |
+
+Daylight saving ends Sun Nov 1, 2026, which is why Nov 5 loses an hour of light
+on top of the temperature drop. On a rooftop the view is half the draw, and in
+November there is nothing to look at.
+
+### The revised ranking
+
+**Oct 22 is the best available compromise.** Still the rooftop, still warm enough
+with heaters, only 2 doubled-close days, and a 16-day gap from Tellus. It has 22
+days of slack after the call, so nothing has to be committed before the date is
+confirmed.
+
+**Oct 8 is the best night and the worst logistics.** It is genuinely feasible on
+runway — confirm on the 9th, launch by Sep 17 at the 21-day minimum — and it is
+the warmest date on the table. Against that: it lands **two days after Tellus**,
+so Taylor hosts Lancaster on the Tuesday and Philadelphia on the Thursday; the
+two close windows sit in the same week and compete for the same attention and
+dollars; and it is the most expensive option on the board at $31.07/day peak.
+It also has to be built — event record, tickets, creative, a market with no
+existing assets — in the eight days between the call and launch, stacked behind
+Tellus going live Sep 6 and Marion Court running Sep 8.
+
+**Ask about it anyway.** She jumped from "the 15th is booked" straight to "end of
+October and November", which reads as Oct 8 not being on offer — but she may
+simply have been reasoning from the two-week spacing rule and not considered it.
+The ask is free.
+
+**The better ask is her whole availability.** Given the two-week spacing and
+wedding season, proposing one date at a time will take weeks. Get every open
+Thursday from Oct 8 to Nov 12 on Wednesday's call and choose from what actually
+exists.
+
+**Covered space still matters, but it is no longer the gate — it is the fallback
+question.** If the answer is "yes, there's indoor space", that rescues a rained-out
+October night. It does not make November good.
 
 **Consequence if Stratus slides to November: Philadelphia gets nothing in
 October.** Good Good was Aug 31, so the market would go roughly ten weeks
@@ -249,7 +292,12 @@ for Wednesday, and it decides the date.
   plausibly an off-email conversation — it is still an assumption.
 - **Nobody has asked Loxleys for a second date.** The repeat is a plan, not an
   agreement, and their answer may not be Oct 27.
-- **Whether Stratus has covered space.**
+- **Whether Stratus has covered space,** and whether Oct 8 or Oct 22 is even
+  free — she named neither.
+- **The temperature and sunset figures are general climate normals**, not data
+  from any source in this repo and not a forecast. They are directionally right
+  for Philadelphia in October and November and should not be quoted as precise.
+  If a date hinges on them, check an actual forecast nearer the time.
 - **The `venues` collection is not a reliable pipeline record.** Tellus360 and
   Loxley's both read `status=not_contacted` despite one having run and the other
   being on sale. Do not read booking state from it.
@@ -281,13 +329,17 @@ the gating question in front of her so she can have the answer ready.
 > be ideal if either suits. My cell is 717-344-4176 and I'm happy to place the
 > call.
 >
-> On dates, so you have something to check against: **Thursday, November 5 or
-> November 12 would suit us best**, and **Thursday, October 22** works too if
-> it's open. Anything you find in that stretch, I can build around.
+> On dates — is **Thursday, October 8** open at all? Warmth is the reason I ask:
+> a good part of the night lives on the roof, and early October is the
+> difference between people using that space and people standing inside.
+> **October 22** would be my next choice for the same reason.
 >
-> One thing worth knowing before Wednesday so we can settle it quickly: **is
-> there covered or indoor space if the weather turns?** If we end up in
-> November, that's the piece that shapes how I plan the rest of the night.
+> If neither is free, could you send me whichever Thursdays *are* open between
+> October 8 and mid-November? Easier for me to work around your calendar than to
+> keep guessing at it — and it'll save us both a round of emails.
+>
+> One other thing worth knowing before Wednesday: **is there covered or indoor
+> space if the weather turns?** Good to know what the fallback looks like.
 >
 > Looking forward to it.
 >
