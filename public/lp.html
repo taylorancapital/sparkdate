@@ -412,8 +412,12 @@
       // hashPii(): lowercase, trim, SHA-256 hex -- if the two disagree, Meta
       // sees two people and the match is worse than sending nothing.
       window.spdCookie = function (name) {
-        var m = document.cookie.match('(^|;)\s*' + name + '\s*=\s*([^;]+)');
-        return m ? m.pop() : null;
+        // Backslashes doubled on purpose: this is a STRING, so '\\s' is what puts \\s
+        // into the pattern. Written '\\s' it collapsed to the letter 's', and _fbp/_fbc
+        // were dropped for every buyer whose Meta cookie was not first in
+        // document.cookie -- which is most of them. Fixed 2026-09-04.
+        var m = document.cookie.match('(?:^|;)\\s*' + name + '\\s*=\\s*([^;]*)');
+        return m ? m[1] : null;
       };
       window.spdAdvancedMatch = async function (data) {
         if (typeof fbq !== 'function' || !data) return;
@@ -822,7 +826,15 @@
           ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(function (k) {
             var v = _aq.get(k); if (v) _a[k] = v.slice(0, 100);
           });
-          if (Object.keys(_a).length && !localStorage.getItem('sparkdate_attr')) {
+          // FIRST touch still wins -- but only for 30 days. Without a TTL, one
+          // Eventbrite-listing visit in June masked every ad click after it for the
+          // life of the browser. 30 days covers the measured 14-day click-to-buy lag
+          // and Meta's 7-day click window, and still lets a stale touch expire.
+          var _prev = null;
+          try { _prev = JSON.parse(localStorage.getItem('sparkdate_attr') || 'null'); } catch (_) { _prev = null; }
+          var _stale = !_prev || !_prev.first_seen ||
+            (Date.now() - Date.parse(_prev.first_seen + 'T00:00:00Z')) > 30 * 864e5;
+          if (Object.keys(_a).length && _stale) {
             _a.landing_path = location.pathname;
             _a.first_seen = new Date().toISOString().slice(0, 10);
             localStorage.setItem('sparkdate_attr', JSON.stringify(_a));

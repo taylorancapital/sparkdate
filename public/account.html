@@ -604,8 +604,12 @@
       // hashPii(): lowercase, trim, SHA-256 hex -- if the two disagree, Meta
       // sees two people and the match is worse than sending nothing.
       window.spdCookie = function (name) {
-        var m = document.cookie.match('(^|;)\s*' + name + '\s*=\s*([^;]+)');
-        return m ? m.pop() : null;
+        // Backslashes doubled on purpose: this is a STRING, so '\\s' is what puts \\s
+        // into the pattern. Written '\\s' it collapsed to the letter 's', and _fbp/_fbc
+        // were dropped for every buyer whose Meta cookie was not first in
+        // document.cookie -- which is most of them. Fixed 2026-09-04.
+        var m = document.cookie.match('(?:^|;)\\s*' + name + '\\s*=\\s*([^;]*)');
+        return m ? m[1] : null;
       };
       window.spdAdvancedMatch = async function (data) {
         if (typeof fbq !== 'function' || !data) return;

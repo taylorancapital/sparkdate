@@ -70,18 +70,68 @@ describe('attribution wiring', () => {
     ).toBe(true);
   });
 
-  it('keeps first-touch semantics: capture never overwrites', () => {
+  it('keeps first-touch semantics: capture never overwrites a FRESH touch', () => {
     // The whole point is that an ad click today still credits the ad when the
     // purchase happens three weeks later. An unguarded setItem would make it
     // LAST-touch and quietly credit whatever page the buyer happened to
     // reload before paying.
+    //
+    // The guard is now age-based rather than presence-based. Presence alone was
+    // wrong in the other direction: with no expiry, one Eventbrite-listing visit
+    // in June masked every ad click after it for the life of the browser, which
+    // is why 6 of 9 own-site buyers read "direct" while paid clicks were rising
+    // (reports/META_ADS_ROOT_CAUSE_2026-09-04.md section 3). A stored touch now
+    // ages out at 30 days.
     for (const file of purchasePages.concat('lp.html')) {
       const src = read(file);
       if (!src.includes("localStorage.setItem('sparkdate_attr'")) continue;
       expect(
-        src.includes("!localStorage.getItem('sparkdate_attr')"),
-        `${file} writes sparkdate_attr without checking it is unset -- that is last-touch, not first-touch.`,
+        src.includes('var _stale = !_prev || !_prev.first_seen'),
+        `${file} writes sparkdate_attr without an age guard -- that is last-touch, not first-touch.`,
       ).toBe(true);
+      expect(
+        src.includes('if (Object.keys(_a).length && _stale) {'),
+        `${file} does not gate the setItem on _stale.`,
+      ).toBe(true);
+    }
+  });
+
+  it('the first-touch TTL is bounded and covers the measured click-to-buy lag', () => {
+    // 30 days. Long enough for the 14-day click-to-purchase lag measured on
+    // ticket zc4mqCYPoA and for Meta's 7-day click window; short enough that a
+    // touch from a previous event cycle cannot still be claiming credit.
+    for (const file of purchasePages.concat('lp.html')) {
+      const src = read(file);
+      if (!src.includes("localStorage.setItem('sparkdate_attr'")) continue;
+      expect(
+        src.includes('> 30 * 864e5'),
+        `${file} has no 30-day bound on the stored first touch.`,
+      ).toBe(true);
+    }
+  });
+
+  it('spdCookie can read a cookie that is not first in document.cookie', () => {
+    // It could not, for the life of the pixel work. '(^|;)\\s*' inside a
+    // single-quoted JS string is not an escape -- \\s collapses to the letter
+    // 's' -- so the compiled pattern was (^|;)s*_fbps*=s*([^;]+), which cannot
+    // match "; _fbp=". _fbp and _fbc were dropped for every buyer whose Meta
+    // cookie was not first, degrading CAPI match quality on every purchase.
+    const pages = purchasePages.concat('lp.html', 'account.html', 'signup.html');
+    for (const file of pages) {
+      const src = read(file);
+      if (!src.includes('window.spdCookie')) continue;
+
+      const m = src.match(/document\.cookie\.match\((.+?)\);/);
+      expect(m, `${file}: could not find the spdCookie pattern`).toBeTruthy();
+
+      // Rebuild the pattern exactly as the browser would, then exercise it.
+      const build = new Function('name', `return ${m[1]};`);
+      const pattern = build('_fbp');
+      const cookie = '_ga=GA1.1.x; _fbp=fb.1.123.456; _fbc=fb.1.789.IwAR';
+      expect(
+        cookie.match(pattern),
+        `${file}: spdCookie cannot read _fbp unless it is first in document.cookie.`,
+      ).toBeTruthy();
     }
   });
 });
