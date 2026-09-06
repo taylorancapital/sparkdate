@@ -92,16 +92,32 @@ literal key `id`, which the same cipher turns into `ve`) and
 [public/event.html:1389](public/event.html:1389) either cannot find an event or has no id at all — and
 the visitor gets a page with no event on it.
 
-**5. The fix is already built, deployed, and takes one paste.** Both path-only
-short links are live right now and 307 correctly:
+**5. The fix is already built, deployed, and takes one paste.** These two
+path-only short links are the entire URL to paste. **Nothing follows them** —
+each is 38 characters and ends at `lancasteronline`:
 
 ```
 https://sparkdate.date/l/lx-lancasteronline
-  -> /event?id=KL4onXm7hJbqiwI9quAZ&utm_source=lancasteronline&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_lancasteronline
-
 https://sparkdate.date/l/mc-lancasteronline
-  -> /event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=lancasteronline&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_lancasteronline
 ```
+
+> Do not copy a destination alongside them. An earlier draft of this report
+> printed each link above its destination on a continuation line beginning
+> `->`, and copying the pair yields
+> `/l/lx-lancasteronline%20%20-%3E%20/event…`, which **404s** — the one failure
+> shape this whole section is about. Verified 2026-09-06: an unknown `/l/` path
+> returns 404, both links above return 200.
+
+Where each one lands, for reference only — do not paste these:
+
+| short link | resolves to | verified in-browser |
+|---|---|---|
+| `/l/lx-lancasteronline` | `/event?id=KL4onXm7hJbqiwI9quAZ` + `utm_source=lancasteronline&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_lancasteronline` | Sparkdate: The Loxley's Social · Sep 22 2026 · Loxley's Restaurant & Patio Bar · $27.49 |
+| `/l/mc-lancasteronline` | `/event?id=WUaooYvOq0eC0D1QVCvQ` + `utm_source=lancasteronline&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_lancasteronline` | SparkDate: Real People, Real Drinks, Real Court · Sep 8 2026 · Marion Court Room · $27.49 |
+
+Both were loaded in a browser on 2026-09-06 and the event title, date, venue and
+price were read out of the rendered DOM — not merely a 200 from `curl`, which
+would also have been returned by a page that rendered nothing.
 
 They carry **no query string of their own**, so there is nothing for a third
 party to rewrite; the UTMs live in the redirect target, where only we can edit
