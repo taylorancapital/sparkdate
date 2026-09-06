@@ -292,6 +292,46 @@ describe('the buyer is told what happened, on every surface', () => {
   });
 });
 
+describe('the in-app-browser warning is said once, in one wording', () => {
+  it('no surface still ships the amber banner', () => {
+    // #453 deleted it from event.html and asserted its absence there, which
+    // left /lp — the paid landing page — as the only surface still shouting.
+    for (const [f, src] of CHECKOUTS) {
+      expect(src, `${f} still has the amber banner`).not.toMatch(/class="iab-banner"/);
+      expect(src, `${f} still has the amber banner`).not.toMatch(/id="iabBanner"/);
+    }
+  });
+
+  it.each(CHECKOUTS)('%s keeps the quiet help line under the button', (_f, src) => {
+    expect(src).toMatch(/id="(modalIabHelp|iabHelp|lpIabHelp)"/);
+  });
+
+  it('one label for the in-app copy action, everywhere', () => {
+    // lp.html showed "Copy link" / "Copied!" on the banner and "Copy the
+    // link" / "Copied" on its own help line — two labels for one action, on
+    // screen together. Scoped to the in-app-browser escape: event.html's
+    // separate share-link button legitimately says "Copy" / "Copied!".
+    for (const [f, src] of CHECKOUTS) {
+      expect(src, `${f} is missing the shared wording`).toMatch(/>Copy the link</);
+      expect(src, `${f} still carries the banner's button label`).not.toMatch(/>Copy link</);
+      const copyId = (src.match(/id="(modalIabCopy|iabCopyLink|lpIabCopy)"/) || [])[1];
+      expect(copyId, `${f}: no in-app copy button found`).toBeTruthy();
+      // The reset label in that button's handler must be the shared wording.
+      expect(src, `${f}: in-app copy resets to the wrong label`)
+        .toMatch(new RegExp(`${copyId}[\\s\\S]{0,400}?'Copy the link'`));
+    }
+  });
+
+  it('lp.html counts an in-app visitor even when nothing is shown to them', () => {
+    // in_app_browser_detected sat after the dismissed-banner early return, so
+    // the measure of the problem shrank every time someone dismissed it.
+    const iife = LP.slice(LP.search(/if \(!isInAppBrowser\(\)\) return;/));
+    const block = iife.slice(0, iife.indexOf('})();'));
+    expect(block).toMatch(/in_app_browser_detected/);
+    expect(block).not.toMatch(/iabDismissed/);
+  });
+});
+
 describe('a signed-in member is never left with a form they cannot use', () => {
   it('both surfaces clear every lock before deciding what to set', () => {
     // The profile pass has to be idempotent, or re-running it after a reset
