@@ -68,14 +68,35 @@ describe('SERVICE_FEE_CENTS source-of-truth', () => {
   //
   // Added 2026-09-04, when those answers said "$24.99 ... no hidden fees"
   // while checkout charged $27.49. Prose, so it is matched as prose.
-  it('states a service fee in public/city.html that agrees with lib/pricing.js', () => {
-    const html = readFileSync(join(__dirname, '..', 'public/city.html'), 'utf8');
-    const matches = [...html.matchAll(/\$([\d.]+)\s+service fee/g)].map((m) => parseFloat(m[1]));
+  // Every page that PRINTS the figure as prose, not just city.html. lp.html
+  // was the miss: it shipped "+ $2.50 service fee" above the fold on the paid
+  // landing page with no id and no script touching it, so a fee change left it
+  // stale with the suite green — while events.html and event.html paint every
+  // fee figure from their constant. Its disclosure is painted from SERVICE_FEE
+  // now, and this guards the class of bug rather than the one instance.
+  it.each(['public/city.html', 'public/lp.html'])(
+    'states a service fee in %s that agrees with lib/pricing.js',
+    (page) => {
+      const html = readFileSync(join(__dirname, '..', page), 'utf8');
+      const matches = [...html.matchAll(/\$([\d.]+)\s+service fee/g)].map((m) => parseFloat(m[1]));
 
-    expect(matches.length, 'public/city.html: expected at least one "$<n> service fee"').toBeGreaterThan(0);
+      expect(matches.length, `${page}: expected at least one "$<n> service fee"`).toBeGreaterThan(0);
 
-    const expectedDollars = SERVICE_FEE_CENTS / 100;
-    matches.forEach((dollars) => expect(dollars).toBeCloseTo(expectedDollars, 2));
+      const expectedDollars = SERVICE_FEE_CENTS / 100;
+      matches.forEach((dollars) => expect(dollars).toBeCloseTo(expectedDollars, 2));
+    }
+  );
+
+  // "no account needed" was on three pages while api/purchase-ticket.js
+  // created a Firebase Auth user for every guest buyer and emailed them "We
+  // created a SparkDate account for you". The true version of the reassurance
+  // is that you do not sign up in ORDER to buy.
+  it('does not promise that no account is created', () => {
+    for (const page of ['public/lp.html', 'public/index.html', 'public/signup.html']) {
+      const html = readFileSync(join(__dirname, '..', page), 'utf8')
+        .replace(/<!--[\s\S]*?-->/g, '');
+      expect(html, `${page} still claims "no account needed"`).not.toMatch(/no account needed/i);
+    }
   });
 
   // The claim the fee disclosure replaced. "No hidden fees" beside a mandatory

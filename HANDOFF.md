@@ -36,6 +36,27 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **`status: 'full'` is a SOFT close — answered and shipped, do not re-raise.**
+  Taylor, 09-06: *"I'd like it to be soft close, a lot of these venues could
+  utilize more people."* The flag means stop advertising, not refuse money. The
+  three client surfaces honour it (off the grid, checkout swapped for the
+  waitlist, `/api/next-event` stops promoting); the purchase endpoint
+  deliberately does NOT, so a direct link, a stale tab or a host putting a
+  walk-up through still completes. A hard block was written in #456 and reverted
+  before it shipped, and a test now pins its absence so a later parity pass
+  cannot re-add it. A hard close, if ever wanted, needs its own flag
+  (`status: 'closed'`) so the soft one keeps working. Capacity is still enforced
+  server-side and remains the real backstop. *(09-06)*
+- **The #453 audit's queue is closed but not empty.** All 100 findings that had
+  never been checked now have a verify verdict (52 confirmed, 43 rejected, 5
+  split), but the usage limit cut the second adversarial lens short on the last
+  batch, so some "confirmed" carry one lens instead of two. Four findings also
+  sit outside that queue (196 − 92 verdicts = 104; the resume queue held 100).
+  Everything acted on in #456 was re-read by hand first; the rest was not.
+  **Next step: nothing, unless someone wants the tail — the raw verdicts are in
+  the run journal named in the report, and the confirmed-but-unfixed ones are
+  content and layout decisions, not defects.** *(09-06)*
+
 - **The nightly's data pull runs from the MAIN CHECKOUT's working tree, while its
   analysis cuts from `origin/main`.** So merging a change to
   `scripts/fetch-ga4-tables.js` does nothing until someone runs `git pull` there.

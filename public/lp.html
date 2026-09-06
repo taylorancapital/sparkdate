@@ -122,7 +122,7 @@
 </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root { --navy: #0a0e27; --coral: #ff6b6b; --cream: #f5f3f0; --white: #fff; --success: #4ade80; --danger: #f87171; }
+        :root { --navy: #0a0e27; --coral: #ff6b6b; --cream: #f5f3f0; --white: #fff; --success: #4ade80; --danger: #f87171; --gold: #d4af37; }
         body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%); color: var(--cream); line-height: 1.6; min-height: 100vh; }
         .wrap { max-width: 600px; margin: 0 auto; padding: 56px 24px 64px; text-align: center; }
         .logo { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 900; color: var(--white); margin-bottom: 40px; }
@@ -184,7 +184,11 @@
         .lp-checkout .fg { margin-bottom: 12px; }
         .lp-checkout label { display: block; font-size: 12px; font-weight: 700; color: var(--cream); margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px; }
         .lp-checkout input[type=text], .lp-checkout input[type=email], .lp-checkout select { width: 100%; min-width: 0; padding: 12px 14px; background: #fff; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; color: #000; font-family: inherit; font-size: 16px; }
-        .lp-checkout input:focus, .lp-checkout select:focus { outline: none; border-color: var(--coral); }
+        /* Typed, so it cannot reach the 2-for-1 checkbox -- border-color does
+           nothing for a checkbox, so the untyped version left it with no focus
+           indicator at all. Same fix as events.html; event.html was already
+           right. */
+        .lp-checkout input[type="text"]:focus, .lp-checkout input[type="email"]:focus, .lp-checkout input[type="tel"]:focus, .lp-checkout select:focus { outline: none; border-color: var(--coral); }
         .gender-choice { display: flex; gap: 10px; }
         .gender-btn { flex: 1; padding: 13px 10px; background: #fff; color: #0a0e27; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; font-family: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
         .gender-btn[aria-checked="true"] { border-color: var(--coral); box-shadow: inset 0 0 0 1px var(--coral); }
@@ -195,9 +199,9 @@
         #lpCard.StripeElement--invalid { border-color: var(--danger); }
         .lp-checkout .card-note { font-size: 12px; color: rgba(245,243,240,0.5); margin-top: 6px; }
         .lp-two { display: flex; gap: 10px; align-items: flex-start; background: rgba(212,175,55,0.08); border: 1px solid rgba(212,175,55,0.35); border-radius: 4px; padding: 12px 14px; margin: 14px 0 0; }
-        .lp-two input { margin-top: 3px; width: 16px; height: 16px; flex-shrink: 0; }
-        .lp-two label { margin: 0; text-transform: none; font-weight: 400; letter-spacing: 0; font-size: 13px; line-height: 1.5; }
-        .lp-two label b { color: #d4af37; }
+        .lp-two input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--gold); flex-shrink: 0; cursor: pointer; }
+        .lp-two label { margin: 0; text-transform: none; font-weight: 400; letter-spacing: 0; font-size: 13px; line-height: 1.5; cursor: pointer; }
+        .lp-two label b { color: var(--gold); }
         .lp-plus { display: none; border-top: 1px dashed rgba(255,107,107,0.25); margin: 12px 0 0; padding-top: 12px; }
         .lp-plus.active { display: block; }
         .lp-plus .po-h { font-size: 12px; font-weight: 700; color: var(--coral); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
@@ -215,15 +219,14 @@
         .lp-done.show { display: block; }
         .lp-done h2 { font-family: 'Playfair Display', serif; font-size: 24px; margin-bottom: 8px; }
         .lp-done p { font-size: 14px; color: rgba(245,243,240,0.8); }
-        .iab-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; background: rgba(255,107,107,0.12); border: 1px solid rgba(255,107,107,0.35); border-radius: 8px; padding: 10px 14px; margin-bottom: 20px; font-size: 13px; text-align: left; }
-        .iab-banner span { flex: 1; min-width: 200px; }
-        .iab-banner button { padding: 6px 12px; font-size: 12px; border-radius: 4px; }
-        .iab-banner #iabDismiss { background: transparent; color: var(--cream); opacity: 0.6; padding: 4px 8px; }
 
         /* Sticky ticket bar.
            GA4, Aug 2026: the Get Tickets button sat 655px down the page in a
            normal browser and 833px inside a Meta in-app browser, where the
-           checkout-warning banner adds 159px above it. A webview's usable
+           amber checkout-warning banner added 159px above it. (That banner is
+           gone now — see the note where it used to sit — so the in-app figure
+           is closer to the 655px one, but the bar is still doing the same job
+           for anyone who lands below the fold.) A webview's usable
            height is roughly 650-700px, so the primary action was BELOW THE
            FOLD for the 61% of paid traffic that arrives in one -- and only
            14% of those sessions ever fired a scroll event. Most paid
@@ -490,12 +493,20 @@
                  content/brand.json and the female close template. No number. -->
             <div class="proof">Hosts make the introductions. Drinks, then a game at the tables, then the room opens up.</div>
             <a class="ticket" id="lpTicketBtn" href="/events">Get Tickets</a>
-            <!-- $2.50 mirrors SERVICE_FEE_CENTS in lib/pricing.js, the same way the
-                 SERVICE_FEE consts in events.html and event.html do. Disclosed here so
-                 the checkout total is not the first time the buyer sees it: the CTA
-                 says $24.99 and the pay button says $27.49, and a ~10% surprise at the
-                 moment of commitment is the classic quiet abandonment driver. -->
-            <div class="fine">Secure checkout · no account needed · + $2.50 service fee</div>
+            <!-- Disclosed here so the checkout total is not the first time the buyer
+                 sees the fee: the CTA says $24.99 and the pay button says $27.49, and
+                 a ~10% surprise at the moment of commitment is the classic quiet
+                 abandonment driver.
+                 The figure is PAINTED from SERVICE_FEE below, not typed. It used to be
+                 a hardcoded "$2.50" that no script touched, on the paid landing page,
+                 above the fold — while events.html and event.html render every fee
+                 figure from their constant. A fee change would have left this one
+                 stale with the suite green.
+                 "no account needed" was also simply untrue: api/purchase-ticket.js
+                 creates a Firebase Auth user for every guest buyer and emails them
+                 "We created a SparkDate account for you". What is true is that you do
+                 not sign up in order to buy. -->
+            <div class="fine">Secure checkout · no signup to buy · + <span id="lpFeeNote">$2.50</span> service fee</div>
         </div>
 
         <!-- Inline checkout: opens under the card on the Get Tickets tap and
@@ -508,7 +519,7 @@
                 <form id="lpPay">
                     <div class="fg">
                         <label id="lpGenderLabel">I am a</label>
-                        <div class="gender-choice" role="radiogroup" aria-labelledby="lpGenderLabel">
+                        <div class="gender-choice" role="radiogroup" aria-labelledby="lpGenderLabel" aria-required="true">
                             <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="woman">Woman</button>
                             <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="man">Man</button>
                         </div>
@@ -543,15 +554,20 @@
             </div>
         </section>
 
-        <div class="iab-banner" id="iabBanner" style="display:none">
-            <span>Using Instagram or Facebook's browser? If anything misbehaves, tap <strong>⋮</strong> or <strong>•••</strong> → <strong>"Open in browser"</strong>, or join the list below and we'll email you a link.</span>
-            <!-- Android only: revealed by the script below, which can hand the
-                 page straight to Chrome. Hidden on iOS, where no such jump
-                 exists and the instructions above are the only route out. -->
-            <button type="button" id="iabOpenChrome" style="display:none">Open in Chrome</button>
-            <button type="button" id="iabCopyLink">Copy link</button>
-            <button type="button" id="iabDismiss" aria-label="Dismiss">×</button>
-        </div>
+        <!-- The amber in-app-browser banner that used to sit here is GONE.
+             #453 deleted the same banner from event.html and left this one, so
+             /lp became the only surface still shouting about the in-app
+             browser — and it shouted twice, in two different wordings: this
+             banner said "Copy link" / "Copied!" while the quiet help line
+             under the pay button (#lpIabHelp) said "Copy the link" / "Copied",
+             and an in-app visitor who opened checkout saw both at once.
+             Nothing is lost. #lpIabHelp carries the same two escapes — the
+             clipboard copy and the Android-only jump to Chrome — with the
+             reference's wording, and the email fallback below (#lpDivider /
+             #lpWaitlistCopy) still rewrites itself for in-app visitors on
+             load. Same trade-off events.html and event.html already took: the
+             copy-link escape appears when the buyer opens checkout, which is
+             where it is needed and where it is not just noise. -->
 
         <div class="find-us-bar">
         <span class="fu-label">As Seen On</span>
@@ -938,40 +954,15 @@
           // the tap was blocked outright, and stopped making sense the moment
           // it wasn't. 3DS only fails for some cards, so the ticket card stays
           // at full strength and the email line is now a genuine "or".
-          // Applies even if the banner was dismissed; only the banner itself
-          // respects dismissal.
           try { document.body.classList.add('iab'); } catch (_) {}
           if ($('lpDivider')) $('lpDivider').textContent = 'Or get a checkout link by email ↓';
           if ($('lpWaitlistCopy')) $('lpWaitlistCopy').textContent = "If checkout gives you trouble in Instagram/Facebook, drop your email and we'll send a link that opens in your normal browser.";
-          var dismissed; try { dismissed = sessionStorage.getItem('iabDismissed'); } catch (_) { dismissed = null; }
-          if (dismissed) return;
-          var banner = $('iabBanner');
-          if (!banner) return;
-          banner.style.display = 'flex';
+          // Fires on detection, not on a banner reveal. It used to sit after
+          // the dismissed-banner early return, so a visitor who had dismissed
+          // the banner earlier in the session was never counted as in-app at
+          // all -- the measure of the problem shrank every time someone opted
+          // out of being told about it.
           if (typeof gtag === 'function') gtag('event', 'in_app_browser_detected', { source: 'lp' });
-          // Only Android can actually make this jump, so only Android is
-          // offered it -- an iOS button that silently did nothing would be
-          // worse than the "Open in browser" instructions it sits beside.
-          var openChromeBtn = $('iabOpenChrome');
-          if (openChromeBtn && /Android/i.test(navigator.userAgent)) {
-            openChromeBtn.style.display = '';
-            openChromeBtn.addEventListener('click', function () { tryEscapeInAppBrowser(false); });
-          }
-          var dismissBtn = $('iabDismiss');
-          if (dismissBtn) dismissBtn.addEventListener('click', function () {
-            banner.style.display = 'none';
-            try { sessionStorage.setItem('iabDismissed', '1'); } catch (_) {}
-            if (typeof gtag === 'function') gtag('event', 'in_app_browser_banner_dismissed');
-          });
-          var copyBtn = $('iabCopyLink');
-          if (copyBtn) copyBtn.addEventListener('click', function () {
-            try {
-              navigator.clipboard.writeText(location.href);
-              copyBtn.textContent = 'Copied!';
-              setTimeout(function () { copyBtn.textContent = 'Copy link'; }, 2000);
-            } catch (_) {}
-            if (typeof gtag === 'function') gtag('event', 'in_app_browser_copy_link', { source: 'lp' });
-          });
         })();
 
         // Dynamic next-event card.
@@ -1300,6 +1291,10 @@
         var coAddedToCart = false;
         var coQuoted = null;     // ticket price the buyer was last shown with a gender chosen
         var fmt2 = function (n) { return '$' + Number(n).toFixed(2); };
+        // Paint the above-the-fold fee disclosure from the constant. This is
+        // the one fee figure on any of the three surfaces that a script never
+        // touched, so it was the one that could go stale on a fee change.
+        if ($('lpFeeNote')) $('lpFeeNote').textContent = fmt2(SERVICE_FEE);
 
         // Gender-aware price. /api/next-event returns priceWoman/priceMan for
         // legacy gender-split events and the resolved price for the rest;
@@ -1405,9 +1400,15 @@
 
         function coSetGender(g) {
           coGender = g;
-          document.querySelectorAll('#lpPay .gender-btn').forEach(function (b) {
-            b.setAttribute('aria-checked', b.getAttribute('data-gender') === g ? 'true' : 'false');
+          document.querySelectorAll('#lpPay .gender-btn').forEach(function (b, i) {
+            var checked = b.getAttribute('data-gender') === g;
+            b.setAttribute('aria-checked', checked ? 'true' : 'false');
+            // Roving tabindex — a radiogroup is one tab stop, arrows move
+            // within it. See the matching note in event.html.
+            b.tabIndex = (checked || (!g && i === 0)) ? 0 : -1;
           });
+          var coGrp = document.querySelector('#lpPay .gender-choice');
+          if (coGrp && g) coGrp.removeAttribute('aria-invalid');
           coTrack('gender');
           // add_to_cart / AddToCart once per page load, on the first gender
           // pick -- the same milestone the /events dialog uses.
@@ -1419,8 +1420,31 @@
           }
           coUpdatePrice();
         }
-        document.querySelectorAll('#lpPay .gender-btn').forEach(function (b) {
+        var lpGenderBtns = [].slice.call(document.querySelectorAll('#lpPay .gender-btn'));
+        lpGenderBtns.forEach(function (b) {
           b.addEventListener('click', function () { coSetGender(b.getAttribute('data-gender')); });
+        });
+        // coSetGender() only runs on a real selection, so unlike the other two
+        // this group needs one pass at bind time to place the initial tab
+        // stop. Attributes only — calling coSetGender() here would fire
+        // coTrack('gender') (and, once an event is loaded, add_to_cart) with
+        // no buyer interaction at all, which is the exact bug #453 removed
+        // from event.html.
+        lpGenderBtns.forEach(function (b, i) { b.tabIndex = i === 0 ? 0 : -1; });
+        var lpGenderGroup = document.querySelector('#lpPay .gender-choice');
+        if (lpGenderGroup) lpGenderGroup.addEventListener('keydown', function (e) {
+          var keys = ['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown', 'Home', 'End'];
+          if (keys.indexOf(e.key) === -1) return;
+          e.preventDefault();
+          var cur = -1;
+          lpGenderBtns.forEach(function (b, i) { if (b.getAttribute('aria-checked') === 'true') cur = i; });
+          var last = lpGenderBtns.length - 1, next;
+          if (e.key === 'Home') next = 0;
+          else if (e.key === 'End') next = last;
+          else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = cur <= 0 ? last : cur - 1;
+          else next = (cur === -1 || cur === last) ? 0 : cur + 1;
+          coSetGender(lpGenderBtns[next].getAttribute('data-gender'));
+          lpGenderBtns[next].focus();
         });
         [['lpName', 'name'], ['lpEmail', 'email']].forEach(function (pair) {
           var el = $(pair[0]);
@@ -1507,7 +1531,7 @@
               }, piId ? { eventID: piId } : undefined);
             }
             $('lpDoneLine').textContent = (result.alreadyConfirmed && !authed)
-              ? "You already have a ticket for this event - we haven't charged you again."
+              ? "You already have a ticket for this event — we haven't charged you again. Bringing someone? Use the +1 option instead."
               : 'We emailed your ' + (plusOne ? 'tickets' : 'ticket') + ' to ' + email + '. Bring nothing but yourself.';
             $('lpCheckoutForm').style.display = 'none';
             $('lpDone').classList.add('show');
@@ -1516,7 +1540,7 @@
             var m = ((err && err.message) || '').toLowerCase(), friendly, category;
             if (m.indexOf('choose woman') !== -1) { friendly = err.message; category = 'gender_missing'; }
             else if (m.indexOf('enter your name') !== -1) { friendly = err.message; category = 'name_missing'; }
-            else if (m.indexOf('limit') !== -1 || m.indexOf('full on') !== -1 || m.indexOf('event full') !== -1 || m.indexOf('event is full') !== -1) { friendly = err.message; category = 'capacity'; }
+            else if (m.indexOf('limit') !== -1 || m.indexOf('full on') !== -1 || m.indexOf('event full') !== -1 || m.indexOf('event is full') !== -1 || m.indexOf('already happened') !== -1) { friendly = err.message; category = 'capacity'; }
             else if (m.indexOf('declin') !== -1) { friendly = 'Your card was declined. Please try a different payment method.'; category = 'card_declined'; }
             else if (m.indexOf('still loading') !== -1) { friendly = err.message; category = 'network'; }
             else if (m.indexOf('network') !== -1) { friendly = 'Network error. Please check your connection and try again.'; category = 'network'; }
@@ -1525,7 +1549,11 @@
             else { friendly = 'We could not complete your purchase. Please try again, or contact support@sparkdate.date.'; category = 'other'; }
             if (typeof gtag === 'function') gtag('event', 'checkout_error', { in_app_browser: isInAppBrowser(), category: category, reason: m.slice(0, 100), source: 'lp' });
             pm.style.display = 'block'; pm.style.color = 'var(--danger)'; pm.textContent = friendly;
-            if (category === 'gender_missing') { var gb = document.querySelector('#lpPay .gender-btn'); if (gb) gb.focus(); }
+            if (category === 'gender_missing') {
+              var gg = document.querySelector('#lpPay .gender-choice');
+              if (gg) gg.setAttribute('aria-invalid', 'true');
+              var gb = document.querySelector('#lpPay .gender-btn'); if (gb) gb.focus();
+            }
             coPaying = false; payBtn.disabled = false; coUpdatePrice();
           }
         });

@@ -826,7 +826,12 @@
                mid-checkout. */
             font-size: 16px;
         }
-        .event-modal select:focus, .event-modal input:focus { outline: none; border-color: var(--coral); }
+        /* Typed, so it cannot reach the 2-for-1 checkbox. The untyped version
+           stripped the keyboard focus ring off it -- border-color does nothing
+           for a checkbox, so the replacement affordance this rule offers text
+           inputs left the checkbox with no focus indicator at all. event.html
+           types the same rule and was the correct side. */
+        .event-modal select:focus, .event-modal input[type="text"]:focus, .event-modal input[type="email"]:focus, .event-modal input[type="tel"]:focus { outline: none; border-color: var(--coral); }
         .event-modal input:disabled { opacity: 0.7; cursor: not-allowed; }
         .field-row { display: flex; gap: 12px; }
         .field-row .form-group { flex: 1; min-width: 0; }
@@ -841,6 +846,9 @@
            (GET TICKETS -> /events?event=X&checkout=1), so the earlier fix on
            event.html alone missed the door paid traffic uses. */
         #modalCardElement {
+            /* Matches event.html and lp.html. Invisible here today because the
+               modal mounts hidden, but the same CSS gap. */
+            min-height: 46px;
             padding: 12px 14px; border: 2px solid rgba(255, 107, 107, 0.4);
             border-radius: 4px; background: #ffffff;
         }
@@ -1314,7 +1322,12 @@
                             <button type="submit" class="checkout-btn" id="modalWaitlistBtn">Join the waitlist</button>
                         </form>
                         <div class="modal-error-message" id="modalWaitlistError" style="display:none;"></div>
-                        <p class="event-modal-blurb" id="modalWaitlistDone" style="display:none;"></p>
+                        <!-- Styled as a success message, not as body copy.
+                             event.html confirms the same waitlist join in a
+                             green panel; this was unstyled muted prose, so the
+                             identical action read as confirmed on one surface
+                             and as an aside on the other. -->
+                        <p class="modal-success-message" id="modalWaitlistDone" style="display:none;"></p>
                     </div>
                 </div>
             </div>
@@ -1324,8 +1337,11 @@
                 <h3>Reserve your spot</h3>
                 <p class="event-modal-meta" id="checkoutForLine" style="margin-bottom: 20px;">—</p>
 
-                <div class="modal-success-message" id="modalSuccessMessage"></div>
-                <div class="modal-error-message" id="modalErrorMessage"></div>
+                <!-- Live regions — same omission event.html had. These sit
+                     above the form and the submit button is well below them,
+                     so a decline was shown but never announced. -->
+                <div class="modal-success-message" id="modalSuccessMessage" role="status" aria-live="polite"></div>
+                <div class="modal-error-message" id="modalErrorMessage" role="alert"></div>
 
                 <form id="modalCheckoutForm">
                     <!-- Gender first, as two tap targets. The hidden input is
@@ -1333,7 +1349,7 @@
                          pricing, submit and the member pre-fill are unchanged. -->
                     <div class="form-group">
                         <label id="modalGenderLabel">I am a</label>
-                        <div class="gender-choice" role="radiogroup" aria-labelledby="modalGenderLabel">
+                        <div class="gender-choice" role="radiogroup" aria-labelledby="modalGenderLabel" aria-required="true">
                             <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="woman">Woman</button>
                             <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="man">Man</button>
                         </div>
@@ -1883,7 +1899,13 @@
                 const totalSpots = ev.spots || ev.spotsTotal || ((ev.spotsMen || 0) + (ev.spotsWomen || 0));
                 const capacity = totalSpots ? `${totalSpots} spots` : '';
                 const priceVal = ticketPriceFor(ev);
-                const priceLabel = priceVal > 0 ? `$${priceVal}` : 'TBA';
+                // money(), not raw interpolation. This was the one price on
+                // any of the three surfaces rendered straight from the number,
+                // so a $24.50 event printed "$24.5" on the card and "$24.50"
+                // in the dialog that same card opens — and in event.html's tag
+                // and lp.html's CTA. Every other price on this page already
+                // goes through the helper.
+                const priceLabel = priceVal > 0 ? money(priceVal) : 'TBA';
                 const evSoldOut = isSoldOut(ev);
                 const statusLabel = evSoldOut ? 'Full' : ev.status === 'almost' ? 'Almost Full' : 'Open';
                 const scene = SCENE_ALTS[i % SCENE_ALTS.length];
@@ -1907,11 +1929,25 @@
 
                 // The whole card opens the dialog (details step) instead of
                 // navigating to /event?id= — see the delegated click handler
-                // on #eventsGrid below. Sold-out cards get no data-event-id,
-                // so a click on them is a no-op (matches the current "Sold
-                // Out" span already being non-interactive).
+                // on #eventsGrid below.
+                //
+                // EVERY card carries data-event-id, including a sold-out one.
+                // This used to be gated on `ev.status !== 'full'`, and the
+                // comment here claimed that matched the non-interactive "Sold
+                // Out" span. It did not, on either side. It tested the manual
+                // flag while the card's own badge tests `isSoldOut(ev)` (the
+                // flag OR no seats left), so a genuinely full event kept the
+                // attribute and opened, and only a hand-flagged one went
+                // inert — the same closed state, rendered two ways.
+                // And the dialog is where the WAITLIST lives (`wlWrap`, shown
+                // when `dialogSoldOut`), so making the card unclickable
+                // removed the one thing a sold-out event still has to offer.
+                // The dialog handles the closed state on its own: price label
+                // swaps to "Sold out", the checkout button is disabled, and
+                // `straightToCheckout` refuses an lp `?checkout=1` deep link,
+                // so opening it can never reach a live purchase.
                 return `
-                    <div class="event-card" ${ev.status !== 'full' ? `data-event-id="${safe(ev.id)}"` : ''}>
+                    <div class="event-card" data-event-id="${safe(ev.id)}">
                         <div class="event-image">
                             ${sceneSvg(scene)}
                             <div class="date-badge">
@@ -1962,6 +1998,23 @@
         let currentUser = null;
         let userProfile = null;
         let userTier = 'free';
+        // The referral id, from the URL or from the capture at the top of this
+        // page. It was captured and never sent, so every referred buyer who
+        // converted in this dialog was written with referredBy: null — and
+        // /lp's own Get Tickets link deliberately carries `ref` into /events,
+        // straight into the surface that dropped it. Same resolver shape as
+        // lp.html's refOf().
+        const readRef = () => {
+            try { return new URLSearchParams(location.search).get('ref') || localStorage.getItem('sparkdate_ref'); }
+            catch (_) { return null; }
+        };
+        // A signed-in member's stored phone, forwarded on the purchase so the
+        // server's merge does not blank it. '' for a guest — this form has no
+        // phone field. Set by applyUserContextToModal(), which resets it
+        // before it decides, because that function re-runs on every modal open
+        // and on auth change: a stale value here would post one person's
+        // number onto another's registration and Stripe billing_details.
+        let memberPhone = '';
 
         let dialogEventId = null;
         let dialogPaying = false;
@@ -2041,19 +2094,32 @@
             });
         })();
 
-        const stripeModal = Stripe('pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1');
+        // Guarded, for the same reason as event.html: this used to call into
+        // js.stripe.com bare at module top level, so a blocked or failed load
+        // threw a ReferenceError before loadEvents() ever ran and killed the
+        // whole page -- here that means a permanent loading spinner and a
+        // checkout modal that can never open. lp.html has always guarded it.
+        const stripeReadyModal = typeof Stripe === 'function';
+        const stripeModal = stripeReadyModal
+            ? Stripe('pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1')
+            : null;
         // theme 'stripe' on white with black text, matching the modal's other
         // fields -- same change and same reasoning as event.html (#271). The
         // stated fontSizeBase pins Stripe's 16px default so a change to that
         // default cannot reintroduce iOS Safari's under-16px focus zoom.
-        const elementsModal = stripeModal.elements({
+        const elementsModal = stripeReadyModal ? stripeModal.elements({
             appearance: {
                 theme: 'stripe',
                 variables: { colorPrimary: '#ff6b6b', colorBackground: '#ffffff', colorText: '#000000', colorDanger: '#f87171', fontFamily: 'Inter, sans-serif', fontSizeBase: '16px', borderRadius: '4px' }
             }
-        });
-        const cardElementModal = elementsModal.create('card');
-        cardElementModal.mount('#modalCardElement');
+        }) : null;
+        const cardElementModal = elementsModal ? elementsModal.create('card') : null;
+        if (cardElementModal) cardElementModal.mount('#modalCardElement');
+        if (!stripeReadyModal) {
+            console.error('[events] Stripe.js did not load; checkout disabled');
+            const cardBox = document.getElementById('modalCardElement');
+            if (cardBox) cardBox.textContent = 'Card payment is unavailable right now.';
+        }
 
         function findLoadedEvent(id) { return loadedEvents.find(e => e.id === id) || null; }
         function money(n) { return `$${Number(n).toFixed(2)}`; }
@@ -2159,6 +2225,11 @@
             const toCheckout = document.getElementById('toCheckoutBtn');
             toCheckout.disabled = dialogSoldOut;
             toCheckout.textContent = dialogSoldOut ? 'Sold Out' : 'Continue to Checkout';
+            // Hidden, not merely disabled. A dead "Sold Out" button sitting
+            // directly above a live waitlist form is a dead control heading a
+            // live one — the same defect event.html had with "Reserve Your
+            // Spot" over its waitlist. The waitlist below is the action now.
+            toCheckout.hidden = dialogSoldOut;
             document.getElementById('detailsError').style.display = 'none';
 
             // Sold out: offer the waitlist instead of a dead "Sold Out"
@@ -2198,6 +2269,7 @@
                 gtag('event', 'checkout_form_started', { skipped_details: true });
             }
             document.getElementById('eventModalBackdrop').classList.add('show');
+            setBackgroundInert(true);
             // Move focus into the dialog (the close button — always present
             // and keyboard-reachable regardless of which step is active) so
             // a keyboard/screen-reader user isn't left focused on a card
@@ -2225,9 +2297,30 @@
             }
         }
 
+        // aria-modal="true" is a PROMISE that the rest of the page is not
+        // there. Nothing was enforcing it: Tab from the last checkout field
+        // walked straight out of the dialog into the footer and the whole
+        // events grid behind the backdrop, and a screen reader could read all
+        // of it. `inert` makes the background genuinely unreachable — focus,
+        // clicks and the accessibility tree in one attribute — and the Tab
+        // wrap below covers browsers that do not support it yet.
+        //
+        // Applied to body's direct children rather than a named wrapper so it
+        // cannot silently miss a section someone adds later. The backdrop
+        // itself is skipped, obviously.
+        function setBackgroundInert(on) {
+            const backdrop = document.getElementById('eventModalBackdrop');
+            [...document.body.children].forEach((el) => {
+                if (el === backdrop) return;
+                if (on) el.setAttribute('inert', '');
+                else el.removeAttribute('inert');
+            });
+        }
+
         function closeEventDialog(opts) {
             opts = opts || {};
             if (dialogPaying) return; // never close mid-payment — see the submit handler
+            setBackgroundInert(false);
             document.getElementById('eventModalBackdrop').classList.remove('show');
             dialogEventId = null;
             if (!opts.fromPopstate) {
@@ -2263,6 +2356,21 @@
         });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !dialogPaying && document.getElementById('eventModalBackdrop').classList.contains('show')) closeEventDialog();
+            // Tab containment, for browsers without `inert`. Wraps from the
+            // last focusable element in the dialog back to the first, and from
+            // the first backwards to the last, so focus cannot leave.
+            if (e.key !== 'Tab') return;
+            if (!document.getElementById('eventModalBackdrop').classList.contains('show')) return;
+            const modal = document.getElementById('eventModal');
+            const focusable = [...modal.querySelectorAll(
+                'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )].filter((el) => el.offsetParent !== null || el === document.activeElement);
+            if (!focusable.length) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+            else if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
         });
         document.getElementById('eventsGrid').addEventListener('click', (e) => {
             const card = e.target.closest('[data-event-id]');
@@ -2331,7 +2439,7 @@
                 }
                 document.getElementById('modalWaitlistForm').style.display = 'none';
                 doneEl.textContent = "You're on the list. We'll email you the moment a seat opens or the next date is set.";
-                doneEl.style.display = '';
+                doneEl.style.display = 'block';
             } catch (_) {
                 errEl.textContent = 'Something went wrong. Please try again.';
                 errEl.style.display = 'block';
@@ -2356,9 +2464,28 @@
         }
 
         function updateModalPricing() {
+            // A purchase is in flight: repaint nothing. Both branches below
+            // end in `btn.disabled = false`, and this function is reachable
+            // mid-payment from the gender buttons and the 2-for-1 checkbox,
+            // neither of which the submit handler disables. That put a live,
+            // priced button back under the buyer's thumb while
+            // /api/purchase-ticket was still running -- and a guest's second
+            // submit mints a new paymentMethodId, so the server's idempotency
+            // key does not collide and Stripe charges twice. dialogPaying
+            // already existed for the close paths; this is the same flag doing
+            // the job it was named for.
+            if (dialogPaying) return;
+
             const ev = findLoadedEvent(dialogEventId);
             const gender = document.getElementById('modalGender').value;
             const btn = document.getElementById('modalCheckoutBtn');
+            // Stripe.js never loaded: there is no card field, so do not offer
+            // a live priced button over one.
+            if (!stripeReadyModal) {
+                btn.disabled = true;
+                btn.textContent = 'Checkout unavailable';
+                return;
+            }
             if (!gender) {
                 // Seed the breakdown with the LISTING price rather than $0.00.
                 // Before this, the first thing a buyer saw under PAYMENT was
@@ -2375,14 +2502,21 @@
                 // pass in the else branch.
                 const seed = ticketPriceFor(ev);
                 const seeded = Number.isFinite(seed) && seed > 0;
-                document.getElementById('modalSubtotalLabel').textContent = 'Ticket';
+                // The 2-for-1 is honoured in the labels here too: ticking the
+                // box before choosing a gender opened the +1 fields while the
+                // subtotal still said "Ticket" and the button still said
+                // "Reserve Spot". It does not change the TOTAL — that is the
+                // offer — only what the buyer is told they are getting.
+                const seedTwo = document.getElementById('modalTwoForOne').checked;
+                document.getElementById('modalSubtotalLabel').textContent = seedTwo ? 'Subtotal (2 tickets, 2-for-1)' : 'Ticket';
                 document.getElementById('modalSubtotalPrice').textContent = seeded ? money(seed) : '$0.00';
                 document.getElementById('modalServiceFee').textContent = seeded ? money(SERVICE_FEE) : '$0.00';
                 document.getElementById('modalTotalPrice').textContent = seeded ? money(seed + SERVICE_FEE) : '$0.00';
                 // Enabled and priced from the first frame. A missing gender is
                 // caught on submit ("Choose Woman or Man to continue"), not by
                 // a disabled button -- see the note above the button markup.
-                btn.textContent = seeded ? `Reserve Spot · ${money(seed + SERVICE_FEE)}` : 'Reserve Spot';
+                const seedLabel = seedTwo ? 'Reserve 2 Spots (2-for-1)' : 'Reserve Spot';
+                btn.textContent = seeded ? `${seedLabel} · ${money(seed + SERVICE_FEE)}` : seedLabel;
                 btn.disabled = false;
                 // No priced total is on screen, so there's no quote to hold the
                 // submit handler to — and clearing it stops a previous dialog's
@@ -2418,20 +2552,43 @@
         // buttons, including the disabled state a signed-in member gets.
         function syncGenderButtons() {
             const input = document.getElementById('modalGender');
-            document.querySelectorAll('#modalCheckoutForm .gender-btn').forEach((b) => {
-                b.setAttribute('aria-checked', b.dataset.gender === input.value ? 'true' : 'false');
+            const btns = [...document.querySelectorAll('#modalCheckoutForm .gender-btn')];
+            btns.forEach((b, i) => {
+                const checked = b.dataset.gender === input.value;
+                b.setAttribute('aria-checked', checked ? 'true' : 'false');
                 b.disabled = input.disabled;
+                // Roving tabindex — a radiogroup is one tab stop, arrows move
+                // within it. See the matching note in event.html.
+                b.tabIndex = (checked || (!input.value && i === 0)) ? 0 : -1;
             });
         }
-        document.querySelectorAll('#modalCheckoutForm .gender-btn').forEach((b) => {
-            b.addEventListener('click', () => {
-                const input = document.getElementById('modalGender');
-                if (input.disabled) return;
-                input.value = b.dataset.gender;
-                syncGenderButtons();
-                trackModalField('gender');
-                input.dispatchEvent(new Event('change'));
-            });
+        const modalGenderBtns = [...document.querySelectorAll('#modalCheckoutForm .gender-btn')];
+        function chooseModalGender(b) {
+            const input = document.getElementById('modalGender');
+            if (input.disabled) return;
+            input.value = b.dataset.gender;
+            syncGenderButtons();
+            trackModalField('gender');
+            const grp = document.querySelector('#modalCheckoutForm .gender-choice');
+            if (grp) grp.removeAttribute('aria-invalid');
+            input.dispatchEvent(new Event('change'));
+        }
+        modalGenderBtns.forEach((b) => b.addEventListener('click', () => chooseModalGender(b)));
+        const modalGenderGroup = document.querySelector('#modalCheckoutForm .gender-choice');
+        if (modalGenderGroup) modalGenderGroup.addEventListener('keydown', (e) => {
+            const keys = ['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown', 'Home', 'End'];
+            if (!keys.includes(e.key)) return;
+            if (document.getElementById('modalGender').disabled) return;
+            e.preventDefault();
+            const cur = modalGenderBtns.findIndex((b) => b.getAttribute('aria-checked') === 'true');
+            const last = modalGenderBtns.length - 1;
+            let next;
+            if (e.key === 'Home') next = 0;
+            else if (e.key === 'End') next = last;
+            else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = cur <= 0 ? last : cur - 1;
+            else next = cur === -1 || cur === last ? 0 : cur + 1;
+            chooseModalGender(modalGenderBtns[next]);
+            modalGenderBtns[next].focus();
         });
 
         // Per-field first-focus events, so the drop between fields is visible
@@ -2478,6 +2635,7 @@
             cardGroup.style.display = '';
             cardOnFileNotice.style.display = 'none';
             trialDisclosure.style.display = '';
+            memberPhone = '';
 
             if (!userProfile) { syncGenderButtons(); return; }
 
@@ -2489,6 +2647,7 @@
             const profileName = userProfile.name || userProfile.displayName;
             if (profileName) { nameInput.value = profileName; nameInput.disabled = true; }
             if (userProfile.email && !emailInput.value) emailInput.value = userProfile.email;
+            if (userProfile.phone) memberPhone = userProfile.phone;
 
             if (userProfile.stripeCustomerId) {
                 cardGroup.style.display = 'none';
@@ -2511,13 +2670,29 @@
 
         document.getElementById('modalCheckoutForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            // Re-entrancy guard. dialogPaying was already set further down for
+            // the close paths, but never read here, so a second submit while
+            // the first was in flight ran the whole handler again.
+            if (dialogPaying) return;
             const ev = findLoadedEvent(dialogEventId);
             const gender = document.getElementById('modalGender').value;
             const name = document.getElementById('modalName').value.trim();
             const email = document.getElementById('modalEmail').value.trim();
-            // Phone is not asked on this form any more; the API treats it as
-            // optional and the post-purchase profile link collects it.
-            const phone = '';
+            // Carry the member's stored phone through to the purchase payload.
+            // There is no phone field on this form any more, so nothing is
+            // shown or editable here.
+            //
+            // This used to be a hardcoded ''. The endpoint writes whatever it
+            // is sent straight onto the registration doc
+            // (api/purchase-ticket.js, `batch.set(regRef, { ... phone:
+            // cleanPhone ... })`), so the same member buying the same ticket
+            // got a registration carrying their number from /event?id= and a
+            // blank one from this dialog — and the door and admin tooling read
+            // registrations. It does NOT touch their user profile: that write
+            // only happens on the guest auto-enroll path.
+            // event.html has forwarded it all along; this is the modal
+            // catching up, not the other way round.
+            const phone = memberPhone;
             const btn = document.getElementById('modalCheckoutBtn');
             const errorMsg = document.getElementById('modalErrorMessage');
             const successMsg = document.getElementById('modalSuccessMessage');
@@ -2532,6 +2707,7 @@
             btn.textContent = 'Processing...';
 
             try {
+                if (!cardElementModal) throw new Error('Card payment is unavailable right now. Please refresh the page and try again.');
                 if (!gender) throw new Error('Choose Woman or Man to continue.');
                 if (!name) throw new Error('Please enter your name.');
 
@@ -2582,7 +2758,7 @@
 
                 if (useCardOnFile) {
                     idToken = await currentUser.getIdToken();
-                    payload = { firebaseUid: currentUser.uid, email, name, phone, gender, eventId: evId, plusOne,
+                    payload = { firebaseUid: currentUser.uid, email, name, phone, gender, eventId: evId, plusOne, ref: readRef(),
                         // Saved-card buyers need this as much as new ones. Without
                         // it every repeat purchase reports no channel, which reads
                         // as "returning customers come from nowhere" -- and those
@@ -2615,7 +2791,7 @@
                         fbq('track', 'AddPaymentInfo', { content_ids: [evId], value: ticket + SERVICE_FEE, currency: 'USD' });
                     }
 
-                    payload = { paymentMethodId: paymentMethod.id, email, name, phone, gender, eventId: evId, plusOne,
+                    payload = { paymentMethodId: paymentMethod.id, email, name, phone, gender, eventId: evId, plusOne, ref: readRef(),
                         // Where this buyer originally came from. Read at purchase
                         // rather than at capture so a first-touch ad click still
                         // credits the ad weeks later.
@@ -2713,17 +2889,38 @@
                 let friendly, category;
                 if (msg.includes('choose woman')) { friendly = err.message; category = 'gender_missing'; }
                 else if (msg.includes('enter your name')) { friendly = err.message; category = 'name_missing'; }
-                else if (msg.includes('limit') || msg.includes('full on') || msg.includes('event is full')) { friendly = err.message; category = 'capacity'; }
+                // 'event full' is what the SERVER actually sends on a sold-out
+                // 409 ({ error: 'Event full' }); 'full on' and 'event is full'
+                // match nothing it has ever produced, so the real capacity
+                // error fell through to "contact support" and was logged as
+                // category 'other'. 'already happened' is the 410 for a
+                // finished event. The early-bird re-quote and the blank-+1
+                // message are already written for the buyer and were being
+                // swallowed by the generic else. lp.html had all of this right.
+                else if (msg.includes('limit') || msg.includes('full on') || msg.includes('event full') || msg.includes('event is full') || msg.includes('already happened')) { friendly = err.message; category = 'capacity'; }
+                else if (msg.includes('early-bird') || msg.includes('+1')) { friendly = err.message; category = 'other'; }
                 else if (msg.includes('declin')) { friendly = 'Your card was declined. Please try a different payment method.'; category = 'card_declined'; }
                 else if (msg.includes('network')) { friendly = 'Network error. Please check your connection and try again.'; category = 'network'; }
                 else if (msg.includes('incomplete')) { friendly = 'Please complete all payment details.'; category = 'card_incomplete'; }
                 else { friendly = 'We could not complete your purchase. Please try again, or contact support@sparkdate.date.'; category = 'other'; }
                 if (typeof gtag === 'function') gtag('event', 'checkout_error', { in_app_browser: isInAppBrowserModal(), category, reason: msg.slice(0, 100) });
-                errorMsg.textContent = friendly;
+                // Show first, then write — see the matching note in event.html.
+                // A role="alert" node that is display:none is not in the
+                // accessibility tree, so writing into it while hidden
+                // announces nothing.
                 errorMsg.style.display = 'block';
+                errorMsg.textContent = friendly;
                 if (category === 'gender_missing') {
+                    const grp = document.querySelector('#modalCheckoutForm .gender-choice');
+                    if (grp) grp.setAttribute('aria-invalid', 'true');
                     const first = document.querySelector('#modalCheckoutForm .gender-btn');
                     if (first) first.focus();
+                } else {
+                    // Same gap event.html had: every other category has no
+                    // field to focus, so nothing brought the message on
+                    // screen and the buyer watched the button come back with
+                    // no visible explanation.
+                    errorMsg.scrollIntoView({ block: 'center', behavior: 'smooth' });
                 }
                 dialogPaying = false;
                 btn.disabled = false;
@@ -2969,6 +3166,18 @@
                     }
                 } catch (e) {
                     console.warn('Could not load user profile:', e.message);
+                }
+            } else {
+                // Same one-way lock event.html had: userProfile survived a
+                // sign-out, so the next dialog open still pre-filled and
+                // disabled the previous member's gender and name.
+                // applyUserContextToModal() already clears every lock before
+                // it decides what to set, so clearing the profile is all this
+                // needs — and it runs on the next open via resetCheckoutForm().
+                userProfile = null;
+                userTier = 'free';
+                if (document.getElementById('eventModalBackdrop').classList.contains('show')) {
+                    applyUserContextToModal();
                 }
             }
             await loadEvents();
