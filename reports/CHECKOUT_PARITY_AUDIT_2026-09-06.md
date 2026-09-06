@@ -217,7 +217,7 @@ Thirteen commits. `api/next-event.js`, `api/purchase-ticket.js`,
 `public/index.html`, `public/signup.html`, plus
 `tests/checkout-closed-states.test.js` (new) and `tests/pricing.test.js`.
 
-**1048 tests pass, up from 962.** The new file's assertions were checked against
+**1049 tests pass, up from 962.** The new file's assertions were checked against
 an `origin/main` extract, not assumed: 16 of its first 20 failed against the
 shipped files, and the 4 that passed both ways are the reference-side rules that
 already held plus one deliberate regression pin. `tests/lp-checkout.test.js`
