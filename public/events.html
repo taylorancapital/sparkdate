@@ -1336,7 +1336,7 @@
                          pricing, submit and the member pre-fill are unchanged. -->
                     <div class="form-group">
                         <label id="modalGenderLabel">I am a</label>
-                        <div class="gender-choice" role="radiogroup" aria-labelledby="modalGenderLabel">
+                        <div class="gender-choice" role="radiogroup" aria-labelledby="modalGenderLabel" aria-required="true">
                             <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="woman">Woman</button>
                             <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="man">Man</button>
                         </div>
@@ -2467,20 +2467,43 @@
         // buttons, including the disabled state a signed-in member gets.
         function syncGenderButtons() {
             const input = document.getElementById('modalGender');
-            document.querySelectorAll('#modalCheckoutForm .gender-btn').forEach((b) => {
-                b.setAttribute('aria-checked', b.dataset.gender === input.value ? 'true' : 'false');
+            const btns = [...document.querySelectorAll('#modalCheckoutForm .gender-btn')];
+            btns.forEach((b, i) => {
+                const checked = b.dataset.gender === input.value;
+                b.setAttribute('aria-checked', checked ? 'true' : 'false');
                 b.disabled = input.disabled;
+                // Roving tabindex — a radiogroup is one tab stop, arrows move
+                // within it. See the matching note in event.html.
+                b.tabIndex = (checked || (!input.value && i === 0)) ? 0 : -1;
             });
         }
-        document.querySelectorAll('#modalCheckoutForm .gender-btn').forEach((b) => {
-            b.addEventListener('click', () => {
-                const input = document.getElementById('modalGender');
-                if (input.disabled) return;
-                input.value = b.dataset.gender;
-                syncGenderButtons();
-                trackModalField('gender');
-                input.dispatchEvent(new Event('change'));
-            });
+        const modalGenderBtns = [...document.querySelectorAll('#modalCheckoutForm .gender-btn')];
+        function chooseModalGender(b) {
+            const input = document.getElementById('modalGender');
+            if (input.disabled) return;
+            input.value = b.dataset.gender;
+            syncGenderButtons();
+            trackModalField('gender');
+            const grp = document.querySelector('#modalCheckoutForm .gender-choice');
+            if (grp) grp.removeAttribute('aria-invalid');
+            input.dispatchEvent(new Event('change'));
+        }
+        modalGenderBtns.forEach((b) => b.addEventListener('click', () => chooseModalGender(b)));
+        const modalGenderGroup = document.querySelector('#modalCheckoutForm .gender-choice');
+        if (modalGenderGroup) modalGenderGroup.addEventListener('keydown', (e) => {
+            const keys = ['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown', 'Home', 'End'];
+            if (!keys.includes(e.key)) return;
+            if (document.getElementById('modalGender').disabled) return;
+            e.preventDefault();
+            const cur = modalGenderBtns.findIndex((b) => b.getAttribute('aria-checked') === 'true');
+            const last = modalGenderBtns.length - 1;
+            let next;
+            if (e.key === 'Home') next = 0;
+            else if (e.key === 'End') next = last;
+            else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = cur <= 0 ? last : cur - 1;
+            else next = cur === -1 || cur === last ? 0 : cur + 1;
+            chooseModalGender(modalGenderBtns[next]);
+            modalGenderBtns[next].focus();
         });
 
         // Per-field first-focus events, so the drop between fields is visible
@@ -2789,6 +2812,8 @@
                 errorMsg.textContent = friendly;
                 errorMsg.style.display = 'block';
                 if (category === 'gender_missing') {
+                    const grp = document.querySelector('#modalCheckoutForm .gender-choice');
+                    if (grp) grp.setAttribute('aria-invalid', 'true');
                     const first = document.querySelector('#modalCheckoutForm .gender-btn');
                     if (first) first.focus();
                 } else {

@@ -2099,24 +2099,57 @@
         // buttons, including the disabled state a signed-in member gets.
         function syncGenderButtons() {
             const input = document.getElementById('ticketGender');
-            document.querySelectorAll('#checkoutForm .gender-btn').forEach((b) => {
-                b.setAttribute('aria-checked', b.dataset.gender === input.value ? 'true' : 'false');
+            const btns = [...document.querySelectorAll('#checkoutForm .gender-btn')];
+            btns.forEach((b, i) => {
+                const checked = b.dataset.gender === input.value;
+                b.setAttribute('aria-checked', checked ? 'true' : 'false');
                 b.disabled = input.disabled;
+                // Roving tabindex. A radiogroup is ONE tab stop: Tab moves to
+                // the group, arrows move within it. Both buttons were plain
+                // tab stops, so a keyboard user tabbed through the group
+                // rather than into it, and arrow keys did nothing at all --
+                // the control announced itself as a radiogroup and then did
+                // not behave like one. When nothing is chosen yet the first
+                // button holds the stop, so the group stays reachable.
+                b.tabIndex = (checked || (!input.value && i === 0)) ? 0 : -1;
             });
         }
-        document.querySelectorAll('#checkoutForm .gender-btn').forEach((b) => {
-            b.addEventListener('click', () => {
-                const input = document.getElementById('ticketGender');
-                if (input.disabled) return;
-                input.value = b.dataset.gender;
-                syncGenderButtons();
-                trackCheckoutField('gender');
-                // Assigning .value on a hidden input fires nothing, so the
-                // change listener above -- which is what re-prices the form --
-                // has to be told by hand. Without this the price stays on its
-                // seed and the button label never picks up the chosen gender.
-                input.dispatchEvent(new Event('change'));
-            });
+        const genderBtns = [...document.querySelectorAll('#checkoutForm .gender-btn')];
+        function chooseGender(b) {
+            const input = document.getElementById('ticketGender');
+            if (input.disabled) return;
+            input.value = b.dataset.gender;
+            syncGenderButtons();
+            trackCheckoutField('gender');
+            // The group is no longer in an error state once a choice is made.
+            const grp = document.querySelector('#checkoutForm .gender-choice');
+            if (grp) grp.removeAttribute('aria-invalid');
+            // Assigning .value on a hidden input fires nothing, so the
+            // change listener above -- which is what re-prices the form --
+            // has to be told by hand. Without this the price stays on its
+            // seed and the button label never picks up the chosen gender.
+            input.dispatchEvent(new Event('change'));
+        }
+        genderBtns.forEach((b) => b.addEventListener('click', () => chooseGender(b)));
+        // Arrow/Home/End, on the group rather than the document. Routed
+        // through the same chooseGender() the click uses, so the field
+        // tracking, the aria-invalid clear and the manual `change` that
+        // re-prices the form all still happen.
+        const genderGroup = document.querySelector('#checkoutForm .gender-choice');
+        if (genderGroup) genderGroup.addEventListener('keydown', (e) => {
+            const keys = ['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown', 'Home', 'End'];
+            if (!keys.includes(e.key)) return;
+            if (document.getElementById('ticketGender').disabled) return;
+            e.preventDefault();
+            const cur = genderBtns.findIndex((b) => b.getAttribute('aria-checked') === 'true');
+            const last = genderBtns.length - 1;
+            let next;
+            if (e.key === 'Home') next = 0;
+            else if (e.key === 'End') next = last;
+            else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = cur <= 0 ? last : cur - 1;
+            else next = cur === -1 || cur === last ? 0 : cur + 1;
+            chooseGender(genderBtns[next]);
+            genderBtns[next].focus();
         });
         syncGenderButtons();
 
@@ -2706,6 +2739,8 @@
                 // "choose Woman or Man" with neither the message nor the
                 // control on screen. Put the cursor on the thing to fix.
                 if (category === 'gender_missing') {
+                    const grp = document.querySelector('#checkoutForm .gender-choice');
+                    if (grp) grp.setAttribute('aria-invalid', 'true');
                     const first = document.querySelector('#checkoutForm .gender-btn');
                     if (first) first.focus();
                 } else {

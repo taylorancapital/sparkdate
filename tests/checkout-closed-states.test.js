@@ -292,6 +292,43 @@ describe('the buyer is told what happened, on every surface', () => {
   });
 });
 
+describe('the gender radiogroup behaves like a radiogroup', () => {
+  it.each(CHECKOUTS)('%s marks the group required', (_f, src) => {
+    // It declared role="radiogroup" and then read as an optional field.
+    expect(src).toMatch(/role="radiogroup"[^>]*aria-required="true"/);
+  });
+
+  it.each(CHECKOUTS)('%s gives the group one tab stop, not two', (_f, src) => {
+    // A radiogroup is ONE tab stop: Tab moves to the group, arrows move
+    // within it. Both buttons were plain tab stops, so a keyboard user tabbed
+    // THROUGH the group instead of into it — the control announced itself as
+    // a radiogroup and then did not behave like one.
+    expect(src).toMatch(/tabIndex = /);
+  });
+
+  it.each(CHECKOUTS)('%s moves the selection with the arrow keys', (_f, src) => {
+    expect(src).toMatch(/'ArrowLeft'/);
+    expect(src).toMatch(/'Home'/);
+    expect(src).toMatch(/'End'/);
+    // Bound to the group, never to the document.
+    expect(src).toMatch(/gender-choice'\)[\s\S]{0,120}addEventListener\('keydown'/);
+  });
+
+  it.each(CHECKOUTS)('%s marks the group invalid when that is the error', (_f, src) => {
+    expect(src).toMatch(/setAttribute\('aria-invalid', 'true'\)/);
+    expect(src).toMatch(/removeAttribute\('aria-invalid'\)/);
+  });
+
+  it('lp.html places its initial tab stop without firing a field event', () => {
+    // coSetGender() fires coTrack('gender') and can fire add_to_cart, so
+    // calling it at bind time to seed the tab stop would report interaction
+    // that never happened — the exact bug #453 removed from event.html.
+    const seed = LP.match(/lpGenderBtns\.forEach\(function \(b, i\) \{ b\.tabIndex[^\n]*\n/);
+    expect(seed, 'no attribute-only seeding pass found').toBeTruthy();
+    expect(seed[0]).not.toMatch(/coSetGender/);
+  });
+});
+
 describe('the form describes what it is actually selling', () => {
   it.each([['events.html', EVENTS, 'modalTwoForOne'], ['event.html', EVENT, 'twoForOneCheckbox']])(
     '%s honours the 2-for-1 in its labels before a gender is picked',

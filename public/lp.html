@@ -515,7 +515,7 @@
                 <form id="lpPay">
                     <div class="fg">
                         <label id="lpGenderLabel">I am a</label>
-                        <div class="gender-choice" role="radiogroup" aria-labelledby="lpGenderLabel">
+                        <div class="gender-choice" role="radiogroup" aria-labelledby="lpGenderLabel" aria-required="true">
                             <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="woman">Woman</button>
                             <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="man">Man</button>
                         </div>
@@ -1396,9 +1396,15 @@
 
         function coSetGender(g) {
           coGender = g;
-          document.querySelectorAll('#lpPay .gender-btn').forEach(function (b) {
-            b.setAttribute('aria-checked', b.getAttribute('data-gender') === g ? 'true' : 'false');
+          document.querySelectorAll('#lpPay .gender-btn').forEach(function (b, i) {
+            var checked = b.getAttribute('data-gender') === g;
+            b.setAttribute('aria-checked', checked ? 'true' : 'false');
+            // Roving tabindex — a radiogroup is one tab stop, arrows move
+            // within it. See the matching note in event.html.
+            b.tabIndex = (checked || (!g && i === 0)) ? 0 : -1;
           });
+          var coGrp = document.querySelector('#lpPay .gender-choice');
+          if (coGrp && g) coGrp.removeAttribute('aria-invalid');
           coTrack('gender');
           // add_to_cart / AddToCart once per page load, on the first gender
           // pick -- the same milestone the /events dialog uses.
@@ -1410,8 +1416,31 @@
           }
           coUpdatePrice();
         }
-        document.querySelectorAll('#lpPay .gender-btn').forEach(function (b) {
+        var lpGenderBtns = [].slice.call(document.querySelectorAll('#lpPay .gender-btn'));
+        lpGenderBtns.forEach(function (b) {
           b.addEventListener('click', function () { coSetGender(b.getAttribute('data-gender')); });
+        });
+        // coSetGender() only runs on a real selection, so unlike the other two
+        // this group needs one pass at bind time to place the initial tab
+        // stop. Attributes only — calling coSetGender() here would fire
+        // coTrack('gender') (and, once an event is loaded, add_to_cart) with
+        // no buyer interaction at all, which is the exact bug #453 removed
+        // from event.html.
+        lpGenderBtns.forEach(function (b, i) { b.tabIndex = i === 0 ? 0 : -1; });
+        var lpGenderGroup = document.querySelector('#lpPay .gender-choice');
+        if (lpGenderGroup) lpGenderGroup.addEventListener('keydown', function (e) {
+          var keys = ['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown', 'Home', 'End'];
+          if (keys.indexOf(e.key) === -1) return;
+          e.preventDefault();
+          var cur = -1;
+          lpGenderBtns.forEach(function (b, i) { if (b.getAttribute('aria-checked') === 'true') cur = i; });
+          var last = lpGenderBtns.length - 1, next;
+          if (e.key === 'Home') next = 0;
+          else if (e.key === 'End') next = last;
+          else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = cur <= 0 ? last : cur - 1;
+          else next = (cur === -1 || cur === last) ? 0 : cur + 1;
+          coSetGender(lpGenderBtns[next].getAttribute('data-gender'));
+          lpGenderBtns[next].focus();
         });
         [['lpName', 'name'], ['lpEmail', 'email']].forEach(function (pair) {
           var el = $(pair[0]);
@@ -1516,7 +1545,11 @@
             else { friendly = 'We could not complete your purchase. Please try again, or contact support@sparkdate.date.'; category = 'other'; }
             if (typeof gtag === 'function') gtag('event', 'checkout_error', { in_app_browser: isInAppBrowser(), category: category, reason: m.slice(0, 100), source: 'lp' });
             pm.style.display = 'block'; pm.style.color = 'var(--danger)'; pm.textContent = friendly;
-            if (category === 'gender_missing') { var gb = document.querySelector('#lpPay .gender-btn'); if (gb) gb.focus(); }
+            if (category === 'gender_missing') {
+              var gg = document.querySelector('#lpPay .gender-choice');
+              if (gg) gg.setAttribute('aria-invalid', 'true');
+              var gb = document.querySelector('#lpPay .gender-btn'); if (gb) gb.focus();
+            }
             coPaying = false; payBtn.disabled = false; coUpdatePrice();
           }
         });
