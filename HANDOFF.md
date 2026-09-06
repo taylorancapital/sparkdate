@@ -257,15 +257,25 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   eight-event total, all assuming a mid-tier room — while the new target list is
   casual tier (~$20-25/head). Taylor's decision to make, not a copy fix. Working:
   `reports/VENUE_PITCH_FACT_AUDIT_2026-09-01.md`.
-- **The free-listing syndication run is part-done and the rest is unverified.**
-  Eventbrite is fixed and confirmed live: Loxley's now reads $24.99 through
-  Sep 7 then $29.99 (it had been selling $6 under the site, expiring Sep 1),
-  and both descriptions carry the three-movements copy. NOT confirmed from
-  outside: whether Marion Court's 2-for-1 ticket got renamed to name women, and
-  whether the AllEvents link repairs and the eight remaining calendars were
-  done. **Next step: get the Chrome agent's final report and spot-check the
-  hrefs it claims** — two sites silently corrupted a link already, which is
-  why `/l/` short links exist at all.
+- **Eleven free listing surfaces exist; nobody has confirmed the last eight
+  landed.** Verified from outside: Eventbrite pricing and copy, and the
+  Facebook, Google Business and AllEvents listings. NOT verified: the eight
+  remaining calendars (LancasterOnline, LancasterPA, both Visit Lancasters,
+  Fig, Nextdoor, Patch, Chamber) or the Meetup post to our own group.
+  **Next step: open each claimed listing and read the actual `href` of its
+  ticket link.** Do not trust a report that says it saved one — AllEvents
+  HTML-escaped the ampersands and Discover Lancaster truncated at 100 chars,
+  both silently, which is the entire reason `/l/` short links exist.
+- **Ticket Tailor is abandoned, and two live pages still say "Sold out".**
+  Both events posted 09-02, then held unsold — which makes Ticket Tailor title
+  the page `Sold out – <event>` and emit `"offers": []`, defeating the only two
+  reasons to be there. Taylor stopped 09-03: the dashboard wants a password he
+  does not have, and the channel does not justify recovering one. **No action
+  needed.** The pages are unlinked, in no sitemap, and both events pass by
+  09-22, after which the titles are moot. If anyone ever wants it closed:
+  reset the password and unpublish both — do NOT "fix" it by turning sales on,
+  which reopens the third-checkout and nothing-syncs problems. Full finding in
+  the `tickettailor` entry of `content/listing-sites.json`.
 - **Philadelphia is quoted at $24.99 in a $29.99 market.** The city page and
   two Philly-targeted blog posts state a flat price; Good Good Things was
   $29.99. `reports/FACT_AUDIT_2026-09-01.md` §2. Deliberately not edited: the
