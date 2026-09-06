@@ -1990,6 +1990,16 @@
         let currentUser = null;
         let userProfile = null;
         let userTier = 'free';
+        // The referral id, from the URL or from the capture at the top of this
+        // page. It was captured and never sent, so every referred buyer who
+        // converted in this dialog was written with referredBy: null — and
+        // /lp's own Get Tickets link deliberately carries `ref` into /events,
+        // straight into the surface that dropped it. Same resolver shape as
+        // lp.html's refOf().
+        const readRef = () => {
+            try { return new URLSearchParams(location.search).get('ref') || localStorage.getItem('sparkdate_ref'); }
+            catch (_) { return null; }
+        };
         // A signed-in member's stored phone, forwarded on the purchase so the
         // server's merge does not blank it. '' for a guest — this form has no
         // phone field. Set by applyUserContextToModal(), which resets it
@@ -2719,7 +2729,7 @@
 
                 if (useCardOnFile) {
                     idToken = await currentUser.getIdToken();
-                    payload = { firebaseUid: currentUser.uid, email, name, phone, gender, eventId: evId, plusOne,
+                    payload = { firebaseUid: currentUser.uid, email, name, phone, gender, eventId: evId, plusOne, ref: readRef(),
                         // Saved-card buyers need this as much as new ones. Without
                         // it every repeat purchase reports no channel, which reads
                         // as "returning customers come from nowhere" -- and those
@@ -2752,7 +2762,7 @@
                         fbq('track', 'AddPaymentInfo', { content_ids: [evId], value: ticket + SERVICE_FEE, currency: 'USD' });
                     }
 
-                    payload = { paymentMethodId: paymentMethod.id, email, name, phone, gender, eventId: evId, plusOne,
+                    payload = { paymentMethodId: paymentMethod.id, email, name, phone, gender, eventId: evId, plusOne, ref: readRef(),
                         // Where this buyer originally came from. Read at purchase
                         // rather than at capture so a first-touch ad click still
                         // credits the ad weeks later.
@@ -2850,14 +2860,27 @@
                 let friendly, category;
                 if (msg.includes('choose woman')) { friendly = err.message; category = 'gender_missing'; }
                 else if (msg.includes('enter your name')) { friendly = err.message; category = 'name_missing'; }
-                else if (msg.includes('limit') || msg.includes('full on') || msg.includes('event is full')) { friendly = err.message; category = 'capacity'; }
+                // 'event full' is what the SERVER actually sends on a sold-out
+                // 409 ({ error: 'Event full' }); 'full on' and 'event is full'
+                // match nothing it has ever produced, so the real capacity
+                // error fell through to "contact support" and was logged as
+                // category 'other'. 'already happened' is the 410 for a
+                // finished event. The early-bird re-quote and the blank-+1
+                // message are already written for the buyer and were being
+                // swallowed by the generic else. lp.html had all of this right.
+                else if (msg.includes('limit') || msg.includes('full on') || msg.includes('event full') || msg.includes('event is full') || msg.includes('already happened')) { friendly = err.message; category = 'capacity'; }
+                else if (msg.includes('early-bird') || msg.includes('+1')) { friendly = err.message; category = 'other'; }
                 else if (msg.includes('declin')) { friendly = 'Your card was declined. Please try a different payment method.'; category = 'card_declined'; }
                 else if (msg.includes('network')) { friendly = 'Network error. Please check your connection and try again.'; category = 'network'; }
                 else if (msg.includes('incomplete')) { friendly = 'Please complete all payment details.'; category = 'card_incomplete'; }
                 else { friendly = 'We could not complete your purchase. Please try again, or contact support@sparkdate.date.'; category = 'other'; }
                 if (typeof gtag === 'function') gtag('event', 'checkout_error', { in_app_browser: isInAppBrowserModal(), category, reason: msg.slice(0, 100) });
-                errorMsg.textContent = friendly;
+                // Show first, then write — see the matching note in event.html.
+                // A role="alert" node that is display:none is not in the
+                // accessibility tree, so writing into it while hidden
+                // announces nothing.
                 errorMsg.style.display = 'block';
+                errorMsg.textContent = friendly;
                 if (category === 'gender_missing') {
                     const grp = document.querySelector('#modalCheckoutForm .gender-choice');
                     if (grp) grp.setAttribute('aria-invalid', 'true');

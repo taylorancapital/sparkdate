@@ -273,7 +273,66 @@ describe('a purchase in flight cannot be submitted twice', () => {
   });
 });
 
+describe('the server is quoted accurately back to the buyer', () => {
+  it.each(CHECKOUTS)('%s recognises the sold-out 409 the server actually sends', (_f, src) => {
+    // api/purchase-ticket.js answers a sold-out 409 with { error: 'Event
+    // full' }. events.html and event.html matched 'full on' and 'event is
+    // full' — strings the server has never sent — so the one capacity error
+    // that really fires fell through to "contact support@sparkdate.date" and
+    // was logged to GA4 as category 'other'.
+    expect(src).toMatch(/'event full'/);
+  });
+
+  it('the string the matchers look for is the string the server sends', () => {
+    // Pinned against the endpoint itself, so a reworded 409 breaks the test
+    // rather than silently un-matching in three files.
+    expect(PURCHASE).toMatch(/error: 'Event full'/);
+    expect(PURCHASE).toMatch(/error: 'Event has already happened'/);
+  });
+
+  it.each(CHECKOUTS)('%s recognises the past-event 410 too', (_f, src) => {
+    expect(src).toMatch(/'already happened'/);
+  });
+
+  it.each([['events.html', EVENTS], ['event.html', EVENT]])(
+    '%s passes the early-bird re-quote through instead of swallowing it',
+    (_f, src) => {
+      // "The price changed, tap again to continue" tells the buyer exactly
+      // what to do; "contact support@sparkdate.date" does not. Both were
+      // landing in the generic else.
+      expect(src).toMatch(/'early-bird'/);
+    }
+  );
+});
+
+describe('a referred buyer is still referred at the till', () => {
+  it.each(CHECKOUTS)('%s sends the referral id with the purchase', (_f, src) => {
+    // event.html and events.html both CAPTURED ?ref= into localStorage and
+    // then omitted it from the payload, so every referred buyer who converted
+    // on either surface was written with referredBy: null. /lp's own Get
+    // Tickets link carries ref into /events — straight into the surface that
+    // dropped it.
+    expect(src).toMatch(/ref: (readRef\(\)|refOf\(\))/);
+  });
+
+  it('the server reads the field the clients send', () => {
+    expect(PURCHASE).toMatch(/referredBy: ref \|\| null/);
+  });
+});
+
 describe('the buyer is told what happened, on every surface', () => {
+  it.each([['events.html', EVENTS], ['event.html', EVENT]])(
+    '%s reveals the live region before writing into it',
+    (_f, src) => {
+      // A role="alert" node that is display:none is not in the accessibility
+      // tree, so a textContent change made while it is hidden announces
+      // nothing — and revealing it afterwards does not reliably announce
+      // either. This ordering is the whole value of the role.
+      expect(src).toMatch(/errorMsg\.style\.display = 'block';\s*\n\s*errorMsg\.textContent = friendly;/);
+    }
+  );
+
+
   it.each(CHECKOUTS)('%s marks its checkout message as a live region', (_f, src) => {
     // lp.html has had role="alert" on #lpPayMsg all along; the other two had
     // plain divs, sitting above the whole form with the submit button far

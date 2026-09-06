@@ -1431,6 +1431,12 @@
         // server's merge does not blank it. '' for a guest — the form has no
         // phone field. Set by applyUserContext().
         let memberPhone = '';
+        // The referral id, from the URL or from the capture at the top of this
+        // page. Same resolver shape as lp.html's refOf().
+        const readRef = () => {
+            try { return new URLSearchParams(location.search).get('ref') || localStorage.getItem('sparkdate_ref'); }
+            catch (_) { return null; }
+        };
         // True from the moment a purchase is submitted until it settles.
         //
         // The submit handler disables the button, but updatePricing() turns it
@@ -2419,6 +2425,12 @@
                         gender,
                         eventId: evId,
                         plusOne,
+                        // The referral id this visitor arrived with. Captured
+                        // into localStorage at the top of this page but never
+                        // sent, so every referred buyer who converted here was
+                        // written with referredBy: null. lp.html has always
+                        // sent it; the server takes it as `ref`.
+                        ref: readRef(),
                         // Where this buyer originally came from. Read at purchase
                         // rather than at capture so a first-touch ad click still
                         // credits the ad weeks later.
@@ -2478,6 +2490,12 @@
                         gender,
                         eventId: evId,
                         plusOne,
+                        // The referral id this visitor arrived with. Captured
+                        // into localStorage at the top of this page but never
+                        // sent, so every referred buyer who converted here was
+                        // written with referredBy: null. lp.html has always
+                        // sent it; the server takes it as `ref`.
+                        ref: readRef(),
                         // Where this buyer originally came from. Read at purchase
                         // rather than at capture so a first-touch ad click still
                         // credits the ad weeks later.
@@ -2558,10 +2576,11 @@
                 // have echoed the address and pluralised all along; this is
                 // the wording from events.html, verbatim, so the three read
                 // the same after the same purchase.
+                // Reveal before writing, same reason as the error path below.
+                successMsg.style.display = 'block';
                 successMsg.textContent = (result.alreadyConfirmed && !authedThisSubmit)
                     ? "You already have a ticket for this event — we haven't charged you again. Bringing someone? Use the +1 option instead."
                     : `We emailed your ${plusOne ? 'tickets' : 'ticket'} to ${email}. Bring nothing but yourself.`;
-                successMsg.style.display = 'block';
 
                 // Take the form away. This page was the only one of the three
                 // that left a live, priced Reserve button on screen after a
@@ -2729,9 +2748,26 @@
                 } else if (msg.includes('enter your name')) {
                     friendly = err.message;
                     category = 'name_missing';
-                } else if (msg.includes('limit') || msg.includes('full on') || msg.includes('event is full')) {
+                } else if (msg.includes('limit') || msg.includes('full on') || msg.includes('event full') || msg.includes('event is full') || msg.includes('already happened')) {
+                    // 'event full' is the string the SERVER actually sends:
+                    // api/purchase-ticket.js answers a sold-out 409 with
+                    // { error: 'Event full' }. This chain matched 'full on'
+                    // and 'event is full' — neither of which the server has
+                    // ever sent — so the one capacity error that really fires
+                    // fell through to "contact support@sparkdate.date" and was
+                    // logged to GA4 as category 'other'. lp.html has had the
+                    // right matcher all along. 'already happened' is the 410
+                    // for a finished event.
                     friendly = err.message; // capacity/limit messages are already user-friendly
                     category = 'capacity';
+                } else if (msg.includes('early-bird') || msg.includes('+1')) {
+                    // The early-bird re-quote ("the price changed, tap again")
+                    // and the blank-+1 message are both already written for the
+                    // buyer, and both were being swallowed by the generic
+                    // else. They tell someone exactly what to do next; the
+                    // support address does not.
+                    friendly = err.message;
+                    category = 'other';
                 } else if (msg.includes('declin')) {
                     friendly = 'Your card was declined. Please try a different payment method.';
                     category = 'card_declined';
@@ -2750,8 +2786,16 @@
                 // can show which specific checkout field is costing conversions
                 // without needing a separate validation-error event per field.
                 gtag('event', 'checkout_error', { in_app_browser: isInAppBrowser(), category, source: 'event', reason: msg.slice(0, 100) });
-                errorMsg.textContent = friendly;
+                // Show FIRST, then write. A role="alert" node that is
+                // display:none is not in the accessibility tree, so a
+                // textContent change made while it is hidden is a change to
+                // something the screen reader cannot see — and revealing it
+                // afterwards does not reliably announce anything. Reveal, then
+                // change the content, so the change happens to a live region
+                // that is actually live. lp.html has always written into a
+                // node that was never display:none.
                 errorMsg.style.display = 'block';
+                errorMsg.textContent = friendly;
                 // The gender buttons are the top of a long form and the error
                 // renders above them, so on a phone the buyer can be told
                 // "choose Woman or Man" with neither the message nor the

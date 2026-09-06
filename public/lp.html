@@ -1536,7 +1536,7 @@
             var m = ((err && err.message) || '').toLowerCase(), friendly, category;
             if (m.indexOf('choose woman') !== -1) { friendly = err.message; category = 'gender_missing'; }
             else if (m.indexOf('enter your name') !== -1) { friendly = err.message; category = 'name_missing'; }
-            else if (m.indexOf('limit') !== -1 || m.indexOf('full on') !== -1 || m.indexOf('event full') !== -1 || m.indexOf('event is full') !== -1) { friendly = err.message; category = 'capacity'; }
+            else if (m.indexOf('limit') !== -1 || m.indexOf('full on') !== -1 || m.indexOf('event full') !== -1 || m.indexOf('event is full') !== -1 || m.indexOf('already happened') !== -1) { friendly = err.message; category = 'capacity'; }
             else if (m.indexOf('declin') !== -1) { friendly = 'Your card was declined. Please try a different payment method.'; category = 'card_declined'; }
             else if (m.indexOf('still loading') !== -1) { friendly = err.message; category = 'network'; }
             else if (m.indexOf('network') !== -1) { friendly = 'Network error. Please check your connection and try again.'; category = 'network'; }
