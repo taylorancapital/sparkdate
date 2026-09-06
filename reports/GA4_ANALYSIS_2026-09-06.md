@@ -29,12 +29,16 @@ derived figures (Google Ads "last 7 closed days" spend) is contradicted by the
 underlying daily CSV and is called out and corrected in §6 below rather than
 trusted.
 
-**Continuity note.** The most recent *merged* report on `origin/main` is
-`GA4_ANALYSIS_2026-09-04.md`. PR #449 (`claude/nightly-ga4-2026-09-05`) ran the
-night after that but is still open, unmerged. I read it anyway for continuity
-— its headline (Loxleys reading zero in GA4 against a Firestore-derived 5.75
-ROAS) is directly addressed by same-day commits below and should not be acted
-on as written; see HEADLINE.
+**Continuity note.** The most recent *merged* nightly report on `origin/main`
+is `GA4_ANALYSIS_2026-09-04.md`. PR #449 (`claude/nightly-ga4-2026-09-05`) ran
+the night after that but is still open, unmerged. I read it anyway for
+continuity — its headline (Loxleys reading zero in GA4 against a
+Firestore-derived 5.75 ROAS) is directly addressed by same-day commits below
+and should not be acted on as written; see HEADLINE. **A separate, merged
+report — `reports/GA4_DEEP_READ_2026-09-06.md` (PR #455) — ran against this
+exact same pull earlier today** and closed one item this report initially
+got wrong by not reading it; corrected in place, see UTM AND TAGGING GAPS §4
+and NEEDS TAYLOR INPUT.
 
 ---
 
@@ -100,9 +104,12 @@ below), and **Paid Social is both the largest channel by far and the worst
 meaningful converter** (3,078 sessions, 0.8%). Note also: a custom GA4 Channel
 Group shipped *today* (commit `a3f78cb5`, 17:35 ET, after this 06:12 UTC pull)
 moves `medium=listing` traffic out of Unassigned into its own group — Taylor's
-own investigation there measured 123 sessions / $97.96 moving. Tonight's pull
-predates that change; expect Unassigned to shrink and a new listings-labeled
-row to appear starting with tomorrow's pull. Not a finding of mine — flagging
+own investigation there measured 123 sessions / $97.96 moving. This is the
+same decision `GA4_DEEP_READ_2026-09-06.md`'s §6 flagged as a Taylor call
+("decide whether `utm_medium=listing` keeps hiding the best channel") — also
+now closed, same day. Tonight's pull predates that change; expect Unassigned
+to shrink and a new listings-labeled row to appear starting with tomorrow's
+pull. Not a finding of mine — flagging
 so the shift isn't mistaken for demand movement.
 
 ### Top 15 source/medium (window-wide)
@@ -321,17 +328,31 @@ not a live action item.
 from an archived June ad, documented in `META_ADS_REVIEW_2026-09-02.md` — not
 reopening it.
 
-### 4. Obfuscated tags — the scrambled email string, third time
+### 4. Obfuscated tags — CLOSED 2026-09-06, corrected below (this report got it wrong on first write)
 
 | raw | decoded | sessions | key events | revenue |
 | --- | --- | ---: | ---: | ---: |
 | `Ybadbfgfe \| Zbfgfe Yvfg / email` | `Lancaster \| Master List / email` | 129 | 0 | $0.00 |
+| `Lancaster \| Master List / email` (plaintext twin) | — | 7 | 0 | $0.00 |
 
-Same 129 sessions, same 2026-09-03 date, same $0 result as the 09-04 and 09-05
-reports — this is the identical historical batch, not a new occurrence
-recurring weekly (my "recent week" bucket happens to include 09-03, which is
-why it shows up in this report's weekly deltas too). See NEEDS TAYLOR INPUT
-(3rd ask).
+**Correction, added after Taylor flagged it in review.** The first version of
+this report repeated a framing error PR #449 had already made twice —
+calling this "the scrambled email UTM string, 3rd ask" and asking someone to
+check "the email platform's send history." That framing was wrong, and it was
+already known to be wrong: `reports/GA4_DEEP_READ_2026-09-06.md` (merged the
+same day this pull was taken, via PR #455) had already decoded the cipher
+(`a`–`f` shift +1, `g`–`z` ROT13), identified `Lancaster | Master List` as
+**LNP | LancasterOnline's Evvnt-powered events newsletter** (both SparkDate
+events submitted 2026-09-02, newsletter sent 09-03), and found the real
+defect — both events' listing links were broken, which is why the 129-session
+obfuscated row fired zero `view_item` while its own 7-session plaintext twin
+(the same channel, split across two GA4 rows — 136 sessions combined, not
+129) fired 6. `HANDOFF.md`'s same-day entry says this ask was **CLOSED**, and
+Taylor's fix — pasting the `/l/lx-lancasteronline` and `/l/mc-lancasteronline`
+short-links into the two Evvnt listings — was already live before this report
+was even written. **This report should have said so from the start; it did
+not because it never read `HANDOFF.md`.** No action needed from Taylor on
+this — see NEEDS TAYLOR INPUT below, now empty.
 
 ### 5. Campaigns spending sessions and returning nothing (≥20 sessions, 0 key events)
 
@@ -433,7 +454,7 @@ sample to read a rate from regardless (§12).
 | --- | --- | ---: | --- | ---: | ---: |
 | /lp | facebook / paid_social | 419 | googleads / paid | 56 | 51 |
 | /lp | fb / paid_social | 191 | googleads / paid | 56 | 51 |
-| /event | scrambled email row | 129 | eventbrite / listing | 90 | 22 |
+| /event | LancasterOnline listing (broken link, now fixed) | 129 | eventbrite / listing | 90 | 22 |
 | /admin | lp / (not set) | 106 | facebook / paid_social | 13 | 5 |
 
 This is the same conclusion prior reports reached: `/lp`'s CTA has already
@@ -474,18 +495,20 @@ documented 2-for-1 item-count effect (#205), not a new discrepancy. Coverage:
 
 ## NEEDS TAYLOR INPUT
 
-1. **The scrambled email UTM string** (`Ybadbfgfe | Zbfgfe Yvfg / email`, 129
-   sessions, all dated 2026-09-03, $0 conversions) needs someone with the
-   email platform's send history to identify which campaign this was and fix
-   the merge-tag failure at the source. I can see the GA4 symptom, not the
-   email-vendor side. **(3rd ask — 1st on 09-04, 2nd on 09-05/PR #449, still
-   unresolved.)**
+**None tonight.** This report initially listed the "scrambled email UTM
+string" here as a 3rd ask needing email-platform access. That was wrong and
+has been corrected in place (see UTM AND TAGGING GAPS §4 above) — it was
+never an email-platform problem, it was a broken link on the LancasterOnline
+Evvnt listing, already diagnosed in `reports/GA4_DEEP_READ_2026-09-06.md` and
+already fixed by Taylor before this report was written. Re-check in a week
+whether `lancasteronline / listing` shows non-zero `view_item`; that check
+needs no one's input, it just needs the next report to look.
 
-Nothing else tonight rises to a judgment call. `ANALYTICS_CONTEXT.md` §3b was
-checked in full: internal-traffic filter, `ads_conversion_About_Us_1`, Google
-Ads (reconfirmed dark, see ALSO #2), and Marion Court's keep-as-configured
-decision all stay settled — the new Marion Court Sales campaign is a factual
-update to that item, not a reopening of the decision itself.
+`ANALYTICS_CONTEXT.md` §3b was checked in full: internal-traffic filter,
+`ads_conversion_About_Us_1`, Google Ads (reconfirmed dark, see ALSO #2), and
+Marion Court's keep-as-configured decision all stay settled — the new Marion
+Court Sales campaign is a factual update to that item, not a reopening of the
+decision itself.
 
 ---
 
