@@ -292,6 +292,24 @@ describe('the buyer is told what happened, on every surface', () => {
   });
 });
 
+describe('the checkout dialog keeps the promise aria-modal makes', () => {
+  it('marks the page behind it inert while it is open, and only while', () => {
+    // aria-modal="true" says the rest of the page is not there. Nothing
+    // enforced it: Tab from the last checkout field walked into the footer
+    // and the whole events grid, and a screen reader could read all of it.
+    expect(EVENTS).toMatch(/function setBackgroundInert\(on\)/);
+    expect(EVENTS).toMatch(/setBackgroundInert\(true\);/);
+    expect(EVENTS).toMatch(/setBackgroundInert\(false\);/);
+    // The backdrop itself must never be inerted, or the dialog goes with it.
+    expect(EVENTS).toMatch(/if \(el === backdrop\) return;/);
+  });
+
+  it('wraps Tab inside the dialog for browsers without inert', () => {
+    expect(EVENTS).toMatch(/e\.key !== 'Tab'/);
+    expect(EVENTS).toMatch(/e\.shiftKey && document\.activeElement === first/);
+  });
+});
+
 describe('the gender radiogroup behaves like a radiogroup', () => {
   it.each(CHECKOUTS)('%s marks the group required', (_f, src) => {
     // It declared role="radiogroup" and then read as an optional field.

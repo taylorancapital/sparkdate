@@ -2228,6 +2228,7 @@
                 gtag('event', 'checkout_form_started', { skipped_details: true });
             }
             document.getElementById('eventModalBackdrop').classList.add('show');
+            setBackgroundInert(true);
             // Move focus into the dialog (the close button — always present
             // and keyboard-reachable regardless of which step is active) so
             // a keyboard/screen-reader user isn't left focused on a card
@@ -2255,9 +2256,30 @@
             }
         }
 
+        // aria-modal="true" is a PROMISE that the rest of the page is not
+        // there. Nothing was enforcing it: Tab from the last checkout field
+        // walked straight out of the dialog into the footer and the whole
+        // events grid behind the backdrop, and a screen reader could read all
+        // of it. `inert` makes the background genuinely unreachable — focus,
+        // clicks and the accessibility tree in one attribute — and the Tab
+        // wrap below covers browsers that do not support it yet.
+        //
+        // Applied to body's direct children rather than a named wrapper so it
+        // cannot silently miss a section someone adds later. The backdrop
+        // itself is skipped, obviously.
+        function setBackgroundInert(on) {
+            const backdrop = document.getElementById('eventModalBackdrop');
+            [...document.body.children].forEach((el) => {
+                if (el === backdrop) return;
+                if (on) el.setAttribute('inert', '');
+                else el.removeAttribute('inert');
+            });
+        }
+
         function closeEventDialog(opts) {
             opts = opts || {};
             if (dialogPaying) return; // never close mid-payment — see the submit handler
+            setBackgroundInert(false);
             document.getElementById('eventModalBackdrop').classList.remove('show');
             dialogEventId = null;
             if (!opts.fromPopstate) {
@@ -2293,6 +2315,21 @@
         });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !dialogPaying && document.getElementById('eventModalBackdrop').classList.contains('show')) closeEventDialog();
+            // Tab containment, for browsers without `inert`. Wraps from the
+            // last focusable element in the dialog back to the first, and from
+            // the first backwards to the last, so focus cannot leave.
+            if (e.key !== 'Tab') return;
+            if (!document.getElementById('eventModalBackdrop').classList.contains('show')) return;
+            const modal = document.getElementById('eventModal');
+            const focusable = [...modal.querySelectorAll(
+                'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )].filter((el) => el.offsetParent !== null || el === document.activeElement);
+            if (!focusable.length) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+            else if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
         });
         document.getElementById('eventsGrid').addEventListener('click', (e) => {
             const card = e.target.closest('[data-event-id]');
