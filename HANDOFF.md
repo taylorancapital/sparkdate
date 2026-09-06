@@ -36,6 +36,34 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **`paid_template` (content/brand.json) builds the wrong campaign shape if run
+  today, and it is flagged in three places, not fixed.**
+  `reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md`'s playbook (§8) found
+  OUTCOME_TRAFFIC produced zero purchases across $740.23 lifetime spend and
+  that heavier women-targeted ad spend correlates with a WORSE actual women's
+  ticket share, plus a live delivery failure independent of that correlation —
+  Marion Court's women-only ad set is spending ~4% of its assigned budget.
+  Every campaign actually running was built or rebuilt by hand to
+  OUTCOME_SALES with broad targeting, bypassing `scripts/build-paid-
+  campaign.js` entirely — the template it reads (`campaign.objective:
+  OUTCOME_TRAFFIC`, female/male ad sets) was never updated to match. Flagged
+  with an `_objective_and_gender_status` note in `brand.json`, a matching
+  comment at the top of `build-paid-campaign.js`, and a cross-reference in
+  `content/paid-campaigns.json` — none of it is fixed, on purpose: the script
+  calls the live Marketing API with no offline test coverage, and rushing that
+  rewrite in the same pass as a PR-merge session was a worse risk than
+  documenting the gap clearly. **Next step, before Tellus Oct 6 or any future
+  event uses this script:** update `paid_template.campaign` (objective ->
+  OUTCOME_SALES, optimization_goal -> OFFSITE_CONVERSIONS with a
+  `promoted_object`), collapse `ad_sets` to one broad ad set plus retargeting,
+  and decide whether retargeting becomes its own campaign
+  (`content/paid-campaigns.json`'s `share` field already supports that shape)
+  or stays a same-campaign ad set as today. Also unreconciled, smaller: the
+  playbook's 73%/37% final-14/7-day sales-curve figures were cut across all 6
+  events including 2 still selling, while `paid_template._measured`
+  deliberately used only the 2 completed events to avoid exactly that
+  censoring bias — both currently read close (73% vs ~76%) but were never
+  formally cross-checked. *(09-06)*
 - **`status: 'full'` is a SOFT close — answered and shipped, do not re-raise.**
   Taylor, 09-06: *"I'd like it to be soft close, a lot of these venues could
   utilize more people."* The flag means stop advertising, not refuse money. The

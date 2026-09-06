@@ -15,6 +15,23 @@
  *
  * paid_template is the source of truth. This script is the thing that reads it.
  *
+ * PAID_TEMPLATE IS STALE AGAINST WHAT THE ACCOUNT NOW PROVES (flagged 2026-09-06)
+ *
+ * The template below still builds an OUTCOME_TRAFFIC campaign with female/male
+ * ad sets. reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md found OUTCOME_TRAFFIC
+ * produced ZERO purchases across $740.23 lifetime spend, and that heavier
+ * women-targeted spend correlates with a WORSE actual women's ticket share --
+ * plus a live, independent delivery failure (a women-only ad set spending ~4%
+ * of its assigned budget). Every campaign currently running was built or
+ * rebuilt by hand to OUTCOME_SALES with a single broad ad set, bypassing this
+ * script entirely. Full spec: that report's section 8. Do NOT run this script
+ * against a real event until content/brand.json's paid_template.campaign and
+ * paid_template.ad_sets are updated to match -- see
+ * content/brand.json's own `_objective_and_gender_status` note. Not rewritten
+ * here: this script calls the live Marketing API with no offline test
+ * coverage, and a rushed structural change to it is a worse risk than leaving
+ * this flag. HANDOFF.md, 2026-09-06, carries the next-step entry.
+ *
  * THE SPEND CURVE IS MEASURED, NOT ASSUMED
  *
  * 73% of tickets sell in the final 14 days (n=51, two COMPLETED events -- events
