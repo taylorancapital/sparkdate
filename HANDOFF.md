@@ -149,19 +149,26 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   itself** — the figure is live in an open PR body until he does. The general
   rule is memory `meta-attribution-is-not-sales`. *(09-05, updated 09-06)*
 - **The "scrambled email UTM" ask is CLOSED — it was never an email-platform
-  problem.** PR #449 escalated it twice as needing someone with the email
-  vendor's send history. It decodes with a one-line cipher (a–f shift +1, g–z
-  ROT13) to `Lancaster | Master List / email` — LNP | LancasterOnline's events
-  newsletter, powered by Evvnt, where Taylor submitted both events on 09-02.
-  GA4 carries the SAME channel twice, obfuscated (129 sessions) and plaintext
-  (7): the 129 fired **zero** `view_item`, the 7 fired 6 and opened checkout 6
-  times. The link is broken, not the audience. **Next concrete step, Taylor's
-  and about two minutes: in the Evvnt dashboard set each event's ticket URL to
-  its path-only short link — `sparkdate.date/l/lx-lancasteronline` and
-  `/l/mc-lancasteronline`, both verified live and 307ing correctly today.** A
-  path-only link has no query string for a publisher to mangle. Re-check in a
-  week: `lancasteronline / listing` should show non-zero `view_item`. Full
-  working: `reports/GA4_DEEP_READ_2026-09-06.md`. *(09-06)*
+  problem, and the report that closed it 404'd its own fix.** PR #449
+  escalated it twice as needing the email vendor's send history. It decodes
+  with a one-line cipher (a–f shift +1, g–z ROT13) to `Lancaster | Master
+  List / email` — LNP | LancasterOnline's events newsletter, powered by
+  Evvnt, where Taylor submitted both events on 09-02. GA4 carries the SAME
+  channel twice, obfuscated (129 sessions) and plaintext (7): the 129 fired
+  **zero** `view_item`, the 7 fired 6. **Taylor's fix, in the Evvnt
+  dashboard: set each event's ticket URL to `sparkdate.date/l/lx-
+  lancasteronline` and `/l/mc-lancasteronline`.** Those two links work —
+  confirmed by loading each and reading the event title/date/venue/price out
+  of the DOM, not just a `curl` 200 (see memory
+  `lancasteronline-is-the-biggest-free-channel` for why a 200 alone doesn't
+  prove it on this site). **What went wrong first:** the report printed each
+  link with its destination on the next line starting `->`; copying both
+  lines together mangles the URL into something the router correctly 404s.
+  Taylor hit exactly this. Fixed in `reports/GA4_DEEP_READ_2026-09-06.md` and
+  its artifact (commit `e6cc9513`, merged via #455) — the links now stand
+  alone with an explicit warning not to paste the destination alongside them.
+  Re-check in a week: `lancasteronline / listing` should show non-zero
+  `view_item`. *(09-06)*
 - **The nightly's depth problem is fixed in code, not in exhortation, and the
   first run under the new rules is tonight's 02:00.** Taylor, 09-06: the reports
   "are basically half a page and they really don't have great insights" — no
@@ -174,6 +181,23 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   the 09-07 nightly PR and check the ledger says 46/46 and the body carries
   numbers.** If a run skips the script, that is the thing to fix, not the prose.
   *(09-06)*
+- **D3 is fixed: GA4 now has a Channel Group so `medium=listing` stops
+  filing under Unassigned. Nothing left to do.** `reports/GA4_DEEP_READ_2026-
+  09-06.md` flagged it as Taylor's call — `content/listing-sites.json`
+  deliberately rejected `referral` as the medium (GA4 auto-assigns `referral`
+  to any uncontrolled inbound link, so a hand-tagged listing would drown in
+  it), which is exactly why GA4's Default Channel Group has no rule for
+  `listing` and dumps it all into Unassigned. Taylor: "you do this." Built
+  and saved live in GA4 Admin → Data display → Channel groups: **"SparkDate
+  Channels"** — a copy of Default Channel Group plus one new rule, `Event
+  Listings` = Session medium exactly matches `listing`. Confirmed against
+  real data: the Traffic acquisition report, both groupings side by side,
+  splits the old 283-session Unassigned bucket into 160 still-Unassigned and
+  **123 sessions / $97.96 (16.91% of all revenue) now labeled "Event
+  Listings."** This only changes GA4's own native reports —
+  `ga4-nightly-summary.js` already parsed `eventbrite/listing` straight from
+  source+medium and is unaffected. Data API dimension name for reference:
+  `sessionCustomChannelGroupingSlot01`. *(09-06)*
 - **Two Loxleys Traffic campaigns exist and only one carries the Single
   filter.** Pulled live 09-04 20:15: `Loxleys | Traffic` (`120251085229290542`)
   is ACTIVE at $3/day with **no `flexible_spec`**, while `Loxley's | Traffic`
