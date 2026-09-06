@@ -104,7 +104,37 @@ file may stack several tables, each with its own `# ` title. Column names vary
 by table, so read the real headers. Do NOT move, rename, edit, or delete any
 source file.
 
-## 3. Analyse
+## 3. Compute the standing summary FIRST — do not hand-derive it
+
+Run this before you read a single CSV by hand:
+
+    node scripts/ga4-nightly-summary.js
+
+It is zero-dependency (no `node_modules` needed, by design) and reads the pull
+by absolute path, so it works from the nightly clone, a worktree, or the main
+checkout. `--date YYYY-MM-DD` picks an older pull; `--dir` overrides the
+location.
+
+It computes, from all 46 tables: traffic by day / channel / source / device /
+geo, two disjoint closed 7-day buckets, every event and every key event,
+revenue and item sale dates, funnels by channel / device / landing page /
+webview, checkout errors, Google Ads, the full UTM-defect inventory, and a
+**coverage ledger naming every table and whether it was used.**
+
+**Its output is the FLOOR of the report, not the ceiling.** You are not
+finished when you have pasted it; you are finished when you have explained it.
+It exists because the numbers kept being skipped, not because the analysis can
+be automated. It also handles, once and correctly, the arithmetic that has
+produced wrong reports here before — the two non-final days, rolling windows,
+`Grand total` rows swept into sums, and `view_item`/`begin_checkout`/
+`add_to_cart`/`add_payment_info` appearing in the key-events table with a
+**zero** key-event count (they are funnel steps, NOT conversions; only
+`purchase`, `generate_lead` and `ads_conversion_About_Us_1` are key events).
+
+If the script errors, say so in the report and fall back to reading by hand —
+but say which numbers you derived yourself.
+
+## 4. Analyse
 
 The goal is TICKET SALES, not signups. Tie every claim to a number and to the
 file it came from.
@@ -115,19 +145,26 @@ file it came from.
 - Which pages and channels get real traffic but underperform on engagement or
   conversion? For each, open the page source in `public/` and form a specific
   hypothesis: CTA, message mismatch against the source, no visible path to
-  `/event`, a device-specific problem.
+  `/event`, a device-specific problem. **Use the landing-page × source
+  cross-tab**: when one source converts on a page and another does not, the
+  page is not the explanation and you must say what is.
 - Which channels and landing pages actually convert, and does the site make
   the most of them?
 - Any page with meaningful traffic whose only conversion path is a newsletter
   signup: flag it.
 - Meta: spend and results by campaign for the week. No week-over-week
-  comparison when the two pulls overlap (ANALYTICS_METHOD §9).
+  comparison when the two pulls overlap (ANALYTICS_METHOD §9). Meta's
+  attributed conversions are NOT sales — it sees roughly 11% of real tickets.
+  **Before crediting any campaign with a sale, check the item's sale DATES in
+  the standing summary against the date the ads started.** A campaign cannot
+  have sold a ticket bought before it existed; that exact error put a spurious
+  "best ROAS on the account" headline on PR #449.
 - Additivity: do the by-source tables sum to the daily trend, does revenue
   close across tables? Report what closes and what does not.
 
 Never present GA4 revenue as business revenue (§7). Never invent a number.
 
-## 4. Write the report, and nothing else
+## 5. Write the report, and nothing else
 
 Create exactly one file: `reports/GA4_ANALYSIS_<YYYY-MM-DD>.md`, dated today
 in America/New_York. Do not touch any other file in the repo. Every fix you
@@ -138,15 +175,40 @@ Shape, in this order:
 1. First paragraph: "This run made ZERO code changes", the staleness sentence,
    and the data provenance (window and pull time from the header, Meta file).
 2. **HEADLINE.** The one thing that matters most, with the evidence.
-3. **ALSO IN THE REPORT.** The rest, ranked.
-4. **NEEDS TAYLOR INPUT.** Judgment calls: copy, layout, pricing-adjacent,
+3. **TRAFFIC — standing section, never omitted.** Sessions, users and new users
+   for the two disjoint closed weeks with the change; the channel table; the top
+   15 sources with conversion rate and revenue; device and geography. Two
+   sentences of reading per table, not just the table.
+4. **EVENTS — standing section, never omitted.** Every event with its count,
+   which are key events, what each channel actually produces, and what moved.
+5. **UTM AND TAGGING GAPS — standing section, never omitted.** The defect
+   inventory from the summary script, ranked by sessions affected, each with the
+   fix and who can make it. This section is a worklist, not an observation.
+   Fragmentation, internal self-referral tagging, broken/placeholder values,
+   obfuscated third-party tags, dead campaigns, shared `utm_content`.
+6. **ALSO IN THE REPORT.** The rest, ranked.
+7. **NEEDS TAYLOR INPUT.** Judgment calls: copy, layout, pricing-adjacent,
    brand voice, anything legal-sensitive. Each with the number that justifies
    it and what to re-check in a week. Mark repeat asks "(2nd ask)" and so on.
-   Never re-ask anything §3b calls settled.
-5. **Zero-risk fixes, described and not applied.**
-6. **Caveats.** Which ANALYTICS_METHOD sections shaped what you did not say.
+   Never re-ask anything §3b calls settled. **An item only belongs here if
+   Taylor is genuinely the only person who can act on it.** Before adding one,
+   try to resolve it yourself: a third-party tag can be decoded, a vendor can be
+   identified from the account's own mail, a listing URL can be read from the
+   live listing. An ask that repeats without new evidence is not a finding, it
+   is an unpaid debt — retire it or advance it.
+8. **Zero-risk fixes, described and not applied.**
+9. **Caveats.** Which ANALYTICS_METHOD sections shaped what you did not say,
+   and a "What I did not verify" list.
+10. **Coverage.** Paste the ledger's verdict line. If any table is unread,
+    name it and say in one clause why it held nothing tonight. "Skimmed, nothing
+    alarming" is not an acceptable entry for any table.
 
-## 5. Commit, with a PR-quality message
+**On length.** The pull is 46 tables; a half-page report is a failure of the
+run, not a tidy summary. There is no upper bound and no reward for brevity
+here — Taylor's standing complaint is that these reports are too thin to act
+on. Depth means numbers and mechanisms, not more adjectives.
+
+## 6. Commit, with a PR-quality message
 
 The commit message becomes the PR title and body verbatim, so write it for
 Taylor reading at 7 AM:
@@ -157,6 +219,19 @@ Taylor reading at 7 AM:
 - Body: one plain-English paragraph first, then HEADLINE, ALSO, NEEDS TAYLOR
   INPUT and RETIRED sections in prose, and the line "Report only, no code
   changed."
+- **The body must also carry a three-line NUMBERS block**, because the PR body
+  is what actually gets read and it has been arriving with no numbers in it at
+  all:
+
+      TRAFFIC: <sessions> sessions / <users> users this closed week vs
+               <sessions> / <users> the week before; best channel <name> at
+               <conv rate>; worst <name> at <conv rate>.
+      EVENTS:  <n> key events (<purchase count> purchases, <lead count> leads);
+               biggest funnel loss <n> users at <step>.
+      UTM:     <n> sessions mis-tagged across <n> defects; largest is <name>.
+
+  Fill every angle bracket from the standing summary. A PR body that states no
+  number is not a report of a 46-table pull.
 
 Write the message to a file and commit with `git commit -F`. Stage ONLY the
 report with `git add reports/GA4_ANALYSIS_<date>.md`. Then verify, and print

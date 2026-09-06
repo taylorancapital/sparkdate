@@ -121,10 +121,38 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 - **The 09-05 nightly (PR #449) credits Loxleys with 5.75 ROAS, "best in the
   account", and it is spurious.** The Loxleys ads went live 08-30; all four of
   its paid tickets were bought 08-14 to 08-24, before any ad existed. Since the
-  ads started: $18 spent, 183 clicks, zero tickets. **Next step: correct or
-  close that PR before the figure gets cited.** The general rule went to memory
-  `meta-attribution-is-not-sales` — check TIMING before crediting ads, and
-  never read Meta's attributed conversions as sales. *(09-05)*
+  ads started: $18 spent, 183 clicks, zero tickets. **The correction is now
+  written down** — `reports/GA4_DEEP_READ_2026-09-06.md` §9, and the standing
+  summary prints per-item SALE DATES next to any ad-credit claim so it cannot
+  recur silently. **Next step is still Taylor's: close or correct PR #449
+  itself** — the figure is live in an open PR body until he does. The general
+  rule is memory `meta-attribution-is-not-sales`. *(09-05, updated 09-06)*
+- **The "scrambled email UTM" ask is CLOSED — it was never an email-platform
+  problem.** PR #449 escalated it twice as needing someone with the email
+  vendor's send history. It decodes with a one-line cipher (a–f shift +1, g–z
+  ROT13) to `Lancaster | Master List / email` — LNP | LancasterOnline's events
+  newsletter, powered by Evvnt, where Taylor submitted both events on 09-02.
+  GA4 carries the SAME channel twice, obfuscated (129 sessions) and plaintext
+  (7): the 129 fired **zero** `view_item`, the 7 fired 6 and opened checkout 6
+  times. The link is broken, not the audience. **Next concrete step, Taylor's
+  and about two minutes: in the Evvnt dashboard set each event's ticket URL to
+  its path-only short link — `sparkdate.date/l/lx-lancasteronline` and
+  `/l/mc-lancasteronline`, both verified live and 307ing correctly today.** A
+  path-only link has no query string for a publisher to mangle. Re-check in a
+  week: `lancasteronline / listing` should show non-zero `view_item`. Full
+  working: `reports/GA4_DEEP_READ_2026-09-06.md`. *(09-06)*
+- **The nightly's depth problem is fixed in code, not in exhortation, and the
+  first run under the new rules is tonight's 02:00.** Taylor, 09-06: the reports
+  "are basically half a page and they really don't have great insights" — no
+  traffic summary, no events summary, nothing on UTM gaps, against 46 tables
+  pulled nightly (the 09-05 report read ~15 and named seven more as "skimmed").
+  `scripts/ga4-nightly-summary.js` now computes the standing floor and prints a
+  **coverage ledger naming every table and whether it was used**;
+  `.claude/commands/nightly-ga4.md` makes TRAFFIC / EVENTS / UTM GAPS
+  non-omittable and requires a numbers block in the PR body. **Next step: read
+  the 09-07 nightly PR and check the ledger says 46/46 and the body carries
+  numbers.** If a run skips the script, that is the thing to fix, not the prose.
+  *(09-06)*
 - **Two Loxleys Traffic campaigns exist and only one carries the Single
   filter.** Pulled live 09-04 20:15: `Loxleys | Traffic` (`120251085229290542`)
   is ACTIVE at $3/day with **no `flexible_spec`**, while `Loxley's | Traffic`
