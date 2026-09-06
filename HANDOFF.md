@@ -36,15 +36,17 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **One line in PR #456 is Taylor's call, not a code question: the purchase
-  endpoint now refuses `status: 'full'`.** All three checkout surfaces already
-  treat that flag as closed, so the server accepting a sale for an event every
-  page shows as closed was a real hole — but **nothing in the repo writes the
-  flag**, it is hand-set in Firestore, so its meaning is convention. If it has
-  ever been used as a soft "stop advertising" label while door or manual sales
-  continued, this converts it into a hard block, including for a 2-for-1 comped
-  +1 (same endpoint, same transaction). **Next step: Taylor says which it means;
-  one line reverts it if soft.** Working: `reports/CHECKOUT_PARITY_AUDIT_2026-09-06.md`. *(09-06)*
+- **`status: 'full'` is a SOFT close — answered and shipped, do not re-raise.**
+  Taylor, 09-06: *"I'd like it to be soft close, a lot of these venues could
+  utilize more people."* The flag means stop advertising, not refuse money. The
+  three client surfaces honour it (off the grid, checkout swapped for the
+  waitlist, `/api/next-event` stops promoting); the purchase endpoint
+  deliberately does NOT, so a direct link, a stale tab or a host putting a
+  walk-up through still completes. A hard block was written in #456 and reverted
+  before it shipped, and a test now pins its absence so a later parity pass
+  cannot re-add it. A hard close, if ever wanted, needs its own flag
+  (`status: 'closed'`) so the soft one keeps working. Capacity is still enforced
+  server-side and remains the real backstop. *(09-06)*
 - **The #453 audit's queue is closed but not empty.** All 100 findings that had
   never been checked now have a verify verdict (52 confirmed, 43 rejected, 5
   split), but the usage limit cut the second adversarial lens short on the last

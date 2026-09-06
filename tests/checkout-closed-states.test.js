@@ -67,16 +67,26 @@ describe("the host's manual `status: 'full'` flag closes every surface", () => {
     expect(EVENT).toMatch(/const soldOut = ev\.status === 'full' \|\| remaining <= 0;/);
   });
 
-  it('the purchase endpoint refuses it too, so three client files are not the only guard', () => {
-    // A stale tab, a back-button, or a direct POST reached a real Stripe
-    // charge on an event all three pages were already showing as closed.
-    expect(PURCHASE).toMatch(/if \(e\.status === 'full'\)/);
-    // Inside the reservation transaction, before any seat maths.
-    const flag = PURCHASE.search(/if \(e\.status === 'full'\)/);
-    const capacity = PURCHASE.search(/const cap\s+= Number\(e\[capField\]/);
-    expect(flag).toBeGreaterThan(-1);
-    expect(capacity).toBeGreaterThan(-1);
-    expect(flag).toBeLessThan(capacity);
+  it('the purchase endpoint does NOT enforce it — the flag is a soft close', () => {
+    // Taylor's call, 2026-09-06: "I'd like it to be soft close, a lot of these
+    // venues could utilize more people." The flag means stop advertising, not
+    // refuse money. The clients take the event off the grid and swap in the
+    // waitlist; a sale that still reaches the endpoint — a direct link someone
+    // already holds, a tab opened before the flag went on, a walk-up the host
+    // is putting through — goes through.
+    //
+    // A hard block was written here and reverted before it shipped. This test
+    // exists so it cannot come back by way of a future parity pass "finishing
+    // the job".
+    expect(PURCHASE).not.toMatch(/if \(e\.status === 'full'\)/);
+    expect(PURCHASE).toMatch(/soft close/i);
+  });
+
+  it('capacity is still enforced server-side, which is the real backstop', () => {
+    // Soft-closing the flag does not mean the endpoint will oversell: an event
+    // genuinely out of seats is still refused on the numbers.
+    expect(PURCHASE).toMatch(/if \(current \+ count > cap\)/);
+    expect(PURCHASE).toMatch(/error: 'Event full'/);
   });
 });
 

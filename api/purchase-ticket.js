@@ -652,19 +652,25 @@ module.exports = async function handler(req, res) {
         if (!snap.exists) throw new Error('Event vanished mid-purchase');
         const e = snap.data();
 
-        // The host can close an event by hand with `status: 'full'`, whatever
-        // the seat counters say. Every client surface refuses to sell one --
-        // events.html `isSoldOut`, lp.html `coSellable`, and now event.html's
-        // `updateEventTag` -- but the server never checked, so the only guard
-        // was three hand-copied client files agreeing. A stale tab, a
-        // back-button, or a direct POST completed a real Stripe charge on an
-        // event all three pages were already showing as closed. Same 409 the
-        // capacity checks below use, which all three clients already render.
-        if (e.status === 'full') {
-          const err = new Error('Event full');
-          err.statusCode = 409;
-          throw err;
-        }
+        // `status: 'full'` is a SOFT close, and this endpoint deliberately
+        // does not enforce it. Taylor's call, 2026-09-06: "I'd like it to be
+        // soft close, a lot of these venues could utilize more people."
+        //
+        // So the flag means "stop advertising this", not "refuse money". The
+        // three client surfaces honour it -- events.html `isSoldOut`,
+        // lp.html `coSellable`, event.html `updateEventTag` -- which takes the
+        // event off the grid, swaps the checkout for the waitlist and stops
+        // /api/next-event promoting it. What it must NOT do is block a sale
+        // that still reaches this endpoint: a direct link someone already
+        // holds, a tab opened before the flag went on, or a walk-up the host
+        // is putting through by hand. Those are exactly the extra people the
+        // room can take.
+        //
+        // A hard block was written here and reverted before it shipped. Do not
+        // re-add it. If a hard close is ever wanted it needs its own flag
+        // (`status: 'closed'`, say) so the soft one keeps working -- capacity
+        // is still enforced below either way, so an event genuinely out of
+        // seats is refused on the numbers, which is the real backstop.
 
         const need = {}; // counterField -> { capField, count }
         for (const a of attendees) {

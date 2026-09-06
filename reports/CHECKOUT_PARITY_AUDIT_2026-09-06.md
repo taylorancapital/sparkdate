@@ -128,10 +128,11 @@ the first request has settled. Both are closed here.
 holes, all on the page every `/l/*` short link, every listing, every email and
 every share link lands on:
 
-- `status: 'full'` — the flag a host sets by hand to close an event — was
-  honoured by `events.html`, `lp.html`, `api/next-event.js` and
-  `lib/next-event.js`, and ignored by `event.html` *and by the purchase
-  endpoint*. Three hand-copied client files agreeing was the only guard.
+- `status: 'full'` — the flag a host sets by hand to stop advertising an event —
+  was honoured by `events.html`, `lp.html`, `api/next-event.js` and
+  `lib/next-event.js`, and ignored by `event.html`, which kept a live checkout
+  on the one page every listing redirect points at. (The endpoint ignores it
+  too, and now deliberately so — see the decision below.)
 - A host-flagged-full card on `/events` carried no `data-event-id`, so it was
   inert — and the waitlist lives inside the dialog that click opens. The gate
   tested the manual flag while the card's own badge tests `isSoldOut()` (flag OR
@@ -224,14 +225,27 @@ existed for exactly this class of regression and its scoping is what let the
 drift happen; the new file follows its `CHECKOUTS` pattern so a rule that should
 hold everywhere runs everywhere.
 
-**The judgment call: the server now refuses `status: 'full'`.** All three client
-surfaces already treat that flag as closed, so a purchase completing for an event
-every page shows as closed is a genuine hole. But **nothing in the repo writes
-that flag** — it is hand-set in Firestore, so its exact meaning is convention,
-not contract. If it has ever been used as a soft "stop advertising" label while
-door or manual sales continued, this converts it into a hard block, including for
-a 2-for-1 comped +1 (same endpoint, same transaction). One line to revert if
-that is wrong. Flagging it rather than burying it.
+**The judgment call, and its answer: `status: 'full'` is a SOFT close.** A
+server-side refusal was written — all three clients treat the flag as closed, so
+an endpoint that still takes the money looked like a hole — and then **reverted
+on Taylor's instruction**:
+
+> *"I'd like it to be soft close, a lot of these venues could utilize more
+> people."*
+
+So the flag means *stop advertising this*, not *refuse money*. The clients still
+honour it: the event comes off the grid, the checkout swaps for the waitlist,
+`/api/next-event` stops promoting it. What the endpoint must not do is block a
+sale that still reaches it — a direct link someone already holds, a tab opened
+before the flag went on, or a walk-up the host is putting through by hand. Those
+are the extra people the room can take, and they were exactly what a hard block
+would have turned away.
+
+Capacity is still enforced server-side, so an event genuinely out of seats is
+refused on the numbers. That is the real backstop; the flag was never it. A test
+now pins the *absence* of the block, so a future parity pass cannot "finish the
+job" and quietly re-add it. If a hard close is ever wanted it needs its own flag
+(`status: 'closed'`) so the soft one keeps working.
 
 **Fixed on both surfaces, not just the one the audit named,** in three places —
 the sign-out lock, the mid-flight re-entrancy, and the arrow-key radiogroup.
@@ -290,8 +304,9 @@ the guest auto-enroll path.
   observed in a browser. (The failed-load path **was** observed, via the Stripe
   block above, which kills the module the same way.)
 - **The `status: 'full'` flag was not observed in any live event doc.** Nothing
-  in the repo writes it, and no current event carries it. Its semantics are
-  inferred from the four places that read it, not from a written contract.
+  in the repo writes it, and no current event carries it. Its semantics are now
+  settled by Taylor's instruction (soft close) rather than by anything in code —
+  worth writing into `CLAUDE.md` if a second flag ever joins it.
 - **`inert` browser support was not measured.** The Tab-wrap handler is there as
   the fallback; whether any real visitor hits it is unknown.
 - **The refute lenses were adversarial, not exhaustive.** Two per finding, both
