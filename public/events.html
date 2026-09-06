@@ -1976,6 +1976,13 @@
         let currentUser = null;
         let userProfile = null;
         let userTier = 'free';
+        // A signed-in member's stored phone, forwarded on the purchase so the
+        // server's merge does not blank it. '' for a guest — this form has no
+        // phone field. Set by applyUserContextToModal(), which resets it
+        // before it decides, because that function re-runs on every modal open
+        // and on auth change: a stale value here would post one person's
+        // number onto another's registration and Stripe billing_details.
+        let memberPhone = '';
 
         let dialogEventId = null;
         let dialogPaying = false;
@@ -2370,6 +2377,18 @@
         }
 
         function updateModalPricing() {
+            // A purchase is in flight: repaint nothing. Both branches below
+            // end in `btn.disabled = false`, and this function is reachable
+            // mid-payment from the gender buttons and the 2-for-1 checkbox,
+            // neither of which the submit handler disables. That put a live,
+            // priced button back under the buyer's thumb while
+            // /api/purchase-ticket was still running -- and a guest's second
+            // submit mints a new paymentMethodId, so the server's idempotency
+            // key does not collide and Stripe charges twice. dialogPaying
+            // already existed for the close paths; this is the same flag doing
+            // the job it was named for.
+            if (dialogPaying) return;
+
             const ev = findLoadedEvent(dialogEventId);
             const gender = document.getElementById('modalGender').value;
             const btn = document.getElementById('modalCheckoutBtn');
@@ -2492,6 +2511,7 @@
             cardGroup.style.display = '';
             cardOnFileNotice.style.display = 'none';
             trialDisclosure.style.display = '';
+            memberPhone = '';
 
             if (!userProfile) { syncGenderButtons(); return; }
 
@@ -2503,6 +2523,7 @@
             const profileName = userProfile.name || userProfile.displayName;
             if (profileName) { nameInput.value = profileName; nameInput.disabled = true; }
             if (userProfile.email && !emailInput.value) emailInput.value = userProfile.email;
+            if (userProfile.phone) memberPhone = userProfile.phone;
 
             if (userProfile.stripeCustomerId) {
                 cardGroup.style.display = 'none';
@@ -2525,13 +2546,29 @@
 
         document.getElementById('modalCheckoutForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            // Re-entrancy guard. dialogPaying was already set further down for
+            // the close paths, but never read here, so a second submit while
+            // the first was in flight ran the whole handler again.
+            if (dialogPaying) return;
             const ev = findLoadedEvent(dialogEventId);
             const gender = document.getElementById('modalGender').value;
             const name = document.getElementById('modalName').value.trim();
             const email = document.getElementById('modalEmail').value.trim();
-            // Phone is not asked on this form any more; the API treats it as
-            // optional and the post-purchase profile link collects it.
-            const phone = '';
+            // Carry the member's stored phone through to the purchase payload.
+            // There is no phone field on this form any more, so nothing is
+            // shown or editable here.
+            //
+            // This used to be a hardcoded ''. The endpoint writes whatever it
+            // is sent straight onto the registration doc
+            // (api/purchase-ticket.js, `batch.set(regRef, { ... phone:
+            // cleanPhone ... })`), so the same member buying the same ticket
+            // got a registration carrying their number from /event?id= and a
+            // blank one from this dialog — and the door and admin tooling read
+            // registrations. It does NOT touch their user profile: that write
+            // only happens on the guest auto-enroll path.
+            // event.html has forwarded it all along; this is the modal
+            // catching up, not the other way round.
+            const phone = memberPhone;
             const btn = document.getElementById('modalCheckoutBtn');
             const errorMsg = document.getElementById('modalErrorMessage');
             const successMsg = document.getElementById('modalSuccessMessage');

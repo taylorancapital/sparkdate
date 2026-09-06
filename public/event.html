@@ -1402,6 +1402,18 @@
         // server's merge does not blank it. '' for a guest — the form has no
         // phone field. Set by applyUserContext().
         let memberPhone = '';
+        // True from the moment a purchase is submitted until it settles.
+        //
+        // The submit handler disables the button, but updatePricing() turns it
+        // straight back on — and updatePricing() is reachable mid-flight from
+        // two controls the handler never disables: the gender buttons and the
+        // 2-for-1 checkbox. Tapping either while /api/purchase-ticket was in
+        // flight put a live, priced "Reserve Spot" back under the buyer's
+        // thumb. A guest's second submit mints a fresh paymentMethodId, so the
+        // server's idempotency key (member|card × event) does not collide and
+        // Stripe takes a SECOND charge. lp.html has guarded this all along
+        // with `coPaying`; this is the same guard by the same name-shape.
+        let paying = false;
 
         function currentMonthKey() {
             const now = new Date();
@@ -1945,6 +1957,15 @@
         let lastQuotedTicket = null;
 
         function updatePricing() {
+            // A purchase is in flight: repaint nothing. This function is what
+            // re-enabled the submit button mid-payment (both branches end in
+            // `btn.disabled = false`), and it is reachable while
+            // /api/purchase-ticket is running because neither the gender
+            // buttons nor the 2-for-1 checkbox is disabled by the submit
+            // handler. Returning early also stops the "Processing..." label
+            // being overwritten with a live price.
+            if (paying) return;
+
             const gender = document.getElementById('ticketGender').value;
             const btn = document.getElementById('checkoutBtn');
 
@@ -2181,6 +2202,14 @@
 
         document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            // Re-entrancy guard, same as lp.html's `coPaying`. A disabled
+            // button is not enough on its own: updatePricing() re-enables it,
+            // and the controls that call updatePricing() stay live during the
+            // request. For a guest the second submit mints a new
+            // paymentMethodId, which changes the server's idempotency key, so
+            // Stripe charges twice.
+            if (paying) return;
+            paying = true;
 
             const gender = document.getElementById('ticketGender').value;
             const name = document.getElementById('ticketName').value.trim();
@@ -2615,6 +2644,12 @@
                     if (first) first.focus();
                 }
                 btn.disabled = false;
+            } finally {
+                // Cleared here rather than at the end of each branch so no
+                // path — including one that throws somewhere unexpected — can
+                // leave the buyer with a permanently dead button. updatePricing()
+                // is a no-op while `paying` is true, so it has to run after.
+                paying = false;
                 updatePricing();
             }
         });

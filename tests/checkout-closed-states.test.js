@@ -31,6 +31,9 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import { createRequire } from 'module';
+
+const { isEventOver } = createRequire(import.meta.url)('../lib/next-event.js');
 
 // SPD_CHECKOUT_SRC points the whole suite at a different copy of the five
 // files, which is how these assertions were checked against the SHIPPED
@@ -155,6 +158,52 @@ describe('an event that has already happened is not for sale', () => {
     expect(PURCHASE).toMatch(/status\(410\)/);
   });
 
+  it("event.html's own copy of the rule agrees with lib/next-event.js, date for date", () => {
+    // event.html cannot import from /lib (CommonJS, and no public/*.html
+    // imports from there), so its fallback is a hand-written second copy of
+    // isEventOver(). A second copy that disagrees is worse than none: the page
+    // would sell what the renderer calls finished, or vice versa. This lifts
+    // the shipped function out of the HTML and runs it against the real
+    // helper, rather than eyeballing that they look alike.
+    const src = EVENT.match(/function isEventPast\(ev\) \{[\s\S]*?\n        \}/);
+    expect(src, 'isEventPast not found in event.html').toBeTruthy();
+    // eslint-disable-next-line no-new-func
+    const isEventPast = new Function(
+      'document',
+      `${src[0]}; return isEventPast;`
+    )({ querySelector: () => null }); // no meta tag: exercise the fallback
+
+    const HOUR = 60 * 60 * 1000;
+    const now = Date.now();
+    const cases = [
+      ['finished yesterday', new Date(now - 24 * HOUR), undefined],
+      ['started 3h ago, 2h default duration', new Date(now - 3 * HOUR), undefined],
+      ['started 1h ago, still running', new Date(now - 1 * HOUR), undefined],
+      ['started 3h ago but runs 5h', new Date(now - 3 * HOUR), 5],
+      ['starts tomorrow', new Date(now + 24 * HOUR), undefined],
+    ];
+    for (const [label, date, durationHours] of cases) {
+      const mine = isEventPast({ date, durationHours });
+      const theirs = isEventOver(date, durationHours);
+      expect(mine, `${label}: event.html says ${mine}, lib says ${theirs}`).toBe(theirs);
+    }
+
+    // Degenerate input must not read as "over" — that would hide the checkout
+    // on an event whose date field is missing or malformed.
+    expect(isEventPast({})).toBe(false);
+    expect(isEventPast({ date: 'not a date' })).toBe(false);
+    expect(isEventPast(null)).toBe(false);
+  });
+
+  it('the meta tag alone is enough, without an event date', () => {
+    const src = EVENT.match(/function isEventPast\(ev\) \{[\s\S]*?\n        \}/);
+    // eslint-disable-next-line no-new-func
+    const isEventPast = new Function('document', `${src[0]}; return isEventPast;`)({
+      querySelector: (sel) => (sel === 'meta[name="spd-event-past"]' ? {} : null),
+    });
+    expect(isEventPast({ date: new Date(Date.now() + 864e5) })).toBe(true);
+  });
+
   it('the past-event check runs before any seat is reserved', () => {
     const past = PURCHASE.search(/isEventOver\(evDate, event\.durationHours\)/);
     // The reservation transaction specifically -- two earlier
@@ -163,6 +212,44 @@ describe('an event that has already happened is not for sale', () => {
     expect(past).toBeGreaterThan(-1);
     expect(reserve).toBeGreaterThan(-1);
     expect(past).toBeLessThan(reserve);
+  });
+});
+
+describe('a purchase in flight cannot be submitted twice', () => {
+  // Both HTML surfaces disabled the submit button and then handed the buyer a
+  // way to re-enable it: the pricing function ends in `btn.disabled = false`,
+  // and it is reachable mid-request from the gender buttons and the 2-for-1
+  // checkbox, neither of which the submit handler disables. A guest's second
+  // submit mints a new paymentMethodId, which changes the server's idempotency
+  // key (member|card × event), so Stripe takes a second charge. lp.html has
+  // guarded this all along with `coPaying`.
+  const GUARDED = [
+    ['events.html', EVENTS, 'dialogPaying', 'updateModalPricing'],
+    ['event.html', EVENT, 'paying', 'updatePricing'],
+    ['lp.html', LP, 'coPaying', null],
+  ];
+
+  it.each(GUARDED)('%s refuses a re-entrant submit', (_f, src, flag) => {
+    expect(src).toMatch(new RegExp(`if \\(${flag}\\) return;`));
+  });
+
+  it.each(GUARDED.filter((g) => g[3]))(
+    '%s repaints no price while paying, so the button cannot come back live',
+    (_f, src, flag, fn) => {
+      const body = src.slice(src.search(new RegExp(`function ${fn}\\(\\)`)));
+      const guard = body.search(new RegExp(`if \\(${flag}\\) return;`));
+      const enable = body.search(/btn\.disabled = false;/);
+      expect(guard, `${fn} needs the paying guard`).toBeGreaterThan(-1);
+      expect(enable).toBeGreaterThan(-1);
+      expect(guard, 'the guard must precede every re-enable').toBeLessThan(enable);
+    }
+  );
+
+  it('event.html clears the flag in a finally, so no path strands the button', () => {
+    // The failure mode of the guard itself: a throw on an unexpected path
+    // leaves `paying` true forever and the buyer can never retry.
+    const tail = EVENT.slice(EVENT.search(/checkoutForm'\)\.addEventListener\('submit'/));
+    expect(tail).toMatch(/\} finally \{[\s\S]*?paying = false;[\s\S]*?updatePricing\(\);/);
   });
 });
 
@@ -206,11 +293,29 @@ describe('a signed-in member is never left with a form they cannot use', () => {
     expect(block).not.toMatch(/genderAfterReset/);
   });
 
-  it('event.html keeps forwarding the member phone the modal blanks', () => {
-    // Deliberate divergence, flagged by #453 and NOT to be "fixed" by making
-    // event.html match: the modal hardcodes `phone: ''` and the server merges
-    // that blank over a member's stored number. event.html is the correct
-    // side. This pins it so a later parity pass does not level it down.
+  it('both surfaces forward the member phone, neither hardcodes a blank', () => {
+    // #453 flagged this as a deliberate divergence and named event.html the
+    // correct side: the modal sent `phone: ''`, and the endpoint writes what
+    // it is sent onto the registration doc, so the same member got a
+    // registration with their number from /event?id= and a blank one from the
+    // dialog. Resolved by raising the modal, never by levelling event.html
+    // down — hence the explicit assertion that neither sends a literal blank.
     expect(EVENT).toMatch(/memberPhone = userProfile\.phone;/);
+    expect(EVENTS).toMatch(/if \(userProfile\.phone\) memberPhone = userProfile\.phone;/);
+    expect(EVENT).toMatch(/const phone = memberPhone;/);
+    expect(EVENTS).toMatch(/const phone = memberPhone;/);
+    expect(EVENTS).not.toMatch(/const phone = '';/);
+  });
+
+  it('the modal resets the carried phone before it decides, not after', () => {
+    // applyUserContextToModal() re-runs on every open and on auth change, so a
+    // memberPhone left set would post one person's number onto another's
+    // registration and into Stripe billing_details.
+    const body = EVENTS.slice(EVENTS.search(/function applyUserContextToModal\(\)/));
+    const reset = body.search(/memberPhone = '';/);
+    const guard = body.search(/if \(!userProfile\)/);
+    expect(reset).toBeGreaterThan(-1);
+    expect(guard).toBeGreaterThan(-1);
+    expect(reset).toBeLessThan(guard);
   });
 });
