@@ -29,6 +29,8 @@
     "ads:lx-switch": "node scripts/meta-lx-switch-to-sales.js",
     "ads:mc-sales": "node scripts/meta-create-mc-sales-campaign.js",
     "ads:ladder": "node scripts/meta-budget-ladder.js",
+    "ads:ladder:check": "node scripts/meta-budget-ladder.js --check",
+    "ads:ladder:forecast": "node scripts/meta-budget-ladder.js --forecast=45",
     "social:plan": "node scripts/social.js plan",
     "social:approve": "node scripts/social.js approve",
     "social:run": "node scripts/social.js run",

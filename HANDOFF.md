@@ -131,14 +131,25 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   a Marion Court ad (`mc_close_female_bringafriend`, CTA `LEARN_MORE`); the
   live MC Women ad still carries `proof_rsa1` and `BOOK_TRAVEL` frozen in.
   *(09-05)*
-- **The budget ladder is automatic now, and it knows about ONE campaign.**
-  `scripts/meta-budget-ladder.js` + the `SparkDate Budget Ladder` scheduled task
-  (daily 03:00, armed by Taylor 09-05, verified end-to-end with
-  `LastTaskResult: 0`). It derives phases from `brand.json`, so it cannot drift
-  from `build-paid-campaign.js`. **Next concrete step: `CAMPAIGNS` in that
-  script holds only Loxleys.** Marion Court ends 09-08 with a deliberately flat
-  budget so that is correct today, but **the October events need a line added
-  each or the ladder will silently skip them.** *(09-05)*
+- **The budget ladder takes as many campaigns as you register, and it is now
+  loud about the ones you do not.** The hardcoded `CAMPAIGNS` array is gone;
+  the list lives in `content/paid-campaigns.json`, the arithmetic in
+  `scripts/budget-ladder.js` (offline-tested, `tests/budget-ladder.test.js`),
+  and any campaign that is ACTIVE in the account but in neither the registry
+  nor its `acknowledged` list is reported as UNGOVERNED with a non-zero exit.
+  One account-wide daily ceiling ($40) now covers all runs at once — today the
+  account reads $22.00/day, $2.00 laddered plus $20.00 outside it.
+  **Three next steps, all small.** (1) **Taylor: `git pull` in the main
+  checkout** — the 03:00 `SparkDate Budget Ladder` task runs `npm run
+  ads:ladder -- --all --execute` from there, so this merge does nothing until
+  it does (same flaw as the nightly's data pull, first entry above).
+  (2) **Tellus Oct 6 needs a `brand.json` event entry before it can be
+  registered** — the ladder reads the event DATE from brand.json and refuses a
+  key it cannot find. Blocked on facts nobody has written down: confirmed date,
+  ticket price, early-bird cutoff, and the run budget (the October slate report
+  models $200). (3) **Both Marion Court acknowledgements expire 09-08** and
+  will start reporting themselves as stale the next morning; retire them with
+  the event. *(09-06)*
 - **The 09-05 nightly (PR #449) credits Loxleys with 5.75 ROAS, "best in the
   account", and it is spurious.** The Loxleys ads went live 08-30; all four of
   its paid tickets were bought 08-14 to 08-24, before any ad existed. Since the
