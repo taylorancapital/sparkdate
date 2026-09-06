@@ -253,6 +253,45 @@ describe('a purchase in flight cannot be submitted twice', () => {
   });
 });
 
+describe('the buyer is told what happened, on every surface', () => {
+  it.each(CHECKOUTS)('%s marks its checkout message as a live region', (_f, src) => {
+    // lp.html has had role="alert" on #lpPayMsg all along; the other two had
+    // plain divs, sitting above the whole form with the submit button far
+    // below, so a decline was displayed and never announced.
+    expect(src).toMatch(/role="alert"/);
+  });
+
+  it.each([['events.html', EVENTS], ['event.html', EVENT]])(
+    '%s brings the error on screen when there is no field to focus',
+    (_f, src) => {
+      // The existing focus move only fired for `gender_missing`. Declines,
+      // network errors, incomplete cards and capacity errors had nothing.
+      expect(src).toMatch(/errorMsg\.scrollIntoView\(/);
+    }
+  );
+
+  it('event.html names the address it emailed, and counts the tickets', () => {
+    // "Check your email for event details" did not say which email, on the
+    // page every /l/* short link and share link lands on — and said "your
+    // ticket" after a 2-for-1 bought two. Same wording as the dialog.
+    expect(EVENT).toMatch(/We emailed your \$\{plusOne \? 'tickets' : 'ticket'\} to \$\{email\}/);
+    expect(EVENTS).toMatch(/We emailed your \$\{plusOne \? 'tickets' : 'ticket'\} to \$\{email\}/);
+    // The address is interpolated, so it must never go in as HTML.
+    expect(EVENT).toMatch(/successMsg\.textContent = /);
+    expect(EVENT).not.toMatch(/successMsg\.innerHTML/);
+  });
+
+  it('no surface leaves a live Reserve button up after a completed purchase', () => {
+    // event.html was the outlier: it reset the form in place and left the
+    // priced button on screen. With the button enabled from arrival that is
+    // a second charge one tap away, and the re-entrancy guard cannot help
+    // once the first request has settled.
+    expect(EVENT).toMatch(/if \(doneForm\) doneForm\.style\.display = 'none';/);
+    expect(EVENTS).toMatch(/showModalStep\('stepDone'\)/);
+    expect(LP).toMatch(/lp-done/);
+  });
+});
+
 describe('a signed-in member is never left with a form they cannot use', () => {
   it('both surfaces clear every lock before deciding what to set', () => {
     // The profile pass has to be idempotent, or re-running it after a reset

@@ -832,8 +832,29 @@
                     <h3>Reserve Your Spot</h3>
                     <p class="capacity"><span id="spotsLeft">Open</span> spots remaining</p>
 
-                    <div class="success-message" id="successMessage"></div>
-                    <div class="error-message" id="errorMessage"></div>
+                    <!-- Live regions. These two divs sit above the whole form
+                         and the submit button is ~115 lines below them, so on
+                         a phone a buyer can be told their card was declined
+                         with the message off-screen and nothing announced.
+                         lp.html has marked its equivalent role="alert" all
+                         along; these did not. role="alert" is assertive
+                         (a failed payment interrupts), role="status" is polite
+                         (a confirmation waits its turn). -->
+                    <div class="success-message" id="successMessage" role="status" aria-live="polite"></div>
+                    <div class="error-message" id="errorMessage" role="alert"></div>
+
+                    <!-- Revealed once a purchase succeeds, when the form is
+                         hidden. Without it this card becomes a dead end: the
+                         dialog swaps in a whole #stepDone panel with a
+                         "Browse More Mixers" action and /lp hides its form for
+                         .lp-done, while this page just reset the form in
+                         place and left the buyer looking at a live Reserve
+                         button. Kept as its own element so the confirmation
+                         text stays textContent — the buyer's email address
+                         goes in there and must never be interpolated as HTML. -->
+                    <p class="capacity" id="purchaseDoneNext" style="display:none;margin-top:16px;">
+                        <a href="/events">Browse more mixers</a>
+                    </p>
 
                     <!-- Sold-out capture. Swapped in for the checkout form by
                          renderSpots() when remaining <= 0. Before this, a
@@ -2463,10 +2484,33 @@
                 // happen: no ticket, no charge, and nothing on screen to say
                 // so. Point at the +1 flow, which is the supported way to
                 // bring someone.
+                // Name the address, and count the tickets. "Check your email"
+                // does not say WHICH email, and this page is where every /l/*
+                // short link, every listing and every share link lands — the
+                // buyer who typed a work address by mistake, or a typo, has
+                // nothing on screen to notice it by. It also said "your
+                // ticket" after a 2-for-1 bought two. Both the dialog and /lp
+                // have echoed the address and pluralised all along; this is
+                // the wording from events.html, verbatim, so the three read
+                // the same after the same purchase.
                 successMsg.textContent = (result.alreadyConfirmed && !authedThisSubmit)
                     ? "You already have a ticket for this event — we haven't charged you again. Bringing someone? Use the +1 option instead."
-                    : "You're confirmed. Check your email for event details.";
+                    : `We emailed your ${plusOne ? 'tickets' : 'ticket'} to ${email}. Bring nothing but yourself.`;
                 successMsg.style.display = 'block';
+
+                // Take the form away. This page was the only one of the three
+                // that left a live, priced Reserve button on screen after a
+                // completed charge — the dialog swaps in #stepDone, /lp hides
+                // its form for .lp-done. On a page whose button is enabled
+                // from arrival, that is a second charge one tap away, and the
+                // re-entrancy guard does not help once the first request has
+                // settled. The reset block below still runs, so the hidden
+                // form stays clean.
+                const doneForm = document.getElementById('checkoutForm');
+                if (doneForm) doneForm.style.display = 'none';
+                const doneNext = document.getElementById('purchaseDoneNext');
+                if (doneNext) doneNext.style.display = '';
+                successMsg.scrollIntoView({ block: 'center', behavior: 'smooth' });
 
                 // Track ticket purchase — once per real charge, but never zero
                 // times for one. `duplicate` was doing both jobs and got the
@@ -2642,6 +2686,14 @@
                 if (category === 'gender_missing') {
                     const first = document.querySelector('#checkoutForm .gender-btn');
                     if (first) first.focus();
+                } else {
+                    // Every other category — declined, network, incomplete
+                    // card, capacity — has no field to focus, so nothing
+                    // brought the message on screen. The buyer sat at the
+                    // button, ~115 lines below it, watching "Reserve Spot"
+                    // come back with no visible explanation. The focus move
+                    // above was doing this job for exactly one category.
+                    errorMsg.scrollIntoView({ block: 'center', behavior: 'smooth' });
                 }
                 btn.disabled = false;
             } finally {

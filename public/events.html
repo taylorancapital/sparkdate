@@ -1324,8 +1324,11 @@
                 <h3>Reserve your spot</h3>
                 <p class="event-modal-meta" id="checkoutForLine" style="margin-bottom: 20px;">—</p>
 
-                <div class="modal-success-message" id="modalSuccessMessage"></div>
-                <div class="modal-error-message" id="modalErrorMessage"></div>
+                <!-- Live regions — same omission event.html had. These sit
+                     above the form and the submit button is well below them,
+                     so a decline was shown but never announced. -->
+                <div class="modal-success-message" id="modalSuccessMessage" role="status" aria-live="polite"></div>
+                <div class="modal-error-message" id="modalErrorMessage" role="alert"></div>
 
                 <form id="modalCheckoutForm">
                     <!-- Gender first, as two tap targets. The hidden input is
@@ -2775,6 +2778,12 @@
                 if (category === 'gender_missing') {
                     const first = document.querySelector('#modalCheckoutForm .gender-btn');
                     if (first) first.focus();
+                } else {
+                    // Same gap event.html had: every other category has no
+                    // field to focus, so nothing brought the message on
+                    // screen and the buyer watched the button come back with
+                    // no visible explanation.
+                    errorMsg.scrollIntoView({ block: 'center', behavior: 'smooth' });
                 }
                 dialogPaying = false;
                 btn.disabled = false;
