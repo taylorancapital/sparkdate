@@ -826,7 +826,12 @@
                mid-checkout. */
             font-size: 16px;
         }
-        .event-modal select:focus, .event-modal input:focus { outline: none; border-color: var(--coral); }
+        /* Typed, so it cannot reach the 2-for-1 checkbox. The untyped version
+           stripped the keyboard focus ring off it -- border-color does nothing
+           for a checkbox, so the replacement affordance this rule offers text
+           inputs left the checkbox with no focus indicator at all. event.html
+           types the same rule and was the correct side. */
+        .event-modal select:focus, .event-modal input[type="text"]:focus, .event-modal input[type="email"]:focus, .event-modal input[type="tel"]:focus { outline: none; border-color: var(--coral); }
         .event-modal input:disabled { opacity: 0.7; cursor: not-allowed; }
         .field-row { display: flex; gap: 12px; }
         .field-row .form-group { flex: 1; min-width: 0; }
@@ -841,6 +846,9 @@
            (GET TICKETS -> /events?event=X&checkout=1), so the earlier fix on
            event.html alone missed the door paid traffic uses. */
         #modalCardElement {
+            /* Matches event.html and lp.html. Invisible here today because the
+               modal mounts hidden, but the same CSS gap. */
+            min-height: 46px;
             padding: 12px 14px; border: 2px solid rgba(255, 107, 107, 0.4);
             border-radius: 4px; background: #ffffff;
         }

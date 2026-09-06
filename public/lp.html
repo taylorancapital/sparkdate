@@ -184,7 +184,11 @@
         .lp-checkout .fg { margin-bottom: 12px; }
         .lp-checkout label { display: block; font-size: 12px; font-weight: 700; color: var(--cream); margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px; }
         .lp-checkout input[type=text], .lp-checkout input[type=email], .lp-checkout select { width: 100%; min-width: 0; padding: 12px 14px; background: #fff; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; color: #000; font-family: inherit; font-size: 16px; }
-        .lp-checkout input:focus, .lp-checkout select:focus { outline: none; border-color: var(--coral); }
+        /* Typed, so it cannot reach the 2-for-1 checkbox -- border-color does
+           nothing for a checkbox, so the untyped version left it with no focus
+           indicator at all. Same fix as events.html; event.html was already
+           right. */
+        .lp-checkout input[type="text"]:focus, .lp-checkout input[type="email"]:focus, .lp-checkout input[type="tel"]:focus, .lp-checkout select:focus { outline: none; border-color: var(--coral); }
         .gender-choice { display: flex; gap: 10px; }
         .gender-btn { flex: 1; padding: 13px 10px; background: #fff; color: #0a0e27; border: 2px solid rgba(255,107,107,0.4); border-radius: 4px; font-family: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
         .gender-btn[aria-checked="true"] { border-color: var(--coral); box-shadow: inset 0 0 0 1px var(--coral); }

@@ -340,6 +340,15 @@
            Padding is 12px 14px, not 12px 15px, so the card digits line up on
            the same left edge as the email and name above them. */
         #card-element {
+            /* Reserve the iframe's height. Stripe mounts a cross-origin frame
+               into this box; with no floor it paints ~28px tall and grows
+               ~18px the moment the frame lands, shoving the price breakdown
+               and the Reserve button down under the buyer's thumb. The
+               booking card is above the fold on arrival here, so the shift is
+               visible -- the events.html modal has the same gap but mounts
+               while display:none, so it never shows. lp.html has always
+               reserved it. */
+            min-height: 46px;
             padding: 12px 14px;
             border: 2px solid rgba(255, 107, 107, 0.4);
             border-radius: 4px;
@@ -549,6 +558,10 @@
            checked; price is untouched (see updatePricing()) since the
            whole point is the buyer pays for one ticket and gets two seats. */
         .two-for-one-toggle {
+            /* #453 moved this block BELOW the Reserve button and it had no
+               top margin, so it sat flush against the button's bottom edge.
+               events.html and lp.html both give the same box a 14px gap. */
+            margin-top: 14px;
             display: flex;
             align-items: flex-start;
             gap: 10px;
