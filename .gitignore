@@ -143,6 +143,12 @@ content/*
 # Source, not an export: scripts/build-outreach-pack.js and
 # .claude/commands/women-outreach.md both read it.
 !content/women-surfaces.json
+# Which live Meta campaigns the budget ladder drives, and which it deliberately
+# leaves alone. Source, not an export: scripts/budget-ladder.js reads it, the
+# 03:00 scheduled task acts on it, and tests/budget-ladder.test.js asserts
+# against the shipped copy. It exists so adding a campaign is a data change --
+# leaving it out of git would put it right back in one person's checkout.
+!content/paid-campaigns.json
 
 # Source art and superseded exports live in OneDrive, not the repo:
 #   OneDrive\SparkDate\SourceArt              <- the PNG masters
