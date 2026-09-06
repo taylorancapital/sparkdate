@@ -2086,19 +2086,32 @@
             });
         })();
 
-        const stripeModal = Stripe('pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1');
+        // Guarded, for the same reason as event.html: this used to call into
+        // js.stripe.com bare at module top level, so a blocked or failed load
+        // threw a ReferenceError before loadEvents() ever ran and killed the
+        // whole page -- here that means a permanent loading spinner and a
+        // checkout modal that can never open. lp.html has always guarded it.
+        const stripeReadyModal = typeof Stripe === 'function';
+        const stripeModal = stripeReadyModal
+            ? Stripe('pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1')
+            : null;
         // theme 'stripe' on white with black text, matching the modal's other
         // fields -- same change and same reasoning as event.html (#271). The
         // stated fontSizeBase pins Stripe's 16px default so a change to that
         // default cannot reintroduce iOS Safari's under-16px focus zoom.
-        const elementsModal = stripeModal.elements({
+        const elementsModal = stripeReadyModal ? stripeModal.elements({
             appearance: {
                 theme: 'stripe',
                 variables: { colorPrimary: '#ff6b6b', colorBackground: '#ffffff', colorText: '#000000', colorDanger: '#f87171', fontFamily: 'Inter, sans-serif', fontSizeBase: '16px', borderRadius: '4px' }
             }
-        });
-        const cardElementModal = elementsModal.create('card');
-        cardElementModal.mount('#modalCardElement');
+        }) : null;
+        const cardElementModal = elementsModal ? elementsModal.create('card') : null;
+        if (cardElementModal) cardElementModal.mount('#modalCardElement');
+        if (!stripeReadyModal) {
+            console.error('[events] Stripe.js did not load; checkout disabled');
+            const cardBox = document.getElementById('modalCardElement');
+            if (cardBox) cardBox.textContent = 'Card payment is unavailable right now.';
+        }
 
         function findLoadedEvent(id) { return loadedEvents.find(e => e.id === id) || null; }
         function money(n) { return `$${Number(n).toFixed(2)}`; }
@@ -2458,6 +2471,13 @@
             const ev = findLoadedEvent(dialogEventId);
             const gender = document.getElementById('modalGender').value;
             const btn = document.getElementById('modalCheckoutBtn');
+            // Stripe.js never loaded: there is no card field, so do not offer
+            // a live priced button over one.
+            if (!stripeReadyModal) {
+                btn.disabled = true;
+                btn.textContent = 'Checkout unavailable';
+                return;
+            }
             if (!gender) {
                 // Seed the breakdown with the LISTING price rather than $0.00.
                 // Before this, the first thing a buyer saw under PAYMENT was
@@ -2679,6 +2699,7 @@
             btn.textContent = 'Processing...';
 
             try {
+                if (!cardElementModal) throw new Error('Card payment is unavailable right now. Please refresh the page and try again.');
                 if (!gender) throw new Error('Choose Woman or Man to continue.');
                 if (!name) throw new Error('Please enter your name.');
 

@@ -273,6 +273,34 @@ describe('a purchase in flight cannot be submitted twice', () => {
   });
 });
 
+describe('a third-party script failing does not kill the page', () => {
+  it.each(CHECKOUTS)('%s checks Stripe loaded before calling into it', (_f, src) => {
+    // Both HTML checkouts called Stripe() bare at ES-module top level, so a
+    // blocked or failed js.stripe.com threw a ReferenceError before
+    // loadEvent()/loadEvents() ever ran and took the whole module with it.
+    // On /event that left the static placeholders standing as fact — a
+    // hardcoded date months in the past — under an enabled "Reserve Spot"
+    // button that could never work. The fail-soft in loadEvent()'s catch
+    // cannot help: the module dies before that function is reached.
+    expect(src).toMatch(/typeof Stripe === 'function'/);
+  });
+
+  it.each([['events.html', EVENTS], ['event.html', EVENT]])(
+    '%s refuses to submit without a card element',
+    (_f, src) => {
+      expect(src).toMatch(/Card payment is unavailable right now/);
+    }
+  );
+
+  it('the pricing pass does not hand the button back when there is no card', () => {
+    // updatePricing() re-enables the button; without this guard the first
+    // re-price would restore a live "Reserve Spot" over a form with no card
+    // field.
+    expect(EVENT).toMatch(/if \(!stripeReady\) return;/);
+    expect(EVENTS).toMatch(/if \(!stripeReadyModal\) \{/);
+  });
+});
+
 describe('the server is quoted accurately back to the buyer', () => {
   it.each(CHECKOUTS)('%s recognises the sold-out 409 the server actually sends', (_f, src) => {
     // api/purchase-ticket.js answers a sold-out 409 with { error: 'Event

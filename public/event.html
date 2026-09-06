@@ -1367,7 +1367,21 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const stripe = Stripe('pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1');
+        // js.stripe.com is a third-party script this page cannot control, and
+        // this line used to call into it bare at module top level. A blocked
+        // or failed load threw a ReferenceError HERE -- before loadEvent()
+        // ever ran -- and took the whole module with it. The page then sat
+        // there on its static placeholders, including a hardcoded date now
+        // months in the past, with an enabled "Reserve Spot" button that could
+        // never do anything. The fail-soft in loadEvent()'s catch does not
+        // help: the module dies before that function is reached.
+        //
+        // lp.html has guarded this all along (typeof Stripe === 'function'
+        // plus a coCardReady flag), so the reference is the wrong side here.
+        const stripeReady = typeof Stripe === 'function';
+        const stripe = stripeReady
+            ? Stripe('pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1')
+            : null;
         // The card iframe is styled to match the rest of the form: white
         // ground, black text. It was theme:'night' on #0d1230 with cream text
         // while every other field was white on black -- the one field a buyer
@@ -1379,7 +1393,7 @@
         // when a focused input is under 16px, which yanks the page mid-
         // checkout. Stripe's default is already 16px; stating it means a
         // change to that default cannot quietly reintroduce the zoom.
-        const elements = stripe.elements({
+        const elements = stripeReady ? stripe.elements({
             appearance: {
                 theme: 'stripe',
                 variables: {
@@ -1392,16 +1406,23 @@
                     borderRadius: '4px',
                 }
             }
-        });
-        const cardElement = elements.create('card');
-        cardElement.mount('#card-element');
+        }) : null;
+        const cardElement = elements ? elements.create('card') : null;
+        if (cardElement) cardElement.mount('#card-element');
         // The card is a cross-origin iframe, so it never fires DOM focus on
         // this page — Stripe's own event is the only way to see the buyer
         // reach the last field. Registered here rather than beside the other
         // trackCheckoutField wiring because that runs before this mount.
-        cardElement.on('focus', () => {
+        if (cardElement) cardElement.on('focus', () => {
             if (typeof trackCheckoutField === 'function') trackCheckoutField('card');
         });
+        if (!stripeReady) {
+            console.error('[event] Stripe.js did not load; checkout disabled');
+            const cardBox = document.getElementById('card-element');
+            if (cardBox) cardBox.textContent = 'Card payment is unavailable right now.';
+            const coBtn = document.getElementById('checkoutBtn');
+            if (coBtn) { coBtn.disabled = true; coBtn.textContent = 'Checkout unavailable'; }
+        }
 
         // Resolve event ID from URL. If missing, redirect to /events —
         // the page-wide hardcoded fallback was a foot-gun (audit #8: it
@@ -2014,6 +2035,10 @@
             // handler. Returning early also stops the "Processing..." label
             // being overwritten with a live price.
             if (paying) return;
+            // Stripe.js never loaded: the button says "Checkout unavailable"
+            // and must stay that way. Without this, the first re-price would
+            // hand back a live "Reserve Spot" for a form with no card field.
+            if (!stripeReady) return;
 
             const gender = document.getElementById('ticketGender').value;
             const btn = document.getElementById('checkoutBtn');
@@ -2333,6 +2358,13 @@
                 // fetch is still in flight.
                 if (!eventData) {
                     throw new Error("Couldn't load this event. Please refresh the page and try again.");
+                }
+
+                // No card field means no payment method can be created; fail
+                // with something the buyer can act on rather than a
+                // ReferenceError in the console.
+                if (!cardElement) {
+                    throw new Error('Card payment is unavailable right now. Please refresh the page and try again.');
                 }
 
                 // Gender carries no `required` any more -- constraint
