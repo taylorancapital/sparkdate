@@ -1907,11 +1907,25 @@
 
                 // The whole card opens the dialog (details step) instead of
                 // navigating to /event?id= — see the delegated click handler
-                // on #eventsGrid below. Sold-out cards get no data-event-id,
-                // so a click on them is a no-op (matches the current "Sold
-                // Out" span already being non-interactive).
+                // on #eventsGrid below.
+                //
+                // EVERY card carries data-event-id, including a sold-out one.
+                // This used to be gated on `ev.status !== 'full'`, and the
+                // comment here claimed that matched the non-interactive "Sold
+                // Out" span. It did not, on either side. It tested the manual
+                // flag while the card's own badge tests `isSoldOut(ev)` (the
+                // flag OR no seats left), so a genuinely full event kept the
+                // attribute and opened, and only a hand-flagged one went
+                // inert — the same closed state, rendered two ways.
+                // And the dialog is where the WAITLIST lives (`wlWrap`, shown
+                // when `dialogSoldOut`), so making the card unclickable
+                // removed the one thing a sold-out event still has to offer.
+                // The dialog handles the closed state on its own: price label
+                // swaps to "Sold out", the checkout button is disabled, and
+                // `straightToCheckout` refuses an lp `?checkout=1` deep link,
+                // so opening it can never reach a live purchase.
                 return `
-                    <div class="event-card" ${ev.status !== 'full' ? `data-event-id="${safe(ev.id)}"` : ''}>
+                    <div class="event-card" data-event-id="${safe(ev.id)}">
                         <div class="event-image">
                             ${sceneSvg(scene)}
                             <div class="date-badge">

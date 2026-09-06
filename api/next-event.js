@@ -137,7 +137,17 @@ async function renderEventPage(req, res) {
           // mixer has no search value) and ship NO Event JSON-LD — Google
           // flags sites whose Event markup keeps presenting past events as
           // scheduled. Meta/OG stay so previously shared links still unfurl.
-          headInject += `\n    <meta name="robots" content="noindex">\n`;
+          //
+          // The spd-event-past flag hands this same verdict to the client.
+          // event.html had no is-it-over test of any kind, so a finished
+          // event with unsold seats rendered "Open spots remaining", a live
+          // price and a working checkout — while events.html could not even
+          // surface it (its query is `where('date','>=',new Date())`). This
+          // is the one place the answer is already computed correctly, from
+          // the shared DEFAULT_EVENT_DURATION_HOURS, so it is emitted rather
+          // than recomputed in a third file.
+          headInject += `\n    <meta name="robots" content="noindex">` +
+            `\n    <meta name="spd-event-past" content="1">\n`;
         } else {
           const ld = {
             '@context': 'https://schema.org',

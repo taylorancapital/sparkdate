@@ -29,6 +29,7 @@ const { sameEmailIdentity } = require('../lib/email-identity');
 const { normalizeAttribution, toStripeMetadata, channelOf } = require('../lib/attribution');
 const { EMAIL_FROM, EMAIL_REPLY_TO } = require('../lib/email-sender');
 const { hasGender } = require('../lib/eventbrite');
+const { isEventOver } = require('../lib/next-event');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const db = admin.firestore();
@@ -602,6 +603,21 @@ module.exports = async function handler(req, res) {
     }
     const event = eventSnap.data();
 
+    // ── The event must not already be over ─────────────────────────
+    // Nothing anywhere refused this. events.html cannot surface a past
+    // event (its query filters on date), but /event?id= had no date test
+    // at all and this endpoint had none either, so a finished event with
+    // unsold seats stayed fully purchasable through every /l/* short
+    // link, email and share link pointing at it. isEventOver() is the
+    // same helper the page renderer uses, so the three cannot drift.
+    const evDate = event.date && event.date.toDate ? event.date.toDate() : (event.date ? new Date(event.date) : null);
+    if (evDate && isEventOver(evDate, event.durationHours)) {
+      return res.status(410).json({
+        error: 'Event has already happened',
+        message: 'This event has already happened. See what is coming up next.',
+      });
+    }
+
     // ── Reclaim seats from abandoned 3-D Secure purchases ──────────
     // Runs before the reservation so any freed seat is available to
     // THIS buyer. Best-effort: a sweep failure must never block a sale.
@@ -635,6 +651,20 @@ module.exports = async function handler(req, res) {
         const snap = await tx.get(eventRef);
         if (!snap.exists) throw new Error('Event vanished mid-purchase');
         const e = snap.data();
+
+        // The host can close an event by hand with `status: 'full'`, whatever
+        // the seat counters say. Every client surface refuses to sell one --
+        // events.html `isSoldOut`, lp.html `coSellable`, and now event.html's
+        // `updateEventTag` -- but the server never checked, so the only guard
+        // was three hand-copied client files agreeing. A stale tab, a
+        // back-button, or a direct POST completed a real Stripe charge on an
+        // event all three pages were already showing as closed. Same 409 the
+        // capacity checks below use, which all three clients already render.
+        if (e.status === 'full') {
+          const err = new Error('Event full');
+          err.statusCode = 409;
+          throw err;
+        }
 
         const need = {}; // counterField -> { capField, count }
         for (const a of attendees) {

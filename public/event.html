@@ -1421,6 +1421,88 @@
                 }
             } catch (e) {
                 console.error('[event] load error', e);
+                showLoadFailure();
+            }
+        }
+
+        // Mirror of events.html's fail-soft catch. An un-hydrated page must
+        // not assert a date, a capacity, or a price it never loaded.
+        //
+        // This page used to only console.error here, and every static
+        // placeholder in the markup then stood as a claim of fact: a
+        // hardcoded date (which has since fallen months into the past),
+        // "Open spots remaining", and -- because renderSpots() is the only
+        // thing that ever hides it -- a live checkout form. eventPricing()
+        // returns price 0 for a null event, so the buyer was shown a $0.00
+        // ticket and a live "Reserve Spot · $2.50" button (the service fee
+        // alone) for an event the page never loaded. The server recomputes
+        // price from the event doc and does not read the quote, so that card
+        // would have been charged the real ticket price against a $2.50
+        // total. Fail closed instead.
+        //
+        // Hides rather than replacing the card's innerHTML the way
+        // events.html replaces its grid: #checkoutForm and #waitlistBlock are
+        // toggled by display in renderSpots(), and must survive for the
+        // normal sold-out swap to keep working.
+        function showLoadFailure() {
+            const co = document.getElementById('checkoutForm');
+            const wl = document.getElementById('waitlistBlock');
+            if (co) co.style.display = 'none';
+            if (wl) wl.style.display = 'none';
+            const cap = document.querySelector('.booking-card .capacity');
+            if (cap) cap.style.display = 'none';
+            const err = document.getElementById('errorMessage');
+            if (err) {
+                err.textContent = "Couldn't load this event. Please refresh the page, or check back in a moment.";
+                err.style.display = 'block';
+            }
+            // Blank the static placeholders rather than leave them asserting
+            // details for an event that never arrived.
+            ['eventDate', 'eventTime', 'eventVenue', 'eventCapacity'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = '—';
+            });
+            const tag = document.getElementById('eventTag');
+            if (tag) tag.style.visibility = 'hidden';
+        }
+
+        // Mirrors isEventOver() in lib/next-event.js: start + duration, not
+        // start alone, so an event does not go dark while it is running.
+        // Trusts api/next-event.js's meta flag when the page was rendered
+        // through the /event rewrite, and falls back to the event's own date
+        // for a direct static hit.
+        function isEventPast(ev) {
+            if (document.querySelector('meta[name="spd-event-past"]')) return true;
+            if (!ev || !ev.date) return false;
+            const d = ev.date.toDate ? ev.date.toDate() : new Date(ev.date);
+            if (!d || isNaN(d.getTime())) return false;
+            const hrs = Number(ev.durationHours) > 0 ? Number(ev.durationHours) : 2;
+            return d.getTime() + hrs * 60 * 60 * 1000 < Date.now();
+        }
+
+        // Keep serving the page rather than redirecting -- a shared link to a
+        // finished event should still unfurl and still say what it was, which
+        // is the same reason api/next-event.js keeps the OG tags on a past
+        // event. What it must not do is sell.
+        //
+        // The waitlist stays hidden on purpose: its copy reads "This one's
+        // full. Get first refusal on a released seat", which describes a sold
+        // out event, not a finished one. There is no seat to release.
+        function showPastEvent() {
+            const co = document.getElementById('checkoutForm');
+            const wl = document.getElementById('waitlistBlock');
+            if (co) co.style.display = 'none';
+            if (wl) wl.style.display = 'none';
+            const cap = document.querySelector('.booking-card .capacity');
+            if (cap) cap.style.display = 'none';
+            const tag = document.getElementById('eventTag');
+            if (tag) tag.textContent = 'Past event';
+            const card = document.querySelector('.booking-card h3');
+            if (card) card.textContent = 'This event has already happened';
+            const err = document.getElementById('errorMessage');
+            if (err) {
+                err.innerHTML = 'This one is over. <a href="/events">See what is coming up next</a>.';
+                err.style.display = 'block';
             }
         }
 
@@ -1446,6 +1528,26 @@
             if (typeof ev.venueStars === 'number' && isFinite(ev.venueStars) && ev.venueStars > 0) {
                 document.getElementById('eventVenueRating').textContent = `★ ${ev.venueStars.toFixed(1)}`;
                 document.getElementById('venueRatingItem').style.display = '';
+            }
+
+            // An event that has already happened is not for sale. This page
+            // had no is-it-over test at all: a finished event with unsold
+            // seats printed "Open spots remaining", a live price, and a
+            // working checkout, and the server took the charge. events.html
+            // cannot even surface one -- its query is
+            // `where('date', '>=', new Date())` -- so /event?id= was the only
+            // way in, and it is the page every /l/* short link, email and
+            // share link lands on.
+            //
+            // api/next-event.js has already computed this from the shared
+            // DEFAULT_EVENT_DURATION_HOURS and emits it as a meta tag; the
+            // inline fallback covers a direct static hit that bypasses the
+            // rewrite. 2 hours is that same default (and the value already
+            // used for the JSON-LD endDate below) -- do not invent a third.
+            if (isEventPast(ev)) {
+                showPastEvent();
+                injectEventSeo(ev);
+                return;
             }
 
             updateEventTag(ev);
@@ -1535,10 +1637,19 @@
             // hero tag below, showing "Open spots remaining" / a price for
             // an event with nothing left to buy. remaining is already
             // clamped to >= 0 (Math.max(0, total - sold) above), so
-            // `remaining <= 0` alone covers both cases -- no need to
-            // separately require total > 0, since either way there's
+            // `remaining <= 0` alone covers both capacity cases -- no need
+            // to separately require total > 0, since either way there's
             // nothing to sell.
-            const soldOut = remaining <= 0;
+            //
+            // `status === 'full'` is the THIRD case, and it is not a capacity
+            // number at all: it is a label the host sets by hand to close an
+            // event that still has seats on paper. Every other surface has
+            // honoured it for some time -- events.html:2111 (`isSoldOut`),
+            // lp.html (`coSellable`), api/next-event.js and lib/next-event.js
+            // -- and this page was the only one that did not, while being the
+            // page every /l/* short link, every email and every share link
+            // lands on. Same rule as events.html:2109-2120, flag first.
+            const soldOut = ev.status === 'full' || remaining <= 0;
 
             // Booking-card badge: real inventory state instead of the old
             // static "Limited" that never reflected actual data. "No" (not
@@ -2092,6 +2203,17 @@
             btn.textContent = 'Processing...';
 
             try {
+                // Nothing below this line is safe without the event doc. The
+                // price shown came from eventPricing(null) -- which is $0.00
+                // ticket, so a $2.50 service-fee-only total -- while the
+                // server recomputes the real price from the doc and never
+                // reads the quote. showLoadFailure() normally hides the form
+                // before anyone gets here; this covers the race where the
+                // fetch is still in flight.
+                if (!eventData) {
+                    throw new Error("Couldn't load this event. Please refresh the page and try again.");
+                }
+
                 // Gender carries no `required` any more -- constraint
                 // validation ignores a hidden input -- so this throw IS the
                 // validation, not a backstop. Same message and same wording as
