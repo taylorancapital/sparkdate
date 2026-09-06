@@ -36,6 +36,25 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **One line in PR #456 is Taylor's call, not a code question: the purchase
+  endpoint now refuses `status: 'full'`.** All three checkout surfaces already
+  treat that flag as closed, so the server accepting a sale for an event every
+  page shows as closed was a real hole — but **nothing in the repo writes the
+  flag**, it is hand-set in Firestore, so its meaning is convention. If it has
+  ever been used as a soft "stop advertising" label while door or manual sales
+  continued, this converts it into a hard block, including for a 2-for-1 comped
+  +1 (same endpoint, same transaction). **Next step: Taylor says which it means;
+  one line reverts it if soft.** Working: `reports/CHECKOUT_PARITY_AUDIT_2026-09-06.md`. *(09-06)*
+- **The #453 audit's queue is closed but not empty.** All 100 findings that had
+  never been checked now have a verify verdict (52 confirmed, 43 rejected, 5
+  split), but the usage limit cut the second adversarial lens short on the last
+  batch, so some "confirmed" carry one lens instead of two. Four findings also
+  sit outside that queue (196 − 92 verdicts = 104; the resume queue held 100).
+  Everything acted on in #456 was re-read by hand first; the rest was not.
+  **Next step: nothing, unless someone wants the tail — the raw verdicts are in
+  the run journal named in the report, and the confirmed-but-unfixed ones are
+  content and layout decisions, not defects.** *(09-06)*
+
 - **The nightly's data pull runs from the MAIN CHECKOUT's working tree, while its
   analysis cuts from `origin/main`.** So merging a change to
   `scripts/fetch-ga4-tables.js` does nothing until someone runs `git pull` there.
