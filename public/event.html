@@ -60,7 +60,15 @@
           ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(function (k) {
             var v = _aq.get(k); if (v) _a[k] = v.slice(0, 100);
           });
-          if (Object.keys(_a).length && !localStorage.getItem('sparkdate_attr')) {
+          // FIRST touch still wins -- but only for 30 days. Without a TTL, one
+          // Eventbrite-listing visit in June masked every ad click after it for the
+          // life of the browser. 30 days covers the measured 14-day click-to-buy lag
+          // and Meta's 7-day click window, and still lets a stale touch expire.
+          var _prev = null;
+          try { _prev = JSON.parse(localStorage.getItem('sparkdate_attr') || 'null'); } catch (_) { _prev = null; }
+          var _stale = !_prev || !_prev.first_seen ||
+            (Date.now() - Date.parse(_prev.first_seen + 'T00:00:00Z')) > 30 * 864e5;
+          if (Object.keys(_a).length && _stale) {
             _a.landing_path = location.pathname;
             _a.first_seen = new Date().toISOString().slice(0, 10);
             localStorage.setItem('sparkdate_attr', JSON.stringify(_a));
@@ -332,6 +340,15 @@
            Padding is 12px 14px, not 12px 15px, so the card digits line up on
            the same left edge as the email and name above them. */
         #card-element {
+            /* Reserve the iframe's height. Stripe mounts a cross-origin frame
+               into this box; with no floor it paints ~28px tall and grows
+               ~18px the moment the frame lands, shoving the price breakdown
+               and the Reserve button down under the buyer's thumb. The
+               booking card is above the fold on arrival here, so the shift is
+               visible -- the events.html modal has the same gap but mounts
+               while display:none, so it never shows. lp.html has always
+               reserved it. */
+            min-height: 46px;
             padding: 12px 14px;
             border: 2px solid rgba(255, 107, 107, 0.4);
             border-radius: 4px;
@@ -387,6 +404,25 @@
         }
         .checkout-btn:hover { transform: translateY(-2px); }
         .checkout-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        /* Gender as two tap targets instead of a <select>, matching the
+           /events dialog and /lp. Identical rules to events.html:867-876 --
+           deliberately, so the three checkouts look like one product. The
+           white ground and 2px coral border match the select/input rules
+           above, which is what the rest of this form already uses. */
+        .gender-choice { display: flex; gap: 10px; }
+        .gender-btn {
+            flex: 1; padding: 13px 10px; background: #ffffff; color: #0a0e27;
+            border: 2px solid rgba(255, 107, 107, 0.4); border-radius: 4px;
+            font-family: inherit; font-size: 16px; font-weight: 600; cursor: pointer;
+        }
+        .gender-btn[aria-checked="true"] { border-color: var(--coral); box-shadow: inset 0 0 0 1px var(--coral); }
+        .gender-btn[aria-checked="true"]::before { content: '✓ '; color: var(--coral); }
+        .gender-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+        .gender-btn:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+        /* The quiet in-app-browser line under the button, replacing the amber
+           banner this page used to carry at the top. */
+        .checkout-help { font-size: 12.5px; color: rgba(245,243,240,0.6); margin: 10px 0 0; line-height: 1.5; }
+        .checkout-help button { background: none; border: 0; padding: 0; color: var(--cream); text-decoration: underline; font: inherit; cursor: pointer; }
         /* Honeypot for the sold-out waitlist form — same trick lp.html uses:
            off-screen and hidden from assistive tech, so only a bot fills it. */
         .wl-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
@@ -522,6 +558,10 @@
            checked; price is untouched (see updatePricing()) since the
            whole point is the buyer pays for one ticket and gets two seats. */
         .two-for-one-toggle {
+            /* #453 moved this block BELOW the Reserve button and it had no
+               top margin, so it sat flush against the button's bottom edge.
+               events.html and lp.html both give the same box a 14px gap. */
+            margin-top: 14px;
             display: flex;
             align-items: flex-start;
             gap: 10px;
@@ -565,11 +605,6 @@
             .booking-card { position: static; }
         }
 
-        .iab-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; max-width: 1100px; margin: 20px auto 0; padding: 10px 40px; }
-        .iab-banner-inner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: rgba(255,107,107,0.12); border: 1px solid rgba(255,107,107,0.35); border-radius: 8px; padding: 10px 14px; font-size: 13px; width: 100%; }
-        .iab-banner-inner span { flex: 1; min-width: 200px; }
-        .iab-banner-inner button { padding: 6px 12px; font-size: 12px; border-radius: 4px; background: var(--coral); color: #fff; border: none; cursor: pointer; font-family: inherit; }
-        .iab-banner-inner #iabDismiss { background: transparent; color: var(--cream); opacity: 0.6; padding: 4px 8px; }
 
         /* Social proof: real event photos, no fabricated stats -- shared
            block, kept in sync across signup.html/events.html/event.html/lp.html. */
@@ -623,8 +658,12 @@
       // hashPii(): lowercase, trim, SHA-256 hex -- if the two disagree, Meta
       // sees two people and the match is worse than sending nothing.
       window.spdCookie = function (name) {
-        var m = document.cookie.match('(^|;)\s*' + name + '\s*=\s*([^;]+)');
-        return m ? m.pop() : null;
+        // Backslashes doubled on purpose: this is a STRING, so '\\s' is what puts \\s
+        // into the pattern. Written '\\s' it collapsed to the letter 's', and _fbp/_fbc
+        // were dropped for every buyer whose Meta cookie was not first in
+        // document.cookie -- which is most of them. Fixed 2026-09-04.
+        var m = document.cookie.match('(?:^|;)\\s*' + name + '\\s*=\\s*([^;]*)');
+        return m ? m[1] : null;
       };
       window.spdAdvancedMatch = async function (data) {
         if (typeof fbq !== 'function' || !data) return;
@@ -686,22 +725,16 @@
       })();
     </script>
 
-    <!-- In-app browsers (Instagram/Facebook/TikTok's built-in webview)
-         restrict third-party storage, which breaks Stripe's 3D-Secure
-         iframe here at checkout — a limitation enforced by the host app,
-         not fixable in our Stripe integration. Non-blocking: the card form
-         below still works normally underneath. -->
-    <div class="iab-banner">
-        <div class="iab-banner-inner" id="iabBanner" style="display:none">
-            <span>Having trouble? Tap <strong>⋮</strong> or <strong>•••</strong> and choose "Open in Browser" for a smoother checkout.</span>
-            <!-- Android only: revealed by the script below, which can hand the
-                 page straight to Chrome. Hidden on iOS, where no such jump
-                 exists and the copy-link instructions are the only option. -->
-            <button type="button" id="iabOpenChrome" style="display:none">Open in Chrome</button>
-            <button type="button" id="iabCopyLink">Copy link</button>
-            <button type="button" id="iabDismiss" aria-label="Dismiss">×</button>
-        </div>
-    </div>
+    <!-- The amber "Having trouble? … Open in Browser" banner that used to sit
+         here is gone, for the reason the dialog's went on 2026-09-02: 3-D
+         Secure has never once fired on this property (checkout_3ds_required is
+         absent from all 35 of its GA4 event names, and the last Stripe read
+         found zero incomplete PaymentIntents), yet the warning was shown to
+         roughly 80% of paid visitors — the in-app-browser majority — telling
+         them their payment might fail before they had tried it.
+         What replaces it is #iabHelp: one quiet line directly under the
+         Reserve button, where a buyer who actually hits trouble will be
+         looking, offering the same copy-link and Android-Chrome escapes. -->
 
     <!-- Social proof: real photos from real mixers, no fabricated stats -->
     <section class="sp-social-proof">
@@ -809,14 +842,39 @@
             <!-- Booking Card -->
             <div class="grid-booking">
                 <div class="booking-card">
-                    <h3>Reserve Your Spot</h3>
+                    <!-- Toggled by updateEventTag() alongside the form/waitlist
+                         swap: a sold-out event left "Reserve Your Spot" standing
+                         over a waitlist form, heading a thing it no longer
+                         describes. Set both ways so a released seat restores it. -->
+                    <h3 id="bookingHeading">Reserve Your Spot</h3>
                     <p class="capacity"><span id="spotsLeft">Open</span> spots remaining</p>
 
-                    <div class="success-message" id="successMessage"></div>
-                    <div class="error-message" id="errorMessage"></div>
+                    <!-- Live regions. These two divs sit above the whole form
+                         and the submit button is ~115 lines below them, so on
+                         a phone a buyer can be told their card was declined
+                         with the message off-screen and nothing announced.
+                         lp.html has marked its equivalent role="alert" all
+                         along; these did not. role="alert" is assertive
+                         (a failed payment interrupts), role="status" is polite
+                         (a confirmation waits its turn). -->
+                    <div class="success-message" id="successMessage" role="status" aria-live="polite"></div>
+                    <div class="error-message" id="errorMessage" role="alert"></div>
+
+                    <!-- Revealed once a purchase succeeds, when the form is
+                         hidden. Without it this card becomes a dead end: the
+                         dialog swaps in a whole #stepDone panel with a
+                         "Browse More Mixers" action and /lp hides its form for
+                         .lp-done, while this page just reset the form in
+                         place and left the buyer looking at a live Reserve
+                         button. Kept as its own element so the confirmation
+                         text stays textContent — the buyer's email address
+                         goes in there and must never be interpolated as HTML. -->
+                    <p class="capacity" id="purchaseDoneNext" style="display:none;margin-top:16px;">
+                        <a href="/events">Browse more mixers</a>
+                    </p>
 
                     <!-- Sold-out capture. Swapped in for the checkout form by
-                         renderSpots() when remaining <= 0. Before this, a
+                         updateEventTag() when remaining <= 0. Before this, a
                          sold-out event just said "Sold out" and the visitor
                          left with nothing recorded — the highest-intent lead
                          on the site (they picked a specific night; only
@@ -843,18 +901,34 @@
                     </div>
 
                     <form id="checkoutForm">
+                        <!-- Gender as two tap targets, matching the /events dialog and
+                             /lp. This page kept the <select> when #419 rebuilt the other
+                             two checkouts' first screen, so every listing link in
+                             vercel.json (Eventbrite, AllEvents, Meetup, the tourism
+                             boards) has been landing on the control the funnel audit
+                             measured as the drop: a dropdown reading "Select..." above a
+                             disabled button reading "Select Gender", which 22 of 29 paid
+                             form viewers never got past
+                             (reports/PAID_FUNNEL_AUDIT_2026-09-02.md §5.3).
+
+                             The hidden #ticketGender input keeps the id and every
+                             existing `.value` read intact, so pricing, submit and the
+                             member pre-fill are untouched. It is NOT `required`:
+                             constraint validation ignores a hidden input, so the missing
+                             gender is caught in the submit handler instead (the
+                             'Choose Woman or Man to continue.' throw below). -->
                         <div class="form-group">
-                            <label for="ticketGender">Gender</label>
-                            <select id="ticketGender" required>
-                                <option value="">Select...</option>
-                                <option value="woman">Woman</option>
-                                <option value="man">Man</option>
-                            </select>
+                            <label id="ticketGenderLabel">I am a</label>
+                            <div class="gender-choice" role="radiogroup" aria-labelledby="ticketGenderLabel" aria-required="true">
+                                <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="woman">Woman</button>
+                                <button type="button" class="gender-btn" role="radio" aria-checked="false" data-gender="man">Man</button>
+                            </div>
+                            <input type="hidden" id="ticketGender" value="">
                         </div>
 
                         <div class="form-group">
                             <label for="ticketName">Name</label>
-                            <input type="text" id="ticketName" placeholder="Jane Doe" required>
+                            <input type="text" id="ticketName" placeholder="Jane Doe" autocomplete="name" required>
                         </div>
 
                         <div class="form-group">
@@ -862,11 +936,14 @@
                             <input type="email" id="ticketEmail" placeholder="you@example.com" autocomplete="email" required>
                         </div>
 
-                        <div class="form-group">
-                            <label for="ticketPhone">Phone <span style="font-weight: 400; color: rgba(245,243,240,0.45);">(optional)</span></label>
-                            <input type="tel" id="ticketPhone" placeholder="+1 (555) 123-4567" autocomplete="tel">
-                        </div>
-
+                        <!-- Phone is no longer asked here. Five fields before the card was
+                             the form's own finding (PAID_FUNNEL_AUDIT 2026-09-02 §3); the
+                             API treats phone as optional and the profile link after
+                             purchase collects it. A signed-in member's stored phone is
+                             still forwarded by the submit handler, which is why this page
+                             does not hardcode '' the way the dialog does -- the server
+                             merges the payload over the member's registration record, so
+                             a blank would erase a number we already hold. -->
 
                         <div class="form-group" id="cardFormGroup">
                             <label>Payment Card</label>
@@ -882,17 +959,46 @@
                             </div>
                         </div>
 
-                        <!-- 2-for-1 sits AFTER the card, immediately above the price breakdown it
-                             changes. It used to sit between the phone field and Payment Card, which
-                             put an optional offer -- and, when ticked, a second full set of name /
-                             email / phone inputs -- in the middle of the buyer's own details, pushing
-                             the card further down the form for everyone including the majority who
-                             never take it. Here it is adjacent to the subtotal line it relabels. -->
-                        <!-- Hidden until Gender is "woman". The 2-for-1 is a women-only
-                             promotion (Taylor, 2026-09-02); it shipped ungated to everyone,
-                             which quietly turned a targeted offer into a site-wide 50% off.
-                             Hiding it is presentation only -- api/purchase-ticket.js rejects a
-                             +1 from a non-female buyer, because a checkbox is not a gate. -->
+                        <div class="price-breakdown">
+                            <div class="price-row subtotal">
+                                <span id="subtotalLabel">Ticket</span>
+                                <span id="subtotalPrice">$0.00</span>
+                            </div>
+                            <div class="price-row">
+                                <span>Service fee</span>
+                                <span id="serviceFee">$0.00</span>
+                            </div>
+                            <div class="price-row total">
+                                <span>Total</span>
+                                <span class="gold-text" id="totalPrice">$0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- The button sits directly under the total, above the testimonial
+                             and the fine print, so it is on screen on a phone without
+                             scrolling. It is enabled from the start and carries the price; a
+                             missing gender is caught on submit rather than by a disabled
+                             button reading "Select Gender" -- 22 of 29 paid form viewers
+                             never got past that (reports/PAID_FUNNEL_AUDIT_2026-09-02.md §2).
+
+                             The amber "Checkout may fail in this app's browser" banner at the
+                             top of this page is gone for the same reason it went from the
+                             dialog: 3-D Secure has never once fired on this property, and the
+                             warning was shown to ~80% of paid visitors at the moment of
+                             payment. What remains is the quiet line below. -->
+                        <button type="submit" class="checkout-btn" id="checkoutBtn">Reserve Spot</button>
+                        <p class="checkout-help" id="iabHelp" hidden>Trouble paying inside this app? <button type="button" id="iabCopyLink">Copy the link</button> and open it in Safari or Chrome. <button type="button" id="iabOpenChrome" hidden>Or open in Chrome now.</button></p>
+
+                        <!-- 2-for-1 sits BELOW the button now, so the button stays on screen
+                             on a phone; it is offered to every buyer and only ADVERTISED to
+                             women (content/brand.json caption_rules). For a few hours on
+                             2026-09-02 it was gated to women here and in
+                             api/purchase-ticket.js; Taylor reversed that the same day on
+                             legal grounds -- gender-conditioned pricing at a public
+                             accommodation is the riskier shape, so the product treats
+                             everyone alike and only the marketing is targeted.
+                             Ticking it relabels the button and the subtotal above and
+                             reveals the +1 fields here. -->
                         <div class="two-for-one-toggle" id="twoForOneToggle">
                             <input type="checkbox" id="twoForOneCheckbox">
                             <label for="twoForOneCheckbox"><strong>🎉 2-for-1:</strong> bring someone for free. Add their info below — you're only charged for one ticket.</label>
@@ -916,25 +1022,6 @@
                                 <label for="plusOneEmail">Their Email</label>
                                 <input type="email" id="plusOneEmail" placeholder="them@example.com" autocomplete="email">
                             </div>
-                            <div class="form-group">
-                                <label for="plusOnePhone">Their Phone <span style="font-weight: 400; color: rgba(245,243,240,0.45);">(optional)</span></label>
-                                <input type="tel" id="plusOnePhone" placeholder="+1 (555) 123-4567" autocomplete="tel">
-                            </div>
-                        </div>
-
-                        <div class="price-breakdown">
-                            <div class="price-row subtotal">
-                                <span id="subtotalLabel">Subtotal</span>
-                                <span id="subtotalPrice">$0.00</span>
-                            </div>
-                            <div class="price-row">
-                                <span>Service fee</span>
-                                <span id="serviceFee">$0.00</span>
-                            </div>
-                            <div class="price-row total">
-                                <span>Total</span>
-                                <span class="gold-text" id="totalPrice">$0.00</span>
-                            </div>
                         </div>
 
                         <div class="checkout-testimonial" id="rqBox"><span id="rqText"></span> <span class="who" id="rqWho"></span></div>
@@ -943,14 +1030,23 @@
                           // Rotating testimonial — see index.html for the canonical copy of this pattern.
                           (function () {
                             var TESTIMONIALS = [
-                              // Molly leads. This box used to run four men -- Jeff, Luke, James,
-                              // Alex -- not by choice but by side effect: it only took short quotes,
-                              // and the one approved quote from a woman is the long one, so she was
-                              // excluded by a layout rule. reserve() below removes that rule by
-                              // measuring instead of guessing, which is what lets her lead here.
-                              // Quang's (a man, and longer still) stays in the homepage testimonials
-                              // section.
+                              // WOMEN FIRST, then the men. A standing rule from Taylor, not an
+                              // accident of ordering, and tests/testimonial-rotator.test.js fails if
+                              // a man is ever placed above a woman here. The reason is the business
+                              // one: women are the constrained side of the room, and social proof is
+                              // the only thing that has demonstrably converted them.
+                              //
+                              // It took a code change to become possible. This box used to accept
+                              // short quotes ONLY, because the height was a hand-picked constant --
+                              // so the only approved quote from a woman, being the long one, was
+                              // excluded by a layout rule and the list was four men. reserve() below
+                              // measures instead of guessing, which is what removed the cap.
+                              //
+                              // Anonymous M. is anonymised at her own request -- keep the initial.
+                              // Quang's, longer still, stays in the homepage testimonials section.
                               { q: "Everyone was so lively and some of us connected so well we chatted well into the evening.", who: "Molly" },
+                              { q: "A Majestic night!", who: "Helesha" },
+                              { q: "Brought my wing-girl!", who: "Anonymous M." },
                               { q: "Good networking opportunities!", who: "Jeff" },
                               { q: "Truly a lot more fun than any other dating event I attended!", who: "Luke" },
                               { q: "Relaxed rooftop bar and easy conversations!", who: "James" },
@@ -1068,8 +1164,6 @@
                           })();
                         </script>
 
-                        <button type="submit" class="checkout-btn" id="checkoutBtn" disabled>Select Gender</button>
-
                         <!-- Fine print, consolidated and moved BELOW the button. Order is
                              usefulness-descending: what the buyer gets, then what a purchase is
                              not, then the legal line.
@@ -1140,7 +1234,11 @@
             try { sessionStorage.setItem('iabEscapeTried', '1'); } catch (_) {}
           }
           if (typeof gtag === 'function') {
-            gtag('event', 'in_app_browser_escape_attempt', { platform: 'android', trigger: isAuto ? 'auto' : 'button' });
+            // `source` is the only reason this event is splittable by surface
+            // in GA4. events.html sends 'events' and lp.html sends 'lp'; this
+            // one sent nothing, so every escape attempt from the page all the
+            // /l/* short links point at landed in an unattributed bucket.
+            gtag('event', 'in_app_browser_escape_attempt', { platform: 'android', source: 'event', trigger: isAuto ? 'auto' : 'button' });
           }
           try {
             location.href = 'intent://' + location.href.replace(/^https?:\/\//, '') +
@@ -1152,36 +1250,34 @@
         (function () {
           if (!isInAppBrowser()) return;
           // Best-effort: try to leave outright. If the webview refuses (no
-          // gesture) we're still here, and the banner below offers the same
-          // jump as a real button press.
+          // gesture) we're still here, and the help line under the button
+          // offers the same jump as a real button press.
           tryEscapeInAppBrowser(true);
-          var dismissed; try { dismissed = sessionStorage.getItem('iabDismissed'); } catch (_) { dismissed = null; }
-          if (dismissed) return;
-          var banner = document.getElementById('iabBanner');
-          if (!banner) return;
-          banner.style.display = 'flex';
           if (typeof gtag === 'function') gtag('event', 'in_app_browser_detected', { source: 'event' });
+
+          // No sessionStorage dismiss flag any more: the line is quiet enough
+          // that there is nothing to dismiss, and a dismissal used to take the
+          // copy-link escape away with it for the rest of the session.
+          var help = document.getElementById('iabHelp');
+          if (help) help.hidden = false;
+
           // Only Android can actually make this jump, so only Android is
           // offered it -- an iOS button that silently did nothing would be
           // worse than the copy-link instructions it sits next to.
           var openChromeBtn = document.getElementById('iabOpenChrome');
           if (openChromeBtn && /Android/i.test(navigator.userAgent)) {
-            openChromeBtn.style.display = '';
+            openChromeBtn.hidden = false;
             openChromeBtn.addEventListener('click', function () { tryEscapeInAppBrowser(false); });
           }
-          var dismissBtn = document.getElementById('iabDismiss');
-          if (dismissBtn) dismissBtn.addEventListener('click', function () {
-            banner.style.display = 'none';
-            try { sessionStorage.setItem('iabDismissed', '1'); } catch (_) {}
-            if (typeof gtag === 'function') gtag('event', 'in_app_browser_banner_dismissed');
-          });
+
           var copyBtn = document.getElementById('iabCopyLink');
           if (copyBtn) copyBtn.addEventListener('click', function () {
             try {
               navigator.clipboard.writeText(location.href);
-              copyBtn.textContent = 'Copied!';
-              setTimeout(function () { copyBtn.textContent = 'Copy link'; }, 2000);
+              copyBtn.textContent = 'Copied';
+              setTimeout(function () { copyBtn.textContent = 'Copy the link'; }, 2000);
             } catch (_) {}
+            if (typeof gtag === 'function') gtag('event', 'in_app_browser_copy_link', { source: 'event' });
           });
         })();
 
@@ -1284,7 +1380,21 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const stripe = Stripe('pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1');
+        // js.stripe.com is a third-party script this page cannot control, and
+        // this line used to call into it bare at module top level. A blocked
+        // or failed load threw a ReferenceError HERE -- before loadEvent()
+        // ever ran -- and took the whole module with it. The page then sat
+        // there on its static placeholders, including a hardcoded date now
+        // months in the past, with an enabled "Reserve Spot" button that could
+        // never do anything. The fail-soft in loadEvent()'s catch does not
+        // help: the module dies before that function is reached.
+        //
+        // lp.html has guarded this all along (typeof Stripe === 'function'
+        // plus a coCardReady flag), so the reference is the wrong side here.
+        const stripeReady = typeof Stripe === 'function';
+        const stripe = stripeReady
+            ? Stripe('pk_live_51TVE2YRsTCYDr2LLIRkBv8y84ZuZT4jYXkXgs2zaiNpMYXM9Y3cFzLUJwtFuSNAAnfWveQgAiZN7kPfr4KxvECT400OCCQWim1')
+            : null;
         // The card iframe is styled to match the rest of the form: white
         // ground, black text. It was theme:'night' on #0d1230 with cream text
         // while every other field was white on black -- the one field a buyer
@@ -1296,7 +1406,7 @@
         // when a focused input is under 16px, which yanks the page mid-
         // checkout. Stripe's default is already 16px; stating it means a
         // change to that default cannot quietly reintroduce the zoom.
-        const elements = stripe.elements({
+        const elements = stripeReady ? stripe.elements({
             appearance: {
                 theme: 'stripe',
                 variables: {
@@ -1309,9 +1419,23 @@
                     borderRadius: '4px',
                 }
             }
+        }) : null;
+        const cardElement = elements ? elements.create('card') : null;
+        if (cardElement) cardElement.mount('#card-element');
+        // The card is a cross-origin iframe, so it never fires DOM focus on
+        // this page — Stripe's own event is the only way to see the buyer
+        // reach the last field. Registered here rather than beside the other
+        // trackCheckoutField wiring because that runs before this mount.
+        if (cardElement) cardElement.on('focus', () => {
+            if (typeof trackCheckoutField === 'function') trackCheckoutField('card');
         });
-        const cardElement = elements.create('card');
-        cardElement.mount('#card-element');
+        if (!stripeReady) {
+            console.error('[event] Stripe.js did not load; checkout disabled');
+            const cardBox = document.getElementById('card-element');
+            if (cardBox) cardBox.textContent = 'Card payment is unavailable right now.';
+            const coBtn = document.getElementById('checkoutBtn');
+            if (coBtn) { coBtn.disabled = true; coBtn.textContent = 'Checkout unavailable'; }
+        }
 
         // Resolve event ID from URL. If missing, redirect to /events —
         // the page-wide hardcoded fallback was a foot-gun (audit #8: it
@@ -1337,6 +1461,28 @@
         let currentUser = null;
         let userTier = 'free';
         let userProfile = null; // cached user doc — has gender, stripeCustomerId
+        // A signed-in member's stored phone, forwarded on the purchase so the
+        // server's merge does not blank it. '' for a guest — the form has no
+        // phone field. Set by applyUserContext().
+        let memberPhone = '';
+        // The referral id, from the URL or from the capture at the top of this
+        // page. Same resolver shape as lp.html's refOf().
+        const readRef = () => {
+            try { return new URLSearchParams(location.search).get('ref') || localStorage.getItem('sparkdate_ref'); }
+            catch (_) { return null; }
+        };
+        // True from the moment a purchase is submitted until it settles.
+        //
+        // The submit handler disables the button, but updatePricing() turns it
+        // straight back on — and updatePricing() is reachable mid-flight from
+        // two controls the handler never disables: the gender buttons and the
+        // 2-for-1 checkbox. Tapping either while /api/purchase-ticket was in
+        // flight put a live, priced "Reserve Spot" back under the buyer's
+        // thumb. A guest's second submit mints a fresh paymentMethodId, so the
+        // server's idempotency key (member|card × event) does not collide and
+        // Stripe takes a SECOND charge. lp.html has guarded this all along
+        // with `coPaying`; this is the same guard by the same name-shape.
+        let paying = false;
 
         function currentMonthKey() {
             const now = new Date();
@@ -1356,6 +1502,88 @@
                 }
             } catch (e) {
                 console.error('[event] load error', e);
+                showLoadFailure();
+            }
+        }
+
+        // Mirror of events.html's fail-soft catch. An un-hydrated page must
+        // not assert a date, a capacity, or a price it never loaded.
+        //
+        // This page used to only console.error here, and every static
+        // placeholder in the markup then stood as a claim of fact: a
+        // hardcoded date (which has since fallen months into the past),
+        // "Open spots remaining", and -- because updateEventTag() is the only
+        // thing that ever hides it -- a live checkout form. eventPricing()
+        // returns price 0 for a null event, so the buyer was shown a $0.00
+        // ticket and a live "Reserve Spot · $2.50" button (the service fee
+        // alone) for an event the page never loaded. The server recomputes
+        // price from the event doc and does not read the quote, so that card
+        // would have been charged the real ticket price against a $2.50
+        // total. Fail closed instead.
+        //
+        // Hides rather than replacing the card's innerHTML the way
+        // events.html replaces its grid: #checkoutForm and #waitlistBlock are
+        // toggled by display in updateEventTag(), and must survive for the
+        // normal sold-out swap to keep working.
+        function showLoadFailure() {
+            const co = document.getElementById('checkoutForm');
+            const wl = document.getElementById('waitlistBlock');
+            if (co) co.style.display = 'none';
+            if (wl) wl.style.display = 'none';
+            const cap = document.querySelector('.booking-card .capacity');
+            if (cap) cap.style.display = 'none';
+            const err = document.getElementById('errorMessage');
+            if (err) {
+                err.textContent = "Couldn't load this event. Please refresh the page, or check back in a moment.";
+                err.style.display = 'block';
+            }
+            // Blank the static placeholders rather than leave them asserting
+            // details for an event that never arrived.
+            ['eventDate', 'eventTime', 'eventVenue', 'eventCapacity'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = '—';
+            });
+            const tag = document.getElementById('eventTag');
+            if (tag) tag.style.visibility = 'hidden';
+        }
+
+        // Mirrors isEventOver() in lib/next-event.js: start + duration, not
+        // start alone, so an event does not go dark while it is running.
+        // Trusts api/next-event.js's meta flag when the page was rendered
+        // through the /event rewrite, and falls back to the event's own date
+        // for a direct static hit.
+        function isEventPast(ev) {
+            if (document.querySelector('meta[name="spd-event-past"]')) return true;
+            if (!ev || !ev.date) return false;
+            const d = ev.date.toDate ? ev.date.toDate() : new Date(ev.date);
+            if (!d || isNaN(d.getTime())) return false;
+            const hrs = Number(ev.durationHours) > 0 ? Number(ev.durationHours) : 2;
+            return d.getTime() + hrs * 60 * 60 * 1000 < Date.now();
+        }
+
+        // Keep serving the page rather than redirecting -- a shared link to a
+        // finished event should still unfurl and still say what it was, which
+        // is the same reason api/next-event.js keeps the OG tags on a past
+        // event. What it must not do is sell.
+        //
+        // The waitlist stays hidden on purpose: its copy reads "This one's
+        // full. Get first refusal on a released seat", which describes a sold
+        // out event, not a finished one. There is no seat to release.
+        function showPastEvent() {
+            const co = document.getElementById('checkoutForm');
+            const wl = document.getElementById('waitlistBlock');
+            if (co) co.style.display = 'none';
+            if (wl) wl.style.display = 'none';
+            const cap = document.querySelector('.booking-card .capacity');
+            if (cap) cap.style.display = 'none';
+            const tag = document.getElementById('eventTag');
+            if (tag) tag.textContent = 'Past event';
+            const card = document.querySelector('.booking-card h3');
+            if (card) card.textContent = 'This event has already happened';
+            const err = document.getElementById('errorMessage');
+            if (err) {
+                err.innerHTML = 'This one is over. <a href="/events">See what is coming up next</a>.';
+                err.style.display = 'block';
             }
         }
 
@@ -1381,6 +1609,26 @@
             if (typeof ev.venueStars === 'number' && isFinite(ev.venueStars) && ev.venueStars > 0) {
                 document.getElementById('eventVenueRating').textContent = `★ ${ev.venueStars.toFixed(1)}`;
                 document.getElementById('venueRatingItem').style.display = '';
+            }
+
+            // An event that has already happened is not for sale. This page
+            // had no is-it-over test at all: a finished event with unsold
+            // seats printed "Open spots remaining", a live price, and a
+            // working checkout, and the server took the charge. events.html
+            // cannot even surface one -- its query is
+            // `where('date', '>=', new Date())` -- so /event?id= was the only
+            // way in, and it is the page every /l/* short link, email and
+            // share link lands on.
+            //
+            // api/next-event.js has already computed this from the shared
+            // DEFAULT_EVENT_DURATION_HOURS and emits it as a meta tag; the
+            // inline fallback covers a direct static hit that bypasses the
+            // rewrite. 2 hours is that same default (and the value already
+            // used for the JSON-LD endDate below) -- do not invent a third.
+            if (isEventPast(ev)) {
+                showPastEvent();
+                injectEventSeo(ev);
+                return;
             }
 
             updateEventTag(ev);
@@ -1416,37 +1664,43 @@
                 });
             }
 
-            // Land the visitor straight into the checkout form: every "Get
-            // Tickets" CTA site-wide already deep-links directly to this
-            // page (/event?id=...), so the remaining friction was that
-            // nothing on arrival told a visitor where to start. Autofocus
-            // the first actionable field once the real event data (and
-            // therefore the form) is ready. Deferred one tick past
-            // applyUserContext() below so a signed-in member whose profile
-            // pre-fills + locks Gender lands in Name instead of a disabled
-            // field.
-            focusFirstCheckoutField();
+            // Re-price now that eventData exists. The first updatePricing()
+            // runs at init, before this fetch resolves, so its seed resolves to
+            // 0 and the breakdown renders $0.00 -- which is exactly the empty
+            // order summary this change set out to remove. The dialog gets this
+            // for free by only ever pricing after its event is in hand; a
+            // standalone page has to say so.
+            updatePricing();
         }
 
-        // Focuses Gender, or Name if Gender is already locked by a signed-in
-        // member's profile (see applyUserContext). Never steals focus from a
-        // field the visitor has already started interacting with, and never
-        // re-fires — auth state can resolve after this first call, but a
-        // returning user mid-keystroke shouldn't get yanked back to the top.
-        let checkoutAutofocused = false;
-        function focusFirstCheckoutField() {
-            if (checkoutAutofocused) return;
-            if (document.activeElement && document.activeElement !== document.body) return;
-            const genderSelect = document.getElementById('ticketGender');
-            const nameInput = document.getElementById('ticketName');
-            const target = (genderSelect && !genderSelect.disabled) ? genderSelect : nameInput;
-            if (!target) return;
-            checkoutAutofocused = true;
-            target.focus({ preventScroll: false });
-        }
+        // The autofocus that used to live here is GONE, for two reasons.
+        //
+        // It corrupted the funnel it was meant to help. It focused the
+        // checkout's first field as soon as event data arrived, which tripped
+        // the form's own `focusin` handler below -- so begin_checkout,
+        // checkout_form_started and Pixel InitiateCheckout all fired on every
+        // page load, with no buyer interaction at all. That makes step one of
+        // this page's funnel a pageview count, not a form-engagement count,
+        // and PAID_FUNNEL_AUDIT_2026-09-02.md §3's `/event 30 -> 17 -> 1 -> 1`
+        // row is measuring against that inflated 30.
+        //
+        // And it no longer has a job. It existed because "nothing on arrival
+        // told a visitor where to start"; what tells them now is the same
+        // thing that tells them on /events and /lp -- a live Reserve button
+        // carrying the real price, sitting directly under the total. Neither
+        // of those two surfaces autofocuses anything, and this one matching
+        // them is the point of the change.
 
-        // Real price/scarcity signal in the hero tag — replaces the old
-        // static "Founding Event" badge. Priority mirrors the exact pattern
+        // Renders EVERY live-inventory surface on the page from one event
+        // doc: the #spotsLeft badge, the checkout/waitlist swap, and the hero
+        // price/scarcity tag. The name says only the last of the three, which
+        // is why the waitlist markup above used to credit a `renderSpots()`
+        // that has never existed in this file. Left named as it is on purpose:
+        // renaming it would widen the naming gap with events.html, which has
+        // no counterpart function to rename in step.
+        //
+        // Hero tag specifics — replaces the old static "Founding Event"
+        // badge. Priority mirrors the exact pattern
         // already built for lp.html: early-bird deadline beats non-numeric
         // scarcity beats a plain price fallback. Scarcity is deliberately
         // never a number ("Filling up", not "Only 5 left") — a low absolute
@@ -1472,10 +1726,19 @@
             // hero tag below, showing "Open spots remaining" / a price for
             // an event with nothing left to buy. remaining is already
             // clamped to >= 0 (Math.max(0, total - sold) above), so
-            // `remaining <= 0` alone covers both cases -- no need to
-            // separately require total > 0, since either way there's
+            // `remaining <= 0` alone covers both capacity cases -- no need
+            // to separately require total > 0, since either way there's
             // nothing to sell.
-            const soldOut = remaining <= 0;
+            //
+            // `status === 'full'` is the THIRD case, and it is not a capacity
+            // number at all: it is a label the host sets by hand to close an
+            // event that still has seats on paper. Every other surface has
+            // honoured it for some time -- events.html:2111 (`isSoldOut`),
+            // lp.html (`coSellable`), api/next-event.js and lib/next-event.js
+            // -- and this page was the only one that did not, while being the
+            // page every /l/* short link, every email and every share link
+            // lands on. Same rule as events.html:2109-2120, flag first.
+            const soldOut = ev.status === 'full' || remaining <= 0;
 
             // Booking-card badge: real inventory state instead of the old
             // static "Limited" that never reflected actual data. "No" (not
@@ -1497,6 +1760,12 @@
                 wlBlock.style.display = soldOut ? '' : 'none';
                 coForm.style.display = soldOut ? 'none' : '';
             }
+            // The heading goes with it. Leaving "Reserve Your Spot" over a
+            // waitlist form is the same defect as the dialog's disabled "Sold
+            // Out" button sitting above its waitlist: a dead control heading a
+            // live one.
+            const bookingHeading = document.getElementById('bookingHeading');
+            if (bookingHeading) bookingHeading.textContent = soldOut ? 'Join the waitlist' : 'Reserve Your Spot';
 
             const tag = document.getElementById('eventTag');
             if (!tag) return;
@@ -1771,16 +2040,55 @@
         let lastQuotedTicket = null;
 
         function updatePricing() {
+            // A purchase is in flight: repaint nothing. This function is what
+            // re-enabled the submit button mid-payment (both branches end in
+            // `btn.disabled = false`), and it is reachable while
+            // /api/purchase-ticket is running because neither the gender
+            // buttons nor the 2-for-1 checkbox is disabled by the submit
+            // handler. Returning early also stops the "Processing..." label
+            // being overwritten with a live price.
+            if (paying) return;
+            // Stripe.js never loaded: the button says "Checkout unavailable"
+            // and must stay that way. Without this, the first re-price would
+            // hand back a live "Reserve Spot" for a form with no card field.
+            if (!stripeReady) return;
+
             const gender = document.getElementById('ticketGender').value;
             const btn = document.getElementById('checkoutBtn');
 
+            // No gender yet: show the listing price anyway and keep the button
+            // live. ticketPrice() resolves with selectedGender() === '', which
+            // for a single-pool event is the real price and for a legacy
+            // gender-split doc is priceMen -- the same seed the dialog shows.
+            // The missing gender is caught by the submit handler's
+            // 'Choose Woman or Man to continue.' throw, not by a dead button:
+            // 22 of 29 paid form viewers never got past the disabled one
+            // (reports/PAID_FUNNEL_AUDIT_2026-09-02.md §2).
+            //
+            // The early `return` matters twice over. It keeps AddToCart /
+            // add_to_cart below from firing on a price the buyer never chose,
+            // and it leaves lastQuotedTicket null so the submit-time staleness
+            // check has no seed price to mistake for a real quote.
             if (!gender) {
-                document.getElementById('subtotalLabel').textContent = 'Subtotal';
-                document.getElementById('subtotalPrice').textContent = '$0.00';
-                document.getElementById('serviceFee').textContent = '$0.00';
-                document.getElementById('totalPrice').textContent = '$0.00';
-                btn.textContent = 'Select Gender';
-                btn.disabled = true;
+                const seed = ticketPrice();
+                const seeded = Number.isFinite(seed) && seed > 0;
+                // The 2-for-1 is honoured in the labels here too. Ticking the
+                // box before choosing a gender opened the +1 fields while the
+                // subtotal still said "Ticket" and the button still said
+                // "Reserve Spot" — the form asked for a second guest's details
+                // and described one seat. It does not change the TOTAL (that
+                // is the whole point of the offer), only what the buyer is
+                // told they are getting. Same strings as the priced branch.
+                const seedTwo = document.getElementById('twoForOneCheckbox').checked;
+                document.getElementById('subtotalLabel').textContent = seedTwo ? 'Subtotal (2 tickets, 2-for-1)' : 'Ticket';
+                document.getElementById('subtotalPrice').textContent = seeded ? `$${seed.toFixed(2)}` : '$0.00';
+                document.getElementById('serviceFee').textContent = seeded ? `$${SERVICE_FEE.toFixed(2)}` : '$0.00';
+                document.getElementById('totalPrice').textContent = seeded ? `$${(seed + SERVICE_FEE).toFixed(2)}` : '$0.00';
+                btn.textContent = seeded
+                    ? `${seedTwo ? 'Reserve 2 Spots (2-for-1)' : 'Reserve Spot'} · $${(seed + SERVICE_FEE).toFixed(2)}`
+                    : (seedTwo ? 'Reserve 2 Spots (2-for-1)' : 'Reserve Spot');
+                btn.disabled = false;
+                lastQuotedTicket = null;
                 return;
             }
 
@@ -1846,6 +2154,82 @@
             updatePricing();
         });
         syncTwoForOneVisibility();
+
+        // Gender is two tap targets writing into the hidden #ticketGender, so
+        // every existing `.value` read (pricing, submit, the member pre-fill)
+        // is untouched. syncGenderButtons() mirrors the input back onto the
+        // buttons, including the disabled state a signed-in member gets.
+        function syncGenderButtons() {
+            const input = document.getElementById('ticketGender');
+            const btns = [...document.querySelectorAll('#checkoutForm .gender-btn')];
+            btns.forEach((b, i) => {
+                const checked = b.dataset.gender === input.value;
+                b.setAttribute('aria-checked', checked ? 'true' : 'false');
+                b.disabled = input.disabled;
+                // Roving tabindex. A radiogroup is ONE tab stop: Tab moves to
+                // the group, arrows move within it. Both buttons were plain
+                // tab stops, so a keyboard user tabbed through the group
+                // rather than into it, and arrow keys did nothing at all --
+                // the control announced itself as a radiogroup and then did
+                // not behave like one. When nothing is chosen yet the first
+                // button holds the stop, so the group stays reachable.
+                b.tabIndex = (checked || (!input.value && i === 0)) ? 0 : -1;
+            });
+        }
+        const genderBtns = [...document.querySelectorAll('#checkoutForm .gender-btn')];
+        function chooseGender(b) {
+            const input = document.getElementById('ticketGender');
+            if (input.disabled) return;
+            input.value = b.dataset.gender;
+            syncGenderButtons();
+            trackCheckoutField('gender');
+            // The group is no longer in an error state once a choice is made.
+            const grp = document.querySelector('#checkoutForm .gender-choice');
+            if (grp) grp.removeAttribute('aria-invalid');
+            // Assigning .value on a hidden input fires nothing, so the
+            // change listener above -- which is what re-prices the form --
+            // has to be told by hand. Without this the price stays on its
+            // seed and the button label never picks up the chosen gender.
+            input.dispatchEvent(new Event('change'));
+        }
+        genderBtns.forEach((b) => b.addEventListener('click', () => chooseGender(b)));
+        // Arrow/Home/End, on the group rather than the document. Routed
+        // through the same chooseGender() the click uses, so the field
+        // tracking, the aria-invalid clear and the manual `change` that
+        // re-prices the form all still happen.
+        const genderGroup = document.querySelector('#checkoutForm .gender-choice');
+        if (genderGroup) genderGroup.addEventListener('keydown', (e) => {
+            const keys = ['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown', 'Home', 'End'];
+            if (!keys.includes(e.key)) return;
+            if (document.getElementById('ticketGender').disabled) return;
+            e.preventDefault();
+            const cur = genderBtns.findIndex((b) => b.getAttribute('aria-checked') === 'true');
+            const last = genderBtns.length - 1;
+            let next;
+            if (e.key === 'Home') next = 0;
+            else if (e.key === 'End') next = last;
+            else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = cur <= 0 ? last : cur - 1;
+            else next = cur === -1 || cur === last ? 0 : cur + 1;
+            chooseGender(genderBtns[next]);
+            genderBtns[next].focus();
+        });
+        syncGenderButtons();
+
+        // Per-field first-focus events, so the drop between fields is visible
+        // in GA4 instead of only the gap between begin_checkout and
+        // add_to_cart. Matches the dialog's trackModalField, with source
+        // 'event' so the two surfaces can be told apart in a report.
+        const checkoutFieldsTracked = new Set();
+        function trackCheckoutField(field) {
+            if (checkoutFieldsTracked.has(field)) return;
+            checkoutFieldsTracked.add(field);
+            if (typeof gtag === 'function') gtag('event', 'checkout_field_started', { field, source: 'event' });
+        }
+        [['ticketName', 'name'], ['ticketEmail', 'email']].forEach(([id, field]) => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('focus', () => trackCheckoutField(field));
+        });
+        document.getElementById('twoForOneCheckbox').addEventListener('change', () => trackCheckoutField('two_for_one'));
 
         // 2-for-1 toggle: reveal/hide the +1's fields, mark them required
         // only while visible (so an unchecked box never blocks submission
@@ -1948,11 +2332,26 @@
 
         document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            // Re-entrancy guard, same as lp.html's `coPaying`. A disabled
+            // button is not enough on its own: updatePricing() re-enables it,
+            // and the controls that call updatePricing() stay live during the
+            // request. For a guest the second submit mints a new
+            // paymentMethodId, which changes the server's idempotency key, so
+            // Stripe charges twice.
+            if (paying) return;
+            paying = true;
 
             const gender = document.getElementById('ticketGender').value;
             const name = document.getElementById('ticketName').value.trim();
             const email = document.getElementById('ticketEmail').value.trim();
-            const phone = document.getElementById('ticketPhone').value.trim();
+            // The phone FIELD is gone (see the markup comment above the card
+            // group), but a signed-in member's stored number is still sent:
+            // api/purchase-ticket.js merges this payload over the member's
+            // registration record, so posting '' would erase a number we
+            // already hold. memberPhone is set by applyUserContext() and stays
+            // '' for a guest, who is asked for it on the profile link after
+            // purchase instead.
+            const phone = memberPhone;
             const btn = document.getElementById('checkoutBtn');
             const errorMsg = document.getElementById('errorMessage');
             const successMsg = document.getElementById('successMessage');
@@ -1963,6 +2362,32 @@
             btn.textContent = 'Processing...';
 
             try {
+                // Nothing below this line is safe without the event doc. The
+                // price shown came from eventPricing(null) -- which is $0.00
+                // ticket, so a $2.50 service-fee-only total -- while the
+                // server recomputes the real price from the doc and never
+                // reads the quote. showLoadFailure() normally hides the form
+                // before anyone gets here; this covers the race where the
+                // fetch is still in flight.
+                if (!eventData) {
+                    throw new Error("Couldn't load this event. Please refresh the page and try again.");
+                }
+
+                // No card field means no payment method can be created; fail
+                // with something the buyer can act on rather than a
+                // ReferenceError in the console.
+                if (!cardElement) {
+                    throw new Error('Card payment is unavailable right now. Please refresh the page and try again.');
+                }
+
+                // Gender carries no `required` any more -- constraint
+                // validation ignores a hidden input -- so this throw IS the
+                // validation, not a backstop. Same message and same wording as
+                // the dialog and /lp, because the catch below classifies on it.
+                if (!gender) {
+                    throw new Error('Choose Woman or Man to continue.');
+                }
+
                 // Name is required so we can address the welcome email and
                 // store a real lead row. (HTML `required` catches most cases
                 // but this is a belt-and-suspenders runtime check.)
@@ -1980,7 +2405,10 @@
                     const poGender = document.getElementById('plusOneGender').value;
                     const poName = document.getElementById('plusOneName').value.trim();
                     const poEmail = document.getElementById('plusOneEmail').value.trim();
-                    const poPhone = document.getElementById('plusOnePhone').value.trim();
+                    // The +1 phone field went with the buyer's own -- there is
+                    // no member record to preserve for a guest we have never
+                    // seen, so this one really is empty.
+                    const poPhone = '';
                     if (!poGender || !poName || !poEmail) {
                         throw new Error("Please fill in your +1's gender, name, and email — or uncheck 2-for-1.");
                     }
@@ -2042,6 +2470,12 @@
                         gender,
                         eventId: evId,
                         plusOne,
+                        // The referral id this visitor arrived with. Captured
+                        // into localStorage at the top of this page but never
+                        // sent, so every referred buyer who converted here was
+                        // written with referredBy: null. lp.html has always
+                        // sent it; the server takes it as `ref`.
+                        ref: readRef(),
                         // Where this buyer originally came from. Read at purchase
                         // rather than at capture so a first-touch ad click still
                         // credits the ad weeks later.
@@ -2101,6 +2535,12 @@
                         gender,
                         eventId: evId,
                         plusOne,
+                        // The referral id this visitor arrived with. Captured
+                        // into localStorage at the top of this page but never
+                        // sent, so every referred buyer who converted here was
+                        // written with referredBy: null. lp.html has always
+                        // sent it; the server takes it as `ref`.
+                        ref: readRef(),
                         // Where this buyer originally came from. Read at purchase
                         // rather than at capture so a first-touch ad click still
                         // credits the ad weeks later.
@@ -2172,10 +2612,34 @@
                 // happen: no ticket, no charge, and nothing on screen to say
                 // so. Point at the +1 flow, which is the supported way to
                 // bring someone.
+                // Name the address, and count the tickets. "Check your email"
+                // does not say WHICH email, and this page is where every /l/*
+                // short link, every listing and every share link lands — the
+                // buyer who typed a work address by mistake, or a typo, has
+                // nothing on screen to notice it by. It also said "your
+                // ticket" after a 2-for-1 bought two. Both the dialog and /lp
+                // have echoed the address and pluralised all along; this is
+                // the wording from events.html, verbatim, so the three read
+                // the same after the same purchase.
+                // Reveal before writing, same reason as the error path below.
+                successMsg.style.display = 'block';
                 successMsg.textContent = (result.alreadyConfirmed && !authedThisSubmit)
                     ? "You already have a ticket for this event — we haven't charged you again. Bringing someone? Use the +1 option instead."
-                    : "You're confirmed. Check your email for event details.";
-                successMsg.style.display = 'block';
+                    : `We emailed your ${plusOne ? 'tickets' : 'ticket'} to ${email}. Bring nothing but yourself.`;
+
+                // Take the form away. This page was the only one of the three
+                // that left a live, priced Reserve button on screen after a
+                // completed charge — the dialog swaps in #stepDone, /lp hides
+                // its form for .lp-done. On a page whose button is enabled
+                // from arrival, that is a second charge one tap away, and the
+                // re-entrancy guard does not help once the first request has
+                // settled. The reset block below still runs, so the hidden
+                // form stays clean.
+                const doneForm = document.getElementById('checkoutForm');
+                if (doneForm) doneForm.style.display = 'none';
+                const doneNext = document.getElementById('purchaseDoneNext');
+                if (doneNext) doneNext.style.display = '';
+                successMsg.scrollIntoView({ block: 'center', behavior: 'smooth' });
 
                 // Track ticket purchase — once per real charge, but never zero
                 // times for one. `duplicate` was doing both jobs and got the
@@ -2203,8 +2667,16 @@
                 // actually charged (early-bird-aware — see effectivePrice() in
                 // lib/seat-model.js), returned as `amount` in cents on every
                 // response including the 3DS one. `ticket + SERVICE_FEE` is a
-                // client-side recompute that does NOT apply early-bird pricing,
-                // so it's kept only as a defensive fallback.
+                // client-side recompute, kept as a defensive fallback for a
+                // response that carries no `amount`.
+                //
+                // It DOES apply early-bird pricing, contrary to what this note
+                // used to claim: `ticket` comes from ticketPrice() →
+                // eventPricing(), which resolves the early-bird window itself.
+                // events.html and lp.html use the identical expression and
+                // never claimed otherwise. The fallback is a fallback because
+                // the server is authoritative about what was charged, not
+                // because it prices differently.
                 // NB: do not name this `ticketPrice` — a block-scoped const of
                 // that name shadows the ticketPrice() function across this whole
                 // try block and makes the earlier `const ticket = ticketPrice()`
@@ -2293,18 +2765,54 @@
                 ['plusOneGender', 'plusOneName', 'plusOneEmail'].forEach((id) => {
                     document.getElementById(id).required = false;
                 });
+                // form.reset() blanks the gender and name inputs back to their
+                // value attributes but leaves `disabled` alone, so a signed-in
+                // member was left with empty, still-locked controls: the
+                // gender buttons refuse the click, and every submit from then
+                // on throws "Choose Woman or Man to continue." with no way to
+                // comply. #453 patched the gender case here by hand and left
+                // the name blank-and-locked with it.
+                //
+                // applyUserContext() restores all of it — gender, name, email,
+                // the card-on-file swap — and is now idempotent, so this is a
+                // re-application rather than a second copy of the rules. Same
+                // shape as resetCheckoutForm() in events.html. syncGenderButtons()
+                // stays ahead of it so a member with no gender on file still
+                // gets the pressed state cleared.
+                syncGenderButtons();
                 cardElement.clear();
+                applyUserContext();
                 updatePricing();
             } catch (err) {
                 console.error('[event] checkout error', err);
                 const msg = (err.message || '').toLowerCase();
                 let friendly, category;
-                if (msg.includes('enter your name')) {
+                if (msg.includes('choose woman')) {
+                    friendly = err.message;
+                    category = 'gender_missing';
+                } else if (msg.includes('enter your name')) {
                     friendly = err.message;
                     category = 'name_missing';
-                } else if (msg.includes('limit') || msg.includes('full on') || msg.includes('event is full')) {
+                } else if (msg.includes('limit') || msg.includes('full on') || msg.includes('event full') || msg.includes('event is full') || msg.includes('already happened')) {
+                    // 'event full' is the string the SERVER actually sends:
+                    // api/purchase-ticket.js answers a sold-out 409 with
+                    // { error: 'Event full' }. This chain matched 'full on'
+                    // and 'event is full' — neither of which the server has
+                    // ever sent — so the one capacity error that really fires
+                    // fell through to "contact support@sparkdate.date" and was
+                    // logged to GA4 as category 'other'. lp.html has had the
+                    // right matcher all along. 'already happened' is the 410
+                    // for a finished event.
                     friendly = err.message; // capacity/limit messages are already user-friendly
                     category = 'capacity';
+                } else if (msg.includes('early-bird') || msg.includes('+1')) {
+                    // The early-bird re-quote ("the price changed, tap again")
+                    // and the blank-+1 message are both already written for the
+                    // buyer, and both were being swallowed by the generic
+                    // else. They tell someone exactly what to do next; the
+                    // support address does not.
+                    friendly = err.message;
+                    category = 'other';
                 } else if (msg.includes('declin')) {
                     friendly = 'Your card was declined. Please try a different payment method.';
                     category = 'card_declined';
@@ -2322,10 +2830,42 @@
                 // logic above already computes) + the raw reason text, so GA4
                 // can show which specific checkout field is costing conversions
                 // without needing a separate validation-error event per field.
-                gtag('event', 'checkout_error', { in_app_browser: isInAppBrowser(), category, reason: msg.slice(0, 100) });
-                errorMsg.textContent = friendly;
+                gtag('event', 'checkout_error', { in_app_browser: isInAppBrowser(), category, source: 'event', reason: msg.slice(0, 100) });
+                // Show FIRST, then write. A role="alert" node that is
+                // display:none is not in the accessibility tree, so a
+                // textContent change made while it is hidden is a change to
+                // something the screen reader cannot see — and revealing it
+                // afterwards does not reliably announce anything. Reveal, then
+                // change the content, so the change happens to a live region
+                // that is actually live. lp.html has always written into a
+                // node that was never display:none.
                 errorMsg.style.display = 'block';
+                errorMsg.textContent = friendly;
+                // The gender buttons are the top of a long form and the error
+                // renders above them, so on a phone the buyer can be told
+                // "choose Woman or Man" with neither the message nor the
+                // control on screen. Put the cursor on the thing to fix.
+                if (category === 'gender_missing') {
+                    const grp = document.querySelector('#checkoutForm .gender-choice');
+                    if (grp) grp.setAttribute('aria-invalid', 'true');
+                    const first = document.querySelector('#checkoutForm .gender-btn');
+                    if (first) first.focus();
+                } else {
+                    // Every other category — declined, network, incomplete
+                    // card, capacity — has no field to focus, so nothing
+                    // brought the message on screen. The buyer sat at the
+                    // button, ~115 lines below it, watching "Reserve Spot"
+                    // come back with no visible explanation. The focus move
+                    // above was doing this job for exactly one category.
+                    errorMsg.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                }
                 btn.disabled = false;
+            } finally {
+                // Cleared here rather than at the end of each branch so no
+                // path — including one that throws somewhere unexpected — can
+                // leave the buyer with a permanently dead button. updatePricing()
+                // is a no-op while `paying` is true, so it has to run after.
+                paying = false;
                 updatePricing();
             }
         });
@@ -2351,23 +2891,63 @@
                 } catch (e) {
                     console.warn('Could not load user profile:', e.message);
                 }
+            } else {
+                // Signing out has to give the form back. Without this the
+                // profile lock was one-way: userProfile stayed set, so the
+                // gender control and the name field stayed disabled carrying
+                // the previous member's details, and nothing on the page could
+                // clear them. applyUserContext() is idempotent and clears
+                // every lock before it decides what to set, so the guest path
+                // through it is the reset.
+                userProfile = null;
+                userTier = 'free';
+                memberPhone = '';
+                applyUserContext();
             }
         });
         loadEvent();
 
+        // Idempotent, exactly like applyUserContextToModal() in events.html:
+        // it clears every lock it might set BEFORE deciding what to set, so
+        // calling it twice, or calling it after a sign-out, lands in the right
+        // state rather than in whatever the previous member left behind.
+        //
+        // It used to early-return on `!userProfile` before touching anything,
+        // which made the lock one-way: a member who signed out mid-session
+        // kept a disabled gender control and a disabled name field carrying
+        // the previous member's name, with no path back. It is also what made
+        // the post-purchase reset need its own bespoke gender-restore patch.
         function applyUserContext() {
-            if (!userProfile) return;
-
-            // Pre-fill gender + lock it (gender on profile is source of truth)
             const genderSelect = document.getElementById('ticketGender');
+            const nameInput = document.getElementById('ticketName');
+            const emailInput = document.getElementById('ticketEmail');
+            const cardGroup = document.getElementById('cardFormGroup');
+            const cardOnFileNotice = document.getElementById('cardOnFileNotice');
+            const trialDisclosure = document.getElementById('trialDisclosure');
+
+            genderSelect.disabled = false;
+            if (nameInput) nameInput.disabled = false;
+            if (cardGroup) cardGroup.style.display = '';
+            if (cardOnFileNotice) cardOnFileNotice.style.display = 'none';
+            if (trialDisclosure) trialDisclosure.style.display = '';
+
+            // updatePricing() as well as syncGenderButtons(), which the modal
+            // does not need: this page's submit button carries the price in
+            // its label, so an un-synced button keeps the old total.
+            if (!userProfile) { syncGenderButtons(); updatePricing(); return; }
+
+            // Pre-fill gender + lock it (gender on profile is source of truth).
+            // syncGenderButtons() mirrors both the value and the disabled flag
+            // onto the two buttons — without it a locked member sees a locked
+            // hidden value above two live, unchecked buttons.
             if (userProfile.gender && (userProfile.gender === 'man' || userProfile.gender === 'woman')) {
                 genderSelect.value = userProfile.gender;
                 genderSelect.disabled = true;
-                updatePricing();
             }
+            syncGenderButtons();
+            updatePricing();
 
             // Pre-fill name + lock it (profile is source of truth)
-            const nameInput = document.getElementById('ticketName');
             const profileName = userProfile.name || userProfile.displayName;
             if (profileName && nameInput) {
                 nameInput.value = profileName;
@@ -2375,24 +2955,22 @@
             }
 
             // Pre-fill email
-            const emailInput = document.getElementById('ticketEmail');
             if (userProfile.email && !emailInput.value) {
                 emailInput.value = userProfile.email;
             }
 
-            // Pre-fill phone (editable — user may want to use a different one for this event)
-            const phoneInput = document.getElementById('ticketPhone');
-            if (userProfile.phone && phoneInput && !phoneInput.value) {
-                phoneInput.value = userProfile.phone;
+            // Carry the member's stored phone through to the purchase payload.
+            // There is no phone field on this form any more, so nothing is
+            // shown or editable here — this only stops the purchase POST from
+            // writing a blank over the number already on the member's record.
+            if (userProfile.phone) {
+                memberPhone = userProfile.phone;
             }
 
             // Use saved card on file — and hide the trial disclosure since
             // members already have a subscription; auto-enrollment only fires
             // on the guest path in /api/purchase-ticket.
             if (userProfile.stripeCustomerId) {
-                const cardGroup = document.getElementById('cardFormGroup');
-                const cardOnFileNotice = document.getElementById('cardOnFileNotice');
-                const trialDisclosure = document.getElementById('trialDisclosure');
                 if (cardGroup) cardGroup.style.display = 'none';
                 if (cardOnFileNotice) cardOnFileNotice.style.display = 'block';
                 if (trialDisclosure) trialDisclosure.style.display = 'none';

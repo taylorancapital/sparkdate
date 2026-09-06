@@ -9,8 +9,8 @@
  * DIFFERENT Firebase Auth accounts for one event, because the check-in
  * flow's email lookup (admin.auth().getUserByEmail) didn't match their
  * existing ticket/Eventbrite account — a case difference
- * (Redrose1246@gmail.com vs redrose1246@gmail.com), an alias domain
- * (lukedebonis@me.com vs lukedebonis@mac.com), or a typo all produce a
+ * (SomeName42@gmail.com vs somename42@gmail.com), an alias domain
+ * (somename@me.com vs somename@mac.com), or a typo all produce a
  * genuinely different uid, hence a genuinely different
  * reg_{uid}_{eventId} doc — even though it's the same human, correctly
  * attached to the SAME event both times. That inflates roster counts and

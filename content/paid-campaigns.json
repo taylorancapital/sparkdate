@@ -1,0 +1,57 @@
+{
+  "_comment": "Which live Meta campaigns the budget ladder drives, and which ones it is deliberately leaving alone. Read by scripts/budget-ladder.js; written by hand. This file exists because the ladder used to hold its campaign list as a hardcoded array in scripts/meta-budget-ladder.js, so a second event was a code edit -- and the edit nobody made was invisible, because a campaign missing from the array is simply never laddered. Adding an October event is now: add the event to brand.json, build the campaign, add four lines here.",
+
+  "_how_to_add": [
+    "1. The event must exist in content/brand.json under `events` -- the ladder reads its DATE from there and refuses a key it cannot find. Nothing about the ladder duplicates the event.",
+    "2. Build the campaign (paused is fine; the ladder never unpauses anything) and take its numeric id from Ads Manager or `node scripts/meta-ads-review.js`.",
+    "3. Add an entry below. `total` is the whole run's budget in DOLLARS -- the same number you would pass to build-paid-campaign.js --budget=. `runway_start` is the first day of prime.",
+    "4. `node scripts/meta-budget-ladder.js --all` (dry run) and read the plan. `--forecast=45` shows what the account spends per day once the runs overlap.",
+    "5. Nothing else. The 03:00 `SparkDate Budget Ladder` scheduled task already runs `--all --execute`."
+  ],
+
+  "_fields": {
+    "event": "Key in content/brand.json events. The ladder gets the event date from there and nowhere else.",
+    "campaign_id": "Numeric Meta campaign id. Must be a CBO campaign -- the ladder sets a campaign-level daily_budget and refuses a campaign that has none.",
+    "name": "For output only. The live name is read back from Meta and printed next to it.",
+    "total": "Whole-run budget in dollars. Under $200 the prime phase falls below Meta's $2.00/day floor and will overspend its share; validation warns.",
+    "runway_start": "First day of prime. Must leave at least 18 days before the event (brand.json runway._floor) and ideally 21 (runway.minimum_days).",
+    "share": "Optional, default 1. The fraction of `total` THIS campaign carries, for events split across more than one campaign (a separate retargeting campaign, say). Shares for one event may not sum above 1.",
+    "managed": "Optional, default true. false parks an entry without deleting the numbers -- it keeps its id out of the ungoverned report while the ladder leaves it alone.",
+    "note": "Why this entry is the way it is."
+  },
+
+  "guards": {
+    "max_daily_dollars": 25,
+    "max_account_daily_dollars": 40,
+    "_why_account": "Each ladder is individually sane at $11.57/day; four at once is the number nobody was watching. reports/OCTOBER_SLATE_FEASIBILITY_2026-09-03.md models the October slate peaking at $27.50-$32.50/day across four campaigns, and the account's real record is $24.67/day across the seven days to Sep 1. $40 clears the modelled peak and still catches a doubling. A breach refuses the WHOLE run rather than laddering some campaigns and not others.",
+    "_why_campaign": "A ceiling, not a jump limit. The ladder's own prime -> convert step is 4.5x by design, so any jump guard tight enough to catch a typo also blocks the real steps. What needs catching is a fat-fingered total or a wrong event date, and both show up as an absurd daily figure."
+  },
+
+  "campaigns": [
+    {
+      "event": "LX",
+      "campaign_id": "120251304238920542",
+      "name": "Loxleys | Sales",
+      "total": 180,
+      "runway_start": "2026-08-23",
+      "note": "The $180 total is Taylor's $3.00/day prime choice on the original Traffic campaign (memory lx-campaign-live), carried onto the Sales campaign that replaced it on 09-05. Prime lands at $1.80 and is floored to Meta's $2.00. Retire this entry after 2026-09-22."
+    }
+  ],
+
+  "acknowledged": [
+    {
+      "campaign_id": "120251305428200542",
+      "name": "Marion Court | Sales",
+      "why": "Hand-set to $14.00/day by Taylor. Built 09-05 as a T-3 hail mary on the 2-for-1 female creative; its budget is a deliberate flat push, not a ladder. Handing it to the ladder would pull it DOWN to the close-phase rate two days before the event.",
+      "review_after": "2026-09-08"
+    },
+    {
+      "campaign_id": "120250958681350542",
+      "name": "Marion Court Retargeting",
+      "why": "Left untouched on purpose (HANDOFF 09-05): MC-RT-QUANG and MC-RT-NO-SCORECARDS stay running for the data. $6/day, ends with the event.",
+      "review_after": "2026-09-08"
+    }
+  ],
+
+  "_acknowledged_note": "A campaign here is one that is ACTIVE and deliberately outside the ladder. Anything ACTIVE in the account that is in neither list is reported as UNGOVERNED and exits non-zero -- that is the whole point of the file. `review_after` makes an acknowledgement expire instead of muting a campaign forever."
+}

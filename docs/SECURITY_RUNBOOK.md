@@ -33,7 +33,7 @@ dashboard access. Without this claim no one can read `users`, `payments`,
 # (same as Vercel — FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)
 
 node scripts/set-admin-claim.js taylor@sparkdate.date
-node scripts/set-admin-claim.js pennsylvaniacabinetmaker@comcast.net
+node scripts/set-admin-claim.js <owner-personal-email>   # the fallback admin
 
 # Verify
 node scripts/set-admin-claim.js --list

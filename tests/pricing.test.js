@@ -59,4 +59,63 @@ describe('SERVICE_FEE_CENTS source-of-truth', () => {
     const expectedDollars = SERVICE_FEE_CENTS / 100;
     expect(serviceFeeDollarsIn('public/lp.html')).toBeCloseTo(expectedDollars, 2);
   });
+
+  // public/city.html is the odd one out: it has no checkout and so no
+  // `const SERVICE_FEE`. It states the fee in PROSE, inside FAQ answers that
+  // are emitted verbatim into FAQPage JSON-LD -- so the number is a
+  // machine-readable claim Google can surface, and drift there is a false
+  // price in structured data rather than a wrong total on a button.
+  //
+  // Added 2026-09-04, when those answers said "$24.99 ... no hidden fees"
+  // while checkout charged $27.49. Prose, so it is matched as prose.
+  // Every page that PRINTS the figure as prose, not just city.html. lp.html
+  // was the miss: it shipped "+ $2.50 service fee" above the fold on the paid
+  // landing page with no id and no script touching it, so a fee change left it
+  // stale with the suite green — while events.html and event.html paint every
+  // fee figure from their constant. Its disclosure is painted from SERVICE_FEE
+  // now, and this guards the class of bug rather than the one instance.
+  it.each(['public/city.html', 'public/lp.html'])(
+    'states a service fee in %s that agrees with lib/pricing.js',
+    (page) => {
+      const html = readFileSync(join(__dirname, '..', page), 'utf8');
+      const matches = [...html.matchAll(/\$([\d.]+)\s+service fee/g)].map((m) => parseFloat(m[1]));
+
+      expect(matches.length, `${page}: expected at least one "$<n> service fee"`).toBeGreaterThan(0);
+
+      const expectedDollars = SERVICE_FEE_CENTS / 100;
+      matches.forEach((dollars) => expect(dollars).toBeCloseTo(expectedDollars, 2));
+    }
+  );
+
+  // "no account needed" was on three pages while api/purchase-ticket.js
+  // created a Firebase Auth user for every guest buyer and emailed them "We
+  // created a SparkDate account for you". The true version of the reassurance
+  // is that you do not sign up in ORDER to buy.
+  it('does not promise that no account is created', () => {
+    for (const page of ['public/lp.html', 'public/index.html', 'public/signup.html']) {
+      const html = readFileSync(join(__dirname, '..', page), 'utf8')
+        .replace(/<!--[\s\S]*?-->/g, '');
+      expect(html, `${page} still claims "no account needed"`).not.toMatch(/no account needed/i);
+    }
+  });
+
+  // The claim the fee disclosure replaced. "No hidden fees" beside a mandatory
+  // service fee is false however the price is worded, and it shipped into
+  // structured data for months. Cheap to retype, so it is pinned.
+  it('does not claim "no hidden fees" anywhere a fee is actually charged', () => {
+    // Comments are stripped first: this rule is about what SHIPS, and the
+    // comment in city.html that explains the rule quotes the banned phrase.
+    // Only whole-line // comments and <!-- --> blocks go, so a `https://`
+    // inside real markup survives.
+    const stripComments = (s) => s
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .split('\n')
+      .filter((line) => !line.trim().startsWith('//'))
+      .join('\n');
+
+    ['public/city.html', 'public/lp.html', 'public/event.html', 'public/events.html'].forEach((p) => {
+      const shipped = stripComments(readFileSync(join(__dirname, '..', p), 'utf8'));
+      expect(/no hidden fees/i.test(shipped), `${p}: says "no hidden fees" while ` + 'lib/pricing.js charges one').toBe(false);
+    });
+  });
 });

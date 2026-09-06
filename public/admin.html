@@ -5652,8 +5652,15 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 return `<button type="button" class="fs-sync ${cls}" ${dis} onclick="adminSyncNow('${job}')">${safe(label)}</button>${link}`;
             };
 
+            // ONLY source:'meta' documents. `ad_spend` stopped being Meta-only
+            // on 2026-09-04, when sync-google-ads-spend.js began writing
+            // {date}__google documents into the same collection. Taking the
+            // newest syncedAt across everything would let a fresh Google sync
+            // mask a Meta sync that had stopped -- which is precisely the
+            // failure this indicator exists to catch.
             let metaMs = null;
             adSpendDays.forEach(d => {
+                if (d.source && d.source !== 'meta') return;
                 const t = d.syncedAt && d.syncedAt.toMillis ? d.syncedAt.toMillis() : null;
                 if (t && (!metaMs || t > metaMs)) metaMs = t;
             });
@@ -5918,7 +5925,15 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             // while metaSpendFor() still returns null and the typed figure
             // got added on top. That is roughly $436 of June/July spend on
             // this account, counted twice on any window reaching back to it.
-            const covered = new Set(adSpendDays.map(d => String(d.date || d.id || '')));
+            // Meta documents only. This set answers "does a real META figure
+            // exist for this day", because that is what makes the hand-typed
+            // costFacebook redundant. Since 2026-09-04 the collection also
+            // holds {date}__google documents; counting one of those as
+            // "covered" would suppress the typed Facebook figure on a day no
+            // Meta sync ever reported, and quietly understate cost.
+            const covered = new Set(
+                adSpendDays.filter(d => !d.source || d.source === 'meta')
+                    .map(d => String(d.date || d.id || '')));
             allEvents.forEach(e => {
                 const d = toDate(e.date);
                 if (!d) return;

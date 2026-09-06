@@ -1081,9 +1081,9 @@
             <a class="event-cta-button" id="eventCtaBtn" href="/events">
                 Get Tickets
             </a>
-            <div class="event-cta-sub">Secure checkout · no account needed</div>
+            <div class="event-cta-sub">Secure checkout · no signup to buy</div>
             <ul class="event-cta-trust">
-                <li>Curated, pre-screened guest list</li>
+                <li>Curated, reviewed guest list</li>
                 <li>We aim for a balanced gender mix</li>
                 <li>Know who you clicked with that same night</li>
             </ul>
@@ -1118,14 +1118,23 @@
       // that was cut off. The bug was punctuation, not motion.
       (function () {
         var TESTIMONIALS = [
-          // Molly leads. Every rotator on the site used to run four men --
-          // Jeff, Luke, James, Alex -- not by choice but by side effect: this
-          // box only took short quotes, and the one approved quote from a
-          // woman is the long one, so she was excluded by a layout rule.
-          // reserve() below removes that rule by measuring instead of
-          // guessing, which is what lets her lead here. Quang's (a man, and
-          // longer still) stays in the testimonials section further down.
+          // WOMEN FIRST, then the men. A standing rule from Taylor, not an
+          // accident of ordering, and tests/testimonial-rotator.test.js fails if
+          // a man is ever placed above a woman here. The reason is the business
+          // one: women are the constrained side of the room, and social proof is
+          // the only thing that has demonstrably converted them.
+          //
+          // It took a code change to become possible. This box used to accept
+          // short quotes ONLY, because the height was a hand-picked constant --
+          // so the only approved quote from a woman, being the long one, was
+          // excluded by a layout rule and the list was four men. reserve() below
+          // measures instead of guessing, which is what removed the cap.
+          //
+          // Anonymous M. is anonymised at her own request -- keep the initial.
+          // Quang's, longer still, stays in the testimonials section further down.
           { q: "Everyone was so lively and some of us connected so well we chatted well into the evening.", who: "Molly" },
+          { q: "A Majestic night!", who: "Helesha" },
+          { q: "Brought my wing-girl!", who: "Anonymous M." },
           { q: "Good networking opportunities!", who: "Jeff" },
           { q: "Truly a lot more fun than any other dating event I attended!", who: "Luke" },
           { q: "Relaxed rooftop bar and easy conversations!", who: "James" },
@@ -1403,11 +1412,16 @@
         </div>
     </section>
 
-    <!-- Testimonials. All six approved quotes from content/brand.json, in
-         full -- this is the canonical listing, and the two rotators above it
-         are the teasers. Long and short are interleaved rather than sorted so
-         the three balanced columns each get one of each; the browser balances
-         the exact split. -->
+    <!-- Testimonials. ALL EIGHT approved quotes from content/brand.json, in
+         full -- this is the canonical listing, and the rotators above it are
+         the teasers. It fell a release behind once already: Helesha and
+         Anonymous M. were added to all six rotators and not to this wall, and
+         nothing caught it, so tests/testimonial-wall.test.js now fails if this
+         list and brand.json disagree. Add a quote in both places or in neither.
+
+         Women first, same rule as the rotators. After that, long and short
+         alternate rather than being sorted, so no column is all one length --
+         the browser still picks the exact split. -->
     <section class="section testimonials" id="testimonials">
         <div class="testimonials-eyebrow">In Their Words</div>
         <h2 class="section-title">What People Are <span class="highlight">Saying</span></h2>
@@ -1417,20 +1431,28 @@
                 <div class="testimonial-attribution">Molly</div>
             </div>
             <div class="testimonial-item">
-                <p class="testimonial-quote">Good networking opportunities!</p>
-                <div class="testimonial-attribution">Jeff</div>
+                <p class="testimonial-quote">A Majestic night!</p>
+                <div class="testimonial-attribution">Helesha</div>
+            </div>
+            <div class="testimonial-item">
+                <p class="testimonial-quote">Brought my wing-girl!</p>
+                <div class="testimonial-attribution">Anonymous M.</div>
             </div>
             <div class="testimonial-item">
                 <p class="testimonial-quote">Hosts and event setup made me relaxed and able to talk freely. Met my match there and seeing where it goes from there!</p>
                 <div class="testimonial-attribution">Quang</div>
             </div>
             <div class="testimonial-item">
-                <p class="testimonial-quote">Greater People, Greater Vibes!</p>
-                <div class="testimonial-attribution">Alex</div>
+                <p class="testimonial-quote">Good networking opportunities!</p>
+                <div class="testimonial-attribution">Jeff</div>
             </div>
             <div class="testimonial-item">
                 <p class="testimonial-quote">Truly a lot more fun than any other dating event I attended!</p>
                 <div class="testimonial-attribution">Luke</div>
+            </div>
+            <div class="testimonial-item">
+                <p class="testimonial-quote">Greater People, Greater Vibes!</p>
+                <div class="testimonial-attribution">Alex</div>
             </div>
             <div class="testimonial-item">
                 <p class="testimonial-quote">Relaxed rooftop bar and easy conversations!</p>
