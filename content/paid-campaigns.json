@@ -53,5 +53,7 @@
     }
   ],
 
-  "_acknowledged_note": "A campaign here is one that is ACTIVE and deliberately outside the ladder. Anything ACTIVE in the account that is in neither list is reported as UNGOVERNED and exits non-zero -- that is the whole point of the file. `review_after` makes an acknowledgement expire instead of muting a campaign forever."
+  "_acknowledged_note": "A campaign here is one that is ACTIVE and deliberately outside the ladder. Anything ACTIVE in the account that is in neither list is reported as UNGOVERNED and exits non-zero -- that is the whole point of the file. `review_after` makes an acknowledgement expire instead of muting a campaign forever.",
+
+  "_playbook_ref": "reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md section 8 is the current spec for a future event's phase structure (Seed/Build/Close), its cold:retarget split per phase, and its zero-gender-ad-set rule -- read it before registering a new event here. This file's own arithmetic does NOT need to change for that: the `share` field above already exists to split one event's run budget across more than one campaign, which is exactly the shape a separate Cold campaign + Retargeting campaign needs. What DOES need updating first is content/brand.json's `paid_template` (objective, ad_sets, phase shares) -- see its own `_objective_and_gender_status` note -- since that is what a new event's campaigns would be built from. Loxleys' single entry above predates the playbook and was not restructured into two campaigns for it; that is a deliberate deferral, not an oversight -- rebuilding a LIVE campaign's structure this close to its 2026-09-22 event risks a cold-start at the worst time, per the playbook's own §8.1 compressed-schedule rule."
 }
