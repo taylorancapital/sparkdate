@@ -98,6 +98,26 @@ describe('a sold-out event still reaches its waitlist', () => {
   });
 });
 
+describe('a sold-out surface leaves no dead control heading a live one', () => {
+  it('event.html retitles the card instead of leaving "Reserve Your Spot"', () => {
+    expect(EVENT).toMatch(/id="bookingHeading"/);
+    // Both ways, so a released seat restores it.
+    expect(EVENT).toMatch(/bookingHeading\.textContent = soldOut \? 'Join the waitlist' : 'Reserve Your Spot'/);
+  });
+
+  it('the dialog hides its dead Sold Out button rather than only disabling it', () => {
+    expect(EVENTS).toMatch(/toCheckout\.hidden = dialogSoldOut;/);
+  });
+
+  it('both surfaces confirm a waitlist join the same way', () => {
+    // event.html used a green success panel; the modal used unstyled muted
+    // body copy, so the identical action read as confirmed on one and as an
+    // aside on the other.
+    expect(EVENT).toMatch(/class="success-message" id="waitlistSuccess"/);
+    expect(EVENTS).toMatch(/class="modal-success-message" id="modalWaitlistDone"/);
+  });
+});
+
 describe('event.html fails closed when the event never loads', () => {
   it('the Firestore catch hides the checkout instead of only logging', () => {
     expect(EVENT).toMatch(/showLoadFailure\(\);/);

@@ -1314,7 +1314,12 @@
                             <button type="submit" class="checkout-btn" id="modalWaitlistBtn">Join the waitlist</button>
                         </form>
                         <div class="modal-error-message" id="modalWaitlistError" style="display:none;"></div>
-                        <p class="event-modal-blurb" id="modalWaitlistDone" style="display:none;"></p>
+                        <!-- Styled as a success message, not as body copy.
+                             event.html confirms the same waitlist join in a
+                             green panel; this was unstyled muted prose, so the
+                             identical action read as confirmed on one surface
+                             and as an aside on the other. -->
+                        <p class="modal-success-message" id="modalWaitlistDone" style="display:none;"></p>
                     </div>
                 </div>
             </div>
@@ -2189,6 +2194,11 @@
             const toCheckout = document.getElementById('toCheckoutBtn');
             toCheckout.disabled = dialogSoldOut;
             toCheckout.textContent = dialogSoldOut ? 'Sold Out' : 'Continue to Checkout';
+            // Hidden, not merely disabled. A dead "Sold Out" button sitting
+            // directly above a live waitlist form is a dead control heading a
+            // live one — the same defect event.html had with "Reserve Your
+            // Spot" over its waitlist. The waitlist below is the action now.
+            toCheckout.hidden = dialogSoldOut;
             document.getElementById('detailsError').style.display = 'none';
 
             // Sold out: offer the waitlist instead of a dead "Sold Out"
@@ -2398,7 +2408,7 @@
                 }
                 document.getElementById('modalWaitlistForm').style.display = 'none';
                 doneEl.textContent = "You're on the list. We'll email you the moment a seat opens or the next date is set.";
-                doneEl.style.display = '';
+                doneEl.style.display = 'block';
             } catch (_) {
                 errEl.textContent = 'Something went wrong. Please try again.';
                 errEl.style.display = 'block';

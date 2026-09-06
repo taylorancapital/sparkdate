@@ -829,7 +829,11 @@
             <!-- Booking Card -->
             <div class="grid-booking">
                 <div class="booking-card">
-                    <h3>Reserve Your Spot</h3>
+                    <!-- Toggled by updateEventTag() alongside the form/waitlist
+                         swap: a sold-out event left "Reserve Your Spot" standing
+                         over a waitlist form, heading a thing it no longer
+                         describes. Set both ways so a released seat restores it. -->
+                    <h3 id="bookingHeading">Reserve Your Spot</h3>
                     <p class="capacity"><span id="spotsLeft">Open</span> spots remaining</p>
 
                     <!-- Live regions. These two divs sit above the whole form
@@ -1716,6 +1720,12 @@
                 wlBlock.style.display = soldOut ? '' : 'none';
                 coForm.style.display = soldOut ? 'none' : '';
             }
+            // The heading goes with it. Leaving "Reserve Your Spot" over a
+            // waitlist form is the same defect as the dialog's disabled "Sold
+            // Out" button sitting above its waitlist: a dead control heading a
+            // live one.
+            const bookingHeading = document.getElementById('bookingHeading');
+            if (bookingHeading) bookingHeading.textContent = soldOut ? 'Join the waitlist' : 'Reserve Your Spot';
 
             const tag = document.getElementById('eventTag');
             if (!tag) return;
