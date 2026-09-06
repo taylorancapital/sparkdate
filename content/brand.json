@@ -177,7 +177,7 @@
       "hashtag_pool": ["#LancasterDating", "#LancasterPA", "#LancasterEvents", "#SingleInLancaster", "#DowntownLancaster", "#LancasterNightlife", "#LancasterSingles", "#IRLDating", "#DatingAppFatigue", "#MeetInPerson", "#SpeedDating", "#SparkDate", "#EarlyBird"],
       "notes": "Confirmed via the live Firestore event doc (event_id above, created 2026-09-05), which settles what reports/OCTOBER_SLATE_FEASIBILITY_2026-09-03.md -- written two days earlier -- still read as unconfirmed ('Tellus360 on Oct 6 is not confirmed anywhere I can see'). Same venue as TL (Aug 26), a different event: Firestore's own title is 'Sparkdate: Tellus AfterDark', dropping ': Singles Edition'. Runway_start below is 2026-09-06, the exact date that report flagged as the hard deadline for this brand.json entry -- and it lands exactly 30 days before the event, the reference runway with no compression needed.",
       "open_issues": [
-        "No Meta campaign built yet. The October report's Sep 6 deadline also called for 'campaign built paused'; scripts/build-paid-campaign.js --event=TL2 can plan one offline (no token needed), but --execute is left for Taylor to authorize -- it creates a live, if paused, object in the ad account."
+        "No Meta campaign built yet -- asked Taylor 2026-09-06 whether to build it (paused, via scripts/build-paid-campaign.js), and he held off: no creative assets exist for this event yet. That is the actual blocker now, not the brand.json facts or the campaign-build mechanics -- both are ready to go the moment creative exists."
       ]
     },
     "GG": {
