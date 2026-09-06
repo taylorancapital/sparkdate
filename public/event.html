@@ -857,7 +857,7 @@
                     </p>
 
                     <!-- Sold-out capture. Swapped in for the checkout form by
-                         renderSpots() when remaining <= 0. Before this, a
+                         updateEventTag() when remaining <= 0. Before this, a
                          sold-out event just said "Sold out" and the visitor
                          left with nothing recorded — the highest-intent lead
                          on the site (they picked a specific night; only
@@ -1468,7 +1468,7 @@
         // This page used to only console.error here, and every static
         // placeholder in the markup then stood as a claim of fact: a
         // hardcoded date (which has since fallen months into the past),
-        // "Open spots remaining", and -- because renderSpots() is the only
+        // "Open spots remaining", and -- because updateEventTag() is the only
         // thing that ever hides it -- a live checkout form. eventPricing()
         // returns price 0 for a null event, so the buyer was shown a $0.00
         // ticket and a live "Reserve Spot · $2.50" button (the service fee
@@ -1479,7 +1479,7 @@
         //
         // Hides rather than replacing the card's innerHTML the way
         // events.html replaces its grid: #checkoutForm and #waitlistBlock are
-        // toggled by display in renderSpots(), and must survive for the
+        // toggled by display in updateEventTag(), and must survive for the
         // normal sold-out swap to keep working.
         function showLoadFailure() {
             const co = document.getElementById('checkoutForm');
@@ -1647,8 +1647,16 @@
         // of those two surfaces autofocuses anything, and this one matching
         // them is the point of the change.
 
-        // Real price/scarcity signal in the hero tag — replaces the old
-        // static "Founding Event" badge. Priority mirrors the exact pattern
+        // Renders EVERY live-inventory surface on the page from one event
+        // doc: the #spotsLeft badge, the checkout/waitlist swap, and the hero
+        // price/scarcity tag. The name says only the last of the three, which
+        // is why the waitlist markup above used to credit a `renderSpots()`
+        // that has never existed in this file. Left named as it is on purpose:
+        // renaming it would widen the naming gap with events.html, which has
+        // no counterpart function to rename in step.
+        //
+        // Hero tag specifics — replaces the old static "Founding Event"
+        // badge. Priority mirrors the exact pattern
         // already built for lp.html: early-bird deadline beats non-numeric
         // scarcity beats a plain price fallback. Scarcity is deliberately
         // never a number ("Filling up", not "Only 5 left") — a low absolute
