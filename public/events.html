@@ -2984,6 +2984,18 @@
                 } catch (e) {
                     console.warn('Could not load user profile:', e.message);
                 }
+            } else {
+                // Same one-way lock event.html had: userProfile survived a
+                // sign-out, so the next dialog open still pre-filled and
+                // disabled the previous member's gender and name.
+                // applyUserContextToModal() already clears every lock before
+                // it decides what to set, so clearing the profile is all this
+                // needs — and it runs on the next open via resetCheckoutForm().
+                userProfile = null;
+                userTier = 'free';
+                if (document.getElementById('eventModalBackdrop').classList.contains('show')) {
+                    applyUserContextToModal();
+                }
             }
             await loadEvents();
         });

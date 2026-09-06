@@ -165,3 +165,52 @@ describe('an event that has already happened is not for sale', () => {
     expect(past).toBeLessThan(reserve);
   });
 });
+
+describe('a signed-in member is never left with a form they cannot use', () => {
+  it('both surfaces clear every lock before deciding what to set', () => {
+    // The profile pass has to be idempotent, or re-running it after a reset
+    // (or after a sign-out) leaves whatever the previous member set behind.
+    // event.html used to early-return on `!userProfile` before touching
+    // anything, which is what made its lock one-way.
+    for (const [f, src, fn] of [
+      ['events.html', EVENTS, 'applyUserContextToModal'],
+      ['event.html', EVENT, 'applyUserContext'],
+    ]) {
+      const body = src.slice(src.search(new RegExp(`function ${fn}\\(\\)`)));
+      const head = body.slice(0, body.search(/if \(!userProfile\)/));
+      expect(head, `${f}: ${fn} should unlock before the profile check`).toMatch(/disabled = false/);
+      expect(body, `${f}: ${fn} needs a guest path, not a bare early return`)
+        .toMatch(/if \(!userProfile\) \{/);
+    }
+  });
+
+  it('signing out gives the form back on both surfaces', () => {
+    // Without this the lock was one-way on both pages: userProfile survived
+    // the sign-out, so the gender control and the name field stayed disabled
+    // carrying the previous member's details.
+    // Anchored on the re-assignment inside the auth handler's else branch,
+    // NOT on `let userProfile = null;` at the top of the module — matching
+    // the declaration would pass against the broken files too.
+    expect(EVENT).toMatch(/userProfile = null;\s*\n\s*userTier = 'free';\s*\n\s*memberPhone = '';\s*\n\s*applyUserContext\(\);/);
+    expect(EVENTS).toMatch(/userProfile = null;\s*\n\s*userTier = 'free';\s*\n\s*if \(document\.getElementById\('eventModalBackdrop'\)/);
+  });
+
+  it('event.html restores the whole profile after a purchase, not just gender', () => {
+    // form.reset() blanks the inputs but leaves `disabled` alone. #453
+    // patched the gender case by hand here and left the name blank-and-locked
+    // with it; re-applying the profile pass covers both plus the card-on-file
+    // swap, and cannot drift from it.
+    const tail = EVENT.slice(EVENT.search(/getElementById\('checkoutForm'\)\.reset\(\)/));
+    const block = tail.slice(0, 2000);
+    expect(block).toMatch(/applyUserContext\(\);/);
+    expect(block).not.toMatch(/genderAfterReset/);
+  });
+
+  it('event.html keeps forwarding the member phone the modal blanks', () => {
+    // Deliberate divergence, flagged by #453 and NOT to be "fixed" by making
+    // event.html match: the modal hardcodes `phone: ''` and the server merges
+    // that blank over a member's stored number. event.html is the correct
+    // side. This pins it so a later parity pass does not level it down.
+    expect(EVENT).toMatch(/memberPhone = userProfile\.phone;/);
+  });
+});

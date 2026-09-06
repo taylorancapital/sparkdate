@@ -2555,18 +2555,23 @@
                 ['plusOneGender', 'plusOneName', 'plusOneEmail'].forEach((id) => {
                     document.getElementById(id).required = false;
                 });
-                // form.reset() blanks the hidden gender input back to its value
-                // attribute but leaves `disabled` alone, so a signed-in member
-                // was left with an empty, still-locked control: the buttons
-                // refuse the click, and every submit from then on throws
-                // "Choose Woman or Man to continue." with no way to comply.
-                // Put the profile gender back before re-syncing the buttons.
-                const genderAfterReset = document.getElementById('ticketGender');
-                if (genderAfterReset.disabled && userProfile && (userProfile.gender === 'man' || userProfile.gender === 'woman')) {
-                    genderAfterReset.value = userProfile.gender;
-                }
+                // form.reset() blanks the gender and name inputs back to their
+                // value attributes but leaves `disabled` alone, so a signed-in
+                // member was left with empty, still-locked controls: the
+                // gender buttons refuse the click, and every submit from then
+                // on throws "Choose Woman or Man to continue." with no way to
+                // comply. #453 patched the gender case here by hand and left
+                // the name blank-and-locked with it.
+                //
+                // applyUserContext() restores all of it — gender, name, email,
+                // the card-on-file swap — and is now idempotent, so this is a
+                // re-application rather than a second copy of the rules. Same
+                // shape as resetCheckoutForm() in events.html. syncGenderButtons()
+                // stays ahead of it so a member with no gender on file still
+                // gets the pressed state cleared.
                 syncGenderButtons();
                 cardElement.clear();
+                applyUserContext();
                 updatePricing();
             } catch (err) {
                 console.error('[event] checkout error', err);
@@ -2635,27 +2640,63 @@
                 } catch (e) {
                     console.warn('Could not load user profile:', e.message);
                 }
+            } else {
+                // Signing out has to give the form back. Without this the
+                // profile lock was one-way: userProfile stayed set, so the
+                // gender control and the name field stayed disabled carrying
+                // the previous member's details, and nothing on the page could
+                // clear them. applyUserContext() is idempotent and clears
+                // every lock before it decides what to set, so the guest path
+                // through it is the reset.
+                userProfile = null;
+                userTier = 'free';
+                memberPhone = '';
+                applyUserContext();
             }
         });
         loadEvent();
 
+        // Idempotent, exactly like applyUserContextToModal() in events.html:
+        // it clears every lock it might set BEFORE deciding what to set, so
+        // calling it twice, or calling it after a sign-out, lands in the right
+        // state rather than in whatever the previous member left behind.
+        //
+        // It used to early-return on `!userProfile` before touching anything,
+        // which made the lock one-way: a member who signed out mid-session
+        // kept a disabled gender control and a disabled name field carrying
+        // the previous member's name, with no path back. It is also what made
+        // the post-purchase reset need its own bespoke gender-restore patch.
         function applyUserContext() {
-            if (!userProfile) return;
+            const genderSelect = document.getElementById('ticketGender');
+            const nameInput = document.getElementById('ticketName');
+            const emailInput = document.getElementById('ticketEmail');
+            const cardGroup = document.getElementById('cardFormGroup');
+            const cardOnFileNotice = document.getElementById('cardOnFileNotice');
+            const trialDisclosure = document.getElementById('trialDisclosure');
+
+            genderSelect.disabled = false;
+            if (nameInput) nameInput.disabled = false;
+            if (cardGroup) cardGroup.style.display = '';
+            if (cardOnFileNotice) cardOnFileNotice.style.display = 'none';
+            if (trialDisclosure) trialDisclosure.style.display = '';
+
+            // updatePricing() as well as syncGenderButtons(), which the modal
+            // does not need: this page's submit button carries the price in
+            // its label, so an un-synced button keeps the old total.
+            if (!userProfile) { syncGenderButtons(); updatePricing(); return; }
 
             // Pre-fill gender + lock it (gender on profile is source of truth).
             // syncGenderButtons() mirrors both the value and the disabled flag
             // onto the two buttons — without it a locked member sees a locked
             // hidden value above two live, unchecked buttons.
-            const genderSelect = document.getElementById('ticketGender');
             if (userProfile.gender && (userProfile.gender === 'man' || userProfile.gender === 'woman')) {
                 genderSelect.value = userProfile.gender;
                 genderSelect.disabled = true;
-                syncGenderButtons();
-                updatePricing();
             }
+            syncGenderButtons();
+            updatePricing();
 
             // Pre-fill name + lock it (profile is source of truth)
-            const nameInput = document.getElementById('ticketName');
             const profileName = userProfile.name || userProfile.displayName;
             if (profileName && nameInput) {
                 nameInput.value = profileName;
@@ -2663,7 +2704,6 @@
             }
 
             // Pre-fill email
-            const emailInput = document.getElementById('ticketEmail');
             if (userProfile.email && !emailInput.value) {
                 emailInput.value = userProfile.email;
             }
@@ -2680,9 +2720,6 @@
             // members already have a subscription; auto-enrollment only fires
             // on the guest path in /api/purchase-ticket.
             if (userProfile.stripeCustomerId) {
-                const cardGroup = document.getElementById('cardFormGroup');
-                const cardOnFileNotice = document.getElementById('cardOnFileNotice');
-                const trialDisclosure = document.getElementById('trialDisclosure');
                 if (cardGroup) cardGroup.style.display = 'none';
                 if (cardOnFileNotice) cardOnFileNotice.style.display = 'block';
                 if (trialDisclosure) trialDisclosure.style.display = 'none';
