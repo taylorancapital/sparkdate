@@ -1217,7 +1217,11 @@
             try { sessionStorage.setItem('iabEscapeTried', '1'); } catch (_) {}
           }
           if (typeof gtag === 'function') {
-            gtag('event', 'in_app_browser_escape_attempt', { platform: 'android', trigger: isAuto ? 'auto' : 'button' });
+            // `source` is the only reason this event is splittable by surface
+            // in GA4. events.html sends 'events' and lp.html sends 'lp'; this
+            // one sent nothing, so every escape attempt from the page all the
+            // /l/* short links point at landed in an unattributed bucket.
+            gtag('event', 'in_app_browser_escape_attempt', { platform: 'android', source: 'event', trigger: isAuto ? 'auto' : 'button' });
           }
           try {
             location.href = 'intent://' + location.href.replace(/^https?:\/\//, '') +
@@ -2006,11 +2010,21 @@
             if (!gender) {
                 const seed = ticketPrice();
                 const seeded = Number.isFinite(seed) && seed > 0;
-                document.getElementById('subtotalLabel').textContent = 'Ticket';
+                // The 2-for-1 is honoured in the labels here too. Ticking the
+                // box before choosing a gender opened the +1 fields while the
+                // subtotal still said "Ticket" and the button still said
+                // "Reserve Spot" — the form asked for a second guest's details
+                // and described one seat. It does not change the TOTAL (that
+                // is the whole point of the offer), only what the buyer is
+                // told they are getting. Same strings as the priced branch.
+                const seedTwo = document.getElementById('twoForOneCheckbox').checked;
+                document.getElementById('subtotalLabel').textContent = seedTwo ? 'Subtotal (2 tickets, 2-for-1)' : 'Ticket';
                 document.getElementById('subtotalPrice').textContent = seeded ? `$${seed.toFixed(2)}` : '$0.00';
                 document.getElementById('serviceFee').textContent = seeded ? `$${SERVICE_FEE.toFixed(2)}` : '$0.00';
                 document.getElementById('totalPrice').textContent = seeded ? `$${(seed + SERVICE_FEE).toFixed(2)}` : '$0.00';
-                btn.textContent = seeded ? `Reserve Spot · $${(seed + SERVICE_FEE).toFixed(2)}` : 'Reserve Spot';
+                btn.textContent = seeded
+                    ? `${seedTwo ? 'Reserve 2 Spots (2-for-1)' : 'Reserve Spot'} · $${(seed + SERVICE_FEE).toFixed(2)}`
+                    : (seedTwo ? 'Reserve 2 Spots (2-for-1)' : 'Reserve Spot');
                 btn.disabled = false;
                 lastQuotedTicket = null;
                 return;
@@ -2538,8 +2552,16 @@
                 // actually charged (early-bird-aware — see effectivePrice() in
                 // lib/seat-model.js), returned as `amount` in cents on every
                 // response including the 3DS one. `ticket + SERVICE_FEE` is a
-                // client-side recompute that does NOT apply early-bird pricing,
-                // so it's kept only as a defensive fallback.
+                // client-side recompute, kept as a defensive fallback for a
+                // response that carries no `amount`.
+                //
+                // It DOES apply early-bird pricing, contrary to what this note
+                // used to claim: `ticket` comes from ticketPrice() →
+                // eventPricing(), which resolves the early-bird window itself.
+                // events.html and lp.html use the identical expression and
+                // never claimed otherwise. The fallback is a fallback because
+                // the server is authoritative about what was charged, not
+                // because it prices differently.
                 // NB: do not name this `ticketPrice` — a block-scoped const of
                 // that name shadows the ticketPrice() function across this whole
                 // try block and makes the earlier `const ticket = ticketPrice()`

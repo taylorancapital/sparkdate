@@ -292,6 +292,31 @@ describe('the buyer is told what happened, on every surface', () => {
   });
 });
 
+describe('the form describes what it is actually selling', () => {
+  it.each([['events.html', EVENTS, 'modalTwoForOne'], ['event.html', EVENT, 'twoForOneCheckbox']])(
+    '%s honours the 2-for-1 in its labels before a gender is picked',
+    (_f, src, boxId) => {
+      // Ticking the box opened the +1 fields while the subtotal still read
+      // "Ticket" and the button still read "Reserve Spot" — the form asked for
+      // a second guest's details and described one seat. The offer does not
+      // change the total, only what the buyer is told they are getting.
+      const fn = src.slice(src.search(/function update(Modal)?Pricing\(\)/));
+      const seedBranch = fn.slice(0, fn.search(/lastQuotedTicket = null;/));
+      expect(seedBranch, 'the no-gender branch never reads the 2-for-1 box')
+        .toMatch(new RegExp(`getElementById\\('${boxId}'\\)\\.checked`));
+      expect(seedBranch).toMatch(/Reserve 2 Spots \(2-for-1\)/);
+      expect(seedBranch).toMatch(/Subtotal \(2 tickets, 2-for-1\)/);
+    }
+  );
+
+  it('no price is rendered by raw number interpolation', () => {
+    // A $24.50 event printed "$24.5" on the events card and "$24.50"
+    // everywhere else. Every price goes through a formatter now.
+    expect(EVENTS).not.toMatch(/\$\$\{priceVal\}/);
+    expect(EVENTS).toMatch(/money\(priceVal\)/);
+  });
+});
+
 describe('the in-app-browser warning is said once, in one wording', () => {
   it('no surface still ships the amber banner', () => {
     // #453 deleted it from event.html and asserted its absence there, which
