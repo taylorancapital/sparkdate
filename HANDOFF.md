@@ -271,16 +271,18 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `/api/next-event`, which only ever returns the *soonest* event and so never
   surfaces a later one. Added as `brand.json` event key `TL2` this session.
   **Asked Taylor whether to build the Meta campaign (paused) now — answer: not
-  yet, no creative assets exist for this event.** That is the real blocker
-  now, not brand.json or the campaign mechanics: `scripts/build-paid-campaign.js
-  --event=TL2` already plans one correctly offline (campaign plus both gender
-  ad sets PAUSED, `paid_template`'s standard shape — **now flagged stale, see
-  the `paid_template` entry above; do not run `--execute` against this
-  template until that's resolved either way**), it is just waiting on
-  creative regardless. Worth a look either way: the plan surfaced a real
-  one-day mismatch — early-bird ends 2026-09-22 (T-14) but the model's budget
-  step lands at T-15 — that none of MC/GG/LX hit, because their cutoffs
-  happened to land exactly on T-15.
+  yet, no creative assets exist for this event.** That was the real blocker,
+  and stayed the ONLY one: the campaign-mechanics half (`paid_template`'s
+  gender ad sets, flagged stale the same day this was written) is resolved
+  as of `playbook_v2` and the rewritten `scripts/build-paid-campaign.js` —
+  see the `playbook_v2` entry above. `node scripts/build-paid-campaign.js
+  --event=TL2 --execute` now builds both campaigns (Cold, Retargeting;
+  broad, no gender split) directly, the moment creative exists. The one-day
+  early-bird/budget-step mismatch this entry originally flagged against the
+  LEGACY model (early bird ends T-14, budget step at T-15) does not recur
+  under `playbook_v2` — its Seed/Build boundary spans T-15..T-14, so TL2's
+  T-14 cutoff lands cleanly inside it. Nothing to fix there; noted so it
+  isn't re-flagged as a live problem.
   (3) **Both Marion Court acknowledgements expire 09-08** and
   will start reporting themselves as stale the next morning; retire them with
   the event. *(09-06)*
