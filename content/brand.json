@@ -348,6 +348,12 @@
           "headline": "{date_short} · {city}",
           "description": "{price}"
         },
+        "testimonial": {
+          "primary_text": "You looked at {event_name}.\n\n\"A Majestic night!\" - Helesha, who came to our first one.\n\n{date_long}. {venue}, {city}. Doors {doors}. {price}.\n\nStill time.",
+          "headline": "{date_short} · {city}",
+          "description": "{price}",
+          "_note": "Added 2026-09-06: the account's first testimonial ad by a woman. reports/AD_LEVER_WOMEN_2026-09-02.md flagged that the only testimonial ad running was Quang's. Not a slotted {testimonial_quote} -- caption_templates has no such slot yet -- so this names Helesha specifically; a second testimonial ad is a sibling key here (e.g. \"testimonial_molly\"), not a parameter to this one."
+        },
         "_no_reintroduction": "This audience has already seen the event, so the copy does not explain it again. Re-introducing it is the most common way retargeting copy wastes its one advantage."
       }
     },
