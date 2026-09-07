@@ -166,23 +166,32 @@ Business Plan/files/Night Tasks/download*.csv
 Business Plan/files/Night Tasks/data*.pdf
 Business Plan/files/Night Tasks/*.csv
 
-# ── Business Plan reorg (2026-07-15) never got a `git mv` ──────────
-# CLAUDE.md documents the 07-15 move of top-level business docs into these
-# five subfolders. The move was done on disk, not with `git mv`, so git kept
-# tracking the OLD flat paths (SparkDate_Business_Plan_2026.docx, the IP
-# assignment agreement, the investor pitch deck, the financial models, etc.)
-# while these new locations sat untracked and unprotected -- one `git add -A`
-# away from committing the same content again at a second path. That old
-# tracked content already being public is a separate, bigger question this
-# rule does not resolve (see HANDOFF.md) -- this just stops the reorg from
-# quietly doubling the exposure while that question is open.
-Business Plan/files/Core Plan & Financials/
-Business Plan/files/Legal/
-Business Plan/files/Marketing & GTM/
-Business Plan/files/Pitch & Investor/
-Business Plan/files/Social Media Marketing/
-Business Plan/files/_Archive/
-Business Plan/files/Night Tasks/_preserved/
+# ── Business Plan documents: deny by default (2026-09-06) ──────────
+# Taylor's call: the tracked content (financial models, the IP assignment
+# agreement, the investor pitch deck, GTM strategy docs) isn't sensitive
+# enough to warrant a history rewrite, but should stop being tracked going
+# forward. `git rm --cached` in the same commit as this rule untracked the
+# ~50 files already committed; this stops any of them, or the 07-15 reorg's
+# new subfolder locations (Core Plan & Financials/, Legal/, Marketing &
+# GTM/, Pitch & Investor/, Social Media Marketing/, _Archive/ -- moved on
+# disk without a `git mv`, which is what left them unprotected in the first
+# place), from being re-added by a future `git add -A`. Same reasoning as
+# content/* below: deny by default so an accidental paste can't be
+# committed. History still has the old copies -- untracking does not
+# remove that, see HANDOFF.md.
+#
+# Night Tasks/ carries the nightly automation's own scripts, which stay
+# tracked like any other script in this repo, so it gets its own nested
+# allow/deny instead of being swept up here. Git will not look inside an
+# already-excluded directory for a negation, which is why Night Tasks/
+# itself is explicitly un-denied before being re-denied at the file level.
+Business Plan/files/*
+!Business Plan/files/Night Tasks/
+Business Plan/files/Night Tasks/*
+!Business Plan/files/Night Tasks/REVIEW_PROMPT.md
+!Business Plan/files/Night Tasks/TONIGHT_PROMPT.md
+!Business Plan/files/Night Tasks/review-nightly-reports.ps1
+!Business Plan/files/Night Tasks/run-nightly-claude-code.ps1
 
 # ── Dormant duplicate ─────────────────────────────────────────────
 # The LIVE Night Tasks folder is "Business Plan/files/Night Tasks/". The bare
