@@ -178,15 +178,6 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   models $200). (3) **Both Marion Court acknowledgements expire 09-08** and
   will start reporting themselves as stale the next morning; retire them with
   the event. *(09-06)*
-- **The 09-05 nightly (PR #449) credits Loxleys with 5.75 ROAS, "best in the
-  account", and it is spurious.** The Loxleys ads went live 08-30; all four of
-  its paid tickets were bought 08-14 to 08-24, before any ad existed. Since the
-  ads started: $18 spent, 183 clicks, zero tickets. **The correction is now
-  written down** — `reports/GA4_DEEP_READ_2026-09-06.md` §9, and the standing
-  summary prints per-item SALE DATES next to any ad-credit claim so it cannot
-  recur silently. **Next step is still Taylor's: close or correct PR #449
-  itself** — the figure is live in an open PR body until he does. The general
-  rule is memory `meta-attribution-is-not-sales`. *(09-05, updated 09-06)*
 - **The "scrambled email UTM" ask is CLOSED — it was never an email-platform
   problem, and the report that closed it 404'd its own fix.** PR #449
   escalated it twice as needing the email vendor's send history. It decodes
@@ -207,7 +198,13 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   its artifact (commit `e6cc9513`, merged via #455) — the links now stand
   alone with an explicit warning not to paste the destination alongside them.
   Re-check in a week: `lancasteronline / listing` should show non-zero
-  `view_item`. *(09-06)*
+  `view_item`. **The nightly GA4 report (PR #460, run by hand after the
+  02:00 job hit a session limit) independently repeated the same wrong
+  framing as a "3rd ask" — it never read this file. Caught by Taylor in
+  review, corrected in place via PR #461.** Memory
+  `always-check-memory-before-an-nth-ask` has the process fix: check
+  `HANDOFF.md` and memory before writing any repeat-ask item, not just
+  increment the counter. *(09-06)*
 - **The nightly's depth problem is fixed in code, not in exhortation, and the
   first run under the new rules is tonight's 02:00.** Taylor, 09-06: the reports
   "are basically half a page and they really don't have great insights" — no
@@ -216,9 +213,44 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `scripts/ga4-nightly-summary.js` now computes the standing floor and prints a
   **coverage ledger naming every table and whether it was used**;
   `.claude/commands/nightly-ga4.md` makes TRAFFIC / EVENTS / UTM GAPS
-  non-omittable and requires a numbers block in the PR body. **Next step: read
-  the 09-07 nightly PR and check the ledger says 46/46 and the body carries
-  numbers.** If a run skips the script, that is the thing to fix, not the prose.
+  non-omittable and requires a numbers block in the PR body. **Partially
+  validated already:** the 02:00 09-06 run itself hit a session limit before
+  writing anything, so it was re-run by hand (PR #460) — that run used the
+  new script and format end to end, hit 46/46 coverage, and the PR body
+  carried numbers. That is not the same as an unattended pass, though: it
+  also caught, in a fresh worktree, that the `Skill` tool served the OLD
+  pre-#455 version of `nightly-ga4.md` from a stale main checkout (memory
+  `nightly-pulls-from-stale-main-checkout`) — an interactive session has to
+  notice and override that; an unattended one in the dedicated clone does
+  not hit it. **Next step unchanged: read the 09-07 nightly PR** (the first
+  genuinely unattended run under the new rules) **and check the ledger says
+  46/46 and the body carries numbers.** If a run skips the script, that is
+  the thing to fix, not the prose. *(09-06)*
+- **The NIGHTLY RUN LOG never got tonight's 09-06 entry — a worktree-isolated
+  session cannot write it, and someone needs to paste it in by hand.**
+  `Business Plan\files\Night Tasks\sparkdate-nightly-claude-code-prompts.md`
+  is gitignored, lives only in the main checkout, and both `Edit`/`Write` and
+  compound `Bash` refuse any path there from inside a worktree ("Edit the
+  worktree copy of this file instead" — except gitignored files have no
+  worktree copy to redirect to). Memory `worktree-blocks-crosscheckout-writes`
+  has the general rule. **Next step: from the main checkout (not a worktree),
+  prepend this under the `## NIGHTLY RUN LOG` heading:**
+
+  > - **2026-09-06 (local CLI run, interactive, recovering the 02:00 run that
+  >   hit a session limit at 02:13)** — branches `worktree-ga4-nightly-manual-
+  >   run` then `fix/ga4-2026-09-06-lancasteronline-retraction`, merged as
+  >   #460 then #461. **HEADLINE:** sessions/users held (+10%) but
+  >   purchasers/key events/transactions/revenue all fell ~33% w/w — two
+  >   dated mechanisms, neither demand: a Facebook-tag fragmentation
+  >   artifact from Loxleys' new campaign (already fixed via #450/#451), and
+  >   an unexplained Eventbrite session cliff on 09-01. **ALSO:** caught and
+  >   fixed a false "$14.46 accruing" Google Ads figure from a script bug
+  >   (real: still dark since 07-24). **CORRECTED (#461):** first version
+  >   wrongly re-asked the already-closed "scrambled email UTM" question as
+  >   a 3rd ask — Taylor caught it; real cause was the LancasterOnline/Evvnt
+  >   listing link, already fixed. **NEEDS TAYLOR INPUT (0):** none.
+  >   **RETIRED:** the scrambled-UTM ask, for real this time.
+
   *(09-06)*
 - **D3 is fixed: GA4 now has a Channel Group so `medium=listing` stops
   filing under Unassigned. Nothing left to do.** `reports/GA4_DEEP_READ_2026-
@@ -285,25 +317,15 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   eight-event total, all assuming a mid-tier room — while the new target list is
   casual tier (~$20-25/head). Taylor's decision to make, not a copy fix. Working:
   `reports/VENUE_PITCH_FACT_AUDIT_2026-09-01.md`.
-- **Eleven free listing surfaces exist; nobody has confirmed the last eight
-  landed.** Verified from outside: Eventbrite pricing and copy, and the
-  Facebook, Google Business and AllEvents listings. NOT verified: the eight
-  remaining calendars (LancasterOnline, LancasterPA, both Visit Lancasters,
-  Fig, Nextdoor, Patch, Chamber) or the Meetup post to our own group.
-  **Next step: open each claimed listing and read the actual `href` of its
-  ticket link.** Do not trust a report that says it saved one — AllEvents
-  HTML-escaped the ampersands and Discover Lancaster truncated at 100 chars,
-  both silently, which is the entire reason `/l/` short links exist.
-- **Ticket Tailor is abandoned, and two live pages still say "Sold out".**
-  Both events posted 09-02, then held unsold — which makes Ticket Tailor title
-  the page `Sold out – <event>` and emit `"offers": []`, defeating the only two
-  reasons to be there. Taylor stopped 09-03: the dashboard wants a password he
-  does not have, and the channel does not justify recovering one. **No action
-  needed.** The pages are unlinked, in no sitemap, and both events pass by
-  09-22, after which the titles are moot. If anyone ever wants it closed:
-  reset the password and unpublish both — do NOT "fix" it by turning sales on,
-  which reopens the third-checkout and nothing-syncs problems. Full finding in
-  the `tickettailor` entry of `content/listing-sites.json`.
+- **The free-listing syndication run is part-done and the rest is unverified.**
+  Eventbrite is fixed and confirmed live: Loxley's now reads $24.99 through
+  Sep 7 then $29.99 (it had been selling $6 under the site, expiring Sep 1),
+  and both descriptions carry the three-movements copy. NOT confirmed from
+  outside: whether Marion Court's 2-for-1 ticket got renamed to name women, and
+  whether the AllEvents link repairs and the eight remaining calendars were
+  done. **Next step: get the Chrome agent's final report and spot-check the
+  hrefs it claims** — two sites silently corrupted a link already, which is
+  why `/l/` short links exist at all.
 - **Philadelphia is quoted at $24.99 in a $29.99 market.** The city page and
   two Philly-targeted blog posts state a flat price; Good Good Things was
   $29.99. `reports/FACT_AUDIT_2026-09-01.md` §2. Deliberately not edited: the
