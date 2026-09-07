@@ -183,15 +183,30 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   nor its `acknowledged` list is reported as UNGOVERNED with a non-zero exit.
   One account-wide daily ceiling ($40) now covers all runs at once — today the
   account reads $22.00/day, $2.00 laddered plus $20.00 outside it.
-  **Three next steps, all small.** (1) **Taylor: `git pull` in the main
+  **Three next steps.** (1) **Taylor: `git pull` in the main
   checkout** — the 03:00 `SparkDate Budget Ladder` task runs `npm run
   ads:ladder -- --all --execute` from there, so this merge does nothing until
   it does (same flaw as the nightly's data pull, first entry above).
-  (2) **Tellus Oct 6 needs a `brand.json` event entry before it can be
-  registered** — the ladder reads the event DATE from brand.json and refuses a
-  key it cannot find. Blocked on facts nobody has written down: confirmed date,
-  ticket price, early-bird cutoff, and the run budget (the October slate report
-  models $200). (3) **Both Marion Court acknowledgements expire 09-08** and
+  (2) ~~Tellus Oct 6 needs a brand.json event entry before it can be
+  registered... blocked on facts nobody has written down~~ — **wrong, corrected
+  09-06.** The event was already fully specified in Firestore (event_id
+  `h0F0ppRfqkNLyFXix9m7`, created 09-05: date, venue, both prices and the
+  early-bird cutoff all present) at the moment this was written — found by
+  querying Firestore directly rather than trusting the site's
+  `/api/next-event`, which only ever returns the *soonest* event and so never
+  surfaces a later one. Added as `brand.json` event key `TL2` this session.
+  **Asked Taylor whether to build the Meta campaign (paused) now — answer: not
+  yet, no creative assets exist for this event.** That is the real blocker
+  now, not brand.json or the campaign mechanics: `scripts/build-paid-campaign.js
+  --event=TL2` already plans one correctly offline (campaign plus both gender
+  ad sets PAUSED, `paid_template`'s standard shape — **now flagged stale, see
+  the `paid_template` entry above; do not run `--execute` against this
+  template until that's resolved either way**), it is just waiting on
+  creative regardless. Worth a look either way: the plan surfaced a real
+  one-day mismatch — early-bird ends 2026-09-22 (T-14) but the model's budget
+  step lands at T-15 — that none of MC/GG/LX hit, because their cutoffs
+  happened to land exactly on T-15.
+  (3) **Both Marion Court acknowledgements expire 09-08** and
   will start reporting themselves as stale the next morning; retire them with
   the event. *(09-06)*
 - **The "scrambled email UTM" ask is CLOSED — it was never an email-platform

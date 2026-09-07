@@ -144,7 +144,7 @@ describe('it refuses a registry that cannot be right', () => {
   });
 
   it('rejects an event key brand.json does not hold, naming the fix', () => {
-    const { errors } = bad([{ ...LX, event: 'TL2' }]);
+    const { errors } = bad([{ ...LX, event: 'ZZ' }]);
     expect(errors.join(' ')).toMatch(/not in content\/brand\.json/);
   });
 
