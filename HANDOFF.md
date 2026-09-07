@@ -215,11 +215,15 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   checkout** — the 03:00 `SparkDate Budget Ladder` task runs `npm run
   ads:ladder -- --all --execute` from there, so this merge does nothing until
   it does (same flaw as the nightly's data pull, first entry above).
-  (2) **Tellus Oct 6 needs a `brand.json` event entry before it can be
-  registered** — the ladder reads the event DATE from brand.json and refuses a
-  key it cannot find. Blocked on facts nobody has written down: confirmed date,
-  ticket price, early-bird cutoff, and the run budget (the October slate report
-  models $200). (3) **Both Marion Court acknowledgements expire 09-08** and
+  (2) ~~Tellus Oct 6 needs a brand.json event entry before it can be
+  registered... blocked on facts nobody has written down~~ — **wrong when
+  written, corrected 09-06 on a separate branch (PR #465, still open): the
+  event was already fully specified in Firestore.** Added as brand.json key
+  `TL2`. Down to one real blocker now, not facts: ad creative (Taylor: none
+  exists yet). The campaign-shape half of the old blocker is also gone — see
+  the `playbook_v2` entry above; `node scripts/build-paid-campaign.js
+  --event=TL2 --execute` builds both campaigns directly once creative lands.
+  (3) **Both Marion Court acknowledgements expire 09-08** and
   will start reporting themselves as stale the next morning; retire them with
   the event. *(09-06)*
 - **The "scrambled email UTM" ask is CLOSED — it was never an email-platform
