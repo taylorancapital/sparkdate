@@ -36,6 +36,29 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **A substantial set of Business Plan documents — the IP assignment
+  agreement, legal analysis of regulatory caveats, financial models, and the
+  investor pitch deck among them — have been tracked in this repo's git
+  history, on a PUBLIC repo, for a while. Not new today.** `git ls-files --
+  "Business Plan"` lists ~50 files still tracked at their pre-07-15-reorg
+  paths (`Business Plan/files/SparkDate_Business_Plan_2026.docx`,
+  `Business Plan/files/IP_ASSIGNMENT_AGREEMENT_Ancapital_LLC.pdf`,
+  `Business Plan/files/SparkDate_Investor_Pitch_Deck.pptx`, and more) —
+  found while making sure the *reorganized* copies of the same content (new
+  subfolder locations from the 07-15 move CLAUDE.md documents) don't get
+  committed too; this PR's `.gitignore` change covers those new paths, but
+  does nothing about the old, already-public ones. **Untracking the old
+  paths now would stop new copies from being pushed further but does NOT
+  remove any of it from history** — anyone who already cloned or viewed the
+  repo has a copy, and a real scrub needs a history rewrite (`git
+  filter-repo` or BFG) plus a force-push that every other clone, worktree
+  and open PR on this repo would then have to reconcile against — genuinely
+  disruptive, not a quick fix. **Next step, Taylor's call:** decide whether
+  this content is sensitive enough to warrant that disruption — a
+  competitor reading the financial model, the pitch deck, or the specific
+  terms of the IP assignment, being public — versus already-acceptable or
+  already-priced-in. Whichever way, say so here so a future session doesn't
+  re-flag this as new. *(09-06)*
 - **The main checkout (`~/source/repos/sparkdate`, not a worktree) is 18
   commits behind `origin/main` with uncommitted local edits sitting on top —
   almost certainly the actual mechanism behind the PR #463 revert documented

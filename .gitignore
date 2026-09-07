@@ -166,6 +166,24 @@ Business Plan/files/Night Tasks/download*.csv
 Business Plan/files/Night Tasks/data*.pdf
 Business Plan/files/Night Tasks/*.csv
 
+# ── Business Plan reorg (2026-07-15) never got a `git mv` ──────────
+# CLAUDE.md documents the 07-15 move of top-level business docs into these
+# five subfolders. The move was done on disk, not with `git mv`, so git kept
+# tracking the OLD flat paths (SparkDate_Business_Plan_2026.docx, the IP
+# assignment agreement, the investor pitch deck, the financial models, etc.)
+# while these new locations sat untracked and unprotected -- one `git add -A`
+# away from committing the same content again at a second path. That old
+# tracked content already being public is a separate, bigger question this
+# rule does not resolve (see HANDOFF.md) -- this just stops the reorg from
+# quietly doubling the exposure while that question is open.
+Business Plan/files/Core Plan & Financials/
+Business Plan/files/Legal/
+Business Plan/files/Marketing & GTM/
+Business Plan/files/Pitch & Investor/
+Business Plan/files/Social Media Marketing/
+Business Plan/files/_Archive/
+Business Plan/files/Night Tasks/_preserved/
+
 # ── Dormant duplicate ─────────────────────────────────────────────
 # The LIVE Night Tasks folder is "Business Plan/files/Night Tasks/". The bare
 # one at the repo root is a leftover an older version of
