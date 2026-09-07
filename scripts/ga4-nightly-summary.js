@@ -1160,11 +1160,19 @@ function build(tables, date, dir) {
     ['', '', 'r', 'r', 'r']
   ));
   const gaDaily = use(tables, 'google-ads-cost-daily');
-  const gaClosed = closedDates(gaDaily).closed;
-  const gaRecent = gaClosed.slice(-7);
-  const gaSpendRecent = gaDaily.filter((r) => gaRecent.includes(r.date)).reduce((a, r) => a + num(r.advertiserAdCost), 0);
-  push(`Spend on the last 7 CLOSED days: **${money(gaSpendRecent)}** — ` +
-       `${gaSpendRecent > 0 ? 'the account is still accruing cost' : 'the account is dormant'}.\n`);
+  // Anchor to the dense daily-trend table's closed window (`recent`, above) rather than this
+  // sparse table's own dates -- GA4 only emits a row here on a day the account actually spent,
+  // so a dark account's "last 7 dates present" drifts arbitrarily far into the past while still
+  // reading as recent (ga4-nightly-summary-google-ads-window-bug: reported $14.46 of six-week-old
+  // spend as "still accruing" on both 2026-09-06 and 2026-09-07).
+  const gaMaxDate = gaDaily.reduce((m, r) => (r.date > m ? r.date : m), '') || null;
+  const gaSpendRecent = gaDaily.filter((r) => recent.includes(r.date)).reduce((a, r) => a + num(r.advertiserAdCost), 0);
+  const gaDormant = recent.length > 0 && (!gaMaxDate || gaMaxDate < recent[0]);
+  const gaStatus = gaDormant
+    ? `the account is dormant${gaMaxDate ? ` (no spend since ${gaMaxDate})` : ''}`
+    : gaSpendRecent > 0 ? 'the account is still accruing cost' : 'the account is dormant';
+  push(`Spend on the last 7 CLOSED days (${recent[0] || '—'} → ${recent[recent.length - 1] || '—'}): ` +
+       `**${money(gaSpendRecent)}** — ${gaStatus}.\n`);
 
   const pcs = use(tables, 'paid-cost-vs-sessions');
   const costNoSessions = pcs.filter((r) => num(r.advertiserAdCost) > 0 && num(r.sessions) === 0);
@@ -1245,4 +1253,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseFile, splitCsvLine, closedDates, disjointBuckets, normSource, splitSourceMedium, deobfuscate, utmHygiene, loadPull };
+module.exports = { parseFile, splitCsvLine, closedDates, disjointBuckets, normSource, splitSourceMedium, deobfuscate, utmHygiene, loadPull, build };
