@@ -36,6 +36,22 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **A concurrent session's merge silently reverted an already-merged
+  correction, and neither CI nor GitHub's own conflict check caught it.**
+  Merging this handoff PR against PR #463 (merged first) found the Ticket
+  Tailor / free-listing-surfaces entry below — corrected by #426 earlier the
+  same evening — had reverted to its stale pre-#426 text. #463's own PR body
+  never mentions touching that entry; its commit message documents a
+  *different* stale-checkout problem the same evening (for a gitignored
+  file, unrelated to this one), consistent with #463 having branched from a
+  main checkout that predated #426 and carrying that section's old content
+  through untouched, which a squash merge then applied over #426's fix
+  without flagging a conflict — only one side's change was deliberate, so
+  there was nothing for git to flag. Restored the correct text here rather
+  than trusting `main`'s state at face value. **No general fix built** — flagging
+  as a pattern: a squash-merge touching a heavily-churned file like this one
+  can silently carry stale content on lines nobody meant to change, and nothing
+  in this repo's CI checks for that. *(09-06)*
 - **`paid_template` (content/brand.json) builds the wrong campaign shape if run
   today, and it is flagged in three places, not fixed.**
   `reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md`'s playbook (§8) found
@@ -178,16 +194,6 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   models $200). (3) **Both Marion Court acknowledgements expire 09-08** and
   will start reporting themselves as stale the next morning; retire them with
   the event. *(09-06)*
-- **RESOLVED (09-06): the spurious Loxleys 5.75-ROAS claim is corrected in two
-  places, and its PR is no longer open.** `reports/GA4_DEEP_READ_2026-09-06.md`
-  §9 carries the correction; `reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md`
-  §5 independently re-derives it to the exact ticket (all 4 paid Loxleys
-  tickets bought 08-14 to 08-24, 6–16 days before its first ad dollar on
-  08-30). PR #449 merged 09-06 in a PR-merge pass, so the wrong headline is no
-  longer sitting in an open PR the way this entry previously flagged — only
-  its now-merged description still carries the original claim, which is
-  cosmetic and not worth a further action item. General rule: memory
-  `meta-attribution-is-not-sales`.
 - **The "scrambled email UTM" ask is CLOSED — it was never an email-platform
   problem, and the report that closed it 404'd its own fix.** PR #449
   escalated it twice as needing the email vendor's send history. It decodes
@@ -208,7 +214,13 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   its artifact (commit `e6cc9513`, merged via #455) — the links now stand
   alone with an explicit warning not to paste the destination alongside them.
   Re-check in a week: `lancasteronline / listing` should show non-zero
-  `view_item`. *(09-06)*
+  `view_item`. **The nightly GA4 report (PR #460, run by hand after the
+  02:00 job hit a session limit) independently repeated the same wrong
+  framing as a "3rd ask" — it never read this file. Caught by Taylor in
+  review, corrected in place via PR #461.** Memory
+  `always-check-memory-before-an-nth-ask` has the process fix: check
+  `HANDOFF.md` and memory before writing any repeat-ask item, not just
+  increment the counter. *(09-06)*
 - **The nightly's depth problem is fixed in code, not in exhortation, and the
   first run under the new rules is tonight's 02:00.** Taylor, 09-06: the reports
   "are basically half a page and they really don't have great insights" — no
@@ -217,9 +229,44 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `scripts/ga4-nightly-summary.js` now computes the standing floor and prints a
   **coverage ledger naming every table and whether it was used**;
   `.claude/commands/nightly-ga4.md` makes TRAFFIC / EVENTS / UTM GAPS
-  non-omittable and requires a numbers block in the PR body. **Next step: read
-  the 09-07 nightly PR and check the ledger says 46/46 and the body carries
-  numbers.** If a run skips the script, that is the thing to fix, not the prose.
+  non-omittable and requires a numbers block in the PR body. **Partially
+  validated already:** the 02:00 09-06 run itself hit a session limit before
+  writing anything, so it was re-run by hand (PR #460) — that run used the
+  new script and format end to end, hit 46/46 coverage, and the PR body
+  carried numbers. That is not the same as an unattended pass, though: it
+  also caught, in a fresh worktree, that the `Skill` tool served the OLD
+  pre-#455 version of `nightly-ga4.md` from a stale main checkout (memory
+  `nightly-pulls-from-stale-main-checkout`) — an interactive session has to
+  notice and override that; an unattended one in the dedicated clone does
+  not hit it. **Next step unchanged: read the 09-07 nightly PR** (the first
+  genuinely unattended run under the new rules) **and check the ledger says
+  46/46 and the body carries numbers.** If a run skips the script, that is
+  the thing to fix, not the prose. *(09-06)*
+- **The NIGHTLY RUN LOG never got tonight's 09-06 entry — a worktree-isolated
+  session cannot write it, and someone needs to paste it in by hand.**
+  `Business Plan\files\Night Tasks\sparkdate-nightly-claude-code-prompts.md`
+  is gitignored, lives only in the main checkout, and both `Edit`/`Write` and
+  compound `Bash` refuse any path there from inside a worktree ("Edit the
+  worktree copy of this file instead" — except gitignored files have no
+  worktree copy to redirect to). Memory `worktree-blocks-crosscheckout-writes`
+  has the general rule. **Next step: from the main checkout (not a worktree),
+  prepend this under the `## NIGHTLY RUN LOG` heading:**
+
+  > - **2026-09-06 (local CLI run, interactive, recovering the 02:00 run that
+  >   hit a session limit at 02:13)** — branches `worktree-ga4-nightly-manual-
+  >   run` then `fix/ga4-2026-09-06-lancasteronline-retraction`, merged as
+  >   #460 then #461. **HEADLINE:** sessions/users held (+10%) but
+  >   purchasers/key events/transactions/revenue all fell ~33% w/w — two
+  >   dated mechanisms, neither demand: a Facebook-tag fragmentation
+  >   artifact from Loxleys' new campaign (already fixed via #450/#451), and
+  >   an unexplained Eventbrite session cliff on 09-01. **ALSO:** caught and
+  >   fixed a false "$14.46 accruing" Google Ads figure from a script bug
+  >   (real: still dark since 07-24). **CORRECTED (#461):** first version
+  >   wrongly re-asked the already-closed "scrambled email UTM" question as
+  >   a 3rd ask — Taylor caught it; real cause was the LancasterOnline/Evvnt
+  >   listing link, already fixed. **NEEDS TAYLOR INPUT (0):** none.
+  >   **RETIRED:** the scrambled-UTM ask, for real this time.
+
   *(09-06)*
 - **D3 is fixed: GA4 now has a Channel Group so `medium=listing` stops
   filing under Unassigned. Nothing left to do.** `reports/GA4_DEEP_READ_2026-
