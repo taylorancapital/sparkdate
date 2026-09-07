@@ -48,12 +48,19 @@
  * register), but its ad set is not, and the output says so plainly rather
  * than guessing an audience.
  *
- * Ad copy: paid_template.caption_templates is keyed by the old female/male/
- * retargeting ad sets and has no broad-targeting counterpart yet -- see
- * playbook_v2._gender_rule's "where the reach-women effort goes instead" for
- * what replaces it (creative INSIDE the broad ad set, not a targeting axis).
- * --captions/--handoff refuse rather than render copy for ad sets that no
- * longer exist.
+ * Ad copy: --handoff renders playbook_v2.creative into a Claude Design brief,
+ * one section per creative per role, and attaches nothing. That block is the
+ * "creative INSIDE the broad ad set" half of playbook_v2._gender_rule's "where
+ * the reach-women effort goes instead" -- keyed by ROLE, with no gender axis.
+ * Added 2026-09-07; until then this flag refused, correctly, because the only
+ * copy in the file was paid_template.caption_templates, keyed by the retired
+ * female/male/retargeting ad sets. That block is still legacy and still not
+ * rendered by anything.
+ *
+ * Every utm_content in the brief is computed by scripts/ad-utm.js from the
+ * same brand object the plan was built from -- never formatted here. The brief
+ * is a human handoff; the attach step must call ad-utm.js again and let it
+ * throw rather than copying a tag out of the printed page.
  *
  * PLANNING NEEDS NO TOKEN
  *
@@ -212,15 +219,190 @@ if (warnings.length) {
   console.log('');
 }
 
-// ─── Ad copy: refuse rather than render a shape that no longer exists ──
+// ─── Ad copy: the Claude Design handoff for paid creative ──────────
+//
+// Mirrors scripts/design-handoff.js deliberately, including WHY it is shaped
+// this way: earlier handoffs specified ONE piece, so Design built one, and
+// front-loaded brand reference so the model spent its first turn confirming
+// rather than producing. Short brand block; everything after it is the work.
+//
+// This renders playbook_v2.creative -- keyed by ROLE, no gender axis. It
+// replaced a refusal that was correct while paid_template.caption_templates
+// (retired female/male/retargeting ad sets) was the only copy in the file.
+//
+// It prints. It attaches nothing. Every tag is computed by scripts/ad-utm.js
+// from the same brand object this plan was built from, never formatted here --
+// typing tags at call sites is how utm_content=proof_rsa1 reached 13 ads.
 if (flag('captions') || flag('handoff')) {
-  console.error('✗ paid_template.caption_templates is keyed by the retired female/male/');
-  console.error('  retargeting ad sets and has no broad-targeting counterpart yet -- see');
-  console.error('  playbook_v2._gender_rule in content/brand.json for what replaces gender');
-  console.error('  targeting (creative INSIDE the broad ad set, not a separate axis). Write');
-  console.error('  new copy directly rather than rendering the old templates against a shape');
-  console.error('  that no longer matches the live account.');
-  process.exit(2);
+  const CR = PB.creative;
+  if (!CR) {
+    console.error('✗ content/brand.json paid_template.playbook_v2 has no `creative` block.');
+    console.error('  That block is what --handoff renders. Is this branch behind?');
+    process.exit(2);
+  }
+
+  const U = require('./ad-utm.js');
+  const dims = Object.fromEntries(
+    Object.entries((brand.asset_rules || {}).paid_ad_dimensions || {}).filter(([k]) => !k.startsWith('_')),
+  );
+  const dimsAll = (brand.asset_rules || {}).paid_ad_dimensions || {};
+  const testimonials = (brand.universal || {}).approved_testimonials || [];
+
+  const d = new Date(`${ev.date}T12:00:00Z`);
+  const long = d.toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC',
+  });
+  const short = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+  // One job per creative per role. `creative.runs_in.roles` is the axis; phase
+  // is deliberately not one (playbook_v2.creative.runs_in._note).
+  const jobs = [];
+  for (const c of CR.creatives || []) {
+    const t = testimonials.find((x) => x.id === c.testimonial_id);
+    if (!t) {
+      console.error(`✗ creative "${c.slug}" names testimonial_id "${c.testimonial_id}", which is not in`);
+      console.error('  universal.approved_testimonials. Fix the id rather than typing the quote here.');
+      process.exit(2);
+    }
+    for (const role of CR.runs_in.roles) {
+      const copy = (CR.copy || {})[role];
+      if (!copy) {
+        console.error(`✗ playbook_v2.creative.copy has no "${role}" block, but runs_in.roles names it.`);
+        process.exit(2);
+      }
+      // Let ad-utm.js throw rather than emitting something GA4 cannot split.
+      const utm_content = U.utmContent({ event: eventKey, role, creative: c.slug }, brand);
+      jobs.push({
+        c, t, role, copy, utm_content, url_tags: U.urlTags({ event: eventKey, role, creative: c.slug }, brand),
+      });
+    }
+  }
+  // The proof_rsa1 check, before a human builds anything.
+  U.assertUniqueContent(jobs.map((j) => j.utm_content));
+
+  const fill = (s) => String(s == null ? '' : s)
+    .split('{event_name}').join(ev.name)
+    .split('{venue}').join(ev.venue)
+    .split('{city}').join(ev.city)
+    .split('{date_long}').join(long)
+    .split('{date_short}').join(short)
+    .split('{doors}').join(ev.doors || '6:30');
+  const fillFor = (s, t) => fill(s).split('{quote}').join(t.quote).split('{attribution}').join(t.attribution);
+
+  const O = [];
+  const P = (s = '') => O.push(s);
+
+  P(`# ${ev.name} — Meta ad creative`);
+  P('');
+  P(`**${jobs.length} ads from ${(CR.creatives || []).length} videos · ${Object.keys(dims).length} sizes each**`);
+  P('');
+  P(`That is **${(CR.creatives || []).length * Object.keys(dims).length} video files plus ${(CR.creatives || []).length} thumbnails**, not ${jobs.length * Object.keys(dims).length}. Each video serves BOTH`);
+  P('roles: the role changes only the ad text Meta renders outside the video, which');
+  P('is never burned into the frames. Where an ad reuses an earlier video, it says so.');
+  P('');
+  P('Every ad below has its finished copy. Set the type, export the video. Do not');
+  P('rewrite the copy, do not ask which to start with, do not stop after the first');
+  P(`one. Work straight down the list and produce all ${jobs.length}.`);
+  P('');
+  P('If you can only manage part of it in one go, finish whole ads and tell me the');
+  P('last slug you completed. I will paste "continue from <slug>" and you carry on.');
+  P('');
+  P('## The look');
+  P('');
+  P('- Canvas **#0a0e27** navy. Text **#ffffff** headings, **#f5f3f0** body. One action colour: **#ff6b6b** coral.');
+  P('- Headlines **Playfair Display 900**, tight (-1px). Body/labels **Inter** 400–600. Never headline in Inter.');
+  P('- Wordmark `SPARKDATE` bottom-left, coral, Inter 600, 12px, uppercase, 2px tracking.');
+  P('');
+  P('## Format — VIDEO, 3–5 seconds');
+  P('');
+  if (dimsAll._format) P(`- ${dimsAll._format}`);
+  if (dimsAll._silent_first) P(`- **Silent-first.** ${dimsAll._silent_first}`);
+  if (dimsAll._beats) P(`- **Beats.** ${dimsAll._beats}`);
+  if (CR._beats_exception) P(`- **Exceptions.** ${CR._beats_exception}`);
+  if (dimsAll._export) P(`- **Export.** ${dimsAll._export}`);
+  P('');
+  P('**Sizes — build every ad at all of these:**');
+  P('');
+  for (const [k, v] of Object.entries(dims)) {
+    P(`- **${k}** ${v.width}×${v.height}${v.note ? ` — ${v.note}` : ''}`);
+  }
+  P('');
+  P('**One hard rule:** the ad text below is what Meta renders OUTSIDE the video.');
+  P('Do not burn it into the frames. The video carries the quote and the event');
+  P('facts only — Meta penalises text-heavy creative.');
+  P('');
+  P('---');
+  P('');
+
+  jobs.forEach((j, i) => {
+    P(`## ${i + 1}. \`${j.c.slug}\` — ${j.role}`);
+    P('');
+    P(`Testimonial **${j.t.attribution}** · role **${j.role}** · runs every phase, never rebuilt`);
+    P('');
+    P('### On screen (0–1s hook, large)');
+    P('');
+    P('```');
+    P(fillFor(CR.hook, j.t));
+    P('```');
+    P('');
+    P(`Then the facts, small: **${ev.venue}, ${ev.city}** · doors **${ev.doors || '6:30'}** · **${long}**.`);
+    P('No price on the frame — see below.');
+    if (j.role === 'retargeting') {
+      P('');
+      P('> This audience has already seen an ad. Do not re-introduce the event.');
+    }
+    P('');
+    P('### Ad text (goes in Meta, NOT burned into the video)');
+    P('');
+    P('```');
+    P(fillFor(j.copy.primary_text, j.t));
+    P('```');
+    P('');
+    P(`- **Headline:** ${fillFor(j.copy.headline, j.t)}`);
+    P(`- **Description:** ${fillFor(j.copy.description, j.t)}`);
+    P('');
+    // The video is identical across roles -- only the ad text differs, and that
+    // is never burned in. List the files once, then point at them.
+    const firstForSlug = jobs.findIndex((x) => x.c.slug === j.c.slug);
+    if (firstForSlug === i) {
+      P('### Files to deliver');
+      P('');
+      for (const k of Object.keys(dims)) P(`- \`${eventKey}-ad-${j.c.slug}_${k}.mp4\``);
+      P(`- \`${eventKey}-ad-${j.c.slug}_thumb.png\` — 1080×1350 still, the pre-playback frame`);
+    } else {
+      P('### Files to deliver');
+      P('');
+      P(`**None — reuses the video from ad ${firstForSlug + 1} (\`${j.c.slug}\` — ${jobs[firstForSlug].role}).**`);
+      P('Same frames, same export. Only the ad text above differs, and that is not');
+      P('in the video. Do not render a second copy.');
+    }
+    P('');
+    P('### When it is attached (not by this script)');
+    P('');
+    P(`- **utm_content:** \`${j.utm_content}\``);
+    P(`- **url_tags:** \`${j.url_tags}\``);
+    P('- Set at AdCreative creation or never — url_tags is frozen at birth (subcode 1815573).');
+    P('');
+    P('---');
+    P('');
+  });
+
+  P('## Do not put these in any ad');
+  P('');
+  P('- **A price.** It changes mid-run and the creative cannot be edited after birth.');
+  P('- Any attendance or ticket-count number that is not in `content/brand.json`.');
+  P('- A shortened or paraphrased testimonial — a trimmed quote is a different quote.');
+  P('');
+  P('*Rendered from `content/brand.json` `paid_template.playbook_v2.creative`. Tags computed by');
+  P('`scripts/ad-utm.js`. This is a brief only: no campaign, ad set, creative or ad was touched.*');
+
+  console.log(O.join('\n'));
+  const out = arg('out', null);
+  if (out) {
+    fs.writeFileSync(out, `${O.join('\n')}\n`, 'utf8');
+    console.error(`\nwrote ${out} — ${jobs.length} ads`);
+  }
+  process.exit(0);
 }
 
 if (!EXECUTE) {

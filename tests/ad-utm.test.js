@@ -66,6 +66,73 @@ describe('the retargeting segment collapses', () => {
   });
 });
 
+describe('playbook_v2 tags by ROLE, and carry no phase', () => {
+  // Under playbook_v2 the budget moves between Seed/Build/Close while the ad
+  // stays put. A phase segment would split one creative's clicks across three
+  // GA4 rows -- the exact loss utm_content exists to prevent.
+  it('builds a cold tag as event_role_creative', () => {
+    expect(utmContent({ event: 'TL2', role: 'cold', creative: 'helesha' })).toBe('tl2_cold_helesha');
+  });
+
+  it('collapses retargeting to rt, exactly as the legacy shape does', () => {
+    expect(utmContent({ event: 'TL2', role: 'retargeting', creative: 'helesha' })).toBe('tl2_rt_helesha');
+  });
+
+  // The reason the two shapes can coexist: a v2 retargeting tag IS the legacy
+  // retargeting tag. Nothing built under the new playbook splits from the ads
+  // running now, in the one field meant to join them.
+  it('produces a byte-identical tag to the legacy retargeting form for the same ad', () => {
+    const v2 = utmContent({ event: 'MC', role: 'retargeting', creative: 'quang' });
+    const legacy = utmContent({
+      event: 'MC', phase: 'convert', adSet: 'retargeting', creative: 'quang',
+    });
+    expect(v2).toBe(legacy);
+    expect(v2).toBe('mc_rt_quang');
+  });
+
+  it('ignores a phase entirely when a role is given, so the tag survives Seed -> Build -> Close', () => {
+    const seed = utmContent({
+      event: 'TL2', role: 'cold', creative: 'helesha', phase: 'seed',
+    });
+    const close = utmContent({
+      event: 'TL2', role: 'cold', creative: 'helesha', phase: 'close',
+    });
+    expect(seed).toBe(close);
+    expect(seed).not.toContain('seed');
+  });
+
+  it('builds the whole url_tags string for a v2 ad', () => {
+    expect(urlTags({ event: 'MC', role: 'cold', creative: 'helesha' }))
+      .toBe('utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign=MC_202609&utm_content=mc_cold_helesha');
+  });
+
+  it('rejects a role playbook_v2 does not define, rather than inventing a campaign', () => {
+    expect(() => utmContent({ event: 'TL2', role: 'female', creative: 'helesha' })).toThrow(/unknown role/);
+    expect(() => utmContent({ event: 'TL2', role: 'warm', creative: 'helesha' })).toThrow(/unknown role/);
+  });
+
+  it('applies the same one-segment slug rule on the v2 path', () => {
+    expect(() => utmContent({ event: 'TL2', role: 'cold', creative: 'wing_girl' })).toThrow(/one segment/);
+    expect(() => utmContent({ event: 'TL2', role: 'cold', creative: 'WingGirl' })).toThrow();
+    expect(() => utmContent({ event: 'TL2', role: 'cold', creative: '' })).toThrow();
+  });
+
+  it('takes its role vocabulary from brand.json, not from a literal here', () => {
+    const roles = brand.paid_template.playbook_v2.roles.map((r) => r.key);
+    expect(roles).toContain('cold');
+    expect(roles).toContain('retargeting');
+    for (const role of roles) {
+      expect(() => utmContent({ event: 'TL2', role, creative: 'helesha' })).not.toThrow();
+    }
+  });
+
+  it('leaves the legacy path untouched when no role is passed', () => {
+    expect(utmContent({
+      event: 'LX', phase: 'prime', adSet: 'female', creative: 'showup',
+    })).toBe('lx_prime_female_showup');
+  });
+});
+
 describe('every documented example is buildable', () => {
   it('covers all four in brand.json', () => {
     const examples = brand.paid_template.caption_rules.utm._examples;
