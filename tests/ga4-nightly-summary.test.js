@@ -38,7 +38,7 @@ import path from 'node:path';
 const require = createRequire(import.meta.url);
 const {
   splitCsvLine, parseFile, closedDates, disjointBuckets,
-  normSource, splitSourceMedium, deobfuscate, utmHygiene, loadPull,
+  normSource, splitSourceMedium, deobfuscate, utmHygiene, loadPull, build,
 } = require('../scripts/ga4-nightly-summary.js');
 
 let dir;
@@ -116,6 +116,26 @@ beforeAll(() => {
   daily.push('20260820,lp / (not set),20,2,3,0.1');                 // stale, not live
   daily.push('20260710,[object Object] / undefined,36,0,10,0');     // long dead
   write('daily-by-source', 'Daily trend by session source / medium', daily.join('\n'));
+
+  // Dense: one row per calendar day, so closedDates() on this table is a real
+  // last-7-calendar-days anchor. Same window as daily-by-source above: closed
+  // ends 20260904, live week opens 20260829.
+  const trend = ['date,sessions,engagedSessions,totalUsers'];
+  for (let d = 1; d <= 31; d++) trend.push(`202608${String(d).padStart(2, '0')},10,4,10`);
+  for (let d = 1; d <= 6; d++) trend.push(`202609${String(d).padStart(2, '0')},10,4,10`);
+  write('daily-trend', 'Daily trend', trend.join('\n'));
+
+  // Sparse, like the real table: GA4 only emits a row on a day the account
+  // spent. Last row is 20260724 -- six weeks before the live week above -- so
+  // this table's OWN last-7-dates-present is 20260716-20260722, not a recent
+  // week at all.
+  write('google-ads-cost-daily', 'Google Ads cost by day',
+    [
+      'date,advertiserAdCost',
+      '20260716,2.00', '20260717,2.00', '20260718,2.00', '20260719,2.00',
+      '20260720,2.00', '20260721,2.00', '20260722,2.00',
+      '20260723,1.00', '20260724,1.00',
+    ].join('\n'));
 });
 
 afterAll(() => { try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* temp dir */ } });
@@ -271,5 +291,28 @@ describe('the UTM defect inventory', () => {
   it('reports auto-tagging overwriting a manual campaign, and ignores the rows that agree', () => {
     expect(h.overwritten).toHaveLength(1);
     expect(h.overwritten[0]).toMatchObject({ autoTagged: 'AutoTagged_Search', manual: 'week3_Women', sessions: 40 });
+  });
+});
+
+describe('Google Ads recency window (a sparse table, not a dense one)', () => {
+  // The bug this guards: google-ads-cost-daily only gets a row on a day the
+  // account spent, so closedDates() applied to ITS OWN dates picks "the last 7
+  // dates present in this table" -- which, for an account dark since 20260724,
+  // is 20260716-20260722. That reproduced verbatim on both 2026-09-06 and
+  // 2026-09-07 (ga4-nightly-summary-google-ads-window-bug): $14-ish of
+  // six-week-old spend reported as "the account is still accruing cost."
+  // The fix anchors to the DENSE daily-trend table's closed window instead.
+  let md;
+  beforeAll(() => { md = build(loadPull(dir, '2026-09-06'), '2026-09-06', dir); });
+
+  it('does not sum the sparse table\'s own stale last-7-dates-present', () => {
+    expect(md).not.toContain('$14.00');
+    expect(md).not.toMatch(/\$14\.00.*still accruing/);
+  });
+
+  it('reports the real calendar week and zero spend, citing when the account actually went dark', () => {
+    expect(md).toContain('last 7 CLOSED days (20260829 → 20260904)');
+    expect(md).toContain('$0.00');
+    expect(md).toContain('the account is dormant (no spend since 20260724)');
   });
 });
