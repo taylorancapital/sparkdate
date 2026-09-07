@@ -16,7 +16,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   parseCsv, toCsv, rowEvents, rowHashtags, rowAssets,
-  allowedHashtags, allowedPrices, pricesInText, isSchedulable, isFeedPost,
+  allowedHashtags, allowedPrices, currentPrice, pricesInText, isSchedulable, isFeedPost,
 } from '../lib/content-queue.js';
 import { lint } from '../scripts/lint-content-queue.js';
 
@@ -183,6 +183,52 @@ describe('pricing', () => {
 
   it('parses prices with or without a space after the dollar sign', () => {
     expect(pricesInText('$18.99 and $ 24.99 and $29')).toEqual(['18.99', '24.99', '29.00']);
+  });
+});
+
+describe('currentPrice', () => {
+  // Real shape from content/brand.json: MC's early bird ended 2026-08-24 and
+  // regular ($24.99) has applied since. Naively preferring `early_bird`
+  // whenever present kept quoting the stale $18.99 on any brief or export
+  // sheet regenerated afterward -- this is that exact bug, pinned.
+  const MC_PRICING = { early_bird: 18.99, early_bird_through: '2026-08-24', regular: 24.99 };
+  // LX's early bird runs through 2026-09-07 -- the day this bug was found,
+  // its window was still open. Both shapes are covered so the fix can't
+  // just move the bug from one event to the other.
+  const LX_PRICING = { early_bird: 24.99, early_bird_through: '2026-09-07', regular: 29.99 };
+
+  it('returns the early-bird price while today is before the through-date', () => {
+    expect(currentPrice(MC_PRICING, '2026-08-23')).toBe(18.99);
+    expect(currentPrice(LX_PRICING, '2026-09-06')).toBe(24.99);
+  });
+
+  it('still returns the early-bird price ON the through-date itself (inclusive)', () => {
+    // meta-create-lx-sales-campaign.js's priceFor() already treats this field
+    // as inclusive (`startDate > EARLY_BIRD_THROUGH ? regular : early_bird`),
+    // and MC-04 -- the actual "Early bird's done. $24.99 from here." post --
+    // shipped 2026-08-25, the day AFTER MC's 2026-08-24 through-date, not on
+    // it. The through-date is the last early-bird day, not the first regular one.
+    expect(currentPrice(MC_PRICING, '2026-08-24')).toBe(18.99);
+    expect(currentPrice(LX_PRICING, '2026-09-07')).toBe(24.99);
+  });
+
+  it('returns the regular price starting the day after the through-date', () => {
+    expect(currentPrice(MC_PRICING, '2026-08-25')).toBe(24.99);
+    expect(currentPrice(LX_PRICING, '2026-09-08')).toBe(29.99);
+  });
+
+  it('returns the regular price well after the through-date (the live MC bug)', () => {
+    expect(currentPrice(MC_PRICING, '2026-09-06')).toBe(24.99);
+  });
+
+  it('returns the only price present when an event has no early bird at all', () => {
+    expect(currentPrice({ regular: 29.99 }, '2026-08-01')).toBe(29.99);
+  });
+
+  it('defaults to the real current date when none is passed', () => {
+    // MC's window closed 2026-08-24 and will not reopen -- a stable
+    // assertion against the real clock, not a ticking one.
+    expect(currentPrice(MC_PRICING)).toBe(24.99);
   });
 });
 

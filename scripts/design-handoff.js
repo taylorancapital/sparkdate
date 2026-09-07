@@ -78,13 +78,6 @@ const prettyDate = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(iso || '')
       { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })
   : iso);
 
-function priceStr(ev) {
-  const p = (ev && ev.pricing) || {};
-  if (p.early_bird) return `$${p.early_bird.toFixed(2)}`;
-  if (p.regular) return `$${p.regular.toFixed(2)}`;
-  return '';
-}
-
 /**
  * Describe the frames for one row, in words, for a design brief.
  *
