@@ -137,10 +137,8 @@ function twoLines(text) {
 }
 
 const priceOf = (ev) => {
-  const p = (ev && ev.pricing) || {};
-  if (p.early_bird) return `$${p.early_bird.toFixed(2)}`;
-  if (p.regular) return `$${p.regular.toFixed(2)}`;
-  return '';
+  const price = Q.currentPrice(ev && ev.pricing);
+  return typeof price === 'number' ? `$${price.toFixed(2)}` : '';
 };
 
 const prettyDate = (iso) => {
