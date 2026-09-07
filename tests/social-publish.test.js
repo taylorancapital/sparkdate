@@ -100,6 +100,18 @@ describe('planRow — the approval gate', () => {
     expect(p.reason).toMatch(/story-shaped/);
   });
 
+  it('refuses a feed post whose only non-TikTok assets are story-shaped', () => {
+    // MC-12's real queue row: two orphaned _tt files (no source art, and this
+    // row does not even target tiktok) sat alongside the two _story frames.
+    // files.every(_story) was false because of the _tt entries, so this row
+    // slipped past the guard above and would have handed Facebook two
+    // vertical images -- exactly the failure that guard exists to prevent.
+    const r = row({ asset_files: 'MC-12_1of2_tt.jpg,MC-12_1of2_story.jpg,MC-12_2of2_tt.jpg,MC-12_2of2_story.jpg' });
+    const p = planRow(r, 'fb', now);
+    expect(p.action).toBe('skip');
+    expect(p.reason).toMatch(/story-shaped/);
+  });
+
   it('still allows a Reel, which is meant to be vertical', () => {
     const r = row({ format: 'Reel', asset_files: 'LX-16_story.jpg' });
     expect(planRow(r, 'fb', now).action).not.toBe('skip');
