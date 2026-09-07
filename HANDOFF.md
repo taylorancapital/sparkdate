@@ -36,6 +36,28 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **MC-12's Instagram Story and MC-13's Instagram feed post are queued correctly
+  but need `social.js run --execute` run again at their actual moments — nothing
+  currently does that automatically.** (09-07, PR #471) Both are `state=approved`
+  with real art; `social.js plan` confirms they're just not due yet, not stuck:
+  MC-12's Story fires at 6:30 PM today (09-07), MC-13's Instagram post at 9:00 AM
+  tomorrow (09-08). Facebook can be scheduled minutes ahead of time because Meta
+  holds the scheduled post; Instagram cannot (no scheduling parameter exists), so
+  its container can only be created once the slot actually arrives, within a 6h
+  grace window after — this is why MC-09 and MC-10's Instagram legs upstream of
+  this entry were permanently missed (nobody ran the publisher within 6h of their
+  slots). **Next step: run `node scripts/social.js run --execute` again after each
+  of those two times** (see `[[meta-tokens-live-in-shell-env]]` for the env vars
+  it actually needs in this shell), or decide this needs a real recurring
+  scheduled task rather than relying on a session happening to be open at the
+  right moment — worth asking Taylor rather than building one unprompted, since
+  it would be new standing infrastructure that also runs `--execute` live.
+  **Separately, MC-12's Facebook leg is structurally blocked, not just
+  unscheduled:** its only two source-art files are both 1080x1920 Story frames
+  (confirmed in `~/OneDrive/SparkDate/SourceArt` — no square export was ever
+  made), so `lib/social-publish.js`'s feed-shape guard correctly refuses it
+  every time `run` executes. **Needs a real 1080x1080 export from Taylor/design
+  before this leg can ever go out**, or a decision to leave MC-12 Facebook-less.
 - **DECIDED (09-06): Business Plan documents (financial models, the IP
   assignment agreement, legal analysis, the investor pitch deck, ~50 files)
   are untracked going forward; history is deliberately left alone.**
@@ -83,6 +105,24 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   that reads or writes relative to the main checkout instead of a fresh
   worktree risks reproducing the #463 revert pattern below on the next
   merge. *(09-06)*
+  **CONFIRMED (09-07): the `content/queue.csv` part of this was real, not
+  just "doesn't cleanly match either commit."** Its uncommitted state had been
+  round-tripped through a spreadsheet app — every date reformatted M/D/YYYY,
+  caption newlines turned `\r\n`, and MC-09/MC-10 silently lost their recorded
+  Instagram post ids (diffed cell-by-cell against `HEAD`, both by hand and by
+  script, to separate that noise from Taylor's actual edits that session:
+  GG-07's date/wording refresh, MC-12 and MC-14 marked approved). Left as-is,
+  no row would have been schedulable — the publisher requires ISO dates — and
+  MC-09/MC-10 would have looked never-posted-to-Instagram when they aren't.
+  Fixed on a branch and merged via #471, which also ran the publisher for
+  real (LX-11's Instagram post is live) — but **that fix lives on `main`, not
+  in the main checkout's own working tree, which this entry's "not touched,
+  on purpose" still applies to.** If Taylor has kept editing `queue.csv`
+  locally since 09-06 without pulling, those edits are sitting on top of the
+  SAME corrupted base, and a future save will need the same reconciliation
+  #471 did, by hand, again. The fix is not to write to the main checkout
+  automatically — it's for Taylor to `git pull` there before editing
+  `queue.csv` again.
 - **A concurrent session's merge silently reverted an already-merged
   correction, and neither CI nor GitHub's own conflict check caught it.**
   Merging this handoff PR against PR #463 (merged first) found the Ticket
