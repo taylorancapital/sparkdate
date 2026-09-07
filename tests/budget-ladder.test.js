@@ -218,3 +218,178 @@ describe('the ungoverned audit — the failure mode that used to be silence', ()
     expect(L.ungoverned([], '2026-12-01', registry).stale).toEqual([]);
   });
 });
+
+// playbook_v2: reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md §8 -- two
+// campaigns per event (cold, retargeting), fixed per-day rates, and a
+// cold:retarget split that VARIES by phase. brand.json's real events (MC,
+// TL, GG, LX) all predate this and stay on the legacy path tested above;
+// V2E below is a synthetic event that exists only in this file, the same
+// pattern the account-wide describe block already uses for TL2.
+describe('playbook_v2 — two campaigns, a per-day rate, a split that varies by phase', () => {
+  // Event date chosen to overlap Loxleys' real Aug23-Sep22 window (so the
+  // account-wide test below can sum a genuine legacy + v2 concurrent day),
+  // with every T-boundary landing on a plain date by hand:
+  // T-21=08-30, T-15=09-05, T-14=09-06, T-8=09-12, T-7=09-13, T-0=09-20.
+  const brandV2 = { ...brand, events: { ...brand.events, V2E: { ...brand.events.LX, date: '2026-09-20' } } };
+  const cold = (overrides = {}) => ({ event: 'V2E', campaign_id: '1', name: 'V2E | Cold', playbook: 'v2', role: 'cold', total: 296, runway_start: '2026-08-30', ...overrides });
+  const retarget = (overrides = {}) => ({ event: 'V2E', campaign_id: '2', name: 'V2E | Retargeting', playbook: 'v2', role: 'retargeting', total: 296, runway_start: '2026-08-30', ...overrides });
+  const rate = (entry, today) => L.rateFor(entry, today, brandV2);
+
+  describe('the reference event ($296, scale 1.0) reproduces the report\'s own quick-reference table exactly', () => {
+    it('seed: cold $8.00, retarget $2.00 -- naturally at the floor, not forced', () => {
+      const c = rate(cold(), '2026-09-01');
+      const r = rate(retarget(), '2026-09-01');
+      expect(c.phase).toBe('seed');
+      expect(c.cents).toBe(800);
+      expect(r.cents).toBe(200);
+      expect(r.floored).toBe(false);
+    });
+
+    it('build: cold $8.40, retarget $5.60', () => {
+      expect(rate(cold(), '2026-09-09').cents).toBe(840);
+      expect(rate(retarget(), '2026-09-09').cents).toBe(560);
+    });
+
+    it('close: cold $5.60, retarget $10.40', () => {
+      expect(rate(cold(), '2026-09-18').cents).toBe(560);
+      expect(rate(retarget(), '2026-09-18').cents).toBe(1040);
+    });
+
+    it('phases are contiguous -- no gap day the way legacy has one at T-15', () => {
+      expect(rate(cold(), '2026-09-05').phase).toBe('seed');
+      expect(rate(cold(), '2026-09-06').phase).toBe('build');
+      expect(rate(cold(), '2026-09-12').phase).toBe('build');
+      expect(rate(cold(), '2026-09-13').phase).toBe('close');
+    });
+
+    it('is outside before the runway and after the event, same as legacy', () => {
+      expect(rate(cold(), '2026-08-29').state).toBe('outside');
+      expect(rate(cold(), '2026-09-21').state).toBe('outside');
+    });
+  });
+
+  describe('the cold-start rule: how many days remain decides where the run starts, never a partial phase', () => {
+    it('18 days remaining skips seed and starts build early, at build\'s own rate', () => {
+      const e = cold({ runway_start: '2026-09-02' }); // 18 days before 09-20
+      expect(rate(e, '2026-09-02').phase).toBe('build');
+      expect(rate(e, '2026-09-02').cents).toBe(840); // still 60% of $14, not a different number
+      expect(rate(e, '2026-08-30').state).toBe('outside'); // seed's nominal start no longer applies
+    });
+
+    it('12 days remaining skips straight to close, at close\'s own rate', () => {
+      const e = cold({ runway_start: '2026-09-08' }); // 12 days before 09-20
+      const r = rate(e, '2026-09-08');
+      expect(r.phase).toBe('close');
+      expect(r.cents).toBe(560);
+    });
+
+    it('never invents a compressed rate for close -- it runs longer at the same $ figure', () => {
+      const normal = rate(cold(), '2026-09-18'); // full 21-day runway
+      const compressed = rate(cold({ runway_start: '2026-09-08' }), '2026-09-18');
+      expect(compressed.cents).toBe(normal.cents);
+    });
+
+    it('a longer-than-21-day runway extends seed rather than erroring', () => {
+      const e = cold({ runway_start: '2026-08-22' }); // 29 days before 09-20
+      expect(rate(e, '2026-08-25').phase).toBe('seed');
+      expect(rate(e, '2026-08-25').cents).toBe(800);
+    });
+  });
+
+  describe('the $2.00 floor-priority rule', () => {
+    it('forces retarget to exactly the floor and lets cold absorb the rest, when the honest split would not clear it', () => {
+      // Seed at scale 0.9 ($9.00/day total): naive 20% retarget = $1.80, under the floor.
+      const e90 = { total: 296 * 0.9 };
+      const c = rate(cold(e90), '2026-09-01');
+      const r = rate(retarget(e90), '2026-09-01');
+      expect(r.cents).toBe(200);
+      expect(r.floored).toBe(true);
+      expect(c.cents).toBe(700); // $9.00 - $2.00, not the naive 80% of $9.00 ($7.20)
+      expect(c.cents + r.cents).toBe(900); // the phase total is preserved exactly
+    });
+
+    it('holds retargeting rather than funding it below the floor, when the phase total itself is too small', () => {
+      // Seed at scale 0.3 ($3.00/day total) -- under $4.00, too small to clear the floor on both sides.
+      const e30 = { total: 296 * 0.3 };
+      const c = rate(cold(e30), '2026-09-01');
+      const r = rate(retarget(e30), '2026-09-01');
+      expect(c.state).toBe('set');
+      expect(c.cents).toBe(300); // cold gets the whole phase, not 80% of it
+      expect(r.state).toBe('hold');
+      expect(r.reason).toMatch(/floor/);
+    });
+  });
+
+  describe('scaling by `total`', () => {
+    it('doubles every phase\'s rate at total=592', () => {
+      const e = { total: 592 };
+      expect(rate(cold(e), '2026-09-01').cents).toBe(1600); // 2x $8.00
+      expect(rate(retarget(e), '2026-09-18').cents).toBe(2080); // 2x $10.40
+    });
+
+    it('an entry with no `total` at all falls back to the $296 reference, in rateFor itself', () => {
+      // Distinct from the tests above, which all set total:296 explicitly via
+      // the cold()/retarget() helpers -- this checks rateFor()'s own fallback,
+      // not the test helper's default.
+      const noTotal = { event: 'V2E', campaign_id: '1', role: 'cold', playbook: 'v2', runway_start: '2026-08-30' };
+      expect(rate(noTotal, '2026-09-01').cents).toBe(800);
+    });
+  });
+
+  describe('validate() on a v2 registry', () => {
+    const base = { guards: registry.guards, campaigns: [cold(), retarget()] };
+    const bad = (campaigns) => L.validate({ ...base, campaigns }, brandV2);
+
+    it('accepts a complete, matching cold+retargeting pair', () => {
+      expect(bad([cold(), retarget()]).errors).toEqual([]);
+    });
+
+    it('rejects a missing or invalid role', () => {
+      const noRole = { ...cold() };
+      delete noRole.role;
+      expect(bad([noRole]).errors.join(' ')).toMatch(/requires role/);
+      expect(bad([cold({ role: 'everyone' })]).errors.join(' ')).toMatch(/requires role/);
+    });
+
+    it('rejects the same role registered twice for one event', () => {
+      expect(bad([cold(), cold({ campaign_id: '3' })]).errors.join(' ')).toMatch(/already has a v2 "cold" entry/);
+    });
+
+    it('warns when the cold and retargeting entries disagree on total or runway_start', () => {
+      const { warnings } = bad([cold(), retarget({ total: 250 })]);
+      expect(warnings.join(' ')).toMatch(/disagree on total\/runway_start/);
+    });
+
+    it('warns when only one role is registered', () => {
+      expect(bad([cold()]).warnings.join(' ')).toMatch(/other role is unmanaged/);
+    });
+
+    it('does not apply legacy\'s 18-day runway floor -- v2 degrades gracefully instead', () => {
+      const short = cold({ runway_start: '2026-09-16' }); // 4 days before the event
+      const { errors, warnings } = bad([short, retarget({ runway_start: '2026-09-16' })]);
+      expect(errors.join(' ')).not.toMatch(/18-day floor/);
+      expect(warnings.join(' ')).not.toMatch(/21-day minimum/);
+    });
+
+    it('still refuses a runway_start on or after the event, same message as legacy', () => {
+      expect(bad([cold({ runway_start: '2026-09-20' })]).errors.join(' ')).toMatch(/not before the event/);
+    });
+
+    it('still refuses an event key brand.json does not hold', () => {
+      expect(bad([cold({ event: 'ZZ' })]).errors.join(' ')).toMatch(/not in content\/brand\.json/);
+    });
+  });
+
+  describe('the account-wide view mixes v2 and legacy campaigns without either knowing about the other', () => {
+    it('sums a legacy campaign and a v2 pair into one account total', () => {
+      const reg = { guards: registry.guards, campaigns: [LX, cold(), retarget()] };
+      // 2026-09-18 is Loxleys close ($11.57, legacy) and V2E close ($5.60 + $10.40).
+      const day = L.planDay('2026-09-18', reg, brandV2);
+      const byId = Object.fromEntries(day.plans.map((p) => [p.entry.campaign_id, p.cents]));
+      expect(byId['120251304238920542']).toBe(1157);
+      expect(byId['1']).toBe(560);
+      expect(byId['2']).toBe(1040);
+      expect(day.accountCents).toBe(1157 + 560 + 1040);
+    });
+  });
+});

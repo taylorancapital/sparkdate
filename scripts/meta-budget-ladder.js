@@ -145,6 +145,8 @@ const post = (p, q) => graph(p, q, 'POST');
 /** Print one campaign's whole ladder, marking today. */
 function printLadder(entry, plan) {
   const ev = brand.events[entry.event];
+  if (entry.playbook === 'v2') return printLadderV2(entry, plan, ev);
+
   const share = entry.share === undefined ? 1 : entry.share;
   const shareNote = share === 1 ? '' : `, ${(share * 100).toFixed(0)}% of the run`;
   console.log(`\n${entry.name}  (${entry.event}, event ${ev.date}, total $${entry.total}${shareNote})`);
@@ -154,6 +156,31 @@ function printLadder(entry, plan) {
     const isNow = TODAY >= r.from && TODAY <= r.to;
     const note = floored ? `  (ladder says ${money(raw)}; Meta's floor is ${money(cents)})` : '';
     console.log(`  ${pad(r.key, 9)}${pad(`${r.from} .. ${r.to}`, 26)}${rpad(r.days, 5)}${rpad(`${(r.share * 100).toFixed(0)}%`, 7)}${rpad(money(cents), 9)}${isNow ? '   <- today' : ''}${note}`);
+  }
+}
+
+/**
+ * printLadder()'s v2 branch. v2's rows carry daily_cents/cold_share/
+ * retarget_share, not the legacy share/days shape rowRate() expects -- this
+ * computes each row's rate with roleRates() instead and shows only the
+ * entry's own role (a v2 event is two entries, one per role, each printed
+ * separately when the caller loops over the registry).
+ */
+function printLadderV2(entry, plan, ev) {
+  const PB = brand.paid_template.playbook_v2;
+  const total = entry.total === undefined ? PB.reference_total_dollars : Number(entry.total);
+  const scale = total / PB.reference_total_dollars;
+  console.log(`\n${entry.name}  (${entry.event}, ${entry.role}, event ${ev.date}, total $${total})`);
+  console.log(`  ${pad('PHASE', 9)}${pad('WINDOW', 26)}${rpad('SPLIT', 7)}${rpad('DAILY', 9)}`);
+  for (const r of plan.rows) {
+    const { cold, retarget } = L.roleRates(r, scale);
+    const mine = entry.role === 'cold' ? cold : retarget;
+    const splitPct = `${((entry.role === 'cold' ? r.cold_share : r.retarget_share) * 100).toFixed(0)}%`;
+    const isNow = TODAY >= r.from && TODAY <= r.to;
+    const display = mine
+      ? `${money(mine.cents)}${mine.floored ? '  (floored to the $2.00 minimum)' : ''}`
+      : 'HOLD -- phase too small to fund past the floor, budget untouched';
+    console.log(`  ${pad(r.key, 9)}${pad(`${r.from} .. ${r.to}`, 26)}${rpad(splitPct, 7)}${rpad(display, 9)}${isNow ? '   <- today' : ''}`);
   }
 }
 
