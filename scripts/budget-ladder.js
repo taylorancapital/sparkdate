@@ -105,6 +105,7 @@ function phaseWindowsV2(eventDate, runwayStart, playbook) {
     daily_cents: p.daily_cents,
     cold_share: p.cold_share,
     retarget_share: p.retarget_share,
+    why: p.why,
   }));
   const remaining = daysBetween(runwayStart, eventDate);
   let startIdx = nominal.length - 1;
