@@ -178,15 +178,16 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   models $200). (3) **Both Marion Court acknowledgements expire 09-08** and
   will start reporting themselves as stale the next morning; retire them with
   the event. *(09-06)*
-- **The 09-05 nightly (PR #449) credits Loxleys with 5.75 ROAS, "best in the
-  account", and it is spurious.** The Loxleys ads went live 08-30; all four of
-  its paid tickets were bought 08-14 to 08-24, before any ad existed. Since the
-  ads started: $18 spent, 183 clicks, zero tickets. **The correction is now
-  written down** — `reports/GA4_DEEP_READ_2026-09-06.md` §9, and the standing
-  summary prints per-item SALE DATES next to any ad-credit claim so it cannot
-  recur silently. **Next step is still Taylor's: close or correct PR #449
-  itself** — the figure is live in an open PR body until he does. The general
-  rule is memory `meta-attribution-is-not-sales`. *(09-05, updated 09-06)*
+- **RESOLVED (09-06): the spurious Loxleys 5.75-ROAS claim is corrected in two
+  places, and its PR is no longer open.** `reports/GA4_DEEP_READ_2026-09-06.md`
+  §9 carries the correction; `reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md`
+  §5 independently re-derives it to the exact ticket (all 4 paid Loxleys
+  tickets bought 08-14 to 08-24, 6–16 days before its first ad dollar on
+  08-30). PR #449 merged 09-06 in a PR-merge pass, so the wrong headline is no
+  longer sitting in an open PR the way this entry previously flagged — only
+  its now-merged description still carries the original claim, which is
+  cosmetic and not worth a further action item. General rule: memory
+  `meta-attribution-is-not-sales`.
 - **The "scrambled email UTM" ask is CLOSED — it was never an email-platform
   problem, and the report that closed it 404'd its own fix.** PR #449
   escalated it twice as needing the email vendor's send history. It decodes
