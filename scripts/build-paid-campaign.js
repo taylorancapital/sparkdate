@@ -15,22 +15,36 @@
  *
  * paid_template is the source of truth. This script is the thing that reads it.
  *
- * PAID_TEMPLATE IS STALE AGAINST WHAT THE ACCOUNT NOW PROVES (flagged 2026-09-06)
+ * THIS SCRIPT STILL ONLY BUILDS THE LEGACY SHAPE (updated 2026-09-06)
  *
- * The template below still builds an OUTCOME_TRAFFIC campaign with female/male
- * ad sets. reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md found OUTCOME_TRAFFIC
+ * The template below builds an OUTCOME_TRAFFIC campaign with female/male ad
+ * sets. reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md found OUTCOME_TRAFFIC
  * produced ZERO purchases across $740.23 lifetime spend, and that heavier
  * women-targeted spend correlates with a WORSE actual women's ticket share --
  * plus a live, independent delivery failure (a women-only ad set spending ~4%
  * of its assigned budget). Every campaign currently running was built or
- * rebuilt by hand to OUTCOME_SALES with a single broad ad set, bypassing this
- * script entirely. Full spec: that report's section 8. Do NOT run this script
- * against a real event until content/brand.json's paid_template.campaign and
- * paid_template.ad_sets are updated to match -- see
- * content/brand.json's own `_objective_and_gender_status` note. Not rewritten
- * here: this script calls the live Marketing API with no offline test
- * coverage, and a rushed structural change to it is a worse risk than leaving
- * this flag. HANDOFF.md, 2026-09-06, carries the next-step entry.
+ * rebuilt by hand to OUTCOME_SALES with broad targeting, bypassing this script
+ * entirely. Full spec: that report's section 8.
+ *
+ * THE LADDER SIDE OF THIS IS DONE. content/brand.json's paid_template now has
+ * a `playbook_v2` block (objective OUTCOME_SALES, two campaigns -- cold and
+ * retargeting -- broad targeting only, a cold:retarget split that varies by
+ * phase) and scripts/budget-ladder.js computes its daily rates, fully
+ * offline-tested (tests/budget-ladder.test.js). A registry entry with
+ * `playbook: "v2"` gets laddered correctly THE MOMENT a real v2 campaign
+ * exists.
+ *
+ * WHAT'S STILL MISSING is exactly that campaign: this script's --execute path
+ * below still only knows how to build the legacy shape (one OUTCOME_TRAFFIC
+ * campaign, three gender-split ad sets). Do NOT run --execute against a real
+ * event with this script as-is -- it would build the shape the account has
+ * already abandoned. Rewriting its campaign-creation logic to build_v2's two
+ * campaigns is deliberately not done in the same pass that built the ladder
+ * arithmetic: this script calls the live Marketing API with no offline test
+ * coverage, and a rushed structural change to the part that actually creates
+ * objects in the ad account is a worse risk than leaving this flag one more
+ * pass. Everything ABOVE --execute (the plan, the dates, the dollar amounts)
+ * is safe to read for a v2 event today; nothing after --execute is.
  *
  * THE SPEND CURVE IS MEASURED, NOT ASSUMED
  *
