@@ -283,6 +283,22 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   under `playbook_v2` — its Seed/Build boundary spans T-15..T-14, so TL2's
   T-14 cutoff lands cleanly inside it. Nothing to fix there; noted so it
   isn't re-flagged as a live problem.
+  **Narrowed 09-07: "creative" was two things, and only one is still
+  missing.** The SPEC half is done — `playbook_v2.creative` now holds the
+  finished copy (three women's testimonials, referenced by id, no price by
+  rule), `scripts/build-paid-campaign.js --event=TL2 --handoff` renders it as
+  a Claude Design brief, and `scripts/ad-utm.js` computes the v2 tags. What is
+  still missing is the ASSETS: six ads from three videos, 1080x1350 /
+  1080x1080 / 1080x1920 plus thumbnails, which Claude Design has not built. So
+  the blocker is now "no video files", not "no plan for what the ads say".
+  **Next concrete step: run that `--handoff` command, hand the brief to Claude
+  Design, and put the returned files somewhere the attach step can read.**
+  Two things after that, neither done: `--execute` builds structure only and
+  attaches no ads, and the account's one proven attach path
+  (`scripts/meta-create-lx-sales-campaign.js`) is hard-coded to Loxleys'
+  retired gender ad sets — a v2 attach script reusing its request shape does
+  not exist. And nothing may go live without Taylor's word, per
+  `confirm-before-new-live-campaign`. *(09-07)*
   (3) **Both Marion Court acknowledgements expire 09-08** and
   will start reporting themselves as stale the next morning; retire them with
   the event. *(09-06)*
@@ -478,9 +494,15 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   hole. `RunOnlyIfNetworkAvailable` is still `False`, which is what made the
   08-29 run fail both network steps 14 minutes after a boot. Same elevated-shell
   fix, one more setting.
-- **No woman's testimonial exists in any ad.** The only testimonial creative is
-  Quang's. `reports/AD_LEVER_WOMEN_2026-09-02.md` wants one for the women's
-  prime; someone has to ask an attendee.
+- **No woman's testimonial exists in any LIVE ad** — still true of the account,
+  but the two reasons this entry gave are both gone. "Someone has to ask an
+  attendee" was overtaken on 09-04: Helesha, Anonymous M. and Molly are in
+  `brand.json` `universal.approved_testimonials`. And "for the women's prime"
+  names an ad set `playbook_v2` retired — under the new playbook the answer to
+  reaching women is creative inside the BROAD ad set, not a women-only one
+  (report §8.3). As of 09-07 all three quotes are written as finished ad copy
+  in `playbook_v2.creative` and render via `--handoff`. What remains is only
+  the video files and an attach path. *(09-07)*
 - `reports/META_CAPI_PROMPT.md` is untracked and has never been run.
 - **One report branch the sweep still refuses as STALE and nobody has replayed
   onto main:** `claude/content-freshness-analysis-2026-08-29`. Cherry-pick or

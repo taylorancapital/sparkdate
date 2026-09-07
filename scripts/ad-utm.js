@@ -39,6 +39,22 @@
  * `mc_retargeting_retargeting_quang` names nothing extra. This module encodes
  * that, and brand.json now states it.
  *
+ * TWO FORMS NOW: LEGACY BY AD SET, playbook_v2 BY ROLE
+ *
+ * Legacy callers pass `adSet` (female/male/retargeting) and get the four- or
+ * three-segment shape below, unchanged -- Loxleys' live ads depend on it until
+ * that event retires. playbook_v2 callers pass `role` (cold/retargeting)
+ * instead and get three segments with NO phase: `tl2_cold_helesha`,
+ * `tl2_rt_helesha`.
+ *
+ * The phase is absent on purpose. Under playbook_v2 the budget moves between
+ * Seed/Build/Close while the ad itself stays put, so a phase segment would
+ * split one creative's clicks across three GA4 rows -- exactly what
+ * utm_content exists to prevent, and the same argument that already collapses
+ * legacy retargeting to three segments. It also means `mc_rt_quang`, live
+ * today, is ALREADY a valid v2 tag: nothing built under the new playbook
+ * splits from what is running.
+ *
  * CAMPAIGN KEEPS THE EVENT KEY'S CASE; CONTENT LOWERCASES IT
  *
  * Live: `utm_campaign=LX_202609`, `utm_content=lx_prime_female_showup`. That
@@ -66,6 +82,21 @@ const PHASE_TAG = {
   convert: 'convert',
   close: 'close',
   day_of: 'dayof',
+};
+
+// playbook_v2 role keys as they appear in a tag. `retargeting` collapses to
+// `rt` for the same reason it does in the legacy shape below -- and the happy
+// consequence is that `mc_rt_quang`, already live, is ALREADY exactly a v2
+// tag. Nothing built under playbook_v2 splits from what is running.
+//
+// There is deliberately no phase segment in a v2 tag. Under playbook_v2 the
+// budget moves between Seed/Build/Close while the ad stays put, so a phase
+// segment would split one creative's clicks across three GA4 rows -- the
+// precise loss utm_content exists to prevent (see `_retargeting_why` in
+// brand.json).
+const ROLE_TAG = {
+  cold: 'cold',
+  retargeting: 'rt',
 };
 
 function loadBrand(brand) {
@@ -98,10 +129,30 @@ function utmCampaign(eventKey, brand) {
  * `lx_prime_female_showup`, or `mc_rt_quang` for the retargeting ad set.
  * Throws rather than emitting something GA4 cannot split.
  */
-function utmContent({ event, phase, adSet, creative }, brand) {
+function utmContent({
+  event, phase, adSet, role, creative,
+}, brand) {
   const b = loadBrand(brand);
   if (!(b.events || {})[event]) {
     throw new Error(`unknown event "${event}" — brand.json knows ${Object.keys(b.events || {}).join(', ')}`);
+  }
+
+  // playbook_v2 form: three segments, keyed by ROLE, no phase. Legacy callers
+  // pass `adSet` and fall through to the block below unchanged.
+  if (role !== undefined) {
+    const roleKeys = (((b.paid_template || {}).playbook_v2 || {}).roles || []).map((r) => r.key);
+    if (!roleKeys.includes(role)) {
+      throw new Error(`unknown role "${role}" — playbook_v2 knows ${roleKeys.join(', ') || '(no roles in brand.json)'}`);
+    }
+    if (!creative || !SEGMENT.test(creative)) {
+      throw new Error(`creative slug "${creative}" must be lowercase letters and digits, no underscores `
+        + '— it is one segment, and a separator inside it invents a field');
+    }
+    const v2 = [event.toLowerCase(), ROLE_TAG[role], creative];
+    for (const s of v2) {
+      if (!SEGMENT.test(s)) throw new Error(`segment "${s}" is not lowercase snake-safe`);
+    }
+    return v2.join('_');
   }
 
   const adSetKeys = (b.paid_template.ad_sets || []).map((a) => a.key);
@@ -134,13 +185,17 @@ function phaseTag(phase) {
 }
 
 /** The whole `url_tags` value, in the order the live ads carry it. */
-function urlTags({ event, phase, adSet, creative }, brand) {
+function urlTags({
+  event, phase, adSet, role, creative,
+}, brand) {
   const rules = utmRules(brand);
   return [
     `utm_source=${rules.source}`,
     `utm_medium=${rules.medium}`,
     `utm_campaign=${utmCampaign(event, brand)}`,
-    `utm_content=${utmContent({ event, phase, adSet, creative }, brand)}`,
+    `utm_content=${utmContent({
+      event, phase, adSet, role, creative,
+    }, brand)}`,
   ].join('&');
 }
 
@@ -175,4 +230,6 @@ function assertUniqueContent(ads) {
   }
 }
 
-module.exports = { utmCampaign, utmContent, urlTags, assertCleanLink, assertUniqueContent, PHASE_TAG };
+module.exports = {
+  utmCampaign, utmContent, urlTags, assertCleanLink, assertUniqueContent, PHASE_TAG, ROLE_TAG,
+};
