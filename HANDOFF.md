@@ -36,6 +36,53 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **DECIDED (09-06): Business Plan documents (financial models, the IP
+  assignment agreement, legal analysis, the investor pitch deck, ~50 files)
+  are untracked going forward; history is deliberately left alone.**
+  They'd been tracked in this repo's git history, on a PUBLIC repo, since
+  before the 07-15 reorg moved the working copies into subfolders without a
+  `git mv` — found while making sure those new subfolder locations didn't
+  also get committed. Taylor's read, having looked at the actual content:
+  mostly a financial model and a routine founder-to-LLC IP assignment,
+  "not very sensitive." **`git rm --cached` untracked all ~50 in this PR**
+  (files stay on disk, nothing deleted) and `.gitignore` now denies
+  `Business Plan/files/*` by default — the reorg subfolders and any future
+  addition are covered too. Two files kept tracked on purpose:
+  `Night Tasks/run-nightly-claude-code.ps1` and `REVIEW_PROMPT.md` (plus
+  `TONIGHT_PROMPT.md` and `review-nightly-reports.ps1`) are the nightly
+  automation's own scripts, not business documents — same reasoning as any
+  other tracked script. **This does NOT remove anything from history** —
+  every old commit still has the old content, and always will unless
+  someone runs a history rewrite (`git filter-repo`/BFG) plus a force-push
+  that every clone, worktree and open PR would then have to reconcile
+  against. Not done, and not needed given the sensitivity call above. If
+  that call ever changes, that's the next step — nothing further needed
+  otherwise. *(09-06)*
+- **The main checkout (`~/source/repos/sparkdate`, not a worktree) is 18
+  commits behind `origin/main` with uncommitted local edits sitting on top —
+  almost certainly the actual mechanism behind the PR #463 revert documented
+  below, and still unresolved.** `git status` there shows local `main` at
+  `f047ecf8` (18 behind `origin/main`'s `cfa9c933`), plus uncommitted
+  modifications to `HANDOFF.md`, `.gitignore` and `content/queue.csv` that
+  don't cleanly match either commit, and ~15 untracked files (Business Plan
+  documents, `attended.txt`, a few `scripts/send-profile-email*.js` and
+  `scripts/build-outreach-pack.js`, `content/women-surfaces.json`,
+  `reports/META_CAPI_PROMPT.md`). **Not touched, on purpose** — a naive `git
+  pull` here would hit conflicts on exactly the files already fought over
+  this session, and discarding or stashing unknown uncommitted work is not a
+  call this session gets to make unilaterally. **Also found in the untracked
+  set: `Business Plan/files/curl -X POST httpsgraph.facebook.co.txt` contains
+  what reads as a live Meta access token in plaintext** (confirmed only that
+  an `access_token`/`EAA...`-shaped string is present, value not read into
+  this session or printed anywhere). It's untracked, so not in the repo's
+  history, but it is sitting on disk. **Next step, Taylor's call, from the
+  main checkout directly:** reconcile or discard the uncommitted changes
+  (`git stash` first if unsure), `git pull` to catch it up, and separately
+  decide whether that token file should be deleted or moved somewhere that
+  isn't a repo working directory at all. Until this is resolved, any session
+  that reads or writes relative to the main checkout instead of a fresh
+  worktree risks reproducing the #463 revert pattern below on the next
+  merge. *(09-06)*
 - **A concurrent session's merge silently reverted an already-merged
   correction, and neither CI nor GitHub's own conflict check caught it.**
   Merging this handoff PR against PR #463 (merged first) found the Ticket
@@ -52,34 +99,62 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   as a pattern: a squash-merge touching a heavily-churned file like this one
   can silently carry stale content on lines nobody meant to change, and nothing
   in this repo's CI checks for that. *(09-06)*
-- **`paid_template` (content/brand.json) builds the wrong campaign shape if run
-  today, and it is flagged in three places, not fixed.**
-  `reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md`'s playbook (§8) found
-  OUTCOME_TRAFFIC produced zero purchases across $740.23 lifetime spend and
-  that heavier women-targeted ad spend correlates with a WORSE actual women's
-  ticket share, plus a live delivery failure independent of that correlation —
-  Marion Court's women-only ad set is spending ~4% of its assigned budget.
-  Every campaign actually running was built or rebuilt by hand to
-  OUTCOME_SALES with broad targeting, bypassing `scripts/build-paid-
-  campaign.js` entirely — the template it reads (`campaign.objective:
-  OUTCOME_TRAFFIC`, female/male ad sets) was never updated to match. Flagged
-  with an `_objective_and_gender_status` note in `brand.json`, a matching
-  comment at the top of `build-paid-campaign.js`, and a cross-reference in
-  `content/paid-campaigns.json` — none of it is fixed, on purpose: the script
-  calls the live Marketing API with no offline test coverage, and rushing that
-  rewrite in the same pass as a PR-merge session was a worse risk than
-  documenting the gap clearly. **Next step, before Tellus Oct 6 or any future
-  event uses this script:** update `paid_template.campaign` (objective ->
-  OUTCOME_SALES, optimization_goal -> OFFSITE_CONVERSIONS with a
-  `promoted_object`), collapse `ad_sets` to one broad ad set plus retargeting,
-  and decide whether retargeting becomes its own campaign
-  (`content/paid-campaigns.json`'s `share` field already supports that shape)
-  or stays a same-campaign ad set as today. Also unreconciled, smaller: the
-  playbook's 73%/37% final-14/7-day sales-curve figures were cut across all 6
-  events including 2 still selling, while `paid_template._measured`
-  deliberately used only the 2 completed events to avoid exactly that
-  censoring bias — both currently read close (73% vs ~76%) but were never
-  formally cross-checked. *(09-06)*
+- **Both the ladder AND the campaign-builder now build the new playbook —
+  the old shape is gone from this codebase's tools, not merely superseded.**
+  Taylor, 09-06, verbatim: *"I don't want to retain the old shape fyi. I want
+  the new playbook for go forward."* `reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md`'s playbook
+  (§8) found OUTCOME_TRAFFIC produced zero purchases across $740.23 lifetime
+  spend and that heavier women-targeted ad spend correlates with a WORSE
+  actual women's ticket share, plus a live delivery failure independent of
+  that correlation — Marion Court's women-only ad set is spending ~4% of its
+  assigned budget. **Built and offline-tested (22 new cases,
+  `tests/budget-ladder.test.js`):** `content/brand.json`
+  `paid_template.playbook_v2` — two campaigns per event (cold, retargeting),
+  OUTCOME_SALES, broad targeting only, a cold:retarget split that VARIES by
+  phase (80/20 Seed → 60/40 Build → 35/65 Close), a $2.00 floor-priority rule,
+  and the cold-start rule for a runway shorter than 21 days. `scripts/
+  budget-ladder.js` computes it (`phaseWindowsV2`, `roleRates`, `rateFor`
+  dispatching on a registry entry's `playbook: 'v2'` field) with ZERO change
+  to the legacy path Loxleys' live campaign depends on — same 28 legacy tests
+  still pass, `--check`/`--forecast` against the real live registry print
+  byte-identical output to before. **Correction to what this entry said when
+  first written:** it claimed `content/paid-campaigns.json`'s `share` field
+  already supported a Cold+Retargeting split with no change needed. Wrong —
+  `share` is one flat fraction applied to every phase alike, and the
+  playbook's split varies BY PHASE, which a flat fraction can't express. v2
+  registry entries use `role` (`"cold"`/`"retargeting"`) instead — both
+  `_fields` and `_playbook_ref` in `paid-campaigns.json` now say so. Also
+  fixed in the same pass: `scripts/meta-budget-ladder.js`'s `printLadder`
+  would have printed NaN for a v2 entry's ladder table (it called the legacy
+  `rowRate()` against rows that don't carry a legacy `share`/`days` shape) —
+  caught by an actual dry run against a scratch `--registry=`, not by the
+  offline tests, since printing isn't part of what they cover.
+  **`scripts/build-paid-campaign.js` is rewritten, same session, once Taylor
+  said the line above.** It no longer knows how to build the legacy shape at
+  all — no flag reverts to it. `--execute` now builds TWO PAUSED campaigns
+  (`<Event> | Cold`, `<Event> | Retargeting`), each with one broad ad set,
+  reusing the exact field values `scripts/meta-create-lx-sales-campaign.js`
+  already proved live on 2026-09-05 (pixel `4390442851170732`,
+  `OFFSITE_CONVERSIONS`/`PURCHASE`, 7-day-click+1-day-view attribution,
+  `advantage_audience: 0`) plus the same read-back verification that script
+  used to catch Meta silently enabling gender expansion server-side. Dry-run
+  verified against Loxleys' real event (plan only — nothing was created
+  against the live account): correct output at the default 21-day runway,
+  correct cold-start skip at `--runway=10`, and a clean refusal from
+  `--captions`/`--handoff` rather than rendering the retired female/male ad
+  copy against a shape that no longer has those ad sets. **Not yet done:**
+  new broad-targeting ad copy to replace the retired templates — nothing
+  writes ads yet either way, so this only blocks the day someone attaches
+  creative, not before. **Loxleys itself is untouched, on purpose** — its
+  live campaign stays on the legacy fields in `paid_template` until it
+  retires 2026-09-22 (rebuilding it now risks a cold-start at the worst
+  time); those fields are wind-down scaffolding now, not a second supported
+  shape, and are safe to delete once that entry retires. Also still
+  unreconciled, smaller: the playbook's 73%/37% final-14/7-day sales-curve
+  figures were cut across all 6 events including 2 still selling, while
+  `paid_template._measured` deliberately used only the 2 completed events to
+  avoid exactly that censoring bias — both currently read close (73% vs ~76%)
+  but were never formally cross-checked. *(09-06)*
 - **`status: 'full'` is a SOFT close — answered and shipped, do not re-raise.**
   Taylor, 09-06: *"I'd like it to be soft close, a lot of these venues could
   utilize more people."* The flag means stop advertising, not refuse money. The
@@ -183,15 +258,32 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   nor its `acknowledged` list is reported as UNGOVERNED with a non-zero exit.
   One account-wide daily ceiling ($40) now covers all runs at once — today the
   account reads $22.00/day, $2.00 laddered plus $20.00 outside it.
-  **Three next steps, all small.** (1) **Taylor: `git pull` in the main
+  **Three next steps.** (1) **Taylor: `git pull` in the main
   checkout** — the 03:00 `SparkDate Budget Ladder` task runs `npm run
   ads:ladder -- --all --execute` from there, so this merge does nothing until
   it does (same flaw as the nightly's data pull, first entry above).
-  (2) **Tellus Oct 6 needs a `brand.json` event entry before it can be
-  registered** — the ladder reads the event DATE from brand.json and refuses a
-  key it cannot find. Blocked on facts nobody has written down: confirmed date,
-  ticket price, early-bird cutoff, and the run budget (the October slate report
-  models $200). (3) **Both Marion Court acknowledgements expire 09-08** and
+  (2) ~~Tellus Oct 6 needs a brand.json event entry before it can be
+  registered... blocked on facts nobody has written down~~ — **wrong, corrected
+  09-06.** The event was already fully specified in Firestore (event_id
+  `h0F0ppRfqkNLyFXix9m7`, created 09-05: date, venue, both prices and the
+  early-bird cutoff all present) at the moment this was written — found by
+  querying Firestore directly rather than trusting the site's
+  `/api/next-event`, which only ever returns the *soonest* event and so never
+  surfaces a later one. Added as `brand.json` event key `TL2` this session.
+  **Asked Taylor whether to build the Meta campaign (paused) now — answer: not
+  yet, no creative assets exist for this event.** That was the real blocker,
+  and stayed the ONLY one: the campaign-mechanics half (`paid_template`'s
+  gender ad sets, flagged stale the same day this was written) is resolved
+  as of `playbook_v2` and the rewritten `scripts/build-paid-campaign.js` —
+  see the `playbook_v2` entry above. `node scripts/build-paid-campaign.js
+  --event=TL2 --execute` now builds both campaigns (Cold, Retargeting;
+  broad, no gender split) directly, the moment creative exists. The one-day
+  early-bird/budget-step mismatch this entry originally flagged against the
+  LEGACY model (early bird ends T-14, budget step at T-15) does not recur
+  under `playbook_v2` — its Seed/Build boundary spans T-15..T-14, so TL2's
+  T-14 cutoff lands cleanly inside it. Nothing to fix there; noted so it
+  isn't re-flagged as a live problem.
+  (3) **Both Marion Court acknowledgements expire 09-08** and
   will start reporting themselves as stale the next morning; retire them with
   the event. *(09-06)*
 - **The "scrambled email UTM" ask is CLOSED — it was never an email-platform

@@ -77,6 +77,109 @@ function rowRate(row, totalDollars, share = 1) {
 }
 
 /**
+ * playbook_v2 (reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md §8): two
+ * campaigns per event (cold, retargeting), fixed PER-DAY rates rather than a
+ * percentage of a total to distribute, and a cold:retarget split that VARIES
+ * by phase (80/20 -> 60/40 -> 35/65) -- which is exactly what the legacy
+ * `share` field cannot express, since share is one flat fraction applied to
+ * every phase alike. A registry entry opts in with `playbook: 'v2'` and a
+ * `role` of 'cold' or 'retargeting'; anything else, including no `playbook`
+ * field at all, keeps reading the legacy phases above unchanged -- Loxleys'
+ * live campaign must not move.
+ */
+
+/**
+ * v2's phase windows for one event, honoring the cold-start rule: a phase
+ * whose nominal window would already be over before the runway even starts
+ * is dropped entirely, and whatever phase survives first absorbs the actual
+ * runway_start as its own start date rather than inventing a partial phase
+ * to fill the gap. See brand.json paid_template.playbook_v2._lead_time.
+ */
+function phaseWindowsV2(eventDate, runwayStart, playbook) {
+  const T = (n) => (n === 0 ? eventDate : iso(at(eventDate) - n * DAY));
+  const nominal = playbook.phases.map((p) => ({
+    key: p.key,
+    from: T(p.from_t),
+    to: T(p.to_t),
+    threshold: p.from_t,
+    daily_cents: p.daily_cents,
+    cold_share: p.cold_share,
+    retarget_share: p.retarget_share,
+    why: p.why,
+  }));
+  const remaining = daysBetween(runwayStart, eventDate);
+  let startIdx = nominal.length - 1;
+  for (let i = 0; i < nominal.length; i += 1) {
+    if (remaining >= nominal[i].threshold) { startIdx = i; break; }
+  }
+  const rows = nominal.slice(startIdx);
+  if (rows.length) rows[0] = { ...rows[0], from: runwayStart };
+  return rows;
+}
+
+/**
+ * Split one v2 phase's scaled daily total between cold and retargeting,
+ * applying Meta's $2.00/day floor. If the honest split would put either side
+ * under the floor, that side is set to exactly the floor and the other
+ * absorbs the remainder -- except when the phase total itself is too small
+ * to clear the floor on both sides (under $4.00/day), where retargeting is
+ * `null`: the caller holds that campaign at whatever it is already running
+ * rather than fund it below the floor at all.
+ */
+function roleRates(phase, scale) {
+  const total = Math.round(phase.daily_cents * scale);
+  if (total < META_MIN_DAILY_CENTS * 2) {
+    return { cold: { cents: total, raw: total, floored: false }, retarget: null };
+  }
+  const rawRetarget = Math.round(total * phase.retarget_share);
+  if (rawRetarget < META_MIN_DAILY_CENTS) {
+    return {
+      cold: { cents: total - META_MIN_DAILY_CENTS, raw: total - rawRetarget, floored: false },
+      retarget: { cents: META_MIN_DAILY_CENTS, raw: rawRetarget, floored: true },
+    };
+  }
+  const rawCold = total - rawRetarget;
+  return {
+    cold: { cents: rawCold, raw: rawCold, floored: false },
+    retarget: { cents: rawRetarget, raw: rawRetarget, floored: false },
+  };
+}
+
+/** rateFor()'s v2 branch -- see the block comment above phaseWindowsV2(). */
+function rateForV2(entry, ev, today, brand) {
+  const PB = brand.paid_template.playbook_v2;
+  const rows = phaseWindowsV2(ev.date, entry.runway_start, PB);
+  const hit = rows.find((r) => today >= r.from && today <= r.to);
+  if (!hit) {
+    const inside = rows.length > 0 && today >= rows[0].from && today <= ev.date;
+    return {
+      state: inside ? 'gap' : 'outside',
+      rows,
+      eventDate: ev.date,
+      reason: inside
+        ? `${today} falls between v2 phases, which should not happen -- check playbook_v2.phases for a gap.`
+        : today > ev.date
+          ? `${today} is after the event (${ev.date}). This campaign is retired.`
+          : `${today} is before the runway starts (${rows[0] ? rows[0].from : entry.runway_start}).`,
+    };
+  }
+  const scale = (entry.total === undefined ? PB.reference_total_dollars : Number(entry.total)) / PB.reference_total_dollars;
+  const { cold, retarget } = roleRates(hit, scale);
+  const mine = entry.role === 'cold' ? cold : retarget;
+  if (!mine) {
+    return {
+      state: 'hold',
+      phase: hit.key,
+      rows,
+      eventDate: ev.date,
+      reason: `${hit.key}'s scaled total is too small to fund both roles past the $2.00 floor -- `
+        + 'retargeting holds its existing budget this phase (playbook_v2._floor_priority_rule).',
+    };
+  }
+  return { state: 'set', phase: hit.key, cents: mine.cents, raw: mine.raw, floored: mine.floored, rows, eventDate: ev.date };
+}
+
+/**
  * What should this campaign be spending on `today`?
  *
  * Returns one of four shapes, and the difference between the last two matters:
@@ -88,6 +191,8 @@ function rowRate(row, totalDollars, share = 1) {
 function rateFor(entry, today, brand = brandDefault) {
   const ev = brand.events[entry.event];
   if (!ev) return { state: 'unknown-event', reason: `${entry.event} is not in brand.json events` };
+
+  if (entry.playbook === 'v2') return rateForV2(entry, ev, today, brand);
 
   const rows = phaseWindows(ev.date, entry.runway_start, brand);
   const share = entry.share === undefined ? 1 : entry.share;
@@ -159,6 +264,8 @@ function validate(registry = registryDefault, brand = brandDefault) {
   const shareByEvent = new Map();
   const floorDays = 18; // brand.paid_template.runway._floor
   const minDays = brand.paid_template.runway.minimum_days;
+  const v2RolesByEvent = new Map();
+  const v2SharedFactsByEvent = new Map();
 
   for (const c of registry.campaigns) {
     const label = c.name || c.campaign_id || c.event;
@@ -180,21 +287,45 @@ function validate(registry = registryDefault, brand = brandDefault) {
     if (c.managed === false) continue;
 
     if (!(Number(c.total) > 0)) errors.push(`${label}: total must be the run budget in dollars`);
+
+    if (!c.runway_start) {
+      errors.push(`${label}: runway_start is required`);
+      continue;
+    }
+
+    if (c.playbook === 'v2') {
+      const runway = daysBetween(c.runway_start, ev.date);
+      if (runway <= 0) errors.push(`${label}: runway_start ${c.runway_start} is not before the event ${ev.date}`);
+
+      if (c.role !== 'cold' && c.role !== 'retargeting') {
+        errors.push(`${label}: playbook v2 requires role "cold" or "retargeting", got ${JSON.stringify(c.role)}`);
+      } else {
+        const roles = v2RolesByEvent.get(c.event) || new Set();
+        if (roles.has(c.role)) errors.push(`${label}: event ${c.event} already has a v2 "${c.role}" entry — one per role`);
+        roles.add(c.role);
+        v2RolesByEvent.set(c.event, roles);
+      }
+
+      const prior = v2SharedFactsByEvent.get(c.event);
+      if (prior && (Number(prior.total) !== Number(c.total) || prior.runway_start !== c.runway_start)) {
+        warnings.push(`${label}: event ${c.event}'s cold and retargeting entries disagree on total/runway_start — `
+          + 'they describe one shared run and should match');
+      }
+      v2SharedFactsByEvent.set(c.event, c);
+      continue; // v2 has its own floor/split logic (roleRates); the legacy checks below don't apply
+    }
+
     const share = c.share === undefined ? 1 : Number(c.share);
     if (!(share > 0 && share <= 1)) errors.push(`${label}: share must be between 0 and 1`);
     shareByEvent.set(c.event, (shareByEvent.get(c.event) || 0) + share);
 
-    if (!c.runway_start) {
-      errors.push(`${label}: runway_start is required`);
-    } else {
-      const runway = daysBetween(c.runway_start, ev.date);
-      if (runway <= 0) errors.push(`${label}: runway_start ${c.runway_start} is not before the event ${ev.date}`);
-      else if (runway < floorDays) {
-        errors.push(`${label}: a ${runway}-day runway is under the ${floorDays}-day floor — `
-          + 'prime disappears and retargeting launches with no audience pool');
-      } else if (runway < minDays) {
-        warnings.push(`${label}: ${runway}-day runway is under the stated ${minDays}-day minimum`);
-      }
+    const runway = daysBetween(c.runway_start, ev.date);
+    if (runway <= 0) errors.push(`${label}: runway_start ${c.runway_start} is not before the event ${ev.date}`);
+    else if (runway < floorDays) {
+      errors.push(`${label}: a ${runway}-day runway is under the ${floorDays}-day floor — `
+        + 'prime disappears and retargeting launches with no audience pool');
+    } else if (runway < minDays) {
+      warnings.push(`${label}: ${runway}-day runway is under the stated ${minDays}-day minimum`);
     }
 
     if (Number(c.total) * share < 200) {
@@ -206,6 +337,13 @@ function validate(registry = registryDefault, brand = brandDefault) {
   for (const [event, total] of shareByEvent) {
     if (total > 1.0001) errors.push(`event ${event}: campaign shares sum to ${total} — more than the run budget`);
     else if (total < 0.999) warnings.push(`event ${event}: campaign shares sum to ${total}, leaving ${((1 - total) * 100).toFixed(0)}% of the run budget unallocated`);
+  }
+
+  for (const [event, roles] of v2RolesByEvent) {
+    if (roles.size === 1) {
+      warnings.push(`event ${event}: only a "${[...roles][0]}" v2 entry is registered — `
+        + 'the other role is unmanaged until it is added or explicitly acknowledged');
+    }
   }
 
   return { errors, warnings };
@@ -241,6 +379,8 @@ module.exports = {
   META_MIN_DAILY_CENTS,
   phaseWindows,
   rowRate,
+  phaseWindowsV2,
+  roleRates,
   rateFor,
   planDay,
   forecast,
