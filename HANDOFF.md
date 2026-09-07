@@ -36,6 +36,31 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **The main checkout (`~/source/repos/sparkdate`, not a worktree) is 18
+  commits behind `origin/main` with uncommitted local edits sitting on top —
+  almost certainly the actual mechanism behind the PR #463 revert documented
+  below, and still unresolved.** `git status` there shows local `main` at
+  `f047ecf8` (18 behind `origin/main`'s `cfa9c933`), plus uncommitted
+  modifications to `HANDOFF.md`, `.gitignore` and `content/queue.csv` that
+  don't cleanly match either commit, and ~15 untracked files (Business Plan
+  documents, `attended.txt`, a few `scripts/send-profile-email*.js` and
+  `scripts/build-outreach-pack.js`, `content/women-surfaces.json`,
+  `reports/META_CAPI_PROMPT.md`). **Not touched, on purpose** — a naive `git
+  pull` here would hit conflicts on exactly the files already fought over
+  this session, and discarding or stashing unknown uncommitted work is not a
+  call this session gets to make unilaterally. **Also found in the untracked
+  set: `Business Plan/files/curl -X POST httpsgraph.facebook.co.txt` contains
+  what reads as a live Meta access token in plaintext** (confirmed only that
+  an `access_token`/`EAA...`-shaped string is present, value not read into
+  this session or printed anywhere). It's untracked, so not in the repo's
+  history, but it is sitting on disk. **Next step, Taylor's call, from the
+  main checkout directly:** reconcile or discard the uncommitted changes
+  (`git stash` first if unsure), `git pull` to catch it up, and separately
+  decide whether that token file should be deleted or moved somewhere that
+  isn't a repo working directory at all. Until this is resolved, any session
+  that reads or writes relative to the main checkout instead of a fresh
+  worktree risks reproducing the #463 revert pattern below on the next
+  merge. *(09-06)*
 - **A concurrent session's merge silently reverted an already-merged
   correction, and neither CI nor GitHub's own conflict check caught it.**
   Merging this handoff PR against PR #463 (merged first) found the Ticket
