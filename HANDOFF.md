@@ -36,6 +36,26 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **Loxleys retargeting is built and correct but PAUSED, waiting on one thing:
+  a retargeting creative. Nothing else blocks it.** (09-08, T-14) The Sep 8
+  ladder step ran: `Loxleys Retargeting - Video Viewers`
+  (`120251341306880542`) was created by API from the four LX dark-post reels,
+  and ad set `120250964028400542` had its `flexible_spec`
+  (`relationship_statuses:[1]`, the Single filter -- ~78% of reach, measured)
+  dropped and both audiences attached. Both verified by independent read-back;
+  `scripts/meta-launch-lx-retargeting.js` is idempotent and re-running it
+  prints SKIP. **Next step, once Taylor has art:** (1) build the ad in that ad
+  set; (2) replace the single legacy `LX` entry in `content/paid-campaigns.json`
+  with two `playbook: "v2"` entries, `role: "cold"` / `"retargeting"`, both
+  `total: 180` -- modelled today against a scratch registry, it computes Build
+  $5.11/$3.40 and Close $3.41/$6.32 and reports 0 ungoverned; (3) un-pause.
+  **Do NOT do step 2 before step 1** -- stepping `Loxleys | Sales` down from
+  $9.00 while retargeting has no ad just removes $3.89/day from the only
+  campaign that can serve, and the playbook's own floor-priority tail says to
+  run cold-only and hold retargeting at its existing budget in exactly this
+  case. Full write-up: `reports/LOXLEYS_RETARGETING_LAUNCH_2026-09-08.md`.
+  Loxleys is 2026-09-22, so this entry dies then either way.
+
 - **MC-12's Instagram Story and MC-13's Instagram feed post are queued correctly
   but need `social.js run --execute` run again at their actual moments — nothing
   currently does that automatically.** (09-07, PR #471) Both are `state=approved`
