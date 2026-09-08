@@ -22,13 +22,19 @@
  *   2. `flexible_spec: [{relationship_statuses: [1]}]` -- Facebook's "Single"
  *      status. Priced live with delivery_estimate the same day, holding geo,
  *      age and gender constant: 1,000,000-1,200,000 reachable without it
- *      against 241,700-284,400 with it. It removes roughly 78%, and not a
- *      random 78% -- only people who publicly declared Single on a profile
- *      field most users leave blank (memory single-filter-costs-80-percent).
- *      This is the exact field that halved Marion Court's retargeting pool and
- *      drove its frequency to 11.7 for 0 purchases on $103.04
+ *      against 241,700-284,400 with it. It removes roughly 78%, and it is not
+ *      a random 78%: relationship status is OPTIONAL self-declared profile
+ *      data, so the field selects "people who publicly declare a relationship
+ *      status on Facebook", not "single people". This is the exact field that
+ *      halved Marion Court's retargeting pool and drove its frequency to 11.7
+ *      for 0 purchases on $103.04
  *      (reports/MARION_COURT_RETARGETING_FATIGUE_2026-09-01.md).
- *   3. No ads. Still true after this script runs -- see LEFT UNDONE below.
+ *      NOT a reason, though it was cited as one until 2026-09-08: Meta is NOT
+ *      retiring this field. Its 2022 purge removed SENSITIVE categories
+ *      (health, sexual orientation, religion, politics); relationship status
+ *      survived and is still live core demographic targeting. The reach
+ *      measurement is the whole case; the deprecation story was never true.
+ *   3. No ads -- fixed by step 3 below, once the art landed the same morning.
  *
  * THE VIDEO AUDIENCE. Loxleys has no video-viewer audience; the site-visitor
  * one alone is the smaller half of the pool. This creates it from the four LX
@@ -44,17 +50,31 @@
  * Court's own. This one lists four, so the pool is people who watched a
  * LOXLEYS ad.
  *
+ * THE AD (step 3, added 2026-09-08 once the art landed). Purpose-made
+ * retargeting creative arrived in `SourceArt/Video` the same morning:
+ * `LX-RETARGETING-CONVERT`, a facts card over the venue photo -- Sep 22,
+ * Lancaster, $29.99, doors 6:30. Correct for this audience, which has already
+ * seen the event: brand.json's `_no_reintroduction` rule says retargeting copy
+ * must not explain the event again, and the copy here is the legacy
+ * `caption_templates.retargeting.convert` template rendered from brand.json's
+ * own event facts rather than retyped.
+ *
+ * `utm_content` is `lx_rt_patio` -- three segments, not four, per
+ * `caption_rules.utm.content_format_retargeting`: for retargeting the phase and
+ * the audience are the same fact, and the tag deliberately does NOT carry a
+ * phase so the ad keeps one GA4 row across convert and close. Built through
+ * `scripts/ad-utm.js` rather than by hand -- that module throws on an unknown
+ * role or a bad slug, which is the bug that shipped `tl2__helesha` (#480) into
+ * a field frozen at creation and uncorrectable afterwards.
+ *
+ * No 2-for-1 line, ever: brand.json restricts that copy to female ad sets.
+ *
  * LEFT UNDONE ON PURPOSE, and the campaign therefore stays PAUSED:
- *   - No ad is created. Loxleys has no retargeting creative and Taylor's call
- *     on 2026-09-08 was to wait for purpose-made art rather than reuse the
- *     convert video.
- *   - No budget is changed. The playbook's Build split (section 2) is $5.11
- *     cold / $3.40 retarget at Loxleys' $180 run, but stepping cold down from
- *     $9.00 while retargeting cannot serve would just remove $3.89/day from the
- *     only campaign that can deliver. Section 2's own floor-priority tail says
- *     to run cold-only and hold retargeting at its existing budget in exactly
- *     this situation. Both budgets move on the day the art lands, via
- *     content/paid-campaigns.json, not here.
+ *   - No budget is changed and nothing is un-paused. The playbook's Build split
+ *     (section 2) is $5.11 cold / $3.40 retarget at Loxleys' $180 run, which
+ *     means stepping the LIVE cold campaign DOWN from $9.00. That is real money
+ *     moving on a campaign that is currently serving, so it is a human's call,
+ *     made via content/paid-campaigns.json and the ladder, not here.
  *
  * Safe to re-run: every step checks the live state first and skips what is
  * already right. DRY RUN IS THE DEFAULT.
@@ -62,12 +82,19 @@
  * Usage:
  *   node scripts/meta-launch-lx-retargeting.js            # dry run, changes nothing
  *   node scripts/meta-launch-lx-retargeting.js --execute
+ *   node scripts/meta-launch-lx-retargeting.js --art=<dir>   # override SourceArt/Video
  *
  * Env:
  *   META_ADS_ACCESS_TOKEN  required, needs ads_management
  */
 
 'use strict';
+
+const fs = require('node:fs');
+const nodePath = require('node:path');
+const os = require('node:os');
+const brand = require('../content/brand.json');
+const { urlTags, assertCleanLink } = require('./ad-utm.js');
 
 const V = 'v21.0';
 const GRAPH = `https://graph.facebook.com/${V}`;
@@ -88,6 +115,20 @@ const LX_REELS = [
 ];
 const VIDEO_RETENTION_DAYS = 30; // playbook section 2: 30-day custom-audience lookback
 
+// ---- the ad ---------------------------------------------------------------
+const PAGE_ID = '1139242662602769';
+const IG_USER_ID = '17841426630031658'; // instagram_user_id; v21.0 rejects instagram_actor_id
+const PIXEL_ID = '4390442851170732';
+const EVENT_KEY = 'LX';
+const CREATIVE_SLUG = 'patio'; // the venue-photo facts card, one lowercase segment
+const AD_NAME = 'LX-RT-PATIO';
+const ART_BASENAME = 'LX-RETARGETING-CONVERT';
+// 4:5 feed portrait -- the shape MC's retargeting ads used, and the shape the
+// supplied thumbnail is cut to.
+const ART_VIDEO = `${ART_BASENAME}_feed_portrait.mp4`;
+const ART_THUMB = `${ART_BASENAME}_thumb.png`;
+const DEFAULT_ART_DIR = nodePath.join(os.homedir(), 'OneDrive', 'SparkDate', 'SourceArt', 'Video');
+
 const argv = process.argv.slice(2);
 const flag = (name) => {
   const hit = argv.find((a) => a === `--${name}` || a.startsWith(`--${name}=`));
@@ -95,7 +136,61 @@ const flag = (name) => {
   return hit.includes('=') ? hit.slice(hit.indexOf('=') + 1) : true;
 };
 const EXECUTE = flag('execute') === true;
+const ART_DIR = flag('art') || DEFAULT_ART_DIR;
 const TOKEN = process.env.META_ADS_ACCESS_TOKEN || process.env.META_CAPI_ACCESS_TOKEN;
+
+/**
+ * The retargeting caption, rendered from brand.json rather than retyped.
+ *
+ * Uses the legacy `caption_templates.retargeting.convert` template and the
+ * event's own facts, so a price or door-time change in brand.json cannot leave
+ * a stale figure in an ad. The template's `_no_reintroduction` note is the
+ * whole point of the copy: this audience has already seen the event.
+ */
+function retargetingCopy() {
+  const ev = (brand.events || {})[EVENT_KEY];
+  if (!ev) throw new Error(`brand.json has no event "${EVENT_KEY}"`);
+  const tpl = ((brand.paid_template || {}).caption_templates || {}).retargeting;
+  if (!tpl || !tpl.convert) throw new Error('brand.json has no caption_templates.retargeting.convert');
+
+  const d = new Date(`${ev.date}T12:00:00Z`);
+  const dateLong = d.toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC',
+  });
+  const dateShort = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+  // Early bird is over (through 2026-09-07), so the live price is `regular`.
+  // Refuse rather than guess if that ever stops being true -- a wrong price in
+  // an ad is the failure brand.json's LX open_issues calls the "PRICE TRAP".
+  const today = new Date().toISOString().slice(0, 10);
+  const price = today > ev.pricing.early_bird_through
+    ? `$${ev.pricing.regular}`
+    : `$${ev.pricing.early_bird}`;
+
+  const slots = {
+    '{event_name}': ev.name,
+    '{date_long}': dateLong,
+    '{date_short}': dateShort,
+    '{venue}': ev.venue,
+    '{city}': ev.city,
+    '{doors}': ev.doors,
+    '{price}': price,
+  };
+  const fill = (s) => Object.entries(slots).reduce((acc, [k, v]) => acc.split(k).join(v), s);
+  const out = {
+    message: fill(tpl.convert.primary_text),
+    title: fill(tpl.convert.headline),
+    link_description: fill(tpl.convert.description),
+    price,
+  };
+  const leftover = [out.message, out.title, out.link_description].join(' ').match(/\{[a-z_]+\}/g);
+  if (leftover) throw new Error(`unfilled caption slots: ${[...new Set(leftover)].join(', ')}`);
+  // brand.json restricts the 2-for-1 line to female ad sets. Assert, don't trust.
+  if (/2-for-1|2 for 1/i.test(out.message)) throw new Error('2-for-1 copy must never appear in retargeting');
+  return out;
+}
+
+const DESTINATION = `https://sparkdate.date/lp?eventId=${(brand.events || {})[EVENT_KEY].event_id}`;
 
 async function get(id, fields) {
   const url = new URL(`${GRAPH}/${id}`);
@@ -123,6 +218,53 @@ async function post(id, fields) {
     throw new Error(`POST ${id}: ${e ? JSON.stringify(e, null, 1) : `HTTP ${res.status}`}`);
   }
   return body;
+}
+
+/** Multipart POST -- Meta's asset endpoints do not take urlencoded bodies. */
+async function upload(path, field, filePath) {
+  const fd = new FormData();
+  fd.set(field, new Blob([fs.readFileSync(filePath)]), nodePath.basename(filePath));
+  fd.set('access_token', TOKEN);
+  const res = await fetch(`${GRAPH}/${path}`, { method: 'POST', body: fd });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || body.error) {
+    throw new Error(`UPLOAD ${path}: ${body.error ? JSON.stringify(body.error, null, 1) : `HTTP ${res.status}`}`);
+  }
+  return body;
+}
+
+/**
+ * A freshly uploaded video is not usable in a creative until Meta finishes
+ * encoding it. Referencing it too early fails with an unhelpful "Invalid
+ * parameter", so wait for `status.video_status === 'ready'` rather than
+ * sleeping a guessed interval.
+ */
+async function waitForVideo(videoId, timeoutMs = 240000) {
+  const started = Date.now();
+  let last = '';
+  for (;;) {
+    const v = await get(videoId, 'status');
+    const state = ((v.status || {}).video_status) || 'unknown';
+    if (state !== last) { console.log(`            encoding: ${state}`); last = state; }
+    if (state === 'ready') return;
+    if (state === 'error') throw new Error(`Meta failed to encode video ${videoId}: ${JSON.stringify(v.status)}`);
+    if (Date.now() - started > timeoutMs) {
+      throw new Error(`video ${videoId} still "${state}" after ${Math.round(timeoutMs / 1000)}s -- `
+        + 'it may still finish; re-run this script, which will find it by name rather than re-upload.');
+    }
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+}
+
+/** Already uploaded by an earlier run? Match on the title we set. */
+async function findVideo(title) {
+  const list = await get(`${ACCOUNT}/advideos`, 'id,title,created_time');
+  return (list.data || []).find((v) => v.title === title) || null;
+}
+
+async function findAd(name) {
+  const list = await get(`${ACCOUNT}/ads`, 'id,name,effective_status,adset_id,creative{id,url_tags}');
+  return (list.data || []).find((a) => a.name === name) || null;
 }
 
 /**
@@ -235,7 +377,7 @@ function summariseTargeting(label, t) {
   }
 
   // --- Step 1: the video-viewer audience. ------------------------------------
-  console.log('\n[1/2] video-viewer audience');
+  console.log('\n[1/3] video-viewer audience');
   let video = await findVideoAudience();
   if (video) {
     console.log(`  exists  ${video.id}  ${video.name}  ${video.retention_days}d  ${(video.delivery_status || {}).code} ${(video.delivery_status || {}).description || ''}`);
@@ -257,7 +399,7 @@ function summariseTargeting(label, t) {
   }
 
   // --- Step 2: the ad set's targeting. ---------------------------------------
-  console.log('\n[2/2] ad set targeting');
+  console.log('\n[2/3] ad set targeting');
   const adset = await get(AD_SET, 'id,name,status,effective_status,targeting,optimization_goal,promoted_object');
   console.log(`  ${adset.name}  ${adset.effective_status}`);
   summariseTargeting('BEFORE', adset.targeting);
@@ -295,14 +437,106 @@ function summariseTargeting(label, t) {
     }
   }
 
+  // --- Step 3: the ad. --------------------------------------------------------
+  console.log('\n[3/3] retargeting ad');
+  const copy = retargetingCopy();
+  const tags = urlTags({
+    event: EVENT_KEY, adSet: 'retargeting', creative: CREATIVE_SLUG,
+  });
+  assertCleanLink(DESTINATION); // Meta appends url_tags; a utm_* on the link would double it
+  const videoPath = nodePath.join(ART_DIR, ART_VIDEO);
+  const thumbPath = nodePath.join(ART_DIR, ART_THUMB);
+
+  const existingAd = await findAd(AD_NAME);
+  if (existingAd) {
+    console.log(`  exists  ${existingAd.id}  ${AD_NAME}  ${existingAd.effective_status}`);
+    console.log(`          url_tags ${(existingAd.creative || {}).url_tags || '(none)'}`);
+    console.log('  SKIP    an ad by this name is already in the account');
+  } else {
+    for (const f of [videoPath, thumbPath]) {
+      if (!fs.existsSync(f)) throw new Error(`art not found: ${f}\n  pass --art=<dir> if it lives elsewhere`);
+    }
+    console.log(`  video   ${ART_VIDEO}  (${(fs.statSync(videoPath).size / 1048576).toFixed(1)} MB)`);
+    console.log(`  thumb   ${ART_THUMB}`);
+    console.log(`  name    ${AD_NAME}`);
+    console.log(`  tags    ${tags}`);
+    console.log(`  link    ${DESTINATION}`);
+    console.log(`  price   ${copy.price}  (early bird ended ${brand.events[EVENT_KEY].pricing.early_bird_through})`);
+    console.log('  copy    ' + copy.message.split('\n').filter(Boolean).join('\n          '));
+    console.log(`  title   ${copy.title}`);
+    console.log(`  desc    ${copy.link_description}`);
+
+    if (EXECUTE) {
+      let video = await findVideo(ART_BASENAME);
+      if (video) {
+        console.log(`  reuse   advideo ${video.id} (uploaded by an earlier run)`);
+      } else {
+        video = await upload(`${ACCOUNT}/advideos`, 'source', videoPath);
+        console.log(`  UPLOADED advideo ${video.id}`);
+        await post(video.id, { title: ART_BASENAME });
+      }
+      await waitForVideo(video.id);
+
+      const img = await upload(`${ACCOUNT}/adimages`, 'source', thumbPath);
+      const hash = Object.values(img.images || {})[0].hash;
+      console.log(`  UPLOADED adimage ${hash}`);
+
+      const creative = await post(`${ACCOUNT}/adcreatives`, {
+        name: `LX retargeting 2026-09 ${CREATIVE_SLUG} (video)`,
+        object_story_spec: JSON.stringify({
+          page_id: PAGE_ID,
+          instagram_user_id: IG_USER_ID,
+          video_data: {
+            video_id: video.id,
+            image_hash: hash,
+            message: copy.message,
+            title: copy.title,
+            link_description: copy.link_description,
+            call_to_action: { type: 'LEARN_MORE', value: { link: DESTINATION } },
+          },
+        }),
+        url_tags: tags, // frozen at creation -- never editable again
+      });
+      console.log(`  CREATED creative ${creative.id}`);
+
+      const ad = await post(`${ACCOUNT}/ads`, {
+        name: AD_NAME,
+        adset_id: AD_SET,
+        creative: JSON.stringify({ creative_id: creative.id }),
+        tracking_specs: JSON.stringify([{ 'action.type': ['offsite_conversion'], fb_pixel: [PIXEL_ID] }]),
+        status: 'PAUSED',
+      });
+      console.log(`  CREATED ad ${ad.id}`);
+
+      // ---- read back. A 200 is not evidence.
+      const back = await get(ad.id, 'name,effective_status,adset_id,creative{id,url_tags,object_story_spec},tracking_specs');
+      const spec = ((back.creative || {}).object_story_spec || {}).video_data || {};
+      const checks = [
+        ['in the retargeting ad set', back.adset_id === AD_SET, back.adset_id],
+        ['url_tags exact', (back.creative || {}).url_tags === tags, (back.creative || {}).url_tags],
+        ['no empty utm segment', !/__|=$|=&/.test((back.creative || {}).url_tags || 'x'), (back.creative || {}).url_tags],
+        ['video attached', String(spec.video_id) === String(video.id), spec.video_id],
+        ['pixel in tracking_specs', JSON.stringify(back.tracking_specs || '').includes(PIXEL_ID), JSON.stringify(back.tracking_specs || [])],
+        ['paused', back.effective_status !== 'ACTIVE', back.effective_status],
+      ];
+      let failed = 0;
+      for (const [label, ok, seen] of checks) {
+        console.log(`  ${ok ? 'OK  ' : '!!  '}    ${label.padEnd(26)} ${seen}`);
+        if (!ok) failed += 1;
+      }
+      if (failed) throw new Error(`${failed} read-back check(s) failed on ad ${ad.id}`);
+    }
+  }
+
   // --- What a human still has to do. -----------------------------------------
-  console.log('\nSTILL BLOCKING LAUNCH (deliberately not done here):');
-  console.log('  - No ad exists in this ad set. Loxleys has no retargeting creative;');
-  console.log('    Taylor is waiting on purpose-made art (2026-09-08).');
-  console.log('  - Budget stays as-is. Once an ad is live, register both legs in');
-  console.log('    content/paid-campaigns.json with playbook "v2" + role cold/retargeting');
-  console.log('    and let scripts/meta-budget-ladder.js step them together.');
-  console.log(`  - The campaign is ${campaign.effective_status} and this script never un-pauses it.`);
+  console.log('\nSTILL A HUMAN DECISION (deliberately not done here):');
+  console.log('  - Nothing is un-paused and no budget moves. Going live means stepping');
+  console.log('    the LIVE cold campaign DOWN from $9.00/day to the playbook\'s $5.11');
+  console.log('    and funding retargeting at $3.40 -- real money on a serving campaign.');
+  console.log('  - To do it: replace the single legacy LX entry in');
+  console.log('    content/paid-campaigns.json with two playbook "v2" entries');
+  console.log('    (role cold / retargeting, both total 180), then un-pause both.');
+  console.log(`  - The campaign is ${campaign.effective_status} right now.`);
 
   if (!EXECUTE) console.log('\nDry run. Re-run with --execute.');
 })().catch((e) => {

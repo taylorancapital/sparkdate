@@ -36,48 +36,42 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **Loxleys retargeting is built and correct but PAUSED, waiting on one thing:
-  a retargeting creative. Nothing else blocks it.** (09-08, T-14) The Sep 8
-  ladder step ran: `Loxleys Retargeting - Video Viewers`
-  (`120251341306880542`) was created by API from the four LX dark-post reels,
-  and ad set `120250964028400542` had its `flexible_spec`
-  (`relationship_statuses:[1]`, the Single filter -- ~78% of reach, measured)
-  dropped and both audiences attached. Both verified by independent read-back;
-  `scripts/meta-launch-lx-retargeting.js` is idempotent and re-running it
-  prints SKIP. **Next step, once Taylor has art:** (1) build the ad in that ad
-  set; (2) replace the single legacy `LX` entry in `content/paid-campaigns.json`
-  with two `playbook: "v2"` entries, `role: "cold"` / `"retargeting"`, both
-  `total: 180` -- modelled today against a scratch registry, it computes Build
-  $5.11/$3.40 and Close $3.41/$6.32 and reports 0 ungoverned; (3) un-pause.
-  **Do NOT do step 2 before step 1** -- stepping `Loxleys | Sales` down from
-  $9.00 while retargeting has no ad just removes $3.89/day from the only
-  campaign that can serve, and the playbook's own floor-priority tail says to
-  run cold-only and hold retargeting at its existing budget in exactly this
-  case. Full write-up: `reports/LOXLEYS_RETARGETING_LAUNCH_2026-09-08.md`.
-  Loxleys is 2026-09-22, so this entry dies then either way.
+- **Loxleys retargeting is fully built and PAUSED. The only thing left is the
+  budget flip, which is a money decision, not a build step.** (09-08, T-14)
+  Done today, each verified by independent read-back: video audience
+  `120251341306880542` created by API from the four LX dark-post reels; ad set
+  `120250964028400542` lost an inherited `flexible_spec`
+  (`relationship_statuses:[1]`, ~78% of reach, measured twice) and gained both
+  audiences; ad **`LX-RT-PATIO`** (`120251342754360542`) built from the
+  purpose-made art Taylor delivered at 08:58, six checks green, now `IN_PROCESS`
+  in Meta ad review; `content/paid-campaigns.json` migrated from one legacy `LX`
+  entry to two `playbook: "v2"` entries (cold/retargeting, shared `total: 180`),
+  ladder reports 0 ungoverned. `scripts/meta-launch-lx-retargeting.js` is
+  idempotent -- re-running prints SKIP throughout.
+  **Next step, three actions in order:** `node scripts/meta-budget-ladder.js
+  --all --execute` (steps cold $9.00 -> $5.11 and retargeting -> $3.40), un-pause
+  the campaign, un-pause the ad. Remaining spend across both legs is $137.41
+  against the legacy ladder's $152.99, so this REDUCES total spend -- but it
+  steps a currently-serving campaign down 43%, which is why it was left for
+  Taylor. Not yet given the go as of this writing.
+  **Open question Taylor raised the same day, not yet decided:** the playbook
+  (`reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md` section 8 and
+  `reports/META_AD_LADDER_PLAYBOOK.md`) mentions `relationship_statuses`
+  **zero times**, so nothing would stop the next event inheriting the same
+  filter. A proposed rule ("no demographic filter beyond age and geography, any
+  ad set, any role, any phase") plus a detection check (assert no live ad set
+  carries a non-empty `flexible_spec`, modelled on the ladder's UNGOVERNED exit)
+  is written up in section 6 of
+  `reports/LOXLEYS_RETARGETING_LAUNCH_2026-09-08.md`. **Neither is built** --
+  both need Taylor's call. Loxleys is 2026-09-22, so the first half of this
+  entry dies then; the rule question outlives it.
+  **Also corrected today, because it was stated as fact and read as one:** the
+  claim that Meta "has been retiring" relationship-status targeting is FALSE
+  (its 2022 purge removed sensitive categories only; the field is still live
+  core demographic targeting). It came from a memory file, was repeated into a
+  report and PR #482, and Taylor reasoned from it before it was checked. The
+  measured 78-80% reach cut is unaffected and is the whole case.
 
-- **MC-12's Instagram Story and MC-13's Instagram feed post are queued correctly
-  but need `social.js run --execute` run again at their actual moments — nothing
-  currently does that automatically.** (09-07, PR #471) Both are `state=approved`
-  with real art; `social.js plan` confirms they're just not due yet, not stuck:
-  MC-12's Story fires at 6:30 PM today (09-07), MC-13's Instagram post at 9:00 AM
-  tomorrow (09-08). Facebook can be scheduled minutes ahead of time because Meta
-  holds the scheduled post; Instagram cannot (no scheduling parameter exists), so
-  its container can only be created once the slot actually arrives, within a 6h
-  grace window after — this is why MC-09 and MC-10's Instagram legs upstream of
-  this entry were permanently missed (nobody ran the publisher within 6h of their
-  slots). **Next step: run `node scripts/social.js run --execute` again after each
-  of those two times** (see `[[meta-tokens-live-in-shell-env]]` for the env vars
-  it actually needs in this shell), or decide this needs a real recurring
-  scheduled task rather than relying on a session happening to be open at the
-  right moment — worth asking Taylor rather than building one unprompted, since
-  it would be new standing infrastructure that also runs `--execute` live.
-  **Separately, MC-12's Facebook leg is structurally blocked, not just
-  unscheduled:** its only two source-art files are both 1080x1920 Story frames
-  (confirmed in `~/OneDrive/SparkDate/SourceArt` — no square export was ever
-  made), so `lib/social-publish.js`'s feed-shape guard correctly refuses it
-  every time `run` executes. **Needs a real 1080x1080 export from Taylor/design
-  before this leg can ever go out**, or a decision to leave MC-12 Facebook-less.
 - **DECIDED (09-06): Business Plan documents (financial models, the IP
   assignment agreement, legal analysis, the investor pitch deck, ~50 files)
   are untracked going forward; history is deliberately left alone.**
