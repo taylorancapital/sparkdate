@@ -36,41 +36,40 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **Loxleys retargeting is fully built and PAUSED. The only thing left is the
-  budget flip, which is a money decision, not a build step.** (09-08, T-14)
-  Done today, each verified by independent read-back: video audience
-  `120251341306880542` created by API from the four LX dark-post reels; ad set
-  `120250964028400542` lost an inherited `flexible_spec`
-  (`relationship_statuses:[1]`, ~78% of reach, measured twice) and gained both
-  audiences; ad **`LX-RT-PATIO`** (`120251342754360542`) built from the
-  purpose-made art Taylor delivered at 08:58, six checks green, now `IN_PROCESS`
-  in Meta ad review; `content/paid-campaigns.json` migrated from one legacy `LX`
-  entry to two `playbook: "v2"` entries (cold/retargeting, shared `total: 180`),
-  ladder reports 0 ungoverned. `scripts/meta-launch-lx-retargeting.js` is
-  idempotent -- re-running prints SKIP throughout.
-  **Next step, three actions in order:** `node scripts/meta-budget-ladder.js
-  --all --execute` (steps cold $9.00 -> $5.11 and retargeting -> $3.40), un-pause
-  the campaign, un-pause the ad. Remaining spend across both legs is $137.41
-  against the legacy ladder's $152.99, so this REDUCES total spend -- but it
-  steps a currently-serving campaign down 43%, which is why it was left for
-  Taylor. Not yet given the go as of this writing.
-  **Open question Taylor raised the same day, not yet decided:** the playbook
-  (`reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md` section 8 and
-  `reports/META_AD_LADDER_PLAYBOOK.md`) mentions `relationship_statuses`
-  **zero times**, so nothing would stop the next event inheriting the same
-  filter. A proposed rule ("no demographic filter beyond age and geography, any
-  ad set, any role, any phase") plus a detection check (assert no live ad set
-  carries a non-empty `flexible_spec`, modelled on the ladder's UNGOVERNED exit)
-  is written up in section 6 of
-  `reports/LOXLEYS_RETARGETING_LAUNCH_2026-09-08.md`. **Neither is built** --
-  both need Taylor's call. Loxleys is 2026-09-22, so the first half of this
-  entry dies then; the rule question outlives it.
-  **Also corrected today, because it was stated as fact and read as one:** the
-  claim that Meta "has been retiring" relationship-status targeting is FALSE
-  (its 2022 purge removed sensitive categories only; the field is still live
-  core demographic targeting). It came from a memory file, was repeated into a
-  report and PR #482, and Taylor reasoned from it before it was checked. The
-  measured 78-80% reach cut is unaffected and is the whole case.
+- **OPEN QUESTION for a separate chat: §8.3's "zero gender-restricted ad sets,
+  ever" versus the women-only 2-for-1 offer. Taylor's call 09-08: do not edit
+  §8, he will review it himself.** Surfaced while proposing a narrow rule banning
+  `relationship_statuses` — the first draft read "no demographic filter beyond
+  age and geography", which would have banned gender targeting too. His reason
+  for deferring, verbatim: *"we have 2 for 1 offers that realistically should
+  only go towards female audiences."* §8.3 has no account of how a women-only
+  creative reaches women without a women-targeted ad set, and
+  [[two-for-one-is-female-ads-only]] is a standing marketing rule, so the two
+  are in live tension. **Nothing was written and nothing was built** — no edit
+  to `brand.json` or either playbook report. The assembled case (78-80% measured
+  twice, why the field is not a demographic, why the detection check matters
+  more than the written rule) is §6 of
+  `reports/LOXLEYS_RETARGETING_LAUNCH_2026-09-08.md`. **Next step: that separate
+  review, his.** *(09-08)*
+
+- **Loxleys retargeting is LIVE as of 09-08 — first spend since the shell was
+  created 2026-08-17. Nothing outstanding; this entry is a record, not a task.**
+  Video audience `120251341306880542` created by API from the four LX dark-post
+  reels; ad set `120250964028400542` lost an inherited `flexible_spec`
+  (`relationship_statuses:[1]`, ~78% of reach, measured) and gained both
+  audiences; ad **`LX-RT-PATIO`** (`120251342754360542`) built from the art
+  Taylor delivered at 08:58; `content/paid-campaigns.json` migrated from one
+  legacy `LX` entry to two `playbook: "v2"` entries (cold/retargeting, shared
+  `total: 180`); ladder executed at the §8 Build split — **cold $9.00 -> $5.11,
+  retargeting paused -> $3.40**, all three objects un-paused. 0 ungoverned.
+  Remaining across both legs $137.41 vs the legacy ladder's $152.99, so the run
+  got cheaper. **Watch:** the ad is `IN_PROCESS` (Meta review) — confirm it
+  reaches ACTIVE rather than DISAPPROVED, and watch frequency, which is the
+  number that killed Marion Court's equivalent (11.7 lifetime, $103.04, zero
+  purchases). `scripts/meta-launch-lx-retargeting.js --go-live` is idempotent.
+  Marion Court left untouched per Taylor and expired 09-08; its two
+  `acknowledged` registry entries are now dead weight and can be deleted.
+  Retire this entry after 2026-09-22. *(09-08)*
 
 - **DECIDED (09-06): Business Plan documents (financial models, the IP
   assignment agreement, legal analysis, the investor pitch deck, ~50 files)

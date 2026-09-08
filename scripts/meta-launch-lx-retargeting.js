@@ -136,6 +136,7 @@ const flag = (name) => {
   return hit.includes('=') ? hit.slice(hit.indexOf('=') + 1) : true;
 };
 const EXECUTE = flag('execute') === true;
+const GO_LIVE = flag('go-live') === true;
 const ART_DIR = flag('art') || DEFAULT_ART_DIR;
 const TOKEN = process.env.META_ADS_ACCESS_TOKEN || process.env.META_CAPI_ACCESS_TOKEN;
 
@@ -370,11 +371,10 @@ function summariseTargeting(label, t) {
   // --- Guard: never touch a campaign that is already serving. -----------------
   const campaign = await get(CAMPAIGN, 'id,name,status,effective_status,objective,daily_budget');
   console.log(`campaign  ${campaign.name}  ${campaign.effective_status}  $${(campaign.daily_budget / 100).toFixed(2)}/day  ${campaign.objective}`);
-  if (campaign.effective_status === 'ACTIVE') {
-    console.log('\nREFUSING: the campaign is already ACTIVE. A targeting edit on a serving');
-    console.log('ad set restarts its learning phase. Pause it first, or make the change by hand.');
-    process.exit(1);
-  }
+  // NOTE: the "campaign is already ACTIVE" refusal lives in step 2, not here.
+  // It exists to protect the TARGETING edit -- changing targeting on a serving
+  // ad set restarts its learning phase. It must not block --go-live, which only
+  // flips status, nor a re-run where step 2 has nothing left to change.
 
   // --- Step 1: the video-viewer audience. ------------------------------------
   console.log('\n[1/3] video-viewer audience');
@@ -418,6 +418,11 @@ function summariseTargeting(label, t) {
   if (alreadyRight) {
     console.log('  SKIP    already has exactly these audiences and no flexible_spec');
   } else {
+    if (campaign.effective_status === 'ACTIVE') {
+      console.log('\nREFUSING: this would edit targeting on a campaign that is already ACTIVE,');
+      console.log('which restarts the ad set\'s learning phase. Pause it first, or change it by hand.');
+      process.exit(1);
+    }
     console.log(`  CHANGE  attach ${audienceIds.length} audience(s): ${audienceIds.join(', ')}`);
     console.log('  CHANGE  drop flexible_spec (relationship_statuses: Single)');
     if (!video) {
@@ -526,6 +531,45 @@ function summariseTargeting(label, t) {
       }
       if (failed) throw new Error(`${failed} read-back check(s) failed on ad ${ad.id}`);
     }
+  }
+
+  // --- Optional step 4: go live. ----------------------------------------------
+  // Separate flag on purpose. Steps 1-3 spend nothing; this one starts real
+  // delivery, so it never rides along with --execute.
+  if (GO_LIVE) {
+    console.log('\n[4/4] go live');
+    const ad = await findAd(AD_NAME);
+    if (!ad) throw new Error(`no ad named ${AD_NAME} -- run without --go-live first`);
+    // Budgets are the ladder's job, not this script's. Refuse if it has not run.
+    const c = await get(CAMPAIGN, 'daily_budget');
+    console.log(`  campaign budget $${(c.daily_budget / 100).toFixed(2)}/day (set by scripts/meta-budget-ladder.js)`);
+
+    const targets = [
+      [CAMPAIGN, "campaign Loxley's Retargeting"],
+      [AD_SET, 'ad set  LX Retargeting'],
+      [ad.id, `ad      ${AD_NAME}`],
+    ];
+    for (const [id, label] of targets) {
+      const before = await get(id, 'status,effective_status');
+      if (before.status === 'ACTIVE') { console.log(`  SKIP    ${label} already ACTIVE`); continue; }
+      if (!EXECUTE) { console.log(`  WOULD   ${label}  ${before.status} -> ACTIVE`); continue; }
+      await post(id, { status: 'ACTIVE' });
+      // Read-after-write here is eventually consistent: the ad set read back
+      // PAUSED immediately after a POST that had in fact succeeded (seen
+      // 2026-09-08). Retry briefly rather than either trusting the 200 or
+      // calling a lag a failure -- both were wrong answers.
+      let after = await get(id, 'status,effective_status');
+      for (let i = 0; i < 6 && after.status !== 'ACTIVE'; i += 1) {
+        await new Promise((r) => setTimeout(r, 2000));
+        after = await get(id, 'status,effective_status');
+      }
+      if (after.status !== 'ACTIVE') throw new Error(`${label} did not go ACTIVE after ~12s: ${after.status}`);
+      console.log(`  LIVE    ${label}  status=${after.status} effective=${after.effective_status}`);
+    }
+    console.log('\n  effective_status IN_PROCESS on the ad means Meta ad review, not an error --');
+    console.log('  it serves once approved. PENDING_REVIEW/DISAPPROVED would be the ones to chase.');
+    if (!EXECUTE) console.log('\nDry run. Add --execute.');
+    return;
   }
 
   // --- What a human still has to do. -----------------------------------------

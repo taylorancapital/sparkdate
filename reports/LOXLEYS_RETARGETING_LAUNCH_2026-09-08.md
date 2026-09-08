@@ -4,11 +4,12 @@
 on 2026-08-30 was to build Loxleys' retargeting *at* this step and not before,
 because a retargeting campaign launched at T-30 has an empty audience to
 retarget. Today the pool exists. This is what was found when the shell was
-opened, what was fixed, and the one decision left.
+opened, what was fixed, and what is now live.
 
-**Updated later the same day:** the purpose-made retargeting creative landed at
-08:58 and the ad is built. The only thing still outstanding is the budget flip,
-which moves real money on a live campaign — see §5.
+**Updated later the same day:** the purpose-made creative landed at 08:58, the
+ad was built, and the whole thing went live at the §8 Build split. Loxleys
+retargeting is spending for the first time since the shell was created on
+2026-08-17.
 
 ## Four numbers to hold in your head
 
@@ -160,7 +161,7 @@ watched a *Loxleys* ad. Whether Marion Court's breadth helped or hurt is not
 established here and its event is tonight; this is recorded, not recommended
 against.
 
-## §5 DECISION — what changed, and the one decision left
+## §5 DECISION — what changed, and what is now live
 
 **Changed today**, each verified by independent read-back after the write:
 
@@ -198,22 +199,37 @@ which throws on a bad slug — that is the guard that was missing when
 `tl2__helesha` shipped into a field frozen at creation. No 2-for-1 line;
 brand.json restricts that copy to female ad sets and the script asserts it.
 
-### The one decision left: the budget flip
+### LIVE — the budget flip, executed
 
-Nothing is un-paused and no budget has moved. Going live means:
+Taylor's call was §8 as written. Run and verified against the account:
 
-| campaign | now | §8 Build | §8 Close (09-15) |
+| campaign | before | now | §8 Close (09-15) |
 |---|--:|--:|--:|
-| `Loxleys \| Sales` (cold) | $9.00/day | **$5.11** | $3.41 |
-| `Loxley's Retargeting` | paused, $5.00 set | **$3.40** | $6.32 |
+| `Loxleys \| Sales` (cold) | $9.00/day | **$5.11/day** | $3.41 |
+| `Loxley's Retargeting` | paused, $5.00 set | **$3.40/day, ACTIVE** | $6.32 |
 | total | $9.00 | **$8.51** | $9.73 |
 
 Remaining spend across both legs is **$137.41** against the legacy ladder's
-remaining **$152.99** — it reallocates and slightly reduces. But it steps a
-*currently serving* campaign down 43%, which is a human's call, not a script's.
-Three actions, in order: `node scripts/meta-budget-ladder.js --all --execute`,
-then un-pause the campaign, then un-pause the ad. The 03:00 ladder handles every
-night after that.
+remaining **$152.99** — this run got cheaper, not dearer. Account total is
+$28.51/day against the $40 ceiling, and drops to $8.51 once Marion Court's two
+campaigns expire tonight. `LX-RT-PATIO` is ACTIVE with `effective_status`
+`IN_PROCESS` — Meta ad review, not an error. The 03:00 ladder steps both legs
+to Close on 09-15 without further help.
+
+**Marion Court was deliberately not touched** (Taylor, 2026-09-08) and expires
+tonight. Its two `acknowledged` registry entries become dead weight after that
+and can be deleted whenever someone is next in this file.
+
+**Two failures the read-back caught, worth keeping:**
+
+1. **Meta's read-after-write is eventually consistent.** The ad set read back
+   `PAUSED` immediately after a POST that had in fact succeeded. Trusting the
+   200 and calling the lag a failure were both wrong answers; the script now
+   retries the read for ~12s.
+2. **A guard in the wrong place.** The script refused to run because the
+   campaign was ACTIVE — a guard written to stop a *targeting* edit restarting
+   the learning phase, which has no business blocking a status flip. Moved to
+   the targeting write itself.
 
 ## §6 GAP — nothing in the playbook would have caught this filter
 
@@ -225,36 +241,46 @@ cold:retarget split, gender, geography and budget — and says nothing about any
 other demographic filter. So the next event would inherit the same field the same
 silent way this one did.
 
-**Proposed rule, for review rather than applied unilaterally:**
+### DEFERRED — §8 was deliberately NOT edited
 
-> **No demographic filter beyond age and geography, on any ad set, either role,
-> any phase.** `flexible_spec` stays empty. Age 22–45 and the event's market are
-> the only audience constraints a cold ad set carries; a retargeting ad set adds
-> its custom audiences and nothing else.
+**Taylor's call, 2026-09-08: leave §8 alone, review it in a separate chat.** No
+rule was written, no check was built, and no file in the §8 chain
+(`brand.json`, either playbook report) was touched by this work. What follows is
+the case as assembled, for that review to start from — not a decision.
 
-Why it belongs next to §8.3's gender rule rather than as a footnote:
+**Why it needs its own review rather than a one-line addition.** The obvious
+narrow rule is "ban `relationship_statuses`, leave gender alone". But the first
+draft of it read "no demographic filter beyond age and geography", which would
+have silently banned gender targeting too — and gender is genuinely contested
+here for a reason §8.3 does not address:
 
-- **Measured, twice, independently.** The filter costs 78–80% of reachable
-  audience — Marion Court 09-04, Loxleys retargeting 09-08, both Meta's own
-  `delivery_estimate`.
-- **It is a bigger version of the failure §8.3 already bans.** §8.3 removes
-  gender ad sets partly because a restricted, PURCHASE-optimized ad set at this
-  account's volume cannot find enough qualifying impressions to spend its budget.
-  A filter cutting 78% rather than roughly 50% fails the same way, harder — and
-  it compounds, because it sits on the prospecting ad sets that *fill* the
-  retargeting pool.
+> **the 2-for-1 offer is advertised to women only.** That is a standing
+> marketing rule (`brand.json`, 2026-09-02: the offer is honoured for every buyer
+> at checkout by design, and only the *advertising* is aimed at women). §8.3's
+> "zero gender-restricted ad sets, ever" has no account of how a women-only
+> creative gets delivered to women without a women-targeted ad set. The two
+> rules are in tension on the live account right now, and resolving it is a
+> bigger question than this filter.
+
+**The case against `relationship_statuses`, for that review:**
+
+- **Measured, twice, independently.** 78–80% of reachable audience — Marion
+  Court 09-04, Loxleys retargeting 09-08, both Meta's own `delivery_estimate`.
 - **It is not a demographic.** Relationship status is optional self-declared
-  profile data, so it selects for the act of declaring, not for being single.
+  profile data, so the field selects for *the act of declaring a status*, not for
+  being single.
+- **It compounds upstream.** It sits on the prospecting ad sets that *fill* the
+  retargeting pool, so the loss is taken twice.
 - **The failure mode is silence.** This one was inherited from an 08-17 batch and
   sat unnoticed for three weeks on a campaign nobody had opened. It was found by
   reading the live ad set, not by any check.
 
-**The detection half matters more than the rule half.** The budget ladder already
-proves the pattern: an ACTIVE campaign in neither registry list prints
-`UNGOVERNED` and exits non-zero, so a missing entry cannot be silent. The
-equivalent here is one assertion — no live ad set carries a non-empty
-`flexible_spec` — in `scripts/meta-ads-review.js` or the ladder's `--check`.
-**Not built.** It is a rule change plus a new check, and both are Taylor's call.
+**And the detection half, which matters more than the rule half.** The budget
+ladder already proves the pattern: an ACTIVE campaign in neither registry list
+prints `UNGOVERNED` and exits non-zero, so a missing entry cannot be silent. The
+equivalent here is one assertion — no live ad set carries `relationship_statuses`
+— in `scripts/meta-ads-review.js` or the ladder's `--check`. A rule that is only
+written down would not have caught this one, because nobody was reading.
 
 ## §7 NOT VERIFIED — what I did not check
 
@@ -274,6 +300,11 @@ equivalent here is one assertion — no live ad set carries a non-empty
   conversions are not sales, and Firestore is the truth. `Loxleys | Sales` shows
   0 Meta-attributed purchases on $8.88, which says little either way at that
   spend.
+- **Whether the new ad clears review, or how it renders in feed.** Meta has it
+  `IN_PROCESS`. The read-back confirms what was submitted, not what Meta will
+  approve or how the 4:5 video crops across placements.
+- **Whether any of this sells a ticket.** The ad went live today at T-14 with
+  zero delivery so far. Nothing in this report is an outcome measurement.
 - **The intraday numbers move.** `Loxleys | Sales` lifetime spend read as $8.82,
   $8.83 and $8.88 across three calls this morning. Figures are as-of 2026-09-08
   morning, not settled.
