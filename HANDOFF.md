@@ -36,6 +36,57 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **MC-12's Instagram Story and MC-13's Instagram feed post are queued correctly
+  but need `social.js run --execute` run again at their actual moments — nothing
+  currently does that automatically.** (09-07, PR #471) Both are `state=approved`
+  with real art; `social.js plan` confirms they're just not due yet, not stuck:
+  MC-12's Story fires at 6:30 PM today (09-07), MC-13's Instagram post at 9:00 AM
+  tomorrow (09-08). Facebook can be scheduled minutes ahead of time because Meta
+  holds the scheduled post; Instagram cannot (no scheduling parameter exists), so
+  its container can only be created once the slot actually arrives, within a 6h
+  grace window after — this is why MC-09 and MC-10's Instagram legs upstream of
+  this entry were permanently missed (nobody ran the publisher within 6h of their
+  slots). **Next step: run `node scripts/social.js run --execute` again after each
+  of those two times** (see `[[meta-tokens-live-in-shell-env]]` for the env vars
+  it actually needs in this shell), or decide this needs a real recurring
+  scheduled task rather than relying on a session happening to be open at the
+  right moment — worth asking Taylor rather than building one unprompted, since
+  it would be new standing infrastructure that also runs `--execute` live.
+  **Separately, MC-12's Facebook leg is structurally blocked, not just
+  unscheduled:** its only two source-art files are both 1080x1920 Story frames
+  (confirmed in `~/OneDrive/SparkDate/SourceArt` — no square export was ever
+  made), so `lib/social-publish.js`'s feed-shape guard correctly refuses it
+  every time `run` executes. **Needs a real 1080x1080 export from Taylor/design
+  before this leg can ever go out**, or a decision to leave MC-12 Facebook-less.
+  **RESTORED AND CLOSED 09-08.** This entry was deleted by accident by the 09-08
+  Loxleys session — an edit that replaced the span between its own entry and the
+  next one swallowed this bullet, and #482 merged the deletion before anyone
+  noticed. Recovered verbatim from `a5020a3b`. Everything above is the 09-07
+  text; everything below is what is actually true now.
+  - **Both rows are DONE.** MC-12 `state=posted`, ids for `fb`
+    (`1139242662602769_122122424685340130`) and `ig_story`
+    (`17906442375520962`). MC-13 `state=posted`, ids for `fb`
+    (`122119894995340130`) and `ig` (`17970315816132176`), recorded by
+    `github-actions[bot]` in `8175af27` at 13:45 UTC on 09-08.
+  - **"MC-12's Facebook leg is structurally blocked" is retired.** The
+    feed-shape guard was right and the fix was art: Taylor exported
+    `MC-12FB_1of2.png` / `MC-12FB_2of2.png` into `SourceArt` at 10:28 on 09-07,
+    and it published.
+  - **The premise of this entry's "next step" was WRONG, and that is the part
+    worth carrying forward.** It said "nothing currently does that
+    automatically" and proposed asking Taylor whether to build a recurring
+    scheduled task. **That task already existed** —
+    `.github/workflows/social-publish.yml` has run `node scripts/social.js run
+    --execute` on a `*/15 * * * *` cron since #215, and it is what published
+    MC-13 unattended. Nobody needed to be at a keyboard.
+    **So why were MC-09/MC-10's Instagram legs really missed?** Not absent
+    automation — the corrupted `content/queue.csv` documented elsewhere in this
+    file: dates round-tripped through a spreadsheet into M/D/YYYY, which the
+    publisher cannot parse, so no row was schedulable until #471 fixed it.
+    **Nothing to build. Close this thread.** See
+    [[check-for-existing-system-first]] — this is that failure exactly, and it
+    cost a proposal to build something that shipped months ago. *(09-08)*
+
 - **OPEN QUESTION for a separate chat: §8.3's "zero gender-restricted ad sets,
   ever" versus the women-only 2-for-1 offer. Taylor's call 09-08: do not edit
   §8, he will review it himself.** Surfaced while proposing a narrow rule banning
@@ -52,8 +103,15 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `reports/LOXLEYS_RETARGETING_LAUNCH_2026-09-08.md`. **Next step: that separate
   review, his.** *(09-08)*
 
-- **Loxleys retargeting is LIVE as of 09-08 — first spend since the shell was
-  created 2026-08-17. Nothing outstanding; this entry is a record, not a task.**
+- **Loxleys retargeting went LIVE 09-08 — first spend since the shell was created
+  2026-08-17. Three things to check, then it retires with the event.**
+  **Next steps:** (1) confirm `LX-RT-PATIO` reached ACTIVE rather than
+  DISAPPROVED — it was `IN_PROCESS` (Meta review) when this was written;
+  (2) watch its FREQUENCY, the number that killed Marion Court's equivalent
+  (11.7 lifetime, $103.04, zero purchases) — anything trending past ~3 on a pool
+  this size is the same failure starting; (3) delete Marion Court's two now-dead
+  `acknowledged` entries in `content/paid-campaigns.json`, that event having
+  expired 09-08. What was done:
   Video audience `120251341306880542` created by API from the four LX dark-post
   reels; ad set `120250964028400542` lost an inherited `flexible_spec`
   (`relationship_statuses:[1]`, ~78% of reach, measured) and gained both
@@ -63,12 +121,9 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `total: 180`); ladder executed at the §8 Build split — **cold $9.00 -> $5.11,
   retargeting paused -> $3.40**, all three objects un-paused. 0 ungoverned.
   Remaining across both legs $137.41 vs the legacy ladder's $152.99, so the run
-  got cheaper. **Watch:** the ad is `IN_PROCESS` (Meta review) — confirm it
-  reaches ACTIVE rather than DISAPPROVED, and watch frequency, which is the
-  number that killed Marion Court's equivalent (11.7 lifetime, $103.04, zero
-  purchases). `scripts/meta-launch-lx-retargeting.js --go-live` is idempotent.
-  Marion Court left untouched per Taylor and expired 09-08; its two
-  `acknowledged` registry entries are now dead weight and can be deleted.
+  got cheaper. `scripts/meta-launch-lx-retargeting.js --go-live` is idempotent and
+  safe to re-run. Full write-up incl. what was NOT verified:
+  `reports/LOXLEYS_RETARGETING_LAUNCH_2026-09-08.md` (#482).
   Retire this entry after 2026-09-22. *(09-08)*
 
 - **DECIDED (09-06): Business Plan documents (financial models, the IP
