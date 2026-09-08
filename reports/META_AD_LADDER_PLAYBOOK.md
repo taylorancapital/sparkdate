@@ -25,6 +25,17 @@ left once this is read. Every claim is tagged by why it's that number:
   specific default to use, with the measured facts that motivated it stated
   alongside, not disguised as more than they are.
 
+**This is also already implemented in code, not just prose.**
+`content/brand.json`'s `paid_template.playbook_v2` plus `scripts/budget-ladder.js`
+and `scripts/build-paid-campaign.js` compute and build exactly the phases,
+splits, and floor rule below — `--execute` builds two paused, broad-targeting
+campaigns (`<Event> | Cold`, `<Event> | Retargeting`) per event with zero
+gender-restricted ad sets, matching §3. This file is the citable,
+human-readable version for deciding whether to register a new event or
+reasoning about why the ladder does what it does — not a second source of
+truth. If code and this file ever disagree, the code is what's actually
+running; file an issue against this doc, not the other way around.
+
 ## Quick-reference build table
 
 | Phase | Window | Days | Daily budget | Cold $ | Retarget $ | Gender |
