@@ -148,9 +148,11 @@ function utmContent({
       throw new Error(`creative slug "${creative}" must be lowercase letters and digits, no underscores `
         + '— it is one segment, and a separator inside it invents a field');
     }
-    const v2 = [event.toLowerCase(), ROLE_TAG[role], creative];
+    const v2 = [event.toLowerCase(), roleTag(role), creative];
     for (const s of v2) {
-      if (!SEGMENT.test(s)) throw new Error(`segment "${s}" is not lowercase snake-safe`);
+      if (typeof s !== 'string' || !SEGMENT.test(s)) {
+        throw new Error(`segment "${s}" is not lowercase snake-safe`);
+      }
     }
     return v2.join('_');
   }
@@ -180,6 +182,31 @@ function phaseTag(phase) {
   const tag = PHASE_TAG[phase];
   if (!tag) {
     throw new Error(`phase "${phase}" carries no creative — taggable phases are ${Object.keys(PHASE_TAG).join(', ')}`);
+  }
+  return tag;
+}
+
+/**
+ * The role's tag segment, or throw.
+ *
+ * Validating `role` against brand.json's playbook_v2.roles is NOT sufficient on
+ * its own, and the first version of the v2 path made exactly that mistake: the
+ * role list is DATA and this map is CODE, so a role added to brand.json passed
+ * validation and then indexed nothing here. `[...].join('_')` renders undefined
+ * as an empty string and the segment guard's regex coerced it to the string
+ * "undefined" (which matches), so nothing threw -- `{event:'TL2', role:'warm'}`
+ * silently produced `tl2__helesha`, an empty middle segment, in the one field
+ * that is frozen at AdCreative creation and can never be corrected.
+ *
+ * Same shape as phaseTag() above, for the same reason: refuse rather than emit
+ * something GA4 cannot split.
+ */
+function roleTag(role) {
+  const tag = ROLE_TAG[role];
+  if (!tag) {
+    throw new Error(`role "${role}" has no tag segment — this module can tag ${Object.keys(ROLE_TAG).join(', ')}. `
+      + 'Adding a role to brand.json playbook_v2.roles is not enough: give it a tag in ROLE_TAG here too, '
+      + 'or its segment renders empty.');
   }
   return tag;
 }
