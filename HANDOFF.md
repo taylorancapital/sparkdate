@@ -36,28 +36,41 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **MC-12's Instagram Story and MC-13's Instagram feed post are queued correctly
-  but need `social.js run --execute` run again at their actual moments — nothing
-  currently does that automatically.** (09-07, PR #471) Both are `state=approved`
-  with real art; `social.js plan` confirms they're just not due yet, not stuck:
-  MC-12's Story fires at 6:30 PM today (09-07), MC-13's Instagram post at 9:00 AM
-  tomorrow (09-08). Facebook can be scheduled minutes ahead of time because Meta
-  holds the scheduled post; Instagram cannot (no scheduling parameter exists), so
-  its container can only be created once the slot actually arrives, within a 6h
-  grace window after — this is why MC-09 and MC-10's Instagram legs upstream of
-  this entry were permanently missed (nobody ran the publisher within 6h of their
-  slots). **Next step: run `node scripts/social.js run --execute` again after each
-  of those two times** (see `[[meta-tokens-live-in-shell-env]]` for the env vars
-  it actually needs in this shell), or decide this needs a real recurring
-  scheduled task rather than relying on a session happening to be open at the
-  right moment — worth asking Taylor rather than building one unprompted, since
-  it would be new standing infrastructure that also runs `--execute` live.
-  **Separately, MC-12's Facebook leg is structurally blocked, not just
-  unscheduled:** its only two source-art files are both 1080x1920 Story frames
-  (confirmed in `~/OneDrive/SparkDate/SourceArt` — no square export was ever
-  made), so `lib/social-publish.js`'s feed-shape guard correctly refuses it
-  every time `run` executes. **Needs a real 1080x1080 export from Taylor/design
-  before this leg can ever go out**, or a decision to leave MC-12 Facebook-less.
+- **OPEN QUESTION for a separate chat: §8.3's "zero gender-restricted ad sets,
+  ever" versus the women-only 2-for-1 offer. Taylor's call 09-08: do not edit
+  §8, he will review it himself.** Surfaced while proposing a narrow rule banning
+  `relationship_statuses` — the first draft read "no demographic filter beyond
+  age and geography", which would have banned gender targeting too. His reason
+  for deferring, verbatim: *"we have 2 for 1 offers that realistically should
+  only go towards female audiences."* §8.3 has no account of how a women-only
+  creative reaches women without a women-targeted ad set, and
+  [[two-for-one-is-female-ads-only]] is a standing marketing rule, so the two
+  are in live tension. **Nothing was written and nothing was built** — no edit
+  to `brand.json` or either playbook report. The assembled case (78-80% measured
+  twice, why the field is not a demographic, why the detection check matters
+  more than the written rule) is §6 of
+  `reports/LOXLEYS_RETARGETING_LAUNCH_2026-09-08.md`. **Next step: that separate
+  review, his.** *(09-08)*
+
+- **Loxleys retargeting is LIVE as of 09-08 — first spend since the shell was
+  created 2026-08-17. Nothing outstanding; this entry is a record, not a task.**
+  Video audience `120251341306880542` created by API from the four LX dark-post
+  reels; ad set `120250964028400542` lost an inherited `flexible_spec`
+  (`relationship_statuses:[1]`, ~78% of reach, measured) and gained both
+  audiences; ad **`LX-RT-PATIO`** (`120251342754360542`) built from the art
+  Taylor delivered at 08:58; `content/paid-campaigns.json` migrated from one
+  legacy `LX` entry to two `playbook: "v2"` entries (cold/retargeting, shared
+  `total: 180`); ladder executed at the §8 Build split — **cold $9.00 -> $5.11,
+  retargeting paused -> $3.40**, all three objects un-paused. 0 ungoverned.
+  Remaining across both legs $137.41 vs the legacy ladder's $152.99, so the run
+  got cheaper. **Watch:** the ad is `IN_PROCESS` (Meta review) — confirm it
+  reaches ACTIVE rather than DISAPPROVED, and watch frequency, which is the
+  number that killed Marion Court's equivalent (11.7 lifetime, $103.04, zero
+  purchases). `scripts/meta-launch-lx-retargeting.js --go-live` is idempotent.
+  Marion Court left untouched per Taylor and expired 09-08; its two
+  `acknowledged` registry entries are now dead weight and can be deleted.
+  Retire this entry after 2026-09-22. *(09-08)*
+
 - **DECIDED (09-06): Business Plan documents (financial models, the IP
   assignment agreement, legal analysis, the investor pitch deck, ~50 files)
   are untracked going forward; history is deliberately left alone.**

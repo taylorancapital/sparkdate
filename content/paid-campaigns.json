@@ -35,9 +35,21 @@
       "event": "LX",
       "campaign_id": "120251304238920542",
       "name": "Loxleys | Sales",
+      "playbook": "v2",
+      "role": "cold",
       "total": 180,
       "runway_start": "2026-08-23",
-      "note": "The $180 total is Taylor's $3.00/day prime choice on the original Traffic campaign (memory lx-campaign-live), carried onto the Sales campaign that replaced it on 09-05. Prime lands at $1.80 and is floored to Meta's $2.00. Retire this entry after 2026-09-22."
+      "note": "MIGRATED to playbook v2 on 2026-09-08, when Loxleys' retargeting leg finally had an audience and an ad and could take its share. The $180 total is unchanged -- it is Taylor's $3.00/day prime choice on the original Traffic campaign (memory lx-campaign-live), carried onto the Sales campaign that replaced it on 09-05. What changes is the split: this campaign drops from the legacy convert rate of $9.00/day to v2's Build rate of $5.11, and the retargeting entry below takes $3.40. Total remaining across both legs is LESS than the legacy ladder's remaining, not more. Retire both entries after 2026-09-22."
+    },
+    {
+      "event": "LX",
+      "campaign_id": "120250964028390542",
+      "name": "Loxley's Retargeting",
+      "playbook": "v2",
+      "role": "retargeting",
+      "total": 180,
+      "runway_start": "2026-08-23",
+      "note": "Same run, same total as the cold entry above -- v2 entries share one budget and split it BY PHASE (see _fields.total). Empty shell from 2026-08-17 until 2026-09-08, when it got both audiences, lost an inherited relationship_statuses filter costing ~78% of reach, and gained its first ad (LX-RT-PATIO). reports/LOXLEYS_RETARGETING_LAUNCH_2026-09-08.md is the whole story."
     }
   ],
 
