@@ -126,6 +126,42 @@ describe('playbook_v2 tags by ROLE, and carry no phase', () => {
     }
   });
 
+  // REGRESSION. brand.json's roles are DATA; ROLE_TAG is CODE. The first
+  // version of the v2 path validated `role` against the data and then indexed
+  // the map, so a role added to brand.json passed validation and tagged
+  // nothing: join() rendered undefined as '' and the segment guard's regex
+  // coerced it to the string "undefined", which matches. The result was
+  // `tl2__helesha` -- an empty middle segment, no throw, in the one field that
+  // is frozen at AdCreative creation and can never be corrected afterwards.
+  it('throws when brand.json defines a role this module has no tag for', () => {
+    const patched = JSON.parse(JSON.stringify(brand));
+    patched.paid_template.playbook_v2.roles.push({ key: 'warm', name_suffix: 'Warm' });
+
+    expect(() => utmContent({ event: 'TL2', role: 'warm', creative: 'helesha' }, patched))
+      .toThrow(/has no tag segment/);
+    // The error has to say what to actually do, or the next person adds the
+    // role to brand.json again and gets the same silence.
+    expect(() => utmContent({ event: 'TL2', role: 'warm', creative: 'helesha' }, patched))
+      .toThrow(/ROLE_TAG/);
+  });
+
+  it('never emits an empty segment for such a role', () => {
+    const patched = JSON.parse(JSON.stringify(brand));
+    patched.paid_template.playbook_v2.roles.push({ key: 'warm', name_suffix: 'Warm' });
+
+    let emitted = null;
+    try { emitted = utmContent({ event: 'TL2', role: 'warm', creative: 'helesha' }, patched); } catch { /* expected */ }
+    expect(emitted).toBeNull();
+    expect(emitted).not.toBe('tl2__helesha');
+  });
+
+  it('does not let a patched brand leak into the real one', () => {
+    // The suite requires content/brand.json once and shares the object; the two
+    // cases above must not mutate it or every later assertion is against a
+    // brand.json that does not exist on disk.
+    expect(brand.paid_template.playbook_v2.roles.map((r) => r.key)).toEqual(['cold', 'retargeting']);
+  });
+
   it('leaves the legacy path untouched when no role is passed', () => {
     expect(utmContent({
       event: 'LX', phase: 'prime', adSet: 'female', creative: 'showup',
