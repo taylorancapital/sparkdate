@@ -44,7 +44,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { buildPairs } = require('../lib/listing-links');
+const { buildPairs, brand, fetchUpcomingEvents, recentPastEvents } = require('../lib/listing-links');
 
 const REPO = path.join(__dirname, '..');
 const VERCEL = path.join(REPO, 'vercel.json');
@@ -52,7 +52,14 @@ const VERCEL = path.join(REPO, 'vercel.json');
 const arg = (n) => process.argv.includes(`--${n}`);
 
 (async () => {
-  const pairs = await buildPairs();
+  // Upcoming events come from the sitemap; recently-past ones from brand.json,
+  // because the sitemap has already dropped them. A past event keeps its routes
+  // so that listings still live on Patch/AllEvents/Nextdoor do not 404 — see
+  // recentPastEvents() in lib/listing-links.js. Sorted by start so the
+  // generated block is stable and --check stays a clean equality test.
+  const events = [...recentPastEvents(brand()), ...(await fetchUpcomingEvents())]
+    .sort((a, b) => a.start - b.start);
+  const pairs = await buildPairs(events);
   const generated = pairs.map((p) => ({
     source: p.short,
     destination: p.tagged,

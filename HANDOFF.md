@@ -46,12 +46,17 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   nextdoor.com/p/P3BcQxxgJXJp. **Next steps, in priority order: (1) the listing
   has NO COVER IMAGE — Eventbrite's uploader needs a native file picker, and
   AllEvents auto-imports from Eventbrite and freezes the banner at import time,
-  so this wants doing before that crawl runs. (2) The refund policy published as
-  "Refunds up to 7 days before event", which matches NEITHER sibling (Marion
-  Court is no-refunds, Loxleys is 14 days) — `no_refunds` was selected but did
-  not survive the publish step. Eventbrite lets a policy be loosened but never
-  tightened after the first paid order, so tightening it is only possible while
-  sales are still zero. (3) Evvnt (→ LNP/LancasterOnline) is sign-in walled at
+  so this wants doing before that crawl runs. (2) **DECIDED 09-09, not yet
+  applied: set the refund policy to 14 days**, matching Loxleys. It published as
+  "Refunds up to 7 days before event" — `no_refunds` was selected but did not
+  survive the publish step — and 7 days matches neither sibling (Marion Court is
+  no-refunds, Loxleys 14). Note the direction: **14 days is STRICTER than 7**
+  (the refund window closes a week earlier), and Eventbrite permits loosening
+  but never tightening after the first paid order, so this is only possible
+  while sales are still 0/30. Left undone because the Chrome extension was
+  unreachable and there is no API route — `EVENTBRITE_TOKEN` is an empty
+  placeholder in `.env.local` and absent from the shell env. It is a four-click
+  change under the event's Order Options. (3) Evvnt (→ LNP/LancasterOnline) is sign-in walled at
   both my.evvnt.com and lancasteronline.evvnt.com — this is the highest-value
   free channel on the list (136 sessions in one day) and TL2 is not on it. When
   submitting, set the ticket URL to `sparkdate.date/l/tl2-lancasteronline`; their
