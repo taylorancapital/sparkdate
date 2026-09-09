@@ -36,6 +36,41 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **TL2 (Tellus AfterDark, Oct 6) is LIVE on Eventbrite and Nextdoor; three
+  things about it still need a human.** (09-09) Eventbrite
+  `2000197587829` is On Sale, 0/30, tiers copied from Loxleys
+  ($29.99 / $29.99 / $14.99 Bring-A-Friend) with a **$5.00 automatic discount on
+  the two GA tiers expiring Sep 22 11:30 PM** — that is how the early bird is
+  implemented, per Taylor's instruction, NOT as separate Early Bird tiers (an
+  earlier attempt at those was built and deleted). Nextdoor post is live at
+  nextdoor.com/p/P3BcQxxgJXJp. **Next steps, in priority order: (1) the listing
+  has NO COVER IMAGE — Eventbrite's uploader needs a native file picker, and
+  AllEvents auto-imports from Eventbrite and freezes the banner at import time,
+  so this wants doing before that crawl runs. (2) The refund policy published as
+  "Refunds up to 7 days before event", which matches NEITHER sibling (Marion
+  Court is no-refunds, Loxleys is 14 days) — `no_refunds` was selected but did
+  not survive the publish step. Eventbrite lets a policy be loosened but never
+  tightened after the first paid order, so tightening it is only possible while
+  sales are still zero. (3) Evvnt (→ LNP/LancasterOnline) is sign-in walled at
+  both my.evvnt.com and lancasteronline.evvnt.com — this is the highest-value
+  free channel on the list (136 sessions in one day) and TL2 is not on it. When
+  submitting, set the ticket URL to `sparkdate.date/l/tl2-lancasteronline`; their
+  query-string rewrite is what produced 129 zero-conversion sessions in
+  September.**
+
+- **Patch and Discover Lancaster for TL2 are composed-but-unposted, and Patch has
+  a payment trap.** (09-09) Patch's step 2 pre-selects 8 paid communities at
+  $14.00; choosing "I do not want to feature my event" flips the CTA from "Next"
+  (→ payment) to "Post", but the panel still displays a price (it read
+  "You pay $1.75" even with every community unchecked), so it was left unposted
+  rather than risk an unauthorised charge overnight. Discover Lancaster was
+  filled once and lost by navigating the same tab away — it also ends in a
+  reCAPTCHA, which cannot be automated at all, so it will always need a human for
+  the last step. **Next step: re-open both forms from `build/listing-pack.md`
+  (per-site `/l/` links are in there) and click through the final button by
+  hand.** AllEvents needs no submission — it auto-imports from Eventbrite — but
+  its imported body and link both need the manual fix afterwards.
+
 - **MC-12's Instagram Story and MC-13's Instagram feed post are queued correctly
   but need `social.js run --execute` run again at their actual moments — nothing
   currently does that automatically.** (09-07, PR #471) Both are `state=approved`
