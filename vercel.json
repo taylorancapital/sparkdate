@@ -100,101 +100,6 @@
       "permanent": false
     },
     {
-      "source": "/l/mc-eventbrite",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=eventbrite&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_eventbrite",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-facebook-event",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=facebook_event&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_facebook_event",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-discoverlancaster",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=discoverlancaster&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_discoverlancaster",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-lancasteronline",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=lancasteronline&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_lancasteronline",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-lancasterpa",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=lancasterpa&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_lancasterpa",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-visitlancasterpa",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=visitlancasterpa&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_visitlancasterpa",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-visitlancastercity",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=visitlancastercity&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_visitlancastercity",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-figlancaster",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=figlancaster&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_figlancaster",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-lancasterchamber",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=lancasterchamber&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_lancasterchamber",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-allevents",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=allevents&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_allevents",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-patch",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=patch&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_patch",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-nextdoor-event",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=nextdoor_event&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_nextdoor_event",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-meetup",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=meetup&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_meetup",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-google-business",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=googlebusinessposting&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_google_business",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-events-org",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=eventsorg&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_events_org",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-tickettailor",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=tickettailor&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_tickettailor",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-visitpa",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=visitpa&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_visitpa",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-facebook-groups",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=facebook_group&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_facebook_groups",
-      "permanent": false
-    },
-    {
-      "source": "/l/mc-yelp",
-      "destination": "https://sparkdate.date/event?id=WUaooYvOq0eC0D1QVCvQ&utm_source=yelp&utm_medium=listing&utm_campaign=mc_202609&utm_content=mc_yelp",
-      "permanent": false
-    },
-    {
       "source": "/l/lx-eventbrite",
       "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=eventbrite&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_eventbrite",
       "permanent": false
@@ -270,11 +175,6 @@
       "permanent": false
     },
     {
-      "source": "/l/lx-tickettailor",
-      "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=tickettailor&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_tickettailor",
-      "permanent": false
-    },
-    {
       "source": "/l/lx-visitpa",
       "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=visitpa&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_visitpa",
       "permanent": false
@@ -287,6 +187,96 @@
     {
       "source": "/l/lx-yelp",
       "destination": "https://sparkdate.date/event?id=KL4onXm7hJbqiwI9quAZ&utm_source=yelp&utm_medium=listing&utm_campaign=lx_202609&utm_content=lx_yelp",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-eventbrite",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=eventbrite&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_eventbrite",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-facebook-event",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=facebook_event&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_facebook_event",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-discoverlancaster",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=discoverlancaster&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_discoverlancaster",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-lancasteronline",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=lancasteronline&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_lancasteronline",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-lancasterpa",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=lancasterpa&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_lancasterpa",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-visitlancasterpa",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=visitlancasterpa&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_visitlancasterpa",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-visitlancastercity",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=visitlancastercity&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_visitlancastercity",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-figlancaster",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=figlancaster&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_figlancaster",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-lancasterchamber",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=lancasterchamber&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_lancasterchamber",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-allevents",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=allevents&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_allevents",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-patch",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=patch&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_patch",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-nextdoor-event",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=nextdoor_event&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_nextdoor_event",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-meetup",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=meetup&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_meetup",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-google-business",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=googlebusinessposting&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_google_business",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-events-org",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=eventsorg&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_events_org",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-visitpa",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=visitpa&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_visitpa",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-facebook-groups",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=facebook_group&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_facebook_groups",
+      "permanent": false
+    },
+    {
+      "source": "/l/tl2-yelp",
+      "destination": "https://sparkdate.date/event?id=h0F0ppRfqkNLyFXix9m7&utm_source=yelp&utm_medium=listing&utm_campaign=tl2_202610&utm_content=tl2_yelp",
       "permanent": false
     }
   ],
