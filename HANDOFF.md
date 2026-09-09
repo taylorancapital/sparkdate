@@ -46,17 +46,24 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   nextdoor.com/p/P3BcQxxgJXJp. **Next steps, in priority order: (1) the listing
   has NO COVER IMAGE — Eventbrite's uploader needs a native file picker, and
   AllEvents auto-imports from Eventbrite and freezes the banner at import time,
-  so this wants doing before that crawl runs. (2) **DECIDED 09-09, not yet
-  applied: set the refund policy to 14 days**, matching Loxleys. It published as
-  "Refunds up to 7 days before event" — `no_refunds` was selected but did not
-  survive the publish step — and 7 days matches neither sibling (Marion Court is
-  no-refunds, Loxleys 14). Note the direction: **14 days is STRICTER than 7**
-  (the refund window closes a week earlier), and Eventbrite permits loosening
-  but never tightening after the first paid order, so this is only possible
-  while sales are still 0/30. Left undone because the Chrome extension was
-  unreachable and there is no API route — `EVENTBRITE_TOKEN` is an empty
-  placeholder in `.env.local` and absent from the shell env. It is a four-click
-  change under the event's Order Options. (3) Evvnt (→ LNP/LancasterOnline) is sign-in walled at
+  so this wants doing before that crawl runs. (2) **Refund policy: Taylor asked
+  for 14 days on 09-09 and Eventbrite REFUSED the save. Live value is still
+  "Refunds up to 7 days before event", verified on the public page.** The
+  control is at `/manage/events/<id>/refund_policy` — NOT under Order Options,
+  and it disappears from the publish step once an event goes live. That page
+  states the rule: *"After your event is published, you can only update your
+  policy to make it more flexible for your attendees."* **14 days is STRICTER
+  than 7** (the refund window closes a week earlier), so this may simply be
+  impossible now — note the gate is PUBLICATION, not the first sale, so being
+  at 0/30 does not help. Two Save attempts both failed with "There was an error
+  saving your refund policy" and the form still held unsaved changes
+  afterwards. **Not conclusive, though: Eventbrite was throwing Internal Server
+  Errors on this very route throughout, the same instability seen 09-08.**
+  **Next step: retry once when Eventbrite is healthy. If it fails again with
+  the same message, the flexibility rule is the cause and 7 days is permanent
+  for TL2** — in which case decide whether to match it on future events rather
+  than fight it, since the account is already inconsistent (Marion Court
+  no-refunds, Loxleys 14, TL2 7). (3) Evvnt (→ LNP/LancasterOnline) is sign-in walled at
   both my.evvnt.com and lancasteronline.evvnt.com — this is the highest-value
   free channel on the list (136 sessions in one day) and TL2 is not on it. When
   submitting, set the ticket URL to `sparkdate.date/l/tl2-lancasteronline`; their
