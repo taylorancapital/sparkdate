@@ -57,8 +57,21 @@ const arg = (n) => process.argv.includes(`--${n}`);
   // so that listings still live on Patch/AllEvents/Nextdoor do not 404 — see
   // recentPastEvents() in lib/listing-links.js. Sorted by start so the
   // generated block is stable and --check stays a clean equality test.
-  const events = [...recentPastEvents(brand()), ...(await fetchUpcomingEvents())]
-    .sort((a, b) => a.start - b.start);
+  let upcoming;
+  try {
+    upcoming = await fetchUpcomingEvents();
+  } catch (e) {
+    // --check runs in CI, where this is the only step that touches the network.
+    // A stale vercel.json must fail the build; sparkdate.date being briefly
+    // unreachable must not, or an unrelated PR goes red for an outage. --write
+    // still throws, because writing half the redirects would delete the rest.
+    if (!arg('check')) throw e;
+    console.warn(`SKIPPED: could not reach the site to list upcoming events (${e.message}).`);
+    console.warn('Staleness was NOT verified. Re-run when the site is reachable.');
+    process.exit(0);
+  }
+
+  const events = [...recentPastEvents(brand()), ...upcoming].sort((a, b) => a.start - b.start);
   const pairs = await buildPairs(events);
   const generated = pairs.map((p) => ({
     source: p.short,

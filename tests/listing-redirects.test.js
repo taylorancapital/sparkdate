@@ -141,21 +141,28 @@ describe('listing short links', () => {
       expect(ids).toEqual(['in']);
     });
 
-    it('vercel.json still carries routes for an event that has already happened', () => {
-      const idOf = (r) => new URL(r.destination).searchParams.get('id');
-      const dateOf = (id) => {
-        const ev = Object.values(brandEvents).find((e) => e.event_id === id);
-        return ev && ev.date;
-      };
-      const past = listingRedirects.filter((r) => {
-        const d = dateOf(idOf(r));
-        return d && new Date(`${d}T12:00:00Z`) < new Date();
-      });
+    it('vercel.json carries routes for EVERY past event still inside the window', () => {
+      // Not "at least one": Marion Court alone losing its 19 routes is the
+      // whole incident, and an any-past-event-will-do assertion would have
+      // stayed green throughout it as long as some other event survived.
+      const idsWithRoutes = new Set(
+        listingRedirects.map((r) => new URL(r.destination).searchParams.get('id')),
+      );
+      const expected = recentPastEvents({ events: brandEvents });
       expect(
-        past.length,
-        'no /l/ route points at a past event — a --write has deleted them again, ' +
-          'and any listing still live on Patch/AllEvents/Nextdoor is now a 404',
+        expected.length,
+        'no past event is inside the grace window, so this test proves nothing — ' +
+          'check PAST_EVENT_GRACE_DAYS against the dates in content/brand.json',
       ).toBeGreaterThan(0);
+
+      for (const ev of expected) {
+        expect(
+          idsWithRoutes.has(ev.id),
+          `event ${ev.id} (${ev.start.toISOString().slice(0, 10)}) has no /l/ route. ` +
+            'A --write has dropped a past event again; any listing still live on ' +
+            'Patch/AllEvents/Nextdoor pointing at it now serves a 404.',
+        ).toBe(true);
+      }
     });
   });
 
