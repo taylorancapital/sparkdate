@@ -35,7 +35,9 @@
       "notes": "Already the primary. Also the checkout for a large share of sales, which is why its buyers need the manual /admin Enroll step -- docs/EVENTBRITE_ENROLLMENT.md.",
       "gotchas": [
         "Eventbrite buyers do NOT get a SparkDate account or chemistry profile automatically.",
-        "GA4 cannot see Eventbrite-side purchases at all -- see the ga4-revenue-is-own-site-only memory. Its listing sessions are visible; its checkout is not."
+        "GA4 cannot see Eventbrite-side purchases at all -- see the ga4-revenue-is-own-site-only memory. Its listing sessions are visible; its checkout is not.",
+        "SET THE COVER BEFORE PUBLISHING. With no cover, the listing's og:image falls back to EVENTBRITE's own orange logo (cdn.evbstatic.com ... eb_orange_on_white_1200x630.png), so every share of the ticket link advertises Eventbrite, not SparkDate. Worse, AllEvents snapshots the cover-less listing at import and generates its own off-brand placeholder banner, which a later Eventbrite cover does not replace. TL2 was published cover-less on 2026-09-08 and both surfaces showed the wrong image. Recommended size 2160x1080 (2:1); the upload is a native file picker, so a human does it.",
+        "The Details editor for a PUBLISHED event can fail to render: on 2026-09-10 both the direct /manage/events/<id>/details URL and the sidebar's 'Build event page' link produced only the 346-character sidebar, with no editor and no file inputs, even with a full-width window. Eventbrite was returning intermittent 500s that day. Probe for bodyLen, not just a matching title: the event name also appears in the sidebar card, so a title match is not proof the editor drew."
       ]
     },
     {
@@ -66,7 +68,7 @@
     {
       "key": "discoverlancaster",
       "name": "Discover Lancaster (official county tourism)",
-      "status": "not_pursued",
+      "status": "active",
       "market": "lancaster",
       "cost": "free",
       "submit_url": "https://www.discoverlancaster.com/events/submit/",
@@ -188,7 +190,7 @@
     {
       "key": "allevents",
       "name": "AllEvents.in",
-      "status": "not_pursued",
+      "status": "active",
       "market": "any",
       "cost": "free to list; paid only for extra visibility",
       "submit_url": "https://allevents.in/lancaster-pa/all",
@@ -206,7 +208,11 @@
         "The BANNER is not programmatically replaceable. The uploader is Plupload (input ids like `html5_...`) and ignores a file set on the input -- it reports 0 files and the banner does not change. It needs a real click and a native file picker.",
         "The PRICE DISPLAY is not editable at all. 'Starting at USD 13' / 'USD 15' and the General Admission table are scraped ticket metadata frozen at import; the Tickets step of the edit wizard is empty because ticketing is external. Rewriting the description does NOT change them. Both still advertise the Bring-A-Friend tier as the headline price.",
         "The wizard's last step is 'Notify audience', which EMAILS the audience and page followers. Saving the Publish step lands you on it. Do not click Notify unless a send is actually intended.",
-        "It syndicates onward. The same import appears on stayhappening.com and happeningnext.com, which are the same network. Fixing AllEvents is what fixes all three; there is no separate submission to make."
+        "It syndicates onward. The same import appears on stayhappening.com and happeningnext.com, which are the same network. Fixing AllEvents is what fixes all three; there is no separate submission to make.",
+        "TL2 IMPORTED CLEAN (2026-09-10), the first event where that is true: zero banned strings, both real prices, no $14.99 headline, no lowPrice in the JSON-LD. The import snapshots the Eventbrite body at import time and never re-syncs, so writing the Eventbrite listing correctly BEFORE publishing is what makes AllEvents correct. MC and LX were published first and fixed later, which is why both imported stale copy and needed manual rewrites.",
+        "With no Eventbrite cover at import time, AllEvents GENERATES its own banner: an orange card with doodle icons and the title in condensed caps, served from dyn-image.allevents.in/generate-image. It is off-brand and frozen like the rest of the import. Replace it by manual upload; setting a cover on Eventbrite later does not propagate.",
+        "The import ID is mechanical: 10000 followed by the Eventbrite event id (TL2 is 100002000197587829). Search allevents.in for the organizer name to find the page; the city listing page only shows near-term events.",
+        "Get Tickets goes through allevents.in/go.php with an ENCRYPTED data param and a client-side redirect, so the destination cannot be read server-side or decoded. The data param CHANGES when the ticket link is edited: compare it before and after to confirm an edit took, without logging in. Beware the go.php interstitial: it carries a hotels.com affiliate widget that is easy to mis-click for the booking link."
       ],
       "decision": {
         "date": "2026-09-04",
