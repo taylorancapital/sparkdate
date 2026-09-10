@@ -51,6 +51,74 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   solver, the pin, the wall-clock timer and `runStepIn()` are all deliberately
   out of scope and `tests/chemistry-rotation.test.js` should stay green.
 
+- **TL2 (Tellus AfterDark, Oct 6) is LIVE on Eventbrite and Nextdoor; three
+  things about it still need a human.** (09-09) Eventbrite
+  `2000197587829` is On Sale, 0/30, tiers copied from Loxleys
+  ($29.99 / $29.99 / $14.99 Bring-A-Friend) with a **$5.00 automatic discount on
+  the two GA tiers expiring Sep 22 11:30 PM** — that is how the early bird is
+  implemented, per Taylor's instruction, NOT as separate Early Bird tiers (an
+  earlier attempt at those was built and deleted). Nextdoor post is live at
+  nextdoor.com/p/P3BcQxxgJXJp. **Next steps, in priority order: (1) the listing
+  has NO COVER IMAGE — Eventbrite's uploader needs a native file picker, and
+  AllEvents auto-imports from Eventbrite and freezes the banner at import time,
+  so this wants doing before that crawl runs. (2) **Refund policy: CLOSED 09-10,
+  no action needed. TL2 is "No refunds", matching Marion Court, which is what
+  Taylor wants.** Recording this because I reported it wrong twice on 09-09 and
+  the wrong version is the memorable one: I claimed the live value was "Refunds
+  up to 7 days before event" and that the publish step had silently dropped my
+  `no_refunds` selection. **Both false.** The selection persisted fine; the
+  "7 days" reading came from a STALE CACHED public page. A `?cb=` param is not
+  sufficient on its own — the reliable tell is the organizer stat line
+  (`N followers · N events · N total attendees`). The read that had it says
+  "No refunds"; the read that lacked it said 7 days. The admin page at
+  `/manage/events/<id>/refund_policy` had also shown `no_refunds` checked and I
+  talked myself out of it as an unhydrated default. **Trust the admin page and
+  the stat-line tell over a bare cache-buster.** Corollary: the two failed
+  attempts to set 14 days were almost certainly just Eventbrite 500s, not the
+  "only make it more flexible after publishing" rule — no-refunds → 14 days is
+  a LOOSENING and would have been permitted. That page lives under **Event
+  Finances**, not Order Options. (3) Evvnt (→ LNP/LancasterOnline) is sign-in walled at
+  both my.evvnt.com and lancasteronline.evvnt.com — this is the highest-value
+  free channel on the list (136 sessions in one day) and TL2 is not on it. When
+  submitting, set the ticket URL to `sparkdate.date/l/tl2-lancasteronline`; their
+  query-string rewrite is what produced 129 zero-conversion sessions in
+  September.**
+
+- **Patch and Discover Lancaster for TL2 are composed-but-unposted, and Patch has
+  a payment trap.** (09-09) Patch's step 2 pre-selects 8 paid communities at
+  $14.00; choosing "I do not want to feature my event" flips the CTA from "Next"
+  (→ payment) to "Post", but the panel still displays a price (it read
+  "You pay $1.75" even with every community unchecked), so it was left unposted
+  rather than risk an unauthorised charge overnight. Discover Lancaster was
+  filled once and lost by navigating the same tab away — it also ends in a
+  reCAPTCHA, which cannot be automated at all, so it will always need a human for
+  the last step. **Next step: re-open both forms from `build/listing-pack.md`
+  (per-site `/l/` links are in there) and click through the final button by
+  hand.** AllEvents needs no submission — it auto-imports from Eventbrite — but
+  its imported body and link both need the manual fix afterwards.
+
+- **LX-24's Facebook leg cannot publish and will fail silently on 09-21 — it
+  needs a 1080x1080 export.** (09-10) Approved with the rest of the Loxleys run,
+  but `plan` already skips `LX-24/fb` with "every asset is story-shaped". Its
+  four files are two `_tt` and two `_story` frames; there is no feed-shaped one,
+  so `lib/social-publish.js`'s guard refuses it every run. **This is MC-12's
+  failure exactly**, and that one was only fixed because Taylor exported a square
+  by hand. The Instagram Story half is fine and will go. **Next step: a 1080x1080
+  `LX-24` export into `SourceArt` before 2026-09-21 18:30, then
+  `python scripts/prep-social-assets.py`** — or decide LX-24 is Story-only and
+  drop `fb` from its platforms so it stops reading as a scheduled post that never
+  happened.
+
+- **LX-27 is deliberately still `pending` — it is the Loxleys recap and its
+  caption still says `[REAL NUMBER]`.** (09-10) It cannot be approved until the
+  counted check-in figure exists, which is after the event on 09-22. `social.js
+  approve` now refuses it by itself rather than relying on someone noticing (see
+  the guard added in this PR), so a bulk `approve --through=` cannot post the
+  literal words. **Next step: after Loxleys on 2026-09-22, put the counted
+  check-in number into LX-27's `caption` and `caption_x`, then
+  `node scripts/social.js approve --row=LX-27`.** This is the same trap MC-15 was
+  one keystroke from on 09-10.
+
 - **MC-12's Instagram Story and MC-13's Instagram feed post are queued correctly
   but need `social.js run --execute` run again at their actual moments — nothing
   currently does that automatically.** (09-07, PR #471) Both are `state=approved`
@@ -163,49 +231,34 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   against. Not done, and not needed given the sensitivity call above. If
   that call ever changes, that's the next step — nothing further needed
   otherwise. *(09-06)*
-- **The main checkout (`~/source/repos/sparkdate`, not a worktree) is 18
-  commits behind `origin/main` with uncommitted local edits sitting on top —
-  almost certainly the actual mechanism behind the PR #463 revert documented
-  below, and still unresolved.** `git status` there shows local `main` at
-  `f047ecf8` (18 behind `origin/main`'s `cfa9c933`), plus uncommitted
-  modifications to `HANDOFF.md`, `.gitignore` and `content/queue.csv` that
-  don't cleanly match either commit, and ~15 untracked files (Business Plan
-  documents, `attended.txt`, a few `scripts/send-profile-email*.js` and
-  `scripts/build-outreach-pack.js`, `content/women-surfaces.json`,
-  `reports/META_CAPI_PROMPT.md`). **Not touched, on purpose** — a naive `git
-  pull` here would hit conflicts on exactly the files already fought over
-  this session, and discarding or stashing unknown uncommitted work is not a
-  call this session gets to make unilaterally. **Also found in the untracked
-  set: `Business Plan/files/curl -X POST httpsgraph.facebook.co.txt` contains
-  what reads as a live Meta access token in plaintext** (confirmed only that
-  an `access_token`/`EAA...`-shaped string is present, value not read into
-  this session or printed anywhere). It's untracked, so not in the repo's
-  history, but it is sitting on disk. **Next step, Taylor's call, from the
-  main checkout directly:** reconcile or discard the uncommitted changes
-  (`git stash` first if unsure), `git pull` to catch it up, and separately
-  decide whether that token file should be deleted or moved somewhere that
-  isn't a repo working directory at all. Until this is resolved, any session
-  that reads or writes relative to the main checkout instead of a fresh
-  worktree risks reproducing the #463 revert pattern below on the next
-  merge. *(09-06)*
-  **CONFIRMED (09-07): the `content/queue.csv` part of this was real, not
-  just "doesn't cleanly match either commit."** Its uncommitted state had been
-  round-tripped through a spreadsheet app — every date reformatted M/D/YYYY,
-  caption newlines turned `\r\n`, and MC-09/MC-10 silently lost their recorded
-  Instagram post ids (diffed cell-by-cell against `HEAD`, both by hand and by
-  script, to separate that noise from Taylor's actual edits that session:
-  GG-07's date/wording refresh, MC-12 and MC-14 marked approved). Left as-is,
-  no row would have been schedulable — the publisher requires ISO dates — and
-  MC-09/MC-10 would have looked never-posted-to-Instagram when they aren't.
-  Fixed on a branch and merged via #471, which also ran the publisher for
-  real (LX-11's Instagram post is live) — but **that fix lives on `main`, not
-  in the main checkout's own working tree, which this entry's "not touched,
-  on purpose" still applies to.** If Taylor has kept editing `queue.csv`
-  locally since 09-06 without pulling, those edits are sitting on top of the
-  SAME corrupted base, and a future save will need the same reconciliation
-  #471 did, by hand, again. The fix is not to write to the main checkout
-  automatically — it's for Taylor to `git pull` there before editing
-  `queue.csv` again.
+- **~~The main checkout is behind `origin/main` with uncommitted edits on
+  top~~ — CLOSED 09-08.** Pulled and now clean: `0 0` against `origin/main`,
+  full suite green there (1141 at the time). Nothing was discarded on
+  assumption — each of the seven files was checked against main first.
+  `.gitignore` had **zero** lines main lacked; `HANDOFF.md`'s 27 local-only
+  lines were 09-05 entries later sessions had already resolved and deleted;
+  `content/queue.csv`'s 47 were the M/D/YYYY spreadsheet corruption #471 had
+  already rebuilt. Four untracked files (`women-outreach.md`,
+  `women-surfaces.json`, `build-outreach-pack.js`, `outreach-pack.test.js`)
+  looked like genuinely unpushed work and were **not** — byte-different but
+  content-identical to main, which is the line-ending trap in the next entry.
+  All seven were backed up before removal. The plaintext Meta token file
+  (`Business Plan/files/curl -X POST httpsgraph.facebook.co.txt`) is no longer
+  on disk. *(09-08)*
+- **`core.autocrlf=true` and NO `.gitattributes` — nothing pins line endings in
+  this repo, and it has already corrupted `content/queue.csv` once.** Git
+  converts LF to CRLF on checkout here, so a working-tree file is
+  byte-different from its own committed blob. #471's queue.csv rebuild names
+  "caption newlines turned to `\r\n`" as part of what it had to undo, and the
+  publisher requires exact formatting — so `queue.csv` is the file that
+  actually breaks, not a cosmetic concern. The same conversion makes a raw
+  `diff` report an identical file as 100% changed, which cost this session two
+  false alarms on 09-08, both in the alarming direction ("this holds unpushed
+  work" when it held none). **Next step, Taylor's call because it renormalises
+  the working tree: add a `.gitattributes` with `* text=auto eol=lf`, or at
+  minimum `*.csv text eol=lf` to protect the queue.** Deliberately not done
+  here — a repo-wide renormalisation is not something to slip into a handoff
+  PR. Memory: `file-comparison-lies-on-this-machine`. *(09-10)*
 - **A concurrent session's merge silently reverted an already-merged
   correction, and neither CI nor GitHub's own conflict check caught it.**
   Merging this handoff PR against PR #463 (merged first) found the Ticket
@@ -422,6 +475,16 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   retired gender ad sets — a v2 attach script reusing its request shape does
   not exist. And nothing may go live without Taylor's word, per
   `confirm-before-new-live-campaign`. *(09-07)*
+  **Re-verified 09-10, and there is a DATE on it now: Seed starts 2026-09-15.**
+  `node scripts/build-paid-campaign.js --event=TL2` puts Seed 09-15..09-21
+  ($8.00/day cold, $2.00 retarget), Build 09-22..09-28, Close 09-29..10-06,
+  with the early bird ending 09-22 = T-14, cleanly inside the Seed/Build
+  boundary. Checked against `origin/main` today: still **zero** `TL2` assets in
+  `public/social/` and still **no TL2 entry** in `content/paid-campaigns.json`
+  — so the first ad dollar is due in five days against creative that does not
+  exist. This is the PAID side only; Eventbrite is live and selling (0/30) per
+  the TL2 entry at the top of this file, and the ORGANIC calendar is being
+  built in a separate chat as of 09-10 — do not duplicate it. *(09-10)*
   (3) **Both Marion Court acknowledgements expire 09-08** and
   will start reporting themselves as stale the next morning; retire them with
   the event. *(09-06)*

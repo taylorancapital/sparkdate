@@ -42,3 +42,22 @@ jobs:
         # not a script's.
         run: node scripts/lint-content-queue.js
 
+      - name: Check the listing short links are not stale
+        # ADDED 2026-09-09, after this went wrong twice in two days.
+        #
+        # scripts/build-listing-redirects.js has documented --check as "CI:
+        # fail if stale" since it was written, and nothing ever ran it. So when
+        # TL2 was added to content/brand.json on 09-05 and vercel.json was not
+        # regenerated, all 18 of its /l/ routes simply did not exist -- and
+        # nobody found out until a Nextdoor post went live carrying one and it
+        # served the 404 page.
+        #
+        # A stale vercel.json means a published listing link goes nowhere while
+        # looking perfectly fine, which is the exact failure the short links
+        # were introduced to prevent. It is worth failing a build for.
+        #
+        # This is the only step here that touches the network; it exits 0 with
+        # a warning if sparkdate.date is unreachable, so an outage cannot turn
+        # an unrelated PR red.
+        run: node scripts/build-listing-redirects.js --check
+

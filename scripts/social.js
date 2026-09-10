@@ -110,7 +110,21 @@ function cmdApprove(approving) {
   // the copy is written.
   const force = flag('force');
   const blocked = [];
+  const unfilled = [];
 
+  // Recap rows ship with the attendance figure left as `[REAL NUMBER]`,
+  // because the rule is never to estimate it -- so the copy is finished long
+  // before the number exists. Nothing downstream notices: the linter is silent
+  // about it, planRow only asks whether art exists, and the publisher hands
+  // Facebook whatever the caption says. A bulk `approve --through=` over a
+  // month of calendar is therefore one keystroke away from posting the literal
+  // words "[REAL NUMBER] people in a room". Refuse it at the same gate that
+  // already refuses a row with no artwork -- an unfilled placeholder is the
+  // caption's version of missing art.
+  //
+  // This is a gate on APPROVE, not a linter error, on purpose: the linter runs
+  // in the publish workflow, so failing there would stop the whole queue
+  // publishing over one unfilled row weeks out.
   for (const row of rows) {
     if (one && row.row_id !== one) continue;
     if (!one && through && row.date > through) continue;
@@ -119,6 +133,13 @@ function cmdApprove(approving) {
       blocked.push(row.row_id);
       continue;
     }
+    if (approving && !force) {
+      const hit = Q.unfilledPlaceholder(row);
+      if (hit) {
+        unfilled.push(`${row.row_id} (${hit})`);
+        continue;
+      }
+    }
     row.state = to;
     touched.push(row.row_id);
   }
@@ -126,6 +147,12 @@ function cmdApprove(approving) {
   if (blocked.length) {
     console.log(`Skipped ${blocked.length} row(s) with no artwork yet: ${blocked.join(', ')}`);
     console.log('Approve them once the art lands, or pass --force if you mean it.');
+    console.log('');
+  }
+
+  if (unfilled.length) {
+    console.log(`Skipped ${unfilled.length} row(s) with an unfilled placeholder: ${unfilled.join(', ')}`);
+    console.log('Fill in the real figure first -- never estimate it. --force posts the placeholder as written.');
     console.log('');
   }
 
