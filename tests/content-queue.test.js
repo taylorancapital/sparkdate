@@ -17,6 +17,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseCsv, toCsv, rowEvents, rowHashtags, rowAssets,
   allowedHashtags, allowedPrices, currentPrice, pricesInText, isSchedulable, isFeedPost,
+  unfilledPlaceholder,
 } from '../lib/content-queue.js';
 import { lint } from '../scripts/lint-content-queue.js';
 
@@ -335,5 +336,49 @@ describe('structural', () => {
     // A posted row is history. Re-flagging it every run is noise.
     expect(lint([row({ state: 'posted', date: 'whenever', asset_files: '' })], BRAND)
       .filter((f) => f.severity === 'error')).toHaveLength(0);
+  });
+});
+
+// MC-15 was one `approve --through=` away from posting the literal words
+// "[REAL NUMBER] people in a room on a Tuesday" to Facebook and Instagram on
+// 2026-09-10. The figure is left as a placeholder by design -- attendance is
+// never estimated -- and nothing between the copy and the Graph API looked at
+// it: the linter has no rule for it, and planRow only asks whether art exists.
+// `social.js approve` now refuses such a row; this is the predicate it uses.
+describe('unfilled placeholders', () => {
+  it('finds the placeholder in a caption', () => {
+    expect(unfilledPlaceholder({ caption: '[REAL NUMBER] people in a room' }))
+      .toBe('[REAL NUMBER]');
+  });
+
+  it('finds it in caption_x when the caption is clean', () => {
+    expect(unfilledPlaceholder({ caption: 'Thanks, everyone.', caption_x: 'We had [REAL NUMBER].' }))
+      .toBe('[REAL NUMBER]');
+  });
+
+  it('ignores notes -- that is where the instruction to fill it lives', () => {
+    expect(unfilledPlaceholder({
+      caption: '29 people in a room on a Tuesday.',
+      notes: '[REAL NUMBER] = counted check-in figure or CUT THE LINE.',
+    })).toBeNull();
+  });
+
+  it('passes the real MC-15 caption once the figure is in', () => {
+    expect(unfilledPlaceholder({
+      caption: 'Last night at Marion Court.\n\n29 people in a room on a Tuesday, in person.',
+      caption_x: 'Last night at Marion Court. 29 people in a room on a Tuesday, in person.',
+      hashtags: '#LancasterDating #LancasterEvents #SparkDate',
+    })).toBeNull();
+  });
+
+  it('does not fire on ordinary bracketed lowercase or a bare hashtag', () => {
+    // The pattern is deliberately ALL-CAPS-anchored: real copy uses brackets
+    // and every row's hashtags field is full of #Words.
+    expect(unfilledPlaceholder({ caption: 'Loxley\'s [the patio one] is next.' })).toBeNull();
+    expect(unfilledPlaceholder({ hashtags: '#LancasterDating #SparkDate' })).toBeNull();
+  });
+
+  it('handles a row with no text fields at all', () => {
+    expect(unfilledPlaceholder({})).toBeNull();
   });
 });
