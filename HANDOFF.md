@@ -36,6 +36,35 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **The admin metrics review is a live worklist, and the last silent
+  truncation on the dashboard is now in the sales heatmap rather than in the
+  totals.** (09-10) The queue is the DECISION list in
+  `reports/ADMIN_DASHBOARD_METRICS_REVIEW_2026-09-10.md`. Item 1 (a Matches
+  panel, #499), item 3 (the 200-ticket cap in `loadPayments`, #502) and the
+  three arithmetic defects of item 2 (#500) are done and need no revisiting;
+  what is left is listed below so nobody re-derives it from the report.
+  **`startLiveTickets()` still carries `limit(200)` and Taylor said on 09-10 it
+  is being handled in another session — do not fix it here and do not re-raise
+  it.** Recorded because it is the same class of bug #502 removed: past 200
+  tickets, "when tickets sell" silently becomes "when the last 200 sold", and
+  the cap is a deliberate cost decision about a listener held open for the whole
+  session, so it is a billing call rather than an arithmetic one.
+  **Next step for whoever picks the report back up, in the order the report
+  ranks them:** (4) replace Ticket Velocity's flat 1.5/day target with a pacing
+  curve — sold-now against the median of past events at the same T-minus, and
+  the reference table is already computed in the report's Evidence §2; (5) a
+  women's acquisition strip on the Ads tab (cost per woman ticket, women's share
+  at T-7, women's share of pickers); (6) show rate — the `doorCount` INPUT now
+  exists on the Events tab and `mixCell` already renders "door N · %show" from
+  it, so the only thing missing is that no event has ever had a number typed in;
+  (7) a `web_daily` sync beside the Google Ads pull, so landing-page-view →
+  purchase stops living only in the nightly reports; (8) email aggregate rates
+  on the Leads tab; (9) retire the subscription surfaces while memberships are
+  paused; (10) surface per-ticket attribution and a plain "referral leads: 0"
+  line. **Also still undone from item 2: a per-event CAC on the Event P&L detail
+  row**, where the synced spend already sits — the blended figure is all-time
+  over all-time and can only drift.
+
 - **A match email Resend refuses is now visible on the `matches` doc, but still
   nothing re-sends it.** (09-10, #492) `resend.emails.send()` RESOLVES with
   `{ error }` on a 4xx/5xx rather than throwing, so `notifyMatch` in
