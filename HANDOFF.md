@@ -129,12 +129,19 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   attempts to set 14 days were almost certainly just Eventbrite 500s, not the
   "only make it more flexible after publishing" rule — no-refunds → 14 days is
   a LOOSENING and would have been permitted. That page lives under **Event
-  Finances**, not Order Options. (3) Evvnt (→ LNP/LancasterOnline) is sign-in walled at
-  both my.evvnt.com and lancasteronline.evvnt.com — this is the highest-value
-  free channel on the list (136 sessions in one day) and TL2 is not on it. When
-  submitting, set the ticket URL to `sparkdate.date/l/tl2-lancasteronline`; their
-  query-string rewrite is what produced 129 zero-conversion sessions in
-  September.**
+  Finances**, not Order Options. (3) **Evvnt / LancasterOnline: SUBMITTED 09-10
+  by Taylor.** The "sign-in walled" note this entry used to carry was wrong and
+  is corrected in `content/listing-sites.json` — only the direct Evvnt domains
+  wall you; the "Promote Your Event" link in the LancasterOnline calendar FOOTER
+  opens the whole form with no login, and the account gate is at the final
+  submit only. Composed with the ticket URL set to
+  `sparkdate.date/l/tl2-lancasteronline` (the path-only link, because their
+  publisher's query-string rewrite is what produced 129 zero-conversion sessions
+  in September). **Next step: this is a moderated calendar, so confirm the
+  listing actually appears on lancasteronline.com/calendar within a few days,
+  and around 09-17 check GA4 for `lancasteronline / listing` showing NON-ZERO
+  `view_item` — that is the specific thing the `/l/` link was introduced to fix
+  and it has never yet been observed working.**
 
 - **Patch and Discover Lancaster for TL2 are composed-but-unposted, and Patch has
   a payment trap.** (09-09) Patch's step 2 pre-selects 8 paid communities at
