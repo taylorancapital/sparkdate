@@ -194,49 +194,34 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   against. Not done, and not needed given the sensitivity call above. If
   that call ever changes, that's the next step — nothing further needed
   otherwise. *(09-06)*
-- **The main checkout (`~/source/repos/sparkdate`, not a worktree) is 18
-  commits behind `origin/main` with uncommitted local edits sitting on top —
-  almost certainly the actual mechanism behind the PR #463 revert documented
-  below, and still unresolved.** `git status` there shows local `main` at
-  `f047ecf8` (18 behind `origin/main`'s `cfa9c933`), plus uncommitted
-  modifications to `HANDOFF.md`, `.gitignore` and `content/queue.csv` that
-  don't cleanly match either commit, and ~15 untracked files (Business Plan
-  documents, `attended.txt`, a few `scripts/send-profile-email*.js` and
-  `scripts/build-outreach-pack.js`, `content/women-surfaces.json`,
-  `reports/META_CAPI_PROMPT.md`). **Not touched, on purpose** — a naive `git
-  pull` here would hit conflicts on exactly the files already fought over
-  this session, and discarding or stashing unknown uncommitted work is not a
-  call this session gets to make unilaterally. **Also found in the untracked
-  set: `Business Plan/files/curl -X POST httpsgraph.facebook.co.txt` contains
-  what reads as a live Meta access token in plaintext** (confirmed only that
-  an `access_token`/`EAA...`-shaped string is present, value not read into
-  this session or printed anywhere). It's untracked, so not in the repo's
-  history, but it is sitting on disk. **Next step, Taylor's call, from the
-  main checkout directly:** reconcile or discard the uncommitted changes
-  (`git stash` first if unsure), `git pull` to catch it up, and separately
-  decide whether that token file should be deleted or moved somewhere that
-  isn't a repo working directory at all. Until this is resolved, any session
-  that reads or writes relative to the main checkout instead of a fresh
-  worktree risks reproducing the #463 revert pattern below on the next
-  merge. *(09-06)*
-  **CONFIRMED (09-07): the `content/queue.csv` part of this was real, not
-  just "doesn't cleanly match either commit."** Its uncommitted state had been
-  round-tripped through a spreadsheet app — every date reformatted M/D/YYYY,
-  caption newlines turned `\r\n`, and MC-09/MC-10 silently lost their recorded
-  Instagram post ids (diffed cell-by-cell against `HEAD`, both by hand and by
-  script, to separate that noise from Taylor's actual edits that session:
-  GG-07's date/wording refresh, MC-12 and MC-14 marked approved). Left as-is,
-  no row would have been schedulable — the publisher requires ISO dates — and
-  MC-09/MC-10 would have looked never-posted-to-Instagram when they aren't.
-  Fixed on a branch and merged via #471, which also ran the publisher for
-  real (LX-11's Instagram post is live) — but **that fix lives on `main`, not
-  in the main checkout's own working tree, which this entry's "not touched,
-  on purpose" still applies to.** If Taylor has kept editing `queue.csv`
-  locally since 09-06 without pulling, those edits are sitting on top of the
-  SAME corrupted base, and a future save will need the same reconciliation
-  #471 did, by hand, again. The fix is not to write to the main checkout
-  automatically — it's for Taylor to `git pull` there before editing
-  `queue.csv` again.
+- **~~The main checkout is behind `origin/main` with uncommitted edits on
+  top~~ — CLOSED 09-08.** Pulled and now clean: `0 0` against `origin/main`,
+  full suite green there (1141 at the time). Nothing was discarded on
+  assumption — each of the seven files was checked against main first.
+  `.gitignore` had **zero** lines main lacked; `HANDOFF.md`'s 27 local-only
+  lines were 09-05 entries later sessions had already resolved and deleted;
+  `content/queue.csv`'s 47 were the M/D/YYYY spreadsheet corruption #471 had
+  already rebuilt. Four untracked files (`women-outreach.md`,
+  `women-surfaces.json`, `build-outreach-pack.js`, `outreach-pack.test.js`)
+  looked like genuinely unpushed work and were **not** — byte-different but
+  content-identical to main, which is the line-ending trap in the next entry.
+  All seven were backed up before removal. The plaintext Meta token file
+  (`Business Plan/files/curl -X POST httpsgraph.facebook.co.txt`) is no longer
+  on disk. *(09-08)*
+- **`core.autocrlf=true` and NO `.gitattributes` — nothing pins line endings in
+  this repo, and it has already corrupted `content/queue.csv` once.** Git
+  converts LF to CRLF on checkout here, so a working-tree file is
+  byte-different from its own committed blob. #471's queue.csv rebuild names
+  "caption newlines turned to `\r\n`" as part of what it had to undo, and the
+  publisher requires exact formatting — so `queue.csv` is the file that
+  actually breaks, not a cosmetic concern. The same conversion makes a raw
+  `diff` report an identical file as 100% changed, which cost this session two
+  false alarms on 09-08, both in the alarming direction ("this holds unpushed
+  work" when it held none). **Next step, Taylor's call because it renormalises
+  the working tree: add a `.gitattributes` with `* text=auto eol=lf`, or at
+  minimum `*.csv text eol=lf` to protect the queue.** Deliberately not done
+  here — a repo-wide renormalisation is not something to slip into a handoff
+  PR. Memory: `file-comparison-lies-on-this-machine`. *(09-10)*
 - **A concurrent session's merge silently reverted an already-merged
   correction, and neither CI nor GitHub's own conflict check caught it.**
   Merging this handoff PR against PR #463 (merged first) found the Ticket
@@ -453,6 +438,16 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   retired gender ad sets — a v2 attach script reusing its request shape does
   not exist. And nothing may go live without Taylor's word, per
   `confirm-before-new-live-campaign`. *(09-07)*
+  **Re-verified 09-10, and there is a DATE on it now: Seed starts 2026-09-15.**
+  `node scripts/build-paid-campaign.js --event=TL2` puts Seed 09-15..09-21
+  ($8.00/day cold, $2.00 retarget), Build 09-22..09-28, Close 09-29..10-06,
+  with the early bird ending 09-22 = T-14, cleanly inside the Seed/Build
+  boundary. Checked against `origin/main` today: still **zero** `TL2` assets in
+  `public/social/` and still **no TL2 entry** in `content/paid-campaigns.json`
+  — so the first ad dollar is due in five days against creative that does not
+  exist. This is the PAID side only; Eventbrite is live and selling (0/30) per
+  the TL2 entry at the top of this file, and the ORGANIC calendar is being
+  built in a separate chat as of 09-10 — do not duplicate it. *(09-10)*
   (3) **Both Marion Court acknowledgements expire 09-08** and
   will start reporting themselves as stale the next morning; retire them with
   the event. *(09-06)*
