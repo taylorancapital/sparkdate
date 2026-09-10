@@ -374,3 +374,274 @@ describe('every KPI element renderKPIs writes to exists in the page', () => {
     expect(SRC).toContain('id="kpiRevPerTicket"');
   });
 });
+
+// ─── Sales pacing ────────────────────────────────────────────────────────────
+//
+// The Ticket Velocity KPI these replace divided non-comp REGISTRATIONS by days
+// since the event doc's createdAt and compared the result with a flat 1.5/day
+// (TARGET_TICKETS_PER_DAY). Three things were wrong with it at once and none of
+// them threw:
+//
+//   1. The benchmark was a straight line and sales are not. Measured across 128
+//      dated paid tickets over five events, two thirds sell inside the final
+//      fortnight (reports/ADMIN_DASHBOARD_METRICS_REVIEW_2026-09-10.md, §2), so
+//      a flat target reads "behind pace" for nearly every event until ~T-7 and
+//      then flips, with the event's behaviour unchanged.
+//   2. It read event_registrations, which carry no `amount` — a free-tier seat
+//      and a $25 ticket are the same row there, so giveaways counted as demand.
+//   3. It could not say the one thing worth saying: is this event selling like
+//      the last five did AT THIS POINT?
+//
+// The replacement is pacingCurves(): each open event's paid tickets so far
+// against the median/min/max of past events at the same T-minus. The fixture
+// below is the real evidence table from §2, so a regression in the cumulative
+// arithmetic shows up as a number that no longer matches a published report.
+
+const paceSandbox = { console };
+for (const fn of ['pacingCurves', 'paceNum', 'paceLine', 'safe', 'pacingChart']) {
+  vm.runInNewContext(lift(fn), paceSandbox);
+}
+const { pacingCurves, paceNum, paceLine, pacingChart } = paceSandbox;
+
+const NOW = Date.parse('2026-09-10T12:00:00Z');
+const DAY = 86400000;
+/** An event doc `d` days from NOW (negative = already happened). */
+const ev = (id, title, daysFromNow, extra = {}) =>
+  ({ id, title, date: new Date(NOW + daysFromNow * DAY), ...extra });
+/** `n` paid tickets for `eventId`, each sold `tMinus` days before `eventDate`. */
+const soldAt = (eventId, eventDate, tMinus, n, extra = {}) =>
+  Array.from({ length: n }, (_, i) => ({
+    id: `${eventId}-${tMinus}-${i}-${Math.random()}`, eventId, amount: 2500,
+    // Half a day inside the bucket, so a floor() that slipped to round() or
+    // ceil() would move the ticket and break the totals below.
+    createdAt: new Date(eventDate.getTime() - (tMinus + 0.5) * DAY),
+    ...extra,
+  }));
+
+/**
+ * The five past events, reconstructed to hit the published cumulative table
+ * exactly:
+ *
+ *   event         | T-30 | T-14 | T-7 | T-1 | final
+ *   Founders      |    0 |    2 |   9 |  20 |    21
+ *   Round 2       |    4 |   13 |  19 |  27 |    29
+ *   Tellus (Aug)  |    0 |    7 |  20 |  27 |    29
+ *   Good Good     |    0 |    6 |  11 |  17 |    19
+ *   Marion Court  |    0 |    4 |  11 |  16 |    19
+ */
+const PAST = [
+  { id: 'founders', title: 'Founders Mixer',  at: [[35, 0], [20, 2], [10, 7],  [4, 11], [0, 1]] },
+  { id: 'round2',   title: 'Round 2',         at: [[35, 4], [20, 9], [10, 6],  [4, 8],  [0, 2]] },
+  { id: 'tellus',   title: 'Tellus (Aug)',    at: [[35, 0], [20, 7], [10, 13], [4, 7],  [0, 2]] },
+  { id: 'goodgood', title: 'Good Good Night', at: [[35, 0], [20, 6], [10, 5],  [4, 6],  [0, 2]] },
+  { id: 'marion',   title: 'Marion Court',    at: [[35, 0], [20, 4], [10, 7],  [4, 5],  [0, 3]] },
+];
+const pastEvents = PAST.map((p, i) => ev(p.id, p.title, -60 + i * 10));
+const pastTickets = PAST.flatMap((p, i) =>
+  p.at.flatMap(([tMinus, n]) => soldAt(p.id, pastEvents[i].date, tMinus, n)));
+
+describe('pacingCurves — cumulative paid tickets by T-minus', () => {
+  const { past } = pacingCurves(pastTickets, pastEvents, NOW);
+
+  it('reproduces the published cumulative table for all five past events', () => {
+    const expected = {
+      founders: [0, 2, 9, 20, 21],
+      round2:   [4, 13, 19, 27, 29],
+      tellus:   [0, 7, 20, 27, 29],
+      goodgood: [0, 6, 11, 17, 19],
+      marion:   [0, 4, 11, 16, 19],
+    };
+    expect(past.length).toBe(5);
+    for (const p of past) {
+      const got = [p.cum[30], p.cum[14], p.cum[7], p.cum[1], p.cum[0]];
+      expect(got, `${p.id} cumulative at T-30/14/7/1/final`).toEqual(expected[p.id]);
+    }
+  });
+
+  it('cum[0] is the final total and the curve never rises as T-minus grows', () => {
+    for (const p of past) {
+      expect(p.final).toBe(p.cum[0]);
+      for (let d = 1; d <= 60; d++) expect(p.cum[d]).toBeLessThanOrEqual(p.cum[d - 1]);
+    }
+  });
+});
+
+describe('pacingCurves — where an open event stands', () => {
+  it('reads an open event against the median and range at its own T-minus', () => {
+    // Loxleys at T-12 with 10 sold. At T-12 the past five stood at
+    // 2 / 13 / 7 / 6 / 4 → median 6, range 2-13. 10 is inside that band and
+    // above the median, which is the whole point: a flat 1.5/day target would
+    // have wanted a ticket every day since the doc was created and called this
+    // behind.
+    const open = ev('loxleys', 'Loxleys', 12);
+    const { open: [o] } = pacingCurves(
+      [...pastTickets, ...soldAt('loxleys', open.date, 12, 10)],
+      [...pastEvents, open], NOW);
+
+    expect(o.tMinus).toBe(12);
+    expect(o.sold).toBe(10);
+    expect(o.median).toBe(6);
+    expect(o.min).toBe(2);
+    expect(o.max).toBe(13);
+    expect(o.n).toBe(5);
+    expect(o.sold >= o.median).toBe(true);
+  });
+
+  it('at T-7 the reference is median 11, range 9-20', () => {
+    const open = ev('soon', 'Soon', 7);
+    const { open: [o] } = pacingCurves(pastTickets, [...pastEvents, open], NOW);
+    expect(o.median).toBe(11);
+    expect(o.min).toBe(9);
+    expect(o.max).toBe(20);
+    expect(o.sold).toBe(0);
+  });
+
+  it('an event further out than any reference day still reads off the curve', () => {
+    // Tellus Oct 6 sits at T-26 with 1 sold. Every past event was on the flat
+    // part of its curve there, so "1" is not behind — it is where they all were.
+    const open = ev('tellus-oct', 'Tellus Oct 6', 26);
+    const { open: [o] } = pacingCurves(
+      [...pastTickets, ...soldAt('tellus-oct', open.date, 26, 1)],
+      [...pastEvents, open], NOW);
+    expect(o.tMinus).toBe(26);
+    expect(o.sold).toBe(1);
+    expect(o.max).toBeLessThanOrEqual(4);  // only Round 2 had sold anything
+  });
+
+  it('orders open events soonest first, because the soonest is the actionable one', () => {
+    const { open } = pacingCurves(pastTickets,
+      [...pastEvents, ev('far', 'Far', 26), ev('near', 'Near', 12)], NOW);
+    expect(open.map(o => o.id)).toEqual(['near', 'far']);
+  });
+});
+
+describe('pacingCurves — what counts, matching ticketKpis exactly', () => {
+  const openEv = ev('open', 'Open', 10);
+
+  it('a comp is not demand and never enters a curve or a count', () => {
+    const tickets = [
+      ...soldAt('open', openEv.date, 10, 3),
+      ...soldAt('open', openEv.date, 10, 5, { isComp: true, amount: 0 }),
+      ...soldAt('founders', pastEvents[0].date, 10, 4, { isComp: true }),
+    ];
+    const r = pacingCurves([...pastTickets, ...tickets], [...pastEvents, openEv], NOW);
+    expect(r.open[0].sold).toBe(3);
+    expect(r.past.find(p => p.id === 'founders').final).toBe(21);  // not 25
+  });
+
+  it('a $0 seat — free tier or two-for-one plus-one — is not a sale', () => {
+    const tickets = [
+      ...soldAt('open', openEv.date, 10, 3),
+      ...soldAt('open', openEv.date, 10, 4, { amount: 0 }),
+      ...soldAt('open', openEv.date, 10, 2, { amount: 0, isPlusOne: true }),
+    ];
+    const r = pacingCurves(tickets, [openEv], NOW);
+    expect(r.open[0].sold).toBe(3);
+  });
+
+  it('a canceled event is neither a reference curve nor an open event', () => {
+    const r = pacingCurves(pastTickets,
+      [...pastEvents.map(e => ({ ...e, status: 'canceled' })), ev('x', 'X', 5, { status: 'canceled' })],
+      NOW);
+    expect(r.past).toEqual([]);
+    expect(r.open).toEqual([]);
+  });
+
+  it('a past event with no dated paid ticket is left out of the benchmark', () => {
+    // A stub or draft event doc that never sold would otherwise sit at zero
+    // for every T-minus and drag the median down with it.
+    const stub = ev('stub', 'Never sold', -5);
+    const undatedOnly = ev('nodate', 'Undated sales', -6);
+    const r = pacingCurves(
+      [...pastTickets,
+       ...soldAt('nodate', undatedOnly.date, 10, 4).map(t => ({ ...t, createdAt: null }))],
+      [...pastEvents, stub, undatedOnly], NOW);
+    expect(r.past.map(p => p.id).sort())
+      .toEqual(['founders', 'goodgood', 'marion', 'round2', 'tellus']);
+  });
+
+  it('reports zero median and an empty reference when there is no history', () => {
+    const only = ev('first', 'First ever', 9);
+    const r = pacingCurves(soldAt('first', only.date, 9, 4), [only], NOW);
+    expect(r.past).toEqual([]);
+    expect(r.open[0]).toMatchObject({ sold: 4, n: 0, median: 0, min: 0, max: 0 });
+  });
+
+  it('survives an event with no usable date instead of throwing', () => {
+    const r = pacingCurves([], [{ id: 'bad', date: 'not a date' }, { id: 'none' }], NOW);
+    expect(r.past).toEqual([]);
+    expect(r.open).toEqual([]);
+  });
+});
+
+describe('the sentence on the card', () => {
+  it('reads "N sold at T-d · past events: median M (range a-b)"', () => {
+    expect(paceLine({ sold: 10, tMinus: 12, n: 5, median: 6, min: 2, max: 13 }))
+      .toBe('10 sold at T-12 · past events: median 6 (range 2-13)');
+  });
+
+  it('says so plainly when there is nothing to compare against', () => {
+    expect(paceLine({ sold: 4, tMinus: 9, n: 0, median: 0, min: 0, max: 0 }))
+      .toBe('4 sold at T-9 · no past event to compare against');
+  });
+
+  it('keeps a half-ticket median rather than rounding it away, but never prints 7.0', () => {
+    expect(paceNum(7.5)).toBe('7.5');
+    expect(paceNum(7)).toBe('7');
+  });
+});
+
+describe('pacingChart', () => {
+  const open = ev('loxleys', 'Loxleys', 12);
+  const pacing = pacingCurves(
+    [...pastTickets, ...soldAt('loxleys', open.date, 12, 10)],
+    [...pastEvents, open], NOW);
+
+  it('draws one muted curve per past event and one marked point per open event', () => {
+    const svg = pacingChart(pacing);
+    expect((svg.match(/<polyline/g) || []).length).toBe(5);
+    expect((svg.match(/<circle/g) || []).length).toBe(1);
+    expect(svg).toContain('10 · T-12');
+    expect(svg).toContain('5 past events');
+  });
+
+  it('scales uniformly — a stretched viewBox would distort every label', () => {
+    expect(pacingChart(pacing)).not.toContain('preserveAspectRatio="none"');
+  });
+
+  it('escapes an event title instead of injecting it into the SVG', () => {
+    const nasty = ev('x', '</title><script>alert(1)</script>', 5);
+    const svg = pacingChart(pacingCurves([...pastTickets], [...pastEvents, nasty], NOW));
+    expect(svg).not.toContain('<script>');
+    expect(svg).toContain('&lt;script&gt;');
+  });
+
+  it('says so rather than drawing an empty box when there is nothing to pace', () => {
+    expect(pacingChart({ past: [], open: [], maxT: 60 })).toContain('No events to pace yet');
+    expect(pacingChart(null)).toContain('No events to pace yet');
+  });
+});
+
+describe('the flat tickets-per-day target is gone', () => {
+  it('TARGET_TICKETS_PER_DAY is not declared or read anywhere in the page', () => {
+    // Only the note recording its removal may mention the name.
+    const uses = SRC.split('\n')
+      .filter((l) => l.includes('TARGET_TICKETS_PER_DAY') && !l.trim().startsWith('//'));
+    expect(uses, `TARGET_TICKETS_PER_DAY still live in: ${uses.join(' | ')}`).toEqual([]);
+  });
+
+  it('the pace KPI no longer reads event_registrations', () => {
+    const body = (() => {
+      const i = SRC.indexOf('        function renderKPIs() {');
+      const close = /^ {8}\}$/m.exec(SRC.slice(i));
+      return SRC.slice(i, i + close.index + close[0].length);
+    })();
+    // Registrations carry no `amount`, so pacing cannot tell a $25 ticket from
+    // a free seat there. renderKPIs must not READ them any more — the comment
+    // saying so is allowed to name them, live code is not.
+    const reads = body.split('\n')
+      .filter((l) => l.includes('allRegistrations') && !l.trim().startsWith('//'));
+    expect(reads, `renderKPIs still reads registrations: ${reads.join(' | ')}`).toEqual([]);
+    expect(body).toContain('pacingCurves(');
+  });
+});
