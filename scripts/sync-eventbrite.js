@@ -71,7 +71,7 @@ const { admin } = require('../lib/auth');
 // Pagination and email normalization are shared with api/eventbrite-live.js
 // through lib/eventbrite — the dashboard's unsynced badge only stays honest
 // while it matches attendees exactly the way this sync does.
-const { EB, normalizeEmail, ebFetch, ebGetAll, attendeeGender } = require('../lib/eventbrite');
+const { EB, normalizeEmail, ebFetch, ebGetAll, attendeeGender, attendeeOrderId } = require('../lib/eventbrite');
 const db = admin.firestore();
 
 // Every single-shot EB call in this script. Retries matter MORE here than on
@@ -151,6 +151,7 @@ async function main() {
   console.log(`${ebEvents.length} Eventbrite event(s) in the last ${DAYS} days\n`);
 
   let totalNew = 0, totalExisting = 0, totalSkippedEvents = 0, totalCancelled = 0;
+  let totalWithOrder = 0, totalAttendeesSeen = 0, totalParties = 0;
 
   for (const ebe of ebEvents) {
     const title = (ebe.name && ebe.name.text) || ebe.id;
@@ -175,7 +176,15 @@ async function main() {
     // Attendees hang off /events/{id}/, NOT under /organizations/ -- the
     // nested spelling 404s (second lesson from live dispatches; the first
     // was start_date.range_start).
-    const attendees = await ebGetAll(`/events/${ebe.id}/attendees/`, 'attendees', EB_TOKEN, { timeoutMs: 0, retries: 3 });
+    // `expand=order` rather than trusting the flat `order_id` to be there.
+    // Eventbrite's docs are not explicit about which attendee fields come back
+    // by default, and the failure mode if it is absent is the silent one: no
+    // error, no order id stored, and friends quietly seated apart forever.
+    // Asking for the expansion costs one nested object per attendee and makes
+    // the field's presence a fact rather than an assumption. attendeeOrderId
+    // still reads the flat field first, so this keeps working if Eventbrite
+    // supplies it either way.
+    const attendees = await ebGetAll(`/events/${ebe.id}/attendees/?expand=order`, 'attendees', EB_TOKEN, { timeoutMs: 0, retries: 3 });
     const live = attendees.filter((a) => !a.cancelled && !a.refunded);
     totalCancelled += attendees.length - live.length;
 
@@ -199,7 +208,28 @@ async function main() {
     });
     totalExisting += live.length - fresh.length;
 
+    // Whether the order id actually arrived, counted per event and reported
+    // below. This is the guard against the failure this field exists to
+    // prevent being invisible: if Eventbrite ever stops returning it, or the
+    // expansion is refused, the run SAYS so on the first sync instead of
+    // quietly grouping nobody for months. Multi-attendee orders are counted
+    // too, because that number is the whole point — an event where every
+    // order holds one attendee has no parties to find.
+    const withOrder = live.filter((a) => attendeeOrderId(a) !== null).length;
+    const orderSizes = new Map();
+    live.forEach((a) => {
+      const k = attendeeOrderId(a);
+      if (k) orderSizes.set(k, (orderSizes.get(k) || 0) + 1);
+    });
+    const parties = [...orderSizes.values()].filter((n) => n > 1).length;
+    totalWithOrder += withOrder;
+    totalAttendeesSeen += live.length;
+    totalParties += parties;
+
     console.log(`✓ ${title} → "${ours.title}" [${how}]  ${live.length} attending, ${fresh.length} new`);
+    console.log(`    order ids: ${withOrder}/${live.length}${
+      withOrder === 0 && live.length ? '  ** NONE — nobody can be grouped from this event **' : ''
+    }${parties ? `  ·  ${parties} multi-attendee order${parties === 1 ? '' : 's'}` : ''}`);
 
     // A same-day match that survives to execution becomes an EXPLICIT
     // mapping: write eventbriteEventId back to the event doc. Matching is
@@ -220,10 +250,12 @@ async function main() {
         eventName: ours.title || '',
         priceCents: attendeePriceCents(a),
         ebFeeCents: attendeeFeeCents(a),
+        orderId: attendeeOrderId(a),
         channel: 'eventbrite',
       };
       if (!EXECUTE) {
-        console.log(`    would enroll: ${buyer.email}  ${buyer.gender || '?'}  $${(buyer.priceCents / 100).toFixed(2)}`);
+        console.log(`    would enroll: ${buyer.email}  ${buyer.gender || '?'}  $${(buyer.priceCents / 100).toFixed(2)}${
+          buyer.orderId ? `  order ${buyer.orderId}` : ''}`);
         totalNew++;
         continue;
       }
@@ -275,6 +307,15 @@ async function main() {
   }
 
   console.log(`\nnew ${totalNew} · already enrolled ${totalExisting} · cancelled/refunded ${totalCancelled} · EB events skipped ${totalSkippedEvents}`);
+  // Loud on the way out, because a captured-nothing run is indistinguishable
+  // from a healthy one everywhere else.
+  if (totalAttendeesSeen) {
+    console.log(`order ids ${totalWithOrder}/${totalAttendeesSeen} · ${totalParties} multi-attendee order${totalParties === 1 ? '' : 's'} (people who arrived together)`);
+    if (totalWithOrder === 0) {
+      console.log('!! No attendee carried an order id. Nobody can be grouped from Eventbrite —');
+      console.log('   check that /attendees/?expand=order is still returning the order object.');
+    }
+  }
   if (!EXECUTE) console.log('\nDry run. Re-run with --execute to enroll.');
   if (totalSkippedEvents) console.log('Skipped events need an eventbriteEventId on the matching event doc, or exactly one of our events on that calendar day.');
 }

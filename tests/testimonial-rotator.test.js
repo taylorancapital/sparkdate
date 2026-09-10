@@ -306,11 +306,13 @@ describe('testimonial rotators', () => {
       // guest email ("i dont even remember who he is"), which is worth
       // keeping written down because the name invites the opposite guess.
       // Quang is a man per reports/AD_LEVER_WOMEN_2026-09-02.md.
-      const WOMEN = ['Molly', 'Helesha', 'Anonymous M.'];
+      // Laura M. is a woman, confirmed by Taylor on 2026-09-10 -- and a
+      // different person from Anonymous M. despite the shared initial.
+      const WOMEN = ['Molly', 'Helesha', 'Anonymous M.', 'Laura M.'];
       const quotes = quotesIn(rot.src);
       expect(quotes.length).toBeGreaterThan(0);
 
-      // A ninth name nobody has classified must not slip through as a man.
+      // A new name nobody has classified must not slip through as a man.
       const KNOWN_MEN = ['Jeff', 'Luke', 'James', 'Alex', 'Quang'];
       const unclassified = quotes
         .map((q) => q.who)

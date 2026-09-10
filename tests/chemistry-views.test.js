@@ -46,12 +46,24 @@ const LIFTED = ['INTENT_LABELS', 'ROUND_CHOICES',
                 '_nameLabels', '_nameLabelsFor', '_nameRungs', 'buildNameLabels',
                 'ensureNameLabels', '_chemShortName', '_chemInitials',
                 'movesLabel', 'tableCount', 'quotas', 'fillTablePairs', 'pairLookup',
+                // buildTables ends by calling applyGroups (women who arrived
+                // together share a table), so these travel with it.
+                '_chemGroups', '_groupSplits', 'groupKeyOf', 'normaliseGroups', 'applyGroups',
                 'buildTables', 'rotateTables', 'maxRoundsFor', 'rehydratePin', 'seatingTables',
                 'buildRounds', 'seatedRoundOf', 'rosterDrift', 'driftNote', 'pinSeating',
                 'chemStoreWrite',
                 'metInRounds', 'itineraryFor', 'buildOneOnOnes', 'introRowsFor',
                 'topMatchesFor', 'shortlistControl', 'prioRows', 'renderChemistryCards',
-                'renderIntros', 'renderPriorityIntros', 'renderTables', 'renderRunOfShow',
+                'renderIntros', 'renderPriorityIntros',
+                // renderTables opens with the "arrived together" editor.
+                '_groupSel', 'groupPanel',
+                'renderTables', 'renderRunOfShow',
+                // The whole-night lookup. `_runPickId` is a sandbox global
+                // below, not lifted, for the same reason `_runFind` is: a
+                // lifted `let` lives in the script's lexical scope, where a
+                // test assigning sandbox._x writes a different binding than
+                // the code reads.
+                'planLegsFor', 'idleInStep', 'legText', 'runPick',
                 'renderFindPanel', 'findAttendees', 'runPlanKey', 'computeRunPlan', 'buildRunPlan', 'fmtClock', 'runStepIn', 'safe'];
 
 // Element ids the chemistry modal actually declares. Rendering into an id
@@ -61,7 +73,7 @@ const MODAL_IDS = ['chemView', 'introsView', 'introsHeader', 'introsGrid', 'sche
                    'tablesView', 'runView', 'candidateTable', 'candidateStats',
                    'candidateModal', 'candidateModalTitle', 'candidateModalSub',
                    'viewChemBtn', 'viewIntrosBtn', 'viewScheduleBtn', 'viewTablesBtn',
-                   'viewRunBtn', 'runFindInput'];
+                   'viewRunBtn', 'runFindInput', 'runDoorInput'];
 
 function stubDom() {
   const nodes = new Map();
@@ -77,8 +89,10 @@ function stubDom() {
       activeElement: null,
       getElementById(id) {
         if (!nodes.has(id)) throw new Error(`render wrote to unknown element id "${id}"`);
-        // runFindInput only exists once the panel has rendered it.
-        if (id === 'runFindInput' && !nodes.get('runView').innerHTML.includes('runFindInput')) return null;
+        // Both of these only exist once the panel has rendered them --
+        // runDoorInput only for an event whose date has passed.
+        if ((id === 'runFindInput' || id === 'runDoorInput')
+            && !nodes.get('runView').innerHTML.includes(id)) return null;
         return nodes.get(id);
       },
     },
@@ -117,9 +131,14 @@ function view(W = 12, M = 12, size = 6) {
     // Pinning is covered in chemistry-persistence; these render against a
     // fresh solve, so the pin stays null.
     _pinnedPlan: null, _pinRev: 0, _chemEventId: null, _runPlanCache: null,
+    // The door-count panel at the foot of the run-of-show screen reads the
+    // event doc for its date and doorCount, and the roster for the
+    // denominator. Empty by default; the door tests below supply both.
+    allEvents: [], allRegistrations: [],
     _introsDone: new Set(), _priorityDone: new Set(), _prioMode: 'all', _shortlistN: 3,
     _tableSize: size, _tableRound: 1, _tableRounds: 4, _roundMinutes: 15, _oneOnOneMinutes: 7,
     _runTimer: null, _runEndsAt: null, _runPaused: null, _runStep: 0, _runFind: '',
+    _runPickId: null,
     ONE_ON_ONE_MS: 5 * 60 * 1000,
   };
   sandbox.window = sandbox;
@@ -590,30 +609,82 @@ describe('renderRunOfShow', () => {
     expect(html).toContain('runNudge(2)');
   });
 
-  it('shows the lookup box on every render — it is the point of the view', () => {
+  it('shows the roster as tappable names on every render — typing is the fallback, not the way in', () => {
     const { sandbox, nodes } = view();
-    sandbox.renderRunOfShow();
-    expect(nodes.get('runView').innerHTML).toContain('Where do I sit?');
-  });
-
-  it('answers "where do I sit" with a table for every round', () => {
-    const { sandbox, nodes } = view();
-    sandbox._runFind = 'Marco3';
     sandbox.renderRunOfShow();
     const html = nodes.get('runView').innerHTML;
-    expect(html).toContain('Marco3');
-    expect((html.match(/run-find-leg/g) || []).length).toBeGreaterThanOrEqual(3);
-    expect(html).toContain('R1');
-    expect(html).toContain('R3');
-    expect(html).toContain('Table');
+    expect(html).toContain('runFindInput');
+    // One tappable chip per person, so a host in a dark room never has to
+    // spell a surname one-handed.
+    expect((html.match(/rs-pick/g) || []).length)
+      .toBeGreaterThanOrEqual(sandbox._chemWomen.length + sandbox._chemMen.length);
+    expect(html).toContain('runPick(');
   });
 
-  it('marks the round currently running in the lookup', () => {
+  it('narrows the roster as the host types rather than hiding it', () => {
     const { sandbox, nodes } = view();
-    sandbox._runFind = 'Wendy0';
+    sandbox.renderRunOfShow();
+    const all = (nodes.get('runView').innerHTML.match(/rs-pick/g) || []).length;
+    sandbox._runFind = 'Marco3';
+    sandbox.renderRunOfShow();
+    const some = (nodes.get('runView').innerHTML.match(/rs-pick/g) || []).length;
+    expect(some).toBeGreaterThan(0);
+    expect(some).toBeLessThan(all);
+    expect(nodes.get('runView').innerHTML).toContain('Marco3');
+  });
+
+  // The regression this whole change exists for. The lookup used to be handed
+  // only the seated rounds, so it answered 3 of 9 steps and went silent for
+  // every 1-on-1 — the half of the night it was most asked about.
+  it('answers for every plan step once someone is picked, 1-on-1s included', () => {
+    const { sandbox, nodes } = view();
+    sandbox._runPickId = 'm3';
+    sandbox.renderRunOfShow();
+    const html = nodes.get('runView').innerHTML;
+    const plan = sandbox.buildRunPlan();
+    const legs = (html.match(/run-find-leg/g) || []).length;
+    expect(plan.length).toBeGreaterThan(plan.filter(s => s.kind === 'round').length);
+    expect(legs).toBe(plan.length);
+    expect(html).toContain('1-on-1s');
+  });
+
+  it('leads with where they are now and where they go next', () => {
+    const { sandbox, nodes } = view();
+    sandbox._runPickId = 'w0';
     sandbox._runStep = 1;
     sandbox.renderRunOfShow();
-    expect(nodes.get('runView').innerHTML).toContain('run-find-leg now');
+    const html = nodes.get('runView').innerHTML;
+    expect(html).toContain('rs-now');
+    expect(html).toContain('Now &middot;');
+    expect(html).toContain('Next');
+    // And the step actually running is marked in the full list.
+    expect(html).toContain('run-find-leg now');
+  });
+
+  it('names the people with nobody to talk to in a 1-on-1 round', () => {
+    // 9 women against 20 men is Round 2's real mix: eleven men are unpaired
+    // in every 1-on-1 round and used to appear nowhere on the screen at all.
+    const { sandbox, nodes } = view(9, 20, 6);
+    const plan = sandbox.buildRunPlan();
+    sandbox._runStep = plan.findIndex(s => s.kind === 'ones');
+    expect(sandbox._runStep).toBeGreaterThan(-1);
+    sandbox.renderRunOfShow();
+    const html = nodes.get('runView').innerHTML;
+    expect(html).toContain('Nobody to talk to');
+    expect(html).toContain('rs-idle');
+    // Named, not counted — a host can act on names.
+    expect(html).toMatch(/Nobody to talk to\s*&middot;\s*11 of 29/);
+    // Eleven tappable names, not just the count.
+    const idleBlock = html.slice(html.indexOf('rs-idle'));
+    expect((idleBlock.match(/rs-pick/g) || []).length).toBe(11);
+  });
+
+  it('says nothing about idle people when the room is balanced', () => {
+    const { sandbox, nodes } = view(10, 10, 6);
+    const plan = sandbox.buildRunPlan();
+    sandbox._runStep = plan.findIndex(s => s.kind === 'ones');
+    sandbox.renderRunOfShow();
+    expect(nodes.get('runView').innerHTML).not.toContain('Nobody to talk to');
   });
 
   it('says so plainly when the name is not in the room', () => {
@@ -623,11 +694,30 @@ describe('renderRunOfShow', () => {
     expect(nodes.get('runView').innerHTML).toContain('No one by that name');
   });
 
-  it('ignores a query too short to mean anything', () => {
+  // The two-character floor and the six-result cap are deliberately gone.
+  // They made sense when this fed a search-results list; the panel now shows
+  // the roster as tappable chips and typing narrows it, so an empty query has
+  // to return the whole room or there is nothing to tap.
+  it('returns the whole roster for an empty query — the roster is the index', () => {
+    const { sandbox } = view(6, 3);
+    const all = sandbox.findAttendees('');
+    expect(all.length).toBe(sandbox._chemWomen.length + sandbox._chemMen.length);
+    expect(sandbox.findAttendees('   ').length).toBe(all.length);
+  });
+
+  it('narrows on a single character rather than waiting for two', () => {
     const { sandbox } = view();
-    expect(sandbox.findAttendees('W')).toEqual([]);
-    expect(sandbox.findAttendees('  ')).toEqual([]);
+    const one = sandbox.findAttendees('W');
+    expect(one.length).toBeGreaterThan(0);
+    expect(one.length).toBeLessThan(sandbox.findAttendees('').length);
     expect(sandbox.findAttendees('Wendy1').length).toBeGreaterThan(0);
+  });
+
+  it('does not cap the matches — every match is tappable', () => {
+    const { sandbox } = view(6, 3);
+    // Every synthetic surname is Quinn, so this matches the whole room.
+    expect(sandbox.findAttendees('quinn').length)
+      .toBe(sandbox._chemWomen.length + sandbox._chemMen.length);
   });
 
   it('finds people by surname and by email too', () => {
@@ -647,5 +737,97 @@ describe('renderRunOfShow', () => {
     sandbox._chemWomen = []; sandbox._chemMen = []; sandbox._chemPairs = [];
     expect(() => sandbox.renderRunOfShow()).not.toThrow();
     expect(nodes.get('runView').innerHTML).toContain('No attendees scored yet');
+  });
+});
+
+// ── The door count ───────────────────────────────────────────────────────
+// This screen is the only moment the number exists: the host is holding it at
+// the end of the night, in the room, with the people still in front of them.
+// mixCell() has had a "door N · %show" branch since #324 and no event has ever
+// carried a doorCount, so the branch was dead and the show rate had never been
+// measured (Evidence §4 of the 2026-09-10 dashboard review).
+//
+// The gate matters as much as the box: asking how many showed up to an event
+// that has not happened is noise on the screen the host uses to run it.
+describe('renderRunOfShow — door count', () => {
+  const withEvent = (dateOffsetDays, extra = {}, regs = 20) => {
+    const v = view();
+    v.sandbox._chemEventId = 'ev1';
+    v.sandbox.allEvents = [{
+      id: 'ev1', title: 'Loxleys',
+      date: new Date(Date.now() + dateOffsetDays * 86400000),
+      ...extra,
+    }];
+    v.sandbox.allRegistrations = Array.from({ length: regs }, (_, i) => ({
+      eventId: 'ev1', email: `p${i}@example.com`,
+    }));
+    return v;
+  };
+
+  it('shows no door box before the event has happened', () => {
+    const { sandbox, nodes } = withEvent(3);
+    sandbox.renderRunOfShow();
+    expect(nodes.get('runView').innerHTML).not.toContain('runDoorInput');
+  });
+
+  it('shows the box, empty, once the date has passed', () => {
+    const { sandbox, nodes } = withEvent(-1);
+    sandbox.renderRunOfShow();
+    const html = nodes.get('runView').innerHTML;
+    expect(html).toContain('runDoorInput');
+    expect(html).toContain('runSaveDoorCount()');
+    expect(html).toContain('20 confirmed registered');
+    // No count typed yet, so no percentage is claimed.
+    expect(html).not.toContain('% show');
+  });
+
+  it('prefills a stored count and states the show rate', () => {
+    const { sandbox, nodes } = withEvent(-1, { doorCount: 17 });
+    sandbox.renderRunOfShow();
+    const html = nodes.get('runView').innerHTML;
+    expect(html).toContain('value="17"');
+    expect(html).toContain('85% show');
+  });
+
+  it('treats a stored zero as a real count, not as absent', () => {
+    // "Nobody came" and "nobody counted" are different answers and the box has
+    // to be able to say the first one.
+    const { sandbox, nodes } = withEvent(-1, { doorCount: 0 });
+    sandbox.renderRunOfShow();
+    const html = nodes.get('runView').innerHTML;
+    expect(html).toContain('value="0"');
+    expect(html).toContain('0% show');
+  });
+
+  it('leaves the box blank for null, undefined and a junk value alike', () => {
+    for (const doorCount of [null, undefined, 'twelve']) {
+      const { sandbox, nodes } = withEvent(-1, { doorCount });
+      sandbox.renderRunOfShow();
+      const html = nodes.get('runView').innerHTML;
+      expect(html, `doorCount: ${JSON.stringify(doorCount)}`).toContain('value=""');
+      expect(html).not.toContain('% show');
+    }
+  });
+
+  it('renders no panel at all when no event is loaded', () => {
+    // The modal can be open on a fresh solve with no _chemEventId; that must
+    // not throw on allEvents.find.
+    const { sandbox, nodes } = view();
+    expect(() => sandbox.renderRunOfShow()).not.toThrow();
+    expect(nodes.get('runView').innerHTML).not.toContain('runDoorInput');
+  });
+
+  it('keeps a half-typed count instead of snapping it back on the 1s repaint', () => {
+    // The clock repaint replaces this whole panel once a second. Reading the
+    // stored value back over what the host is typing loses the digit they just
+    // pressed -- the same failure runFindInput's caret restore exists for.
+    const { sandbox, nodes } = withEvent(-1, { doorCount: 17 });
+    sandbox.renderRunOfShow();
+    const box = nodes.get('runDoorInput');
+    box.value = '2';
+    sandbox.document.activeElement = { id: 'runDoorInput' };
+    sandbox.renderRunOfShow();
+    expect(nodes.get('runView').innerHTML).toContain('value="2"');
+    expect(nodes.get('runView').innerHTML).not.toContain('value="17"');
   });
 });

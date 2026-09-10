@@ -1305,6 +1305,24 @@
         .run-nudge .action-btn:hover { background:rgba(212,175,55,0.12); }
         .run-nudge-note { color:rgba(245,243,240,0.35); flex-basis:100%; font-size:11px; }
 
+        /* Door count. Same gold "this needs a human" treatment as the nudge
+           bar, because it is the same kind of thing: the host supplying
+           something the data cannot. Only rendered once the event is past. */
+        .run-door {
+            display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+            font-size:12px; color:rgba(245,243,240,0.55);
+            margin-top:16px; padding:10px 12px;
+            background:rgba(212,175,55,0.07);
+            border:1px solid rgba(212,175,55,0.18);
+            border-radius:8px;
+        }
+        .run-door .action-btn { border-color:rgba(212,175,55,0.4); color:var(--gold); }
+        .run-door .action-btn:hover { background:rgba(212,175,55,0.12); }
+        .run-door input { width:82px; background:rgba(255,255,255,0.06);
+            border:1px solid rgba(212,175,55,0.3); border-radius:4px;
+            padding:5px 8px; color:var(--white); font-size:13px; }
+        .run-door-note { color:rgba(245,243,240,0.4); flex-basis:100%; font-size:11px; line-height:1.5; }
+
         /* "Where do I sit?" — the lookup that replaces scanning a printed
            seating chart for a name while the room waits. */
         .run-find { position:relative; margin:10px 0 4px; }
@@ -1333,7 +1351,111 @@
         .run-find-leg.now .run-find-r { color:var(--gold); }
         .run-find-t { font-weight:700; color:var(--white); white-space:nowrap; flex-shrink:0; }
         .run-find-with { font-size:12px; color:rgba(245,243,240,0.5); overflow:hidden; text-overflow:ellipsis; }
-        @media (max-width: 640px) { .run-clock { font-size:56px; } .run-step { min-width:100%; } }
+        /* Tap a name instead of typing it — a dark, loud room, one hand. */
+        /* Capped, because at 29 people this is eight wrapped rows and it
+           pushed the pair list — the thing the host is actually reading out —
+           clean off a phone screen. Three rows and a scroll: still one tap for
+           anyone near the top, still browsable, and typing narrows it to a
+           single row. */
+        .rs-roster {
+            display:flex; flex-wrap:wrap; gap:5px; margin-top:10px;
+            max-height:104px; overflow-y:auto;
+            -webkit-overflow-scrolling:touch;
+        }
+        .rs-roster::-webkit-scrollbar { width:5px; }
+        .rs-roster::-webkit-scrollbar-thumb { background:rgba(255,107,107,0.25); border-radius:3px; }
+        .rs-pick { cursor:pointer; font-family:inherit; font-size:12px; }
+        .rs-pick:hover { border-color:var(--coral); color:#fff; }
+        .rs-picked { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+        .rs-clear { font-size:12px; padding:5px 11px; }
+
+        /* NOW / NEXT — the two things the question actually wants. */
+        .rs-now { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .rs-cell {
+            border:1px solid rgba(255,255,255,0.09); border-radius:10px; padding:10px 12px;
+            background:rgba(255,255,255,0.03); min-width:0;
+        }
+        .rs-cell.next { background:rgba(212,175,55,0.06); border-color:rgba(212,175,55,0.22); }
+        .rs-cell.idle { background:rgba(255,107,107,0.07); border-color:rgba(255,107,107,0.25); }
+        .rs-k { font-size:10px; text-transform:uppercase; letter-spacing:.08em;
+                color:rgba(245,243,240,0.4); margin-bottom:3px; }
+        .rs-cell.next .rs-k { color:var(--gold); }
+        .rs-cell.idle .rs-k { color:var(--coral); }
+        .rs-v { font-size:19px; font-weight:700; color:var(--white); line-height:1.15;
+                overflow-wrap:anywhere; }
+        .rs-sub { font-size:11px; color:rgba(245,243,240,0.45); margin-top:3px; overflow-wrap:anywhere; }
+        .rs-all { margin-top:10px; }
+        .rs-all > summary { cursor:pointer; font-size:11px; color:rgba(245,243,240,0.45); list-style:none; }
+        .rs-all > summary::-webkit-details-marker { display:none; }
+        .rs-all > summary::before { content:"▸ "; color:var(--coral); }
+        .rs-all[open] > summary::before { content:"▾ "; }
+        .run-find-leg.idle .run-find-t { color:var(--coral); }
+
+        /* The people this round forgot. */
+        .rs-idle {
+            margin-top:12px; padding:10px 12px; border-radius:9px;
+            background:rgba(255,107,107,0.07); border:1px solid rgba(255,107,107,0.25);
+        }
+        .rs-idle-head {
+            font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+            color:var(--coral); font-weight:700; margin-bottom:7px;
+        }
+        .rs-idle-note { font-size:11px; color:rgba(245,243,240,0.45); margin-top:7px; }
+
+        @media (max-width: 640px) {
+            .run-clock { font-size:56px; }
+            .run-step { min-width:100%; }
+            /* Two cells side by side at 375px leaves ~120px each, which cuts
+               "Table 3" in half once the label wraps. Stack them. */
+            .rs-now { grid-template-columns:1fr; }
+        }
+
+        /* Arrived together — the party editor and its markers */
+        .party-box {
+            margin: 0 0 12px; padding: 10px 12px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 9px;
+        }
+        .party-box > summary {
+            cursor: pointer; font-size: 12px; font-weight: 600;
+            color: rgba(245,243,240,0.75); list-style: none;
+        }
+        .party-box > summary::-webkit-details-marker { display: none; }
+        .party-box > summary::before { content: "▸ "; color: var(--coral); }
+        .party-box[open] > summary::before { content: "▾ "; }
+        .party-note { font-size: 11.5px; line-height: 1.55; color: rgba(245,243,240,0.45); margin: 8px 0 10px; max-width: 72ch; }
+        .party-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+        .party-tag {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 12px; color: rgba(245,243,240,0.85);
+            background: rgba(212,175,55,0.10);
+            border: 1px solid rgba(212,175,55,0.30);
+            border-radius: 14px; padding: 4px 6px 4px 5px;
+        }
+        .party-x {
+            background: none; border: none; color: rgba(245,243,240,0.45);
+            font-size: 15px; line-height: 1; cursor: pointer; padding: 0 3px;
+        }
+        .party-x:hover { color: var(--coral); }
+        /* The party letter, on a seating chip and on the tag that defines it. */
+        .party-mark {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 13px; height: 13px; margin-left: 4px; padding: 0 2px;
+            border-radius: 3px; font-size: 9px; font-weight: 700;
+            background: var(--gold); color: #1a1200;
+            vertical-align: baseline;
+        }
+        .party-picker { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+        .group-pick { cursor: pointer; font-family: inherit; }
+        .group-pick.sel { outline: 2px solid var(--coral); outline-offset: 1px; color: #fff; }
+        .group-pick.taken { border-style: dashed; }
+        .party-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .party-warn {
+            margin-top: 10px; padding: 8px 10px; border-radius: 7px;
+            font-size: 11.5px; line-height: 1.55; color: rgba(245,243,240,0.8);
+            background: rgba(255,107,107,0.07); border: 1px solid rgba(255,107,107,0.25);
+        }
 
         /* Tables view */
         .table-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
@@ -1578,7 +1700,7 @@
                  these are the supporting read. They sit inside Overview rather
                  than above the tab panes so every other section opens on its own
                  content — Revenue already carries the five detail KPIs (Active
-                 Subs, Ticket Revenue, Rev/Buyer, LTV, LTV:CAC) that were split
+                 Subs, Ticket Revenue, Rev/Ticket, Lifetime Rev/Buyer, LTV:CAC) that were split
                  off this grid. Every id below is still populated by renderKPIs(),
                  so no metric stopped being calculated. -->
             <div class="kpi-grid kpi-grid-4">
@@ -1602,15 +1724,20 @@
                     <div class="kpi-label">Blended CAC</div>
                     <div class="kpi-value" id="kpiCAC">—</div>
                     <div class="kpi-foot">
-                        <span class="kpi-delta" id="kpiCACTrend">All acquisition ÷ new buyers</span>
+                        <span class="kpi-delta" id="kpiCACTrend">All acquisition ÷ paying buyers</span>
                         <span class="kpi-spark" id="sparkCac"></span>
                     </div>
                 </div>
                 <div class="kpi-card">
-                    <div class="kpi-label">Ticket Velocity</div>
+                    <!-- Ids keep their velocity* names on purpose: renaming
+                         them would have to be matched in renderKPIs, the
+                         snapshot and renderReport at once, and a missed one
+                         renders "undefined" or throws. The METRIC changed on
+                         2026-09-10, the ids did not. -->
+                    <div class="kpi-label">Sales Pace</div>
                     <div class="kpi-value" id="kpiVelocity">—</div>
                     <div class="kpi-foot">
-                        <span class="kpi-delta" id="kpiVelocityTrend">Tickets / day</span>
+                        <span class="kpi-delta" id="kpiVelocityTrend">vs past events at the same T-minus</span>
                         <span class="kpi-spark" id="sparkTickets"></span>
                     </div>
                 </div>
@@ -1631,11 +1758,11 @@
             </div>
 
             <!-- No tables on Overview. It is hero, KPIs, trend chart — nothing
-                 else. The three cards that used to sit here all moved and none
-                 were rebuilt: Recent Signups and Live Activity to Full Report,
-                 Subscription Breakdown to Revenue (next to the Active
-                 Subscriptions KPI it explains). Same markup, same renderers,
-                 same element ids in their new homes. -->
+                 else. Recent Signups and Live Activity moved to Full Report --
+                 same markup, same renderers, same element ids in their new home.
+                 Subscription Breakdown moved here too and was then retired
+                 outright on 2026-09-10, with the rest of the subscription
+                 surfaces: memberships are paused and `payments` is empty. -->
         </div>
 
         <!-- Full Report Tab -->
@@ -1661,8 +1788,11 @@
                         <div class="metric-title" style="margin-bottom:14px;">Tickets by event</div>
                         <div id="reportEventBars"><div class="spinner"></div></div>
                     </div>
-                    <div class="card" style="padding:16px 18px;display:flex;flex-direction:column;align-items:center;">
-                        <div class="metric-title" style="align-self:flex-start;margin-bottom:14px;">Ticket velocity</div>
+                    <!-- Was a centered 96px donut; the pacing chart wants the
+                         full width of the card, so this no longer centers. -->
+                    <div class="card" style="padding:16px 18px;">
+                        <div class="metric-title" style="margin-bottom:4px;">Sales pace</div>
+                        <div style="font-size:10.5px;color:var(--text-faint);margin-bottom:12px;">Paid tickets sold by each day before the event</div>
                         <div id="reportVelocity"></div>
                     </div>
                 </div>
@@ -1777,11 +1907,10 @@
                                 <th>Tier</th>
                                 <th>Status</th>
                                 <th>Joined</th>
-                                <th>LTV</th>
                             </tr>
                         </thead>
                         <tbody id="allMembers">
-                            <tr><td colspan="8"><div class="spinner"></div></td></tr>
+                            <tr><td colspan="7"><div class="spinner"></div></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1810,27 +1939,22 @@
                 <div class="kpi-card">
                     <div class="kpi-label">Ticket Revenue</div>
                     <div class="kpi-value" id="kpiMRR">—</div>
-                    <div class="kpi-foot"><span class="kpi-delta" id="kpiMRRTrend">All confirmed tickets</span></div>
+                    <div class="kpi-foot"><span class="kpi-delta" id="kpiMRRTrend">Paid tickets only</span></div>
                 </div>
                 <div class="kpi-card">
-                    <div class="kpi-label">Revenue Per Buyer</div>
-                    <div class="kpi-value" id="kpiARPU">—</div>
-                    <div class="kpi-foot"><span class="kpi-delta">Ticket rev / unique buyer</span></div>
+                    <div class="kpi-label">Revenue / Ticket</div>
+                    <div class="kpi-value" id="kpiRevPerTicket">—</div>
+                    <div class="kpi-foot"><span class="kpi-delta" id="kpiRevPerTicketTrend">Ticket rev ÷ paid tickets</span></div>
                 </div>
                 <div class="kpi-card">
-                    <div class="kpi-label">Est. LTV</div>
+                    <div class="kpi-label">Lifetime Rev / Buyer</div>
                     <div class="kpi-value" id="kpiLTV">—</div>
-                    <div class="kpi-foot"><span class="kpi-delta" id="kpiLTVTrend">Rev/buyer × avg events</span></div>
+                    <div class="kpi-foot"><span class="kpi-delta" id="kpiLTVTrend">Rev/ticket × tickets/buyer</span></div>
                 </div>
                 <div class="kpi-card">
                     <div class="kpi-label">LTV : CAC</div>
                     <div class="kpi-value" id="kpiLTVCAC">—</div>
                     <div class="kpi-foot"><span class="kpi-delta" id="kpiLTVCACTrend">Target: 3:1+</span></div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-label">Active Subscriptions</div>
-                    <div class="kpi-value" id="kpiActive">—</div>
-                    <div class="kpi-foot"><span class="kpi-delta" id="kpiActiveTrend">Paying + trialing</span></div>
                 </div>
             </div>
 
@@ -1856,35 +1980,11 @@
                 <div class="rc-chart" id="chartTickets"></div>
             </div>
 
-            <!-- Moved off Overview. It sits here because it is the breakdown of
-                 the Active Subscriptions KPI directly above it — same numbers,
-                 split by tier, with the monthly dollars each tier contributes. -->
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">Subscription Breakdown</h2>
-                </div>
-                <div class="table-scroll">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Tier</th>
-                                <th>Count</th>
-                                <th>% of total</th>
-                                <th>Monthly $</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tierBreakdown">
-                            <tr><td colspan="4"><div class="spinner"></div></td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
             <div class="candidate-stats" id="revenueKPIs" style="margin-bottom:20px;"></div>
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">Payment History</h2>
-                    <span id="paymentHistoryNote" style="font-size:12px;color:rgba(245,243,240,0.5);">Tickets + subscriptions · newest first</span>
+                    <span id="paymentHistoryNote" style="font-size:12px;color:rgba(245,243,240,0.5);">Ticket sales · newest first</span>
                 </div>
                 <div class="table-scroll is-capped">
                     <table>
@@ -1893,7 +1993,7 @@
                                 <th>Person</th>
                                 <th>Type</th>
                                 <th>Amount</th>
-                                <th>Event / Tier</th>
+                                <th>Event</th>
                                 <th>Date</th>
                             </tr>
                         </thead>
@@ -2420,6 +2520,16 @@
                 </p>
                 <div id="retentionBody"><div class="spinner"></div></div>
             </div>
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">💘 Matches</h2>
+                    <button onclick="loadMatches()" style="padding:7px 14px; background:var(--coral); color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:13px;">↻ Refresh</button>
+                </div>
+                <p style="font-size: 13px; color: rgba(245,243,240,0.55); margin: -6px 0 16px; line-height: 1.6;">
+                    Did the promise happen? Per past event: who was sent the <strong>"who did you click with"</strong> email, who <strong>picked</strong> anyone, and how many <strong>mutual matches</strong> came out of it — from <code>post_event_prompts</code>, <code>connection_intents</code> and <code>matches</code>. Attendees are the same confirmed-registration count as above. An event under 7 days old is <strong>still open</strong>: picks keep arriving for days after the night, so its shares are not yet a verdict.
+                </p>
+                <div id="matchesBody"><div class="spinner"></div></div>
+            </div>
         </div>
 
         <!-- Funnel Tab -->
@@ -2511,7 +2621,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getFirestore, collection, query, orderBy, limit, getDocs, where, addDoc, Timestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, collection, query, orderBy, limit, startAfter, getDocs, where, addDoc, Timestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
@@ -2534,9 +2644,15 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         const db = getFirestore(app);
 
         // ─── Constants ─────────────────────────────────────
-        const TIER_PRICES = { free: 9.99, mid: 19.99, premium: 39.99 };
+        // TIER_PRICES and AVG_LIFETIME_MONTHS went out with the subscription
+        // surfaces on 2026-09-10. The `payments` collection holds zero
+        // documents and all 117 users sit at subscriptionStatus null / tier
+        // free -- memberships are paused (see the note at the top of
+        // api/declare-connection.js). Every number those two constants
+        // produced was a model: a monthly revenue nobody billed and a $180
+        // per-member LTV no dollar backed. TIER_LABELS stays; the tier badge
+        // still has to name a tier.
         const TIER_LABELS = { free: 'Spark', mid: 'Kindling', premium: 'Fire' };
-        const AVG_LIFETIME_MONTHS = 18; // conservative
         // Eventbrite's standard organizer fee schedule
         const EB_FEE_RATE = 0.037;  // 3.7% of face value
         const EB_FEE_FLAT = 1.79;   // + $1.79 per ticket
@@ -2547,8 +2663,11 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // (commonly ~0.029) — and if the 3.7% already includes processing on your
         // plan, leave this at 0 or you'll double-count.
         const EB_PAYMENT_RATE = 0;
-        // Ticket velocity benchmark: 30 tickets across a 20-day sale window (1.5/day).
-        const TARGET_TICKETS_PER_DAY = 30 / 20;
+        // There is deliberately no flat tickets-per-day target here any more.
+        // TARGET_TICKETS_PER_DAY (30 tickets / 20 days = 1.5/day) was removed on
+        // 2026-09-10: tickets do not sell at a constant rate, so a constant
+        // benchmark cannot judge them. Sales pace is measured against the past
+        // events themselves instead — see pacingCurves().
 
         // ─── Sales channels ────────────────────────────────
         // Three channels now: our own site, Eventbrite, and Meetup. Classification
@@ -2846,7 +2965,6 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 renderMetric();
                 startMetricRotation();
                 renderRecentSignups();
-                renderTierBreakdown();
                 renderActivityFeed();
                 renderAllMembers();
                 renderPaymentHistory();
@@ -3557,6 +3675,11 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             // Expose to rounds functions
             _chemWomen = women; _chemMen = men; _chemPairs = pairs;
 
+            // Assigned, not merged, so opening a second event never inherits
+            // the first one's parties. chemStoreRestore() merges the host's
+            // hand-linked ones on top a few lines below.
+            _chemGroups = normaliseGroups(seedParties(eventRegs, attendees), attendees);
+
             // Restore this device's memory of the event — the pinned seating,
             // the run clock, the ticked-off intros — then pin a plan if there
             // is not one yet. Pinning on first open rather than on first
@@ -3707,7 +3830,12 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             _prioMode = 'all';
             _shortlistN = 3;
             _runFind = '';
+            _runPickId = null;
             _tableRound = 1;
+            // Half-made party selection, not the parties themselves — those
+            // are stored, because re-entering them at the door is the one
+            // thing the host cannot spare a minute for.
+            _groupSel = new Set();
         };
 
         // ── View toggle ───────────────────────────────────────
@@ -4153,6 +4281,181 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             return (x, y) => idx.get(x.id + '|' + y.id) || null;
         }
 
+        // ── Who arrived together ───────────────────────────────────────
+        //
+        // Two women who came as a pair usually want the same table, and the
+        // seating had no idea they existed: it placed every woman purely on
+        // her chemistry against the men, so friends landed together only by
+        // luck. Measured on a 10/10 room, the solver kept 1 of 2 pairs whole
+        // by accident, and 2 of 5.
+        //
+        // WHERE THE ANSWER COMES FROM, AND WHY IT IS MOSTLY THE HOST.
+        // Only one field in the data has ever identified a party: a shared
+        // `paymentIntentId`, written by the on-site Stripe checkout for a
+        // 2-for-1 buyer and their +1. Measured against the live collection,
+        // that covers 11 of 60 women ever registered (18%), and has
+        // identified exactly ONE pair in the whole history. The rest arrive
+        // by Eventbrite import (37% of women — Eventbrite's own order_id is
+        // available on the attendee record and is currently discarded at
+        // import) or walk up to the door (47%, `source: 'checkin'`, where no
+        // upstream system knows who they came with and only the host does).
+        //
+        // So this is seeded from the data where the data knows, and is
+        // otherwise the host tapping two names together. Building it on the
+        // payment key alone would have shipped a feature that looks right and
+        // does nothing at a real event.
+        //
+        // Stored per event in the same localStorage record as the pin and the
+        // ticked-off intros — deliberately not Firestore, for the reason
+        // given at chemStoreWrite: a denied read there fails silently, which
+        // is the one failure mode this panel cannot afford.
+        let _chemGroups = [];      // [[attendeeId, attendeeId, ...], ...]
+
+        // Parties this event's registrations already record, before the host
+        // links anyone by hand.
+        //
+        // ONE CHECKOUT IS ONE PARTY, and two fields record a checkout:
+        // `paymentIntentId` for an on-site Stripe purchase (a 2-for-1 buyer
+        // and their +1, or a guest added to that ticket afterwards) and
+        // `orderId` for an Eventbrite order. Both are needed and neither is
+        // enough. Measured against the live collection: the Stripe key is
+        // carried by 18% of women ever registered and has identified exactly
+        // ONE pair in the whole history, while Eventbrite is 37% of women —
+        // the larger half. Reading only the first, as this did until the
+        // Eventbrite order id started being stored, is a party detector that
+        // looks correct and finds nobody.
+        //
+        // Neither field reaches the ~47% who walk up to the door: a check-in
+        // has no purchase record at all, and no upstream system knows who they
+        // arrived with. Those are linked by hand in the Tables view and always
+        // will be. See [[who-arrived-together-is-not-in-the-data]].
+        //
+        // SAME-GENDER MEMBERS ONLY, which is why gender is part of the key:
+        // the seating holds women in place and rotates men, so a mixed party
+        // cannot be kept together past round one however it is recorded.
+        //
+        // Extracted from the modal-open path rather than left inline so the
+        // rule can be tested; nothing else about it changed.
+        function seedParties(eventRegs, attendees) {
+            const byEmail = new Map(
+                attendees.filter(u => u.email).map(u => [u.email.toLowerCase(), u]));
+            const byUserId = new Map(attendees.map(u => [u.id, u]));
+            const parties = new Map();
+            (eventRegs || []).forEach(r => {
+                const order = r.paymentIntentId || r.orderId;
+                if (!order) return;
+                const u = byUserId.get(r.userId) || byEmail.get((r.email || '').toLowerCase());
+                if (!u) return;
+                const key = order + '|' + (u.gender || '').toLowerCase();
+                if (!parties.has(key)) parties.set(key, []);
+                if (!parties.get(key).includes(u.id)) parties.get(key).push(u.id);
+            });
+            return [...parties.values()];
+        }
+
+        // Group key for one attendee, or null when they came alone.
+        function groupKeyOf(u) {
+            for (let i = 0; i < _chemGroups.length; i++) {
+                if (_chemGroups[i].includes(u.id)) return 'g' + i;
+            }
+            return null;
+        }
+
+        // Normalise: drop ids no longer registered, drop groups of one, and
+        // merge any two groups that share a member (linking A-B then B-C is
+        // one party of three, not two overlapping pairs).
+        function normaliseGroups(groups, roster) {
+            const live = new Set(roster.map(u => u.id));
+            const out = [];
+            (groups || []).forEach(g => {
+                const ids = [...new Set((g || []).filter(id => live.has(id)))];
+                if (ids.length < 2) return;
+                const hit = out.find(o => o.some(id => ids.includes(id)));
+                if (hit) ids.forEach(id => { if (!hit.includes(id)) hit.push(id); });
+                else out.push(ids);
+            });
+            return out;
+        }
+
+        // Seat every party at one table, without breaking a quota.
+        //
+        // Runs as a post-pass over the solver's own output rather than inside
+        // it, so the no-groups path is a literal no-op — the seating an event
+        // with no recorded parties gets is byte-for-byte the one it got
+        // before. Two things are deliberately NOT negotiable here:
+        //
+        //   1. THE MEN ARE NOT TOUCHED. Rotation moves whole men-groups, and
+        //      the no-repeat guarantee (tests/chemistry-rotation.test.js)
+        //      rests on their partition. Only women are re-seated.
+        //   2. QUOTAS HOLD EXACTLY. Each table keeps the same number of women
+        //      it already had. A party too big for any table's quota is seated
+        //      as far together as it fits and REPORTED, never silently split
+        //      and never allowed to unbalance a table.
+        //
+        // The cost is real and small: average table chemistry falls about 2.6
+        // to 4.4 points out of ~62 (4-7%) on a 10/10 room, and zero when
+        // there are no parties.
+        function applyGroups(tables) {
+            const parties = _chemGroups
+                .map(ids => ids.map(id => _chemWomen.find(w => w.id === id)).filter(Boolean))
+                .filter(p => p.length > 1);
+            if (!parties.length || tables.length < 2) return tables;
+
+            const pairOf = pairLookup();
+            const quota = tables.map(t => t.women.length);
+            const totalAgainst = (w, t) =>
+                t.men.reduce((s, m) => { const pr = pairOf(w, m); return s + (pr ? pr.score : 0); }, 0);
+
+            const seated = new Set();
+            tables.forEach(t => { t.women = []; });
+            _groupSplits = [];
+
+            // Biggest party first — it needs the roomiest table, and a small
+            // one placed first can strand it.
+            [...parties].sort((a, b) => b.length - a.length).forEach(party => {
+                const room = (i) => quota[i] - tables[i].women.length;
+                const fits = tables.map((t, i) => i).filter(i => room(i) >= party.length);
+                if (fits.length) {
+                    let best = fits[0], bestFit = -1;
+                    fits.forEach(i => {
+                        const f = party.reduce((s, w) => s + totalAgainst(w, tables[i]), 0) / party.length;
+                        if (f > bestFit) { bestFit = f; best = i; }
+                    });
+                    party.forEach(w => { tables[best].women.push(w); seated.add(w.id); });
+                    return;
+                }
+                // Too big for any single table's quota. Fill the roomiest
+                // tables in turn and tell the host where they ended up.
+                const order = tables.map((t, i) => i).sort((a, b) => room(b) - room(a));
+                const rest = [...party], landed = [];
+                order.forEach(i => {
+                    const n = Math.min(room(i), rest.length);
+                    if (n <= 0) return;
+                    rest.splice(0, n).forEach(w => { tables[i].women.push(w); seated.add(w.id); landed.push(i + 1); });
+                });
+                _groupSplits.push({ names: party.map(_chemShortName), tables: [...new Set(landed)] });
+            });
+
+            // Everyone else back in by the solver's own rule: the unseated
+            // woman with the most chemistry against the men already there.
+            tables.forEach((t, i) => {
+                while (t.women.length < quota[i]) {
+                    const pool = _chemWomen.filter(w => !seated.has(w.id));
+                    if (!pool.length) break;
+                    let best = pool[0], bestTotal = -1;
+                    pool.forEach(w => {
+                        const tot = totalAgainst(w, t);
+                        if (tot > bestTotal) { bestTotal = tot; best = w; }
+                    });
+                    t.women.push(best); seated.add(best.id);
+                }
+                fillTablePairs(t, pairOf);
+            });
+            return tables;
+        }
+        // Parties the quota could not keep whole, from the last applyGroups().
+        let _groupSplits = [];
+
         function buildTables(size) {
             const women = [..._chemWomen], men = [..._chemMen];
             const nTables = tableCount(size);
@@ -4228,7 +4531,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 fillTablePairs(best, pairOf);
             });
 
-            return tables;
+            // Last, because it re-seats women against the finished men
+            // partition. A no-op when nobody is recorded as arriving with
+            // anybody.
+            return applyGroups(tables);
         }
 
         // ── Rotation: men move, women hold ─────────────────────────────
@@ -4326,6 +4632,63 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 return { round: i + 1, table: ti + 1, withThem: isW ? t.men : t.women };
             });
         }
+        // ── The whole night for one person, not just the seated half ───
+        //
+        // itineraryFor() above answers for the SEATED rounds, and that is all
+        // it was ever given: renderRunOfShow handed the lookup
+        // `plan.filter(s => s.kind === 'round')`. On a 10W/10M room at the
+        // defaults that is 3 of the 9 steps — the lookup returned nothing at
+        // all for the entire 1-on-1 segment, which is more than half the
+        // night by wall clock and the part the host was most often asked
+        // about. The pairings were never missing; buildOneOnOnes() had
+        // already computed every one of them. They were simply never handed
+        // over.
+        //
+        // So this walks the PLAN. One leg per step, in the order the night
+        // runs, and it answers three different questions with the same
+        // shape:
+        //
+        //   round  → which table, and who is there to meet
+        //   ones   → which single person, by name
+        //   idle   → nobody, said out loud rather than left blank
+        //
+        // That last case is not an edge case. On the two most skewed rosters
+        // this business has actually run (9W/20M and 4W/9M) it is 38% of the
+        // room in EVERY 1-on-1 round. A blank leg told those people nothing,
+        // and told the host nothing about them either.
+        function planLegsFor(person, plan) {
+            if (!person || !plan || !plan.length) return [];
+            return plan.map((step, i) => {
+                const base = { step: i, kind: step.kind, label: step.label };
+                if (step.kind === 'round') {
+                    const ti = step.tables.findIndex(t =>
+                        t.women.some(w => w.id === person.id) || t.men.some(m => m.id === person.id));
+                    if (ti === -1) return { ...base, table: null, withThem: [], partner: null, idle: true };
+                    const t = step.tables[ti];
+                    const isW = t.women.some(w => w.id === person.id);
+                    return { ...base, table: ti + 1, withThem: isW ? t.men : t.women, partner: null, idle: false };
+                }
+                const pr = (step.pairs || []).find(p => p.a.id === person.id || p.b.id === person.id);
+                if (!pr) return { ...base, table: null, withThem: [], partner: null, idle: true };
+                const other = pr.a.id === person.id ? pr.b : pr.a;
+                return { ...base, table: null, withThem: [other], partner: other, score: pr.score, idle: false };
+            });
+        }
+
+        // Everyone with nobody to talk to in this step.
+        //
+        // Only meaningful for a 1-on-1 step: the seated rounds put the whole
+        // room at a table by construction. Returned rather than counted so
+        // the host gets NAMES — "six people are idle" is a statistic, and
+        // what a host can act on is "Ben, Sam and Ruy are idle, put them at
+        // table 2 together".
+        function idleInStep(step) {
+            if (!step || step.kind !== 'ones') return [];
+            const busy = new Set();
+            (step.pairs || []).forEach(p => { busy.add(p.a.id); busy.add(p.b.id); });
+            return [..._chemWomen, ..._chemMen].filter(u => !busy.has(u.id));
+        }
+
         // ── 1-on-1s: rounds of simultaneous pairs ──────────────────────
         //
         // Each round is a matching: every person in at most one pair. Built
@@ -4460,6 +4823,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                          oneOnOne: _oneOnOneMinutes },
                 run: { step: _runStep, endsAt: _runEndsAt, paused: _runPaused },
                 done: { intros: [..._introsDone], priority: [..._priorityDone] },
+                // Who arrived together. Mostly entered by the host — see the
+                // note above _chemGroups for why the data cannot supply it.
+                groups: _chemGroups,
             });
             try {
                 localStorage.setItem(CHEM_STORE_PREFIX + _chemEventId, payload);
@@ -4519,6 +4885,14 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             if (data.done) {
                 _introsDone   = new Set(data.done.intros   || []);
                 _priorityDone = new Set(data.done.priority || []);
+            }
+            // Merged, not replaced: the payment-derived seeds are computed
+            // fresh from the roster on every open, and a stored record that
+            // simply overwrote them would drop a 2-for-1 party the moment the
+            // host linked anyone by hand. normaliseGroups folds the overlap.
+            if (Array.isArray(data.groups)) {
+                _chemGroups = normaliseGroups(
+                    [..._chemGroups, ...data.groups], [..._chemWomen, ..._chemMen]);
             }
         }
 
@@ -4642,6 +5016,56 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 ${added.length ? `<span class="pin-names">${added.map(u => safe(_chemShortName(u))).join(', ')}</span>` : ''}</span>`;
         }
 
+        // The "arrived together" editor. Deliberately a flat row of tappable
+        // names rather than a dropdown per person: at the door the host knows
+        // the two names and wants two taps, not two menus.
+        function groupPanel() {
+            if (!_chemWomen.length) return '';
+            const nameOf = (id) => {
+                const u = _chemWomen.find(w => w.id === id) || _chemMen.find(m => m.id === id);
+                return u ? _chemShortName(u) : '(left)';
+            };
+            const parties = _chemGroups.map((ids, i) => `
+                <span class="party-tag">
+                    <span class="party-mark">${String.fromCharCode(65 + i)}</span>
+                    ${ids.map(id => safe(nameOf(id))).join(' <span style="opacity:0.4">+</span> ')}
+                    <button class="party-x" title="They do not need to sit together" onclick="unlinkGroup(${i})">&times;</button>
+                </span>`).join('');
+
+            const chips = _chemWomen.map(w => {
+                const inParty = groupKeyOf(w);
+                return `<button class="table-chip w group-pick${_groupSel.has(w.id) ? ' sel' : ''}${inParty ? ' taken' : ''}"
+                    onclick="toggleGroupSel('${safe(w.id)}')"
+                    title="${inParty ? 'Already in a party — link her again to merge the two' : 'Tap her and whoever she came with, then Link'}"
+                    >${safe(_chemShortName(w))}</button>`;
+            }).join('');
+
+            const splits = _groupSplits.length
+                ? `<div class="party-warn">${_groupSplits.map(s =>
+                    `${safe(s.names.join(' + '))} could not fit one table at ${_tableSize} seats — split across ${
+                        s.tables.length === 1 ? 'table ' + s.tables[0] : 'tables ' + s.tables.join(' and ')
+                    }. Fewer seats per table makes more, smaller tables and usually fixes it.`).join('<br>')}</div>`
+                : '';
+
+            return `<details class="party-box"${_chemGroups.length || _groupSel.size ? ' open' : ''}>
+                <summary>Arrived together${_chemGroups.length ? ` &middot; ${_chemGroups.length} part${_chemGroups.length === 1 ? 'y' : 'ies'}` : ''}</summary>
+                <div class="party-note">
+                    Women in one party are seated at the same table, and they stay there all night —
+                    women hold their seats while the men rotate. Only a shared checkout
+                    (a 2-for-1 and its +1) is detected automatically; anyone who arrived by
+                    Eventbrite or walked up to the door has to be linked here.
+                </div>
+                ${parties ? `<div class="party-list">${parties}</div>` : ''}
+                <div class="party-picker">${chips}</div>
+                <div class="party-actions">
+                    <button class="action-btn" onclick="linkGroup()"${_groupSel.size < 2 ? ' disabled' : ''}>
+                        ${_groupSel.size < 2 ? 'Tap two or more names' : `Link ${_groupSel.size} as one party`}
+                    </button>
+                </div>
+                ${splits}
+            </details>`;
+        }
+
         function renderTables() {
             const container = document.getElementById('tablesView');
             if (!_chemWomen.length && !_chemMen.length) {
@@ -4673,7 +5097,15 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     ? (((i - (_tableRound - 1)) % nTables) + nTables) % nTables + 1
                     : null;
 
-                const chip = (u, cls) => `<span class="table-chip ${cls}" title="${safe((u.firstName || '') + ' ' + (u.lastName || ''))}">${safe(_chemShortName(u))}</span>`;
+                // A woman in a party carries her party's letter, so two
+                // parties at one table stay tellable apart at a glance.
+                const chip = (u, cls) => {
+                    const gk = cls === 'w' ? groupKeyOf(u) : null;
+                    const letter = gk ? String.fromCharCode(65 + Number(gk.slice(1))) : '';
+                    return `<span class="table-chip ${cls}" title="${safe((u.firstName || '') + ' ' + (u.lastName || ''))}${
+                        letter ? ` — arrived with party ${letter}` : ''}">${safe(_chemShortName(u))}${
+                        letter ? `<span class="party-mark" aria-label="party ${letter}">${letter}</span>` : ''}</span>`;
+                };
                 return `<div class="table-card">
                     <div class="table-card-head">
                         <span class="table-card-title">Table ${i + 1}</span>
@@ -4726,6 +5158,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     ${_tableRound > 1 ? ' <span class="rotation-live">Women stay seated. Men move one table along between seatings.</span>' : ''}
                     ${driftNote()}
                 </div>
+                ${groupPanel()}
                 <div class="table-cards">${cards}</div>
                 <div style="font-size:11px;color:rgba(245,243,240,0.4);margin-top:10px;">
                     Round 1 is seeded from the strongest unseated pair, then filled with whoever has the
@@ -4736,6 +5169,41 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         : '<br>Every scored pair shares a table at some point &mdash; the rotation covers the whole room.'}
                 </div>`;
         }
+
+        // ── Linking a party by hand ────────────────────────────────────
+        //
+        // The host is the only source of this for most of the room, so the
+        // interaction has to survive a doorway: tap two names, tap Link.
+        let _groupSel = new Set();
+
+        window.toggleGroupSel = (id) => {
+            if (_groupSel.has(id)) _groupSel.delete(id);
+            else _groupSel.add(id);
+            renderTables();
+        };
+
+        // Re-pins for the same reason setTableSize does: this changes who
+        // sits where, and a pinned plan that no longer honours the parties
+        // would be a plan nobody asked for. Same cost, too — a run in
+        // progress is reset, because the room would have to be re-seated.
+        const regroup = () => {
+            _chemGroups = normaliseGroups(_chemGroups, [..._chemWomen, ..._chemMen]);
+            _groupSel = new Set();
+            pinSeating(_tableSize);
+            runReset();
+            renderTables();
+        };
+
+        window.linkGroup = () => {
+            if (_groupSel.size < 2) return;
+            _chemGroups.push([..._groupSel]);
+            regroup();
+        };
+
+        window.unlinkGroup = (i) => {
+            _chemGroups.splice(i, 1);
+            regroup();
+        };
 
         // Changing the seat count changes the table count, which changes who
         // sits with whom — so it re-pins rather than leaving a stale plan
@@ -4829,6 +5297,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         let _runPaused = null;        // ms remaining when paused, else null
         let _runStep = 0;             // index into the built plan
         let _runFind = '';            // "where do I sit?" lookup query
+        let _runPickId = null;        // whose whereabouts the panel is showing
 
         // Minutes per 1-on-1. Seven, not five: five is long enough to trade
         // names and not long enough to get past them, and this is the segment
@@ -4998,50 +5467,114 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // re-focused with the caret at the end after each repaint.
         window.runFind = (q) => { _runFind = q; renderRunOfShow(); };
         window.runFindClear = () => { _runFind = ''; renderRunOfShow(); };
+        // Picking somebody clears the query too: the roster is the index and
+        // the card is the answer, so leaving a half-typed name behind the
+        // answer only makes going back to the list confusing.
+        window.runPick = (id) => { _runPickId = id; if (id) _runFind = ''; renderRunOfShow(); };
 
-        // Everyone in the room, for the lookup. Matches on first name, last
-        // name, or email — a host who only caught a first name should not
-        // have to know the spelling of the surname.
+        // The roster, narrowed by whatever has been typed. Matches on first
+        // name, last name, or email — a host who only caught a first name
+        // should not have to know the spelling of the surname.
+        //
+        // An empty query returns EVERYONE rather than nothing, because the
+        // panel now shows the roster as tappable chips and typing only
+        // filters it. That is the substantive change: this used to require
+        // two characters before it would answer at all and then cap at six
+        // results, which made sense when its output was a search-results
+        // list and makes none when its output is the index itself. Typing is
+        // the worst available input in a dark, loud room, one-handed, and it
+        // is no longer the only way in.
         function findAttendees(q) {
             const needle = (q || '').trim().toLowerCase();
-            if (needle.length < 2) return [];
+            const roster = [..._chemWomen, ..._chemMen];
+            if (!needle) return roster;
             const hay = (u) => [u.firstName, u.lastName, u.email].filter(Boolean).join(' ').toLowerCase();
-            return [..._chemWomen, ..._chemMen].filter(u => hay(u).includes(needle)).slice(0, 6);
+            return roster.filter(u => hay(u).includes(needle));
         }
 
-        function renderFindPanel(rounds, currentRound) {
-            const results = findAttendees(_runFind);
+        // How one leg reads out loud. The whole point of the panel is that a
+        // host can say this to someone without translating anything.
+        function legText(leg) {
+            if (!leg) return { where: 'Done', who: 'that is the end of the night' };
+            if (leg.idle) {
+                return leg.kind === 'ones'
+                    ? { where: 'Sitting out', who: 'no partner this round — grab a drink or join a table' }
+                    : { where: 'Not seated', who: 'they arrived after the plan was pinned' };
+            }
+            if (leg.kind === 'round') {
+                return { where: 'Table ' + leg.table,
+                         who: 'with ' + leg.withThem.map(o => _chemShortName(o)).join(', ') };
+            }
+            return { where: _chemShortName(leg.partner), who: 'one-on-one' };
+        }
+
+        function renderFindPanel(plan, stepIdx) {
+            // Typing narrows the roster; tapping picks someone out of it.
+            // One mechanism instead of two — the old panel had a text query
+            // that produced its own separate result list, which meant a host
+            // who could see the name on screen still had to type it.
+            const shown = findAttendees(_runFind);
+            const picked = _runPickId
+                ? [..._chemWomen, ..._chemMen].find(u => u.id === _runPickId) : null;
+
             const box = `<input class="run-find-input" id="runFindInput" type="search"
-                    placeholder="Where do I sit? — type a name"
+                    placeholder="Who are you looking for?"
                     value="${safe(_runFind)}"
                     oninput="runFind(this.value)" autocomplete="off">`;
 
-            if (!_runFind.trim()) return `<div class="run-find">${box}</div>`;
-            if (!results.length) {
-                return `<div class="run-find">${box}
-                    <div class="run-find-empty">No one by that name in this event.</div></div>`;
-            }
+            // Once someone is picked the roster collapses. At 24 people it is
+            // six wrapped rows, and the answer is what the host wants on
+            // screen, not the index they got it from.
+            if (picked) {
+                const legs = planLegsFor(picked, plan);
+                const now = legs[stepIdx] || null;
+                const next = legs[stepIdx + 1] || null;
+                const isW = _chemWomen.some(w => w.id === picked.id);
+                const nowT = legText(now), nextT = legText(next);
 
-            const cards = results.map(u => {
-                const isW = _chemWomen.some(w => w.id === u.id);
-                const legs = itineraryFor(u, rounds).map(leg => {
-                    const here = leg.round === currentRound;
-                    const names = leg.withThem.map(o => _chemShortName(o)).join(', ');
-                    return `<div class="run-find-leg${here ? ' now' : ''}">
-                        <span class="run-find-r">R${leg.round}</span>
-                        <span class="run-find-t">${leg.table ? 'Table ' + leg.table : '—'}</span>
-                        <span class="run-find-with">${safe(names)}</span>
+                const rest = legs.map((leg, i) => {
+                    const t = legText(leg);
+                    return `<div class="run-find-leg${i === stepIdx ? ' now' : ''}${leg.idle ? ' idle' : ''}">
+                        <span class="run-find-r">${safe(leg.label)}</span>
+                        <span class="run-find-t">${safe(t.where)}</span>
+                        <span class="run-find-with">${safe(t.who)}</span>
                     </div>`;
                 }).join('');
-                return `<div class="run-find-card">
-                    <div class="run-find-name"><span class="table-chip ${isW ? 'w' : 'm'}">${safe(_chemShortName(u))}</span></div>
-                    ${legs}
+
+                return `<div class="run-find">
+                    <div class="rs-picked">
+                        <span class="table-chip ${isW ? 'w' : 'm'}">${safe(_chemShortName(picked))}</span>
+                        <button class="action-btn rs-clear" onclick="runPick(null)">Someone else</button>
+                    </div>
+                    <div class="rs-now">
+                        <div class="rs-cell${now && now.idle ? ' idle' : ''}">
+                            <div class="rs-k">Now &middot; ${safe(now ? now.label : '—')}</div>
+                            <div class="rs-v">${safe(nowT.where)}</div>
+                            <div class="rs-sub">${safe(nowT.who)}</div>
+                        </div>
+                        <div class="rs-cell next${next && next.idle ? ' idle' : ''}">
+                            <div class="rs-k">Next${next ? ' &middot; ' + safe(next.label) : ''}</div>
+                            <div class="rs-v">${safe(nextT.where)}</div>
+                            <div class="rs-sub">${safe(nextT.who)}</div>
+                        </div>
+                    </div>
+                    <details class="rs-all"><summary>The whole night</summary>
+                        <div class="run-find-results">${rest}</div>
+                    </details>
                 </div>`;
+            }
+
+            const chips = shown.map(u => {
+                const isW = _chemWomen.some(w => w.id === u.id);
+                return `<button class="table-chip ${isW ? 'w' : 'm'} rs-pick"
+                    onclick="runPick('${safe(u.id)}')">${safe(_chemShortName(u))}</button>`;
             }).join('');
 
             return `<div class="run-find">${box}
-                <button class="run-find-x" onclick="runFindClear()" title="Clear">&times;</button>
-                <div class="run-find-results">${cards}</div></div>`;
+                ${_runFind.trim() ? `<button class="run-find-x" onclick="runFindClear()" title="Clear">&times;</button>` : ''}
+                ${shown.length
+                    ? `<div class="rs-roster">${chips}</div>`
+                    : `<div class="run-find-empty">No one by that name in this event.</div>`}</div>`;
         }
 
         function renderRunOfShow() {
@@ -5061,8 +5594,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const remain = _runPaused !== null ? _runPaused : (running ? _runEndsAt - Date.now() : step.ms);
             const over = running && _runPaused === null && remain <= 0;
 
-            const seatedRounds = plan.filter(s => s.kind === 'round').map(s => s.tables);
-            const currentRound = step.kind === 'round' ? _runStep + 1 : null;
+            // (The lookup used to be handed only `plan.filter(kind ===
+            // 'round')`, which is why it went silent for the 1-on-1s. It gets
+            // the whole plan now — see planLegsFor.)
 
             // Body: what the host reads out for this segment.
             let body;
@@ -5074,7 +5608,13 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     return `
                     <div class="run-table">
                         <div class="run-table-n">Table ${i + 1}${from ? ` <span class="run-table-from">&larr; men from ${from}</span>` : ''}</div>
-                        <div>${[...t.women, ...t.men].map(u => `<span class="table-chip ${t.women.includes(u) ? 'w' : 'm'}">${safe(_chemShortName(u))}</span>`).join('')}</div>
+                        <div>${[...t.women, ...t.men].map(u => {
+                            const isW = t.women.includes(u);
+                            const gk = isW ? groupKeyOf(u) : null;
+                            const letter = gk ? String.fromCharCode(65 + Number(gk.slice(1))) : '';
+                            return `<span class="table-chip ${isW ? 'w' : 'm'}">${safe(_chemShortName(u))}${
+                                letter ? `<span class="party-mark">${letter}</span>` : ''}</span>`;
+                        }).join('')}</div>
                     </div>`;
                 }).join('') + `</div>`;
             } else {
@@ -5087,14 +5627,88 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                              <span class="intro-score ${p.score >= 70 ? 'high' : p.score < 45 ? 'low' : ''}" style="margin-left:6px;">${p.score}</span></div>
                     </div>`).join('') + `</div>`;
                 if (!step.pairs.length) body = '<div class="empty" style="padding:18px;">Everyone has already met everyone available.</div>';
+
+                // Who has nobody this round. The pair list is a list of
+                // people who are fine; these are the ones who are not, and
+                // until now they appeared nowhere on the screen at all.
+                //
+                // It matters more the more skewed the room is, and it matters
+                // MORE STILL if the 1-on-1s are run standing: seated, an
+                // unpaired person is sitting at a table and reads as normal;
+                // standing, they are alone in the middle of a room every
+                // seven minutes. Measured on real rosters, this is 11 of 29
+                // people (9W/20M) and 5 of 13 (4W/9M), every single round.
+                const idle = idleInStep(step);
+                if (idle.length) {
+                    const total = _chemWomen.length + _chemMen.length;
+                    body += `<div class="rs-idle">
+                        <div class="rs-idle-head">Nobody to talk to &middot; ${idle.length} of ${total}</div>
+                        <div>${idle.map(u => `<button class="table-chip ${
+                            _chemWomen.some(w => w.id === u.id) ? 'w' : 'm'} rs-pick"
+                            onclick="runPick('${safe(u.id)}')">${safe(_chemShortName(u))}</button>`).join('')}</div>
+                        <div class="rs-idle-note">Put them together at a spare table rather than leaving them standing.</div>
+                    </div>`;
+                }
             }
 
             const seatedCount = plan.filter(s => s.kind === 'round').length;
+
+            // ── Door count, once the night is over ──────────────────
+            // The morning-after number: how many people actually walked in.
+            // Nothing else on this dashboard can supply it. Digital check-in
+            // reached 91 of 140 past confirmed registrations and is a FLOOR,
+            // not a count -- attended.txt recorded 31 real heads against 26
+            // registered at Event 1. mixCell() has rendered "door N · %show"
+            // since #324 and no event has ever carried a doorCount, so that
+            // branch has been dead for the life of the field, and the show
+            // rate -- the number that decides whether to oversell 30 seats --
+            // has never been measured once.
+            //
+            // It goes HERE because this is the screen the host is holding at
+            // the end of the night, which is the only moment the number
+            // exists. The Costs row on the Events tab writes the same field
+            // for a night already gone; neither is the other's backup.
+            const runEvent = _chemEventId ? (allEvents.find(e => e.id === _chemEventId) || null) : null;
+            const runEventDate = runEvent
+                ? (runEvent.date?.toDate ? runEvent.date.toDate() : (runEvent.date ? new Date(runEvent.date) : null))
+                : null;
+            const runIsPast = !!(runEventDate && !isNaN(runEventDate) && runEventDate.getTime() < Date.now());
+            const runConfirmed = runEvent ? allRegistrations.filter(r => r.eventId === runEvent.id).length : 0;
 
             // The 1s clock repaint replaces this whole panel, caret and all.
             // Only steal focus back if the host was actually typing in it --
             // otherwise the lookup grabs the cursor once a second forever.
             const wasTyping = document.activeElement && document.activeElement.id === 'runFindInput';
+            // Same problem for the door box, plus one the lookup does not
+            // have: its value comes off the event doc, so a repaint mid-type
+            // would snap a half-typed "3" back to whatever is stored. Keep
+            // what is in the box whenever it is the focused element.
+            const doorTyping = !!(document.activeElement && document.activeElement.id === 'runDoorInput');
+            // Only looked up when it is the focused element -- otherwise this
+            // is a DOM query once a second for a value we are about to
+            // overwrite from the event doc anyway.
+            const doorEl = doorTyping ? document.getElementById('runDoorInput') : null;
+            const storedDoor = runEvent && runEvent.doorCount !== null && runEvent.doorCount !== undefined
+                && isFinite(Number(runEvent.doorCount)) ? String(Number(runEvent.doorCount)) : '';
+            const doorValue = (doorTyping && doorEl) ? doorEl.value : storedDoor;
+            const doorPct = (runConfirmed && doorValue !== '' && isFinite(Number(doorValue)))
+                ? Math.round(100 * Number(doorValue) / runConfirmed) : null;
+            const doorPanel = !runIsPast ? '' : `
+                <div class="run-door">
+                    <span style="color:var(--gold);font-weight:600;">Door count</span>
+                    <input id="runDoorInput" type="number" min="0" step="1" value="${safe(doorValue)}" placeholder="—"
+                           title="People actually counted at the door. Blank means NOT COUNTED, which is not the same as nobody came — the two are stored differently and read differently.">
+                    <button class="action-btn" onclick="runSaveDoorCount()">Save</button>
+                    <span id="runDoorSaved" style="font-size:11px;color:var(--success);display:none;">✓ Saved</span>
+                    <span>how many actually walked in${runConfirmed ? `, against ${runConfirmed} confirmed registered` : ''}${
+                        doorPct === null ? '' : ` — <strong style="color:var(--white);">${doorPct}% show</strong>`}</span>
+                    <span class="run-door-note">
+                        Count heads before you leave; nothing else can supply this number. Digital check-in is a floor, not
+                        attendance — Eventbrite imports and anyone who never scanned are confirmed with no timestamp. Blank
+                        means <em>not counted</em>, which is stored and read differently from zero. Feeds the show rate on
+                        Retention and the Mix column on Events.
+                    </span>
+                </div>`;
 
             c.innerHTML = `
                 <div class="run-head">
@@ -5126,7 +5740,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         _tableRounds > seatedCount ? ` · ${_tableRounds} asked for, only ${seatedCount} fit without repeating` : ''
                     } · <strong>${seatedCount * _roundMinutes} min of tables</strong>, then ${_oneOnOneMinutes}-minute 1-on-1s</span>
                 </div>
-                ${renderFindPanel(seatedRounds, currentRound)}
+                ${renderFindPanel(plan, runStepIn(plan))}
                 ${step.kind === 'round' && step.rotated
                     ? '<div style="font-size:13px;color:var(--gold);margin:8px 0 2px;">Women stay seated. Men move one table along.</div>' : ''}
                 ${step.kind === 'ones' && step.revisiting
@@ -5136,11 +5750,13 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     ${seatedCount} &times; ${_roundMinutes}-minute seating${seatedCount === 1 ? '' : 's'} (${movesLabel(seatedCount)}), then ${_oneOnOneMinutes}-minute 1-on-1s. The clock runs on wall
                     time, so it stays correct if the screen sleeps. 1-on-1 pairs never repeat someone you
                     already sat with, unless the room is small enough that everyone has met.
-                </div>`;
+                </div>
+                ${doorPanel}`;
 
             // Restore the caret the repaint just destroyed.
-            if (wasTyping) {
-                const input = document.getElementById('runFindInput');
+            const refocus = wasTyping ? 'runFindInput' : (doorTyping ? 'runDoorInput' : null);
+            if (refocus) {
+                const input = document.getElementById(refocus);
                 if (input) {
                     input.focus();
                     const end = input.value.length;
@@ -5148,6 +5764,42 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 }
             }
         }
+
+        // Writes events/<id>.doorCount -- the same field, in the same shape,
+        // that the Costs row on the Events tab writes. Blank is stored as
+        // NULL, not 0: "nobody counted" and "nobody came" are different
+        // answers, and every reader of this field (mixCell, the Retention
+        // show-rate card) is built to tell them apart. Rounding a blank to 0
+        // would silently drag the show rate down on every uncounted night.
+        window.runSaveDoorCount = async () => {
+            if (!_chemEventId) return;
+            const input = document.getElementById('runDoorInput');
+            if (!input) return;
+            const raw = input.value;
+            const val = raw === '' || raw == null ? null : Math.max(0, parseInt(raw, 10) || 0);
+            try {
+                await updateDoc(doc(db, 'events', _chemEventId), { doorCount: val });
+                // Local cache, so the Events tab's Mix cell and this panel's
+                // own "% show" pick it up without a reload.
+                const ev = allEvents.find(e => e.id === _chemEventId);
+                if (ev) ev.doorCount = val;
+                const saved = document.getElementById('runDoorSaved');
+                if (saved) { saved.style.display = ''; setTimeout(() => { saved.style.display = 'none'; }, 2000); }
+                renderAdminEvents();
+                // Retention re-reads Firestore, so only nudge it when its tab
+                // is the one on screen -- otherwise entering the tab reloads
+                // it anyway and this would be a read for nobody.
+                const rt = document.getElementById('tab-retention');
+                if (rt && rt.classList.contains('active')) loadRetention();
+                // Repaint the panel AFTER the tick has been seen, same reason
+                // the Costs row waits: an instant repaint swallows it and
+                // makes a save that worked feel like one that did not.
+                setTimeout(renderRunOfShow, 2100);
+            } catch (e) {
+                console.error('[run] door count save failed:', e);
+                alert('Could not save the door count: ' + (e && e.message ? e.message : e));
+            }
+        };
 
         window.togglePrio = (wId, mId) => {
             const key = wId + '|' + mId;
@@ -5409,14 +6061,98 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             }
         }
 
+        // Read a whole collection in pages, newest first.
+        //
+        // WHY THIS EXISTS: loadPayments() used to take the 200 newest tickets
+        // and stop. Every all-time figure on this dashboard -- revenue, net
+        // revenue, CAC, LTV:CAC, the channel and event P&L, the campaign
+        // panel's all-time cost per ticket -- is summed off that list, so past
+        // 200 tickets they would all simply stop growing. Nothing would error
+        // and no figure would look wrong; the dashboard would just quietly
+        // describe the 200 most recent tickets and call it all time. There
+        // were 145 confirmed tickets and events sell 19-29, so that was about
+        // two events away when it was found (the metrics review of
+        // 2026-09-10, MECHANISM).
+        //
+        // Reads are billed per DOCUMENT, not per query, so paging costs
+        // exactly what the capped read cost for the documents it already
+        // returned, plus the ones it was dropping. Whole-collection reads on
+        // the refresh tick are already how loadUsers() and loadAdminEvents()
+        // work -- this is the same pattern, not a new one.
+        //
+        // HARD_CAP is loop protection, not a data decision. If it is ever hit
+        // the caller SAYS SO on the page: silently truncating is the exact bug
+        // this function replaced, and re-introducing it behind a bigger number
+        // would be no better than the 200.
+        const PAGE_SIZE = 500;
+        const HARD_CAP = 10000;
+
+        async function readAllDocs(colName, orderField) {
+            const out = [];
+            const seen = new Set();
+            let cursor = null;
+            let truncated = false;
+            for (;;) {
+                const base = [collection(db, colName), orderBy(orderField, 'desc')];
+                const snap = await getDocs(cursor
+                    ? query(...base, startAfter(cursor), limit(PAGE_SIZE))
+                    : query(...base, limit(PAGE_SIZE)));
+                // Dedupe by id. A ticket written DURING the paging sorts to the
+                // top of a desc order and is simply missed until the next
+                // refresh, which is harmless -- but a document that shifts the
+                // other way could be returned twice, and a duplicated ticket is
+                // double-counted revenue. Cheap insurance on a sum.
+                for (const d of snap.docs) {
+                    if (seen.has(d.id)) continue;
+                    seen.add(d.id);
+                    out.push(d);
+                }
+                if (snap.docs.length < PAGE_SIZE) break;      // last page
+                if (out.length >= HARD_CAP) { truncated = true; break; }
+                cursor = snap.docs[snap.docs.length - 1];
+            }
+            return { docs: out, truncated };
+        }
+
+        // True when a read stopped at HARD_CAP. renderPaymentHistory() puts it
+        // on the page; see the note in readAllDocs about never truncating in
+        // silence.
+        let paymentsTruncated = false;
+
+        // What the last ticket read actually managed, for the freshness strip.
+        //
+        // readAllDocs() already refuses to truncate in silence, and
+        // renderPaymentHistory() shouts when HARD_CAP is hit. This is the
+        // quieter half of the same idea: a STANDING count, on the strip above
+        // the KPIs, present whether or not anything is wrong.
+        //
+        // The distinction matters because of where the two live. The truncation
+        // notice sits on the Payment History caption, most of a page below the
+        // cards it invalidates, and only exists in the failure case -- so on a
+        // normal day nothing anywhere states how many tickets the all-time
+        // figures were computed from. That number is the one fact that makes
+        // the NEXT ceiling visible, whatever form it takes: a cap raised and
+        // forgotten, a rules change that hides rows, a read that fails and
+        // fails soft. 145 loaded is a fact the admin can check against
+        // Eventbrite. Nothing is not.
+        let ticketLoad = { ok: false, loaded: 0, complete: false };
+
         async function loadPayments() {
             try {
-                const [subSnap, tkSnap] = await Promise.all([
-                    getDocs(query(collection(db, 'payments'), orderBy('paidAt', 'desc'), limit(200))).catch(() => ({ docs: [] })),
-                    getDocs(query(collection(db, 'tickets'), orderBy('createdAt', 'desc'), limit(200))).catch(() => ({ docs: [] })),
+                // Documents MISSING the order field are excluded by Firestore
+                // from an orderBy query altogether -- true of the capped read
+                // this replaced too, so it is not a new blind spot, but it is
+                // the reason a ticket with no createdAt would never appear.
+                const [subRes, tkRes] = await Promise.all([
+                    readAllDocs('payments', 'paidAt').catch(() => ({ docs: [], truncated: false })),
+                    readAllDocs('tickets', 'createdAt').catch(() => ({ docs: [], truncated: false })),
                 ]);
-                const subs = subSnap.docs.map(d => ({ id: d.id, _type: 'subscription', ...d.data() }));
-                const allTix = tkSnap.docs.map(d => ({ id: d.id, _type: 'ticket', ...d.data() }));
+                paymentsTruncated = subRes.truncated || tkRes.truncated;
+                const subs = subRes.docs.map(d => ({ id: d.id, _type: 'subscription', ...d.data() }));
+                const allTix = tkRes.docs.map(d => ({ id: d.id, _type: 'ticket', ...d.data() }));
+                // Every ticket document, before the confirmed-only filter --
+                // the count the all-time figures were actually built from.
+                ticketLoad = { ok: true, loaded: allTix.length, complete: !tkRes.truncated };
                 const tickets = allTix.filter(t => t.status === 'confirmed');
                 // Separate list, NOT merged into allPayments: the P&L and the
                 // revenue KPIs read allPayments and trust that every row in it
@@ -5431,6 +6167,11 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             } catch (e) {
                 allPayments = [];
                 refundedPayments = [];
+                paymentsTruncated = false;
+                // Not `complete: true` with zero rows. A read that threw and a
+                // collection that is genuinely empty produce the same blank
+                // dashboard, and only this flag tells them apart.
+                ticketLoad = { ok: false, loaded: 0, complete: false };
             }
         }
 
@@ -5686,7 +6427,21 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     'Newest eventbrite_import ticket. Sales made on Eventbrite after this moment are NOT in any number on this page.')
                 + syncBtn('eventbrite')
                 + item('Manual costs', hasMonth ? mk + ' filled' : mk + ' NOT filled', hasMonth ? '' : 'warn',
-                    'Whether recurring_costs has a document for the current month. An unfilled month reads as free and understates CAC.');
+                    'Whether recurring_costs has a document for the current month. An unfilled month reads as free and understates CAC.')
+                // Coverage rather than staleness, but the same principle this
+                // strip was built on. Every all-time figure in the cards below
+                // is summed off exactly these rows, so their COUNT is the one
+                // number that says whether "all time" meant all of time.
+                // A short read is a hard signal, not a soft one: the cards keep
+                // rendering, keep agreeing with each other, and are all low
+                // together, which is precisely what nobody can see.
+                + item('Tickets', ticketLoad.ok
+                        ? `${ticketLoad.loaded} loaded${ticketLoad.complete ? '' : ' — TRUNCATED'}`
+                        : 'not loaded',
+                    ticketLoad.ok && ticketLoad.complete ? '' : 'stale',
+                    ticketLoad.ok && ticketLoad.complete
+                        ? 'Every ticket document in the collection. All-time revenue, ARPU, CAC, LTV and the P&L are computed from these rows — check the number against Eventbrite if a figure looks low.'
+                        : 'The ticket read did not reach the end of the collection. Every all-time figure on this page is a FLOOR, not a total.');
             strips.forEach(el => { el.innerHTML = html; });
         }
 
@@ -5703,13 +6458,18 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
         }
 
         // ─── Trend window ──────────────────────────────────
-        // loadPayments() caps at the 200 newest tickets, which is fine for the
-        // "all time" totals it feeds but WRONG as a basis for date-windowed
-        // charts: once 200 tickets sell inside the window the oldest days
-        // silently flatten to zero and every trend reads as a collapse.
-        // This is a separate, date-bounded read instead — a range filter on the
-        // same field it's ordered by, so it needs no composite index (same
-        // shape as city.html's upcoming-events query).
+        // A separate, date-bounded read: a range filter on the same field it's
+        // ordered by, so it needs no composite index (same shape as city.html's
+        // upcoming-events query).
+        //
+        // This existed because loadPayments() capped at the 200 newest tickets,
+        // which silently flattened the oldest days of any window once 200
+        // tickets sold inside it. That cap is gone (loadPayments pages the
+        // collection now), so the two reads overlap and trendTickets could be
+        // derived from allPayments instead of read again. Left as its own read
+        // deliberately: it is bounded by DATE rather than by count, so it stays
+        // one small query as the collection grows, and the charts keep a source
+        // that cannot be affected by anything the all-time read does.
         const TREND_DAYS = 60;
         let trendTickets = [];
 
@@ -6160,11 +6920,10 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             // reads allPayments, which is what the P&L and every other
             // all-time number on this page already uses.
             //
-            // allPayments is itself capped, at the 200 most recent tickets. That
-            // covers the current 102 and is the same limit the P&L lives with,
-            // so this panel agrees with the rest of the page rather than being
-            // separately wrong -- but past 200 tickets both understate together,
-            // and this comment is where to start looking.
+            // allPayments is the COMPLETE ticket list as of 2026-09-10 --
+            // loadPayments() pages the collection instead of taking the 200
+            // newest, so this panel and the P&L no longer understate together
+            // once the collection outgrows a single page.
             const paidFor = (t) => !t.isComp;
             if (allTime) {
                 allPayments.forEach(t => {
@@ -6467,6 +7226,83 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             ], (v) => '$' + (Math.round(v * 100) / 100).toFixed(2));
         }
 
+        // Sales pacing chart — the shape the donut it replaced could not show.
+        // Past events run as muted cumulative curves from the left (early) to
+        // T-0 on the right; each open event is one marked point at wherever it
+        // stands today. The reader's question is "is my dot inside the band",
+        // and a picture answers that in a way a single percentage never did.
+        //
+        // Drawn as inline SVG rather than through rcChart(): those charts plot
+        // a daily time series against a shared x-axis of calendar days, and
+        // this one plots several events against a shared COUNTDOWN, which is a
+        // different axis with the origin on the right.
+        function pacingChart(pacing) {
+            if (!pacing || (!pacing.past.length && !pacing.open.length)) {
+                return '<div class="empty">No events to pace yet.</div>';
+            }
+            const W = 320, H = 150, PAD_L = 24, PAD_R = 12, PAD_T = 12, PAD_B = 22;
+
+            // Furthest-out day worth drawing: the earliest day any past event
+            // had sold anything, or the furthest-out open event. Floored at 30
+            // so the fortnight that carries two thirds of every ticket is never
+            // squeezed into the right-hand corner.
+            let xMax = 30;
+            pacing.past.forEach(p => {
+                for (let d = pacing.maxT; d > xMax; d--) { if (p.cum[d] > 0) { xMax = d; break; } }
+            });
+            pacing.open.forEach(o => { xMax = Math.max(xMax, Math.min(pacing.maxT, o.tMinus)); });
+            let yMax = 1;
+            pacing.past.forEach(p => { yMax = Math.max(yMax, p.final); });
+            pacing.open.forEach(o => { yMax = Math.max(yMax, o.sold); });
+
+            const x = (d) => (PAD_L + (1 - d / xMax) * (W - PAD_L - PAD_R)).toFixed(1);
+            const y = (v) => (H - PAD_B - (v / yMax) * (H - PAD_T - PAD_B)).toFixed(1);
+
+            const curves = pacing.past.map(p => {
+                const pts = [];
+                for (let d = xMax; d >= 0; d--) pts.push(`${x(d)},${y(p.cum[Math.min(pacing.maxT, d)])}`);
+                return `<polyline points="${pts.join(' ')}" fill="none" stroke="var(--text-faint)"
+                    stroke-width="1.4" stroke-opacity="0.5" stroke-linejoin="round"><title>${safe(p.title)} — ${p.final} paid</title></polyline>`;
+            }).join('');
+
+            // Ticks only where they fit on the axis we actually drew.
+            const ticks = [30, 14, 7, 0].filter(d => d <= xMax).map(d =>
+                `<line x1="${x(d)}" y1="${PAD_T}" x2="${x(d)}" y2="${H - PAD_B}" stroke="var(--surface-hover)" stroke-width="1"/>
+                 <text x="${x(d)}" y="${H - 7}" fill="var(--text-faint)" font-size="9" text-anchor="middle">T-${d}</text>`).join('');
+
+            const dots = pacing.open.map(o => {
+                const cx = x(Math.min(pacing.maxT, o.tMinus)), cy = y(o.sold);
+                const ahead = o.n ? o.sold >= o.median : true;
+                const c = ahead ? 'var(--gold)' : 'var(--coral)';
+                // Label flips to the left of the dot near the right edge so it
+                // cannot run off the T-0 end of the chart.
+                const right = Number(cx) > W - 60;
+                return `<circle cx="${cx}" cy="${cy}" r="4.5" fill="${c}" stroke="var(--navy)" stroke-width="1.5">
+                        <title>${safe(o.title)} — ${safe(paceLine(o))}</title></circle>
+                    <text x="${right ? Number(cx) - 8 : Number(cx) + 8}" y="${Number(cy) - 7}" fill="${c}" font-size="9.5"
+                        text-anchor="${right ? 'end' : 'start'}">${o.sold} · T-${o.tMinus}</text>`;
+            }).join('');
+
+            const n = pacing.past.length;
+            const note = n
+                ? `${n} past event${n !== 1 ? 's' : ''}, cumulative paid tickets · open events marked`
+                : 'No past event with dated paid tickets yet';
+
+            // Uniform scaling (the default preserveAspectRatio), NOT stretch —
+            // a non-uniform scale distorts every label in here. max-height is
+            // what stops that uniform scale running away: the Full Report's
+            // right-hand column can be 900px wide, and width:100% alone blew
+            // the 9px axis labels up to 25px there. With a height cap the SVG
+            // letterboxes instead, staying legible at any column width.
+            return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-height:${H + 20}px;display:block;"
+                        role="img" aria-label="Cumulative paid tickets by days before the event">
+                    <text x="2" y="${PAD_T + 4}" fill="var(--text-faint)" font-size="9">${yMax}</text>
+                    <text x="2" y="${H - PAD_B}" fill="var(--text-faint)" font-size="9">0</text>
+                    ${ticks}${curves}${dots}
+                </svg>
+                <div style="font-size:10.5px;color:var(--text-faint);margin-top:8px;">${note}</div>`;
+        }
+
         function renderReport() {
             const grid = document.getElementById('reportKpis');
             if (!grid) return;
@@ -6478,19 +7314,19 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             // Within revenue, the money runs in the order it actually flows:
             // gross, then net, then what a buyer is worth, then what a buyer
             // costs, then the ratio that judges the two. Within operational,
-            // pace then headcount, with Active Subscriptions last.
+            // pace then headcount. Active Subscriptions used to close the
+            // list; withdrawn 2026-09-10, it printed 0 of 117 every time.
             const cards = [
                 // — Revenue —
-                ['Ticket Revenue', money(k.ticketRevenue), `${k.paidTickets} paid`],
+                ['Ticket Revenue', money(k.ticketRevenue), `${k.paidTickets} paid` + (k.freeSeats ? ` · ${k.freeSeats} free` : '')],
                 ['Net Revenue', money(k.netRevenue), 'After fees + spend'],
-                ['Revenue / Buyer', money(k.arpu), `${k.uniqueBuyers} buyers`],
-                ['Est. LTV', money(k.ltv), `${k.avgEvents.toFixed(1)} events/buyer`],
-                ['Blended CAC', k.cac > 0 ? money(k.cac) : '—', `${money(k.totalAcquisition)} spend`],
+                ['Revenue / Ticket', k.paidTickets ? money(k.revPerTicket) : '—', `${k.paidTickets} paid tickets`],
+                ['Lifetime Rev / Buyer', k.payingBuyers ? money(k.ltv) : '—', `${k.ticketsPerBuyer.toFixed(2)} tickets × ${k.payingBuyers} buyers`],
+                ['Blended CAC', k.cac > 0 ? money(k.cac) : '—', `${money(k.totalAcquisition)} ÷ ${k.payingBuyers} buyers`],
                 ['LTV : CAC', k.ltvCac === '—' ? '—' : `${k.ltvCac}:1`, 'Target 3:1+'],
                 // — Operational —
-                ['Ticket Velocity', k.velocity, k.velocityNote],
+                ['Sales Pace', k.velocity, k.velocityNote],
                 ['Total Members', k.members, k.membersTrend],
-                ['Active Subscriptions', k.active, 'Paying + trialing'],
             ];
             grid.innerHTML = cards.map(([label, value, note]) => `
                 <div class="kpi-card">
@@ -6499,7 +7335,10 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     <div class="kpi-foot"><span class="kpi-delta">${safe(String(note))}</span></div>
                 </div>`).join('');
 
-            // Tickets by event — paid tickets only, biggest first.
+            // Tickets by event — every non-comp seat, free-tier and plus-ones
+            // included, biggest first. This is a HEADCOUNT bar: those seats fill
+            // the room even though they carry no money, so it deliberately does
+            // not use the amount > 0 definition the revenue KPIs use.
             const bars = document.getElementById('reportEventBars');
             if (bars) {
                 const counts = {};
@@ -6521,18 +7360,11 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     </div>`).join('')}</div>` : '<div class="empty">No ticket sales yet.</div>';
             }
 
-            // Velocity donut. Capped at 100% so an event beating target doesn't
-            // wrap the ring back past zero and read as a failure.
+            // Sales pacing chart, in place of the donut that showed a per-day
+            // rate as a percentage of a flat 1.5/day target. See pacingCurves()
+            // for why that target was the wrong shape to judge these events by.
             const vel = document.getElementById('reportVelocity');
-            if (vel && kpiSnapshot) {
-                const rate = kpiSnapshot.velocityRate || 0;
-                const pct = Math.min(100, Math.round((rate / TARGET_TICKETS_PER_DAY) * 100));
-                vel.innerHTML = `
-                    <div style="width:96px;height:96px;border-radius:50%;background:conic-gradient(var(--coral) 0% ${pct}%, var(--surface-hover) ${pct}% 100%);display:flex;align-items:center;justify-content:center;">
-                        <div style="width:70px;height:70px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--white);">${rate.toFixed(1)}/d</div>
-                    </div>
-                    <div style="font-size:10.5px;color:var(--text-faint);margin-top:10px;">${pct}% of ${TARGET_TICKETS_PER_DAY.toFixed(1)}/day target</div>`;
-            }
+            if (vel) vel.innerHTML = pacingChart(k.pacing);
 
             // Revenue stat strip.
             const stats = document.getElementById('reportRevenueStats');
@@ -6595,14 +7427,36 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
         // shipped. loadPayments() next to this already filters status the
         // same way for the same reason — matching it, not inventing a new
         // pattern.
+        //
+        // This cap STAYS. loadPayments() pages the whole collection now and
+        // this listener deliberately does not follow it: the two reads answer
+        // different questions. allPayments has to total all of time; this is a
+        // recent-activity view of WHEN purchases land, and a weekday-by-block
+        // heatmap of the newest 200 is a fair answer to that. Paging a listener
+        // would also break the billing argument three paragraphs up, which
+        // depends on the query staying small.
+        //
+        // What was wrong was not the cap. It was that the grid presented itself
+        // as the whole history and the cap lived only in this comment. So the
+        // caption says it, on the page, in the reader's face -- the same fix as
+        // the ticket count on the freshness strip, applied to a number that is
+        // capped ON PURPOSE and should still not be mistaken for a total.
+        const LIVE_TICKET_LIMIT = 200;
         let liveTickets = [];
+        let liveTicketsRead = 0;
         let liveTicketsUnsub = null;
 
         function startLiveTickets() {
             if (liveTicketsUnsub) return; // already listening
             liveTicketsUnsub = onSnapshot(
-                query(collection(db, 'tickets'), orderBy('createdAt', 'desc'), limit(200)),
+                query(collection(db, 'tickets'), orderBy('createdAt', 'desc'), limit(LIVE_TICKET_LIMIT)),
                 (snap) => {
+                    // Raw document count, BEFORE the confirmed-only filter:
+                    // once it reaches the limit the window is capped rather
+                    // than complete, and the caption has to say which. Reading
+                    // it off liveTickets instead would call a window capped at
+                    // 200 "195 tickets" the moment five were refunded.
+                    liveTicketsRead = snap.docs.length;
                     liveTickets = snap.docs
                         .map(d => ({ id: d.id, ...d.data() }))
                         .filter(t => t.status === 'confirmed');
@@ -6615,6 +7469,16 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
         function stopLiveTickets() {
             if (liveTicketsUnsub) { liveTicketsUnsub(); liveTicketsUnsub = null; }
             liveTickets = [];
+            liveTicketsRead = 0;
+        }
+
+        // What the grid is actually drawn from, in words. Pure and separate so
+        // tests/admin-ticket-scope.test.js can assert that a full window admits
+        // it is a window, rather than the assertion living in a comment.
+        function liveTicketScopeNote(read, limitN) {
+            return read >= limitN
+                ? `Newest ${limitN} tickets only — a recent-activity view, not all-time. The totals above the KPIs cover every ticket.`
+                : `All ${read} ticket${read === 1 ? '' : 's'} on record (this view holds the newest ${limitN}).`;
         }
 
         function renderSalesClock() {
@@ -6666,6 +7530,7 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     <div style="font-size:11px;color:var(--text-muted);margin-top:12px;">
                         Busiest: <span class="clock-peak">${safe(peak.txt)}</span> (${peak.n} ticket${peak.n === 1 ? '' : 's'}).
                         Times are in this browser's timezone.
+                        ${safe(liveTicketScopeNote(liveTicketsRead, LIVE_TICKET_LIMIT))}
                     </div>`;
                 if (note) note.innerHTML = `<span class="live-dot"></span> ${counted} paid ticket${counted === 1 ? '' : 's'} by purchase time`;
             }
@@ -6738,9 +7603,204 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
         }
 
         // ─── KPI Calculations ──────────────────────────────
+        // The ticket arithmetic behind the revenue KPIs, CAC and LTV:CAC.
+        // Pure — ticket docs and the acquisition total in, numbers out — so
+        // tests/admin-kpis.test.js can lift it by name and assert against the
+        // SHIPPED code. `amount` is in cents, as stored.
+        //
+        // Three definitions in here were wrong until 2026-09-10; see
+        // reports/ADMIN_DASHBOARD_METRICS_REVIEW_2026-09-10.md, MECHANISM.
+        //
+        // PAID meant "not comped". 29 of 133 such tickets carried amount 0 —
+        //   21 Eventbrite free-tier, 7 two-for-one plus-ones, 1 manual import —
+        //   and were counted as paid tickets, their holders as buyers. Paid now
+        //   means money changed hands: amount > 0. The $0 seats are counted on
+        //   their own instead, because the free women's tier and the 2-for-1
+        //   are deliberate pricing decisions worth watching, not noise.
+        //
+        // CAC divided by buyers holding exactly ONE ticket. Every buyer was
+        //   acquired exactly once, so dropping the repeaters made CAC RISE as
+        //   retention improved — the inverse of what the number is for. It
+        //   divides by unique paying buyers now.
+        //
+        // LTV was arpu × max(ticketsPerBuyer, 1.5), and arpu is already
+        //   revenue ÷ unique buyers — lifetime-to-date spend with repeats
+        //   included. Multiplying it by tickets-per-buyer counted every repeat
+        //   twice, and the 1.5 floor applied a 50% uplift no cohort had earned
+        //   (measured 1.27). It is revenue per paid ticket × paid tickets per
+        //   paying buyer now: both measured, no floor, and the same lifetime
+        //   figure arpu already was. arpu is still returned and still equals
+        //   it — the card shows the two factors instead, because those are what
+        //   move it.
+        //
+        // Comps are excluded from revenue AND from every denominator. They are
+        // normally $0 so that usually changes nothing — but a comp saved with a
+        // price (a partial make-good, a fat finger) counted in revenue while
+        // its holder was excluded from the buyers would silently inflate the
+        // per-buyer figures. Excluding it in both places keeps the ratio honest
+        // either way. Comped and free seats still appear on the roster and in
+        // headcount, which read event_registrations and are untouched by this.
+        function ticketKpis(tickets, totalAcquisition) {
+            const cents = (p) => Number(p.amount) || 0;
+            const nonComp = tickets.filter(p => !p.isComp);
+            const compCount = tickets.length - nonComp.length;
+            const paid = nonComp.filter(p => cents(p) > 0);
+            const free = nonComp.filter(p => cents(p) <= 0);
+            const plusOneSeats = free.filter(p => p.isPlusOne).length;
+            const freeTierSeats = free.length - plusOneSeats;
+            const ticketRevenue = paid.reduce((s, p) => s + cents(p), 0) / 100;
+
+            // Unique paying buyers by email, and how many paid tickets each holds.
+            const perBuyer = {};
+            paid.forEach(p => {
+                const em = (p.email || '').toLowerCase().trim();
+                if (em) perBuyer[em] = (perBuyer[em] || 0) + 1;
+            });
+            const buyerCounts = Object.values(perBuyer);
+            const payingBuyers = buyerCounts.length;
+            const repeatBuyers = buyerCounts.filter(n => n >= 2).length;
+            const ticketsPerBuyer = payingBuyers
+                ? buyerCounts.reduce((s, n) => s + n, 0) / payingBuyers
+                : 0;
+
+            const revPerTicket = paid.length ? ticketRevenue / paid.length : 0;
+            const arpu = payingBuyers ? ticketRevenue / payingBuyers : 0;
+            const ltv = revPerTicket * ticketsPerBuyer;
+            const cac = payingBuyers > 0 ? totalAcquisition / payingBuyers : 0;
+            const ltvCac = cac > 0 ? (ltv / cac).toFixed(1) : '—';
+
+            return {
+                ticketRevenue, paidTickets: paid.length, freeSeats: free.length,
+                freeTierSeats, plusOneSeats, compCount,
+                payingBuyers, repeatBuyers, revPerTicket, ticketsPerBuyer,
+                arpu, ltv, cac, ltvCac,
+            };
+        }
+
+        // ─── Sales pacing ──────────────────────────────────
+        // Tickets do not sell at a constant rate, so a constant target cannot
+        // judge them. Measured across 128 dated paid tickets over five events
+        // (reports/ADMIN_DASHBOARD_METRICS_REVIEW_2026-09-10.md, Evidence §2):
+        // 9 sold on the day or the day before, 37 in T-2..7, 38 in T-8..14, 33
+        // in T-15..30 and 10 earlier. Two thirds of every ticket sells inside
+        // the final fortnight.
+        //
+        // The KPI this replaced divided non-comp registrations by days since
+        // the event doc was created and compared the result with a flat
+        // 1.5/day. Against that curve it reads "behind pace" for essentially
+        // every event until about T-7 and then flips — the verdict changes
+        // without the event changing its behaviour. And it could not answer the
+        // question actually being asked: is this event selling like the last
+        // five did AT THIS POINT? Nothing on the dashboard could.
+        //
+        // So the benchmark is the past events themselves. For each open event
+        // this returns tickets sold so far against the median, min and max of
+        // every past event's cumulative sales at the SAME number of days before
+        // the event.
+        //
+        // Definitions match ticketKpis() exactly, so the two cannot disagree:
+        // PAID means amount > 0 (a $0 free-tier seat or a two-for-one plus-one
+        // is not a sale) and comps are excluded (a giveaway is not demand).
+        function pacingCurves(tickets, events, nowMs) {
+            const asDate = (v) => (v && v.toDate ? v.toDate() : (v ? new Date(v) : null));
+            const ok = (d) => d instanceof Date && !isNaN(d.getTime());
+            const paidFor = (id) => tickets.filter(t =>
+                t.eventId === id && !t.isComp && (Number(t.amount) || 0) > 0);
+            // Whole days before the event a moment falls. Floored and clamped
+            // at 0, so T-0 is the event day itself and a door sale lands there
+            // rather than in a negative bucket.
+            const tMinusOf = (ms, eventMs) => Math.max(0, Math.floor((eventMs - ms) / 86400000));
+
+            const dated = (events || [])
+                .filter(e => e && e.status !== 'canceled')
+                .map(e => ({ e, when: asDate(e.date) }))
+                .filter(x => ok(x.when));
+
+            // Reference curves. cum[d] is the number of paid tickets sold AT
+            // LEAST d days before the event, so cum[0] is the final total and
+            // the series runs downhill as d grows. Read it as "sold by T-d",
+            // which is how the evidence table is written.
+            const MAX_T = 60;
+            const past = [];
+            dated.filter(x => x.when.getTime() <= nowMs).forEach(({ e, when }) => {
+                const paid = paidFor(e.id);
+                const buckets = new Array(MAX_T + 1).fill(0);
+                let datedPaid = 0;
+                paid.forEach(t => {
+                    const sold = asDate(t.createdAt);
+                    if (!ok(sold)) return;
+                    datedPaid++;
+                    buckets[Math.min(MAX_T, tMinusOf(sold.getTime(), when.getTime()))]++;
+                });
+                // An event with no dated paid ticket is not a reference curve.
+                // A stub or draft event doc that never sold would otherwise
+                // pull the median toward zero at every single T-minus.
+                if (!datedPaid) return;
+                const cum = new Array(MAX_T + 1).fill(0);
+                let run = 0;
+                for (let d = MAX_T; d >= 0; d--) { run += buckets[d]; cum[d] = run; }
+                // `undated` is carried so a curve built from partial data can
+                // be spotted: a paid ticket with no createdAt is in the final
+                // count on the Events tab but cannot be placed on this axis.
+                past.push({
+                    id: e.id, title: e.title || 'Untitled event', date: when,
+                    cum, final: cum[0], undated: paid.length - datedPaid,
+                });
+            });
+            past.sort((a, b) => a.date - b.date);
+
+            const median = (xs) => {
+                if (!xs.length) return 0;
+                const s = [...xs].sort((a, b) => a - b);
+                const mid = s.length >> 1;
+                return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+            };
+
+            // Open events, soonest first — the soonest is the one still worth
+            // acting on, so it is the one the KPI card headlines.
+            const open = dated
+                .filter(x => x.when.getTime() > nowMs)
+                .map(({ e, when }) => {
+                    const tMinus = tMinusOf(nowMs, when.getTime());
+                    const at = past.map(p => p.cum[Math.min(MAX_T, tMinus)]);
+                    return {
+                        id: e.id, title: e.title || 'Untitled event', date: when, tMinus,
+                        sold: paidFor(e.id).length,
+                        median: median(at),
+                        min: at.length ? Math.min(...at) : 0,
+                        max: at.length ? Math.max(...at) : 0,
+                        n: at.length,
+                    };
+                })
+                .sort((a, b) => a.tMinus - b.tMinus);
+
+            return { past, open, maxT: MAX_T };
+        }
+
+        // A median of an even number of events lands on a .5, and "median 7.5"
+        // is a real answer — don't round it away, but don't print "7.0" either.
+        function paceNum(n) {
+            return Number.isInteger(n) ? String(n) : Number(n).toFixed(1);
+        }
+
+        // The sentence the Overview card, the Full Report card and the chart
+        // tooltips all show. One definition, because three would drift.
+        function paceLine(o) {
+            return `${o.sold} sold at T-${o.tMinus}`
+                + (o.n
+                    ? ` · past events: median ${paceNum(o.median)} (range ${o.min}-${o.max})`
+                    : ' · no past event to compare against');
+        }
+
         function renderKPIs() {
             // ── Member counts ────────────────────────────────
             const total = allUsers.length;
+            // Computed, deliberately not rendered. The Active Subscriptions
+            // card came off the Revenue tab and the Full Report on 2026-09-10:
+            // it has read 0 of 117 for the life of the collection, because
+            // memberships are paused. kpiSnapshot keeps the field so nothing
+            // reading the snapshot breaks, and so turning subscriptions back on
+            // is a markup change rather than an arithmetic one.
             const active = allUsers.filter(u => ['active', 'trialing'].includes(u.subscriptionStatus)).length;
             const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
             const newThisWeek = allUsers.filter(u => {
@@ -6750,49 +7810,14 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
 
             document.getElementById('kpiMembers').textContent = total.toLocaleString();
             document.getElementById('kpiMembersTrend').innerHTML = `<span class="up">+${newThisWeek}</span> this week`;
-            document.getElementById('kpiActive').textContent = active.toLocaleString();
-            document.getElementById('kpiActiveTrend').textContent = `${total > 0 ? Math.round(active/total*100) : 0}% of total`;
 
-            // ── Ticket revenue (allPayments populated after loadPayments) ──
-            // Comps are excluded from revenue as well as from the buyer counts
-            // below. They're normally $0 so this usually changes nothing — but if
-            // a comp is ever saved with a price (a partial make-good, a fat
-            // finger), counting it here while excluding its buyer from the
-            // denominator would silently inflate ARPU. Excluding it in BOTH
-            // places keeps the ratio honest either way.
-            const tickets = allPayments.filter(p => p._type === 'ticket');
-            const ticketRevenue = tickets
-                .filter(p => !p.isComp)
-                .reduce((s, p) => s + (Number(p.amount) || 0), 0) / 100;
-
-            // Unique buyers by email
-            // Comped seats (+1s, freebies, make-goods) are real ATTENDEES but not
-            // BUYERS, so every per-buyer figure below is computed on paid tickets
-            // only. Counting them would drag ARPU down toward zero and — worse —
-            // pad the first-time-buyer denominator CAC divides by, making
-            // acquisition look cheaper the more seats you give away.
-            // They still appear on the roster and in headcount, which read from
-            // event_registrations and are untouched by this.
-            const paidTickets = tickets.filter(p => !p.isComp);
-            const compCount = tickets.length - paidTickets.length;
-            const buyerEmails = new Set(paidTickets.map(p => (p.email || '').toLowerCase()).filter(Boolean));
-            const uniqueBuyers = buyerEmails.size;
-            const arpu = uniqueBuyers > 0 ? ticketRevenue / uniqueBuyers : 0;
-
-            // Avg events per buyer — count confirmed PAID tickets per email
-            const ticketsPerBuyer = {};
-            paidTickets.forEach(p => {
-                const em = (p.email || '').toLowerCase();
-                if (em) ticketsPerBuyer[em] = (ticketsPerBuyer[em] || 0) + 1;
-            });
-            const buyerCounts = Object.values(ticketsPerBuyer);
-            const avgEvents = buyerCounts.length
-                ? buyerCounts.reduce((s, n) => s + n, 0) / buyerCounts.length
-                : 1.5;
-            const ltv = arpu * Math.max(avgEvents, 1.5);
-
-            // ── CAC ──────────────────────────────────────────
-            // This used to divide FACEBOOK SPEND ALONE by first-time buyers,
+            // ── Ticket arithmetic ────────────────────────────
+            // All of it lives in ticketKpis() above — one pure function, so
+            // tests/admin-kpis.test.js can lift the SHIPPED code and run it
+            // against a fixture. Acquisition spend is summed first because
+            // CAC needs it.
+            //
+            // CAC used to divide FACEBOOK SPEND ALONE by first-time buyers,
             // which understated cost and therefore overstated LTV:CAC — the 3:1
             // badge could read green while the real ratio was below target. With
             // three channels running, every paid route in has to be in here:
@@ -6806,9 +7831,12 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             const totalAcqRecurring = Object.keys(allRecurring)
                 .reduce((s, mk) => s + recurringTotal(allRecurring[mk], true), 0);
             const totalAcquisition = totalAdSpend + totalAcqRecurring;
-            const firstTimers = buyerCounts.filter(n => n === 1).length;
-            const cac = firstTimers > 0 ? totalAcquisition / firstTimers : 0;
-            const ltvCac = cac > 0 ? (ltv / cac).toFixed(1) : '—';
+
+            const tickets = allPayments.filter(p => p._type === 'ticket');
+            const kpiTickets = ticketKpis(tickets, totalAcquisition);
+            const { ticketRevenue, paidTickets, freeSeats, freeTierSeats, plusOneSeats,
+                    compCount, payingBuyers, repeatBuyers, revPerTicket, ticketsPerBuyer,
+                    arpu, ltv, cac, ltvCac } = kpiTickets;
 
             // Net revenue: ticket revenue − every cost class.
             const totalEbFees = allEvents.reduce((s, e) => {
@@ -6823,13 +7851,44 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             const netRevenue = ticketRevenue - totalAcquisition - totalEbFees - totalOtherCosts
                              - (totalRecurring - totalAcqRecurring);
 
+            // Free seats are counted on their own line rather than folded into
+            // "paid": the free women's tier and the two-for-one are pricing
+            // decisions, and each has to be watchable on its own.
+            const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+            const seatBreakdown =
+                `${plural(paidTickets, 'paid ticket')} (money changed hands) from ${plural(payingBuyers, 'unique paying buyer')}`
+                + ` · ${plural(freeTierSeats, 'free-tier seat')} · ${plural(plusOneSeats, 'two-for-one plus-one')}`
+                + ` · ${plural(compCount, 'comp')}. Revenue and every per-buyer figure count paid tickets only.`;
             document.getElementById('kpiMRR').textContent = '$' + ticketRevenue.toFixed(2);
-            document.getElementById('kpiMRRTrend').textContent =
-                `${paidTickets.length} paid · ${uniqueBuyers} buyers` + (compCount ? ` · ${compCount} comp` : '');
+            const mrrTrendEl = document.getElementById('kpiMRRTrend');
+            mrrTrendEl.textContent =
+                `${paidTickets} paid · ${payingBuyers} buyers`
+                + (freeSeats ? ` · ${freeSeats} free` : '')
+                + (compCount ? ` · ${compCount} comp` : '');
+            mrrTrendEl.title = seatBreakdown;
             document.getElementById('kpiARR').textContent = '$' + netRevenue.toFixed(2);
-            document.getElementById('kpiARPU').textContent = '$' + arpu.toFixed(2);
-            document.getElementById('kpiLTV').textContent = '$' + ltv.toFixed(2);
-            document.getElementById('kpiLTVTrend').textContent = `${avgEvents.toFixed(1)} avg events/buyer`;
+
+            // Revenue per PAID seat — the price actually realised once early
+            // bird and discounts are netted out, with the $0 seats out of the
+            // denominator instead of dragging it down.
+            document.getElementById('kpiRevPerTicket').textContent = paidTickets ? '$' + revPerTicket.toFixed(2) : '—';
+            const rptTrendEl = document.getElementById('kpiRevPerTicketTrend');
+            if (rptTrendEl) {
+                rptTrendEl.textContent = `÷ ${plural(paidTickets, 'paid ticket')}`;
+                rptTrendEl.title = `${money(ticketRevenue)} ticket revenue ÷ ${plural(paidTickets, 'paid ticket')}. `
+                    + `${plural(freeSeats, '$0 seat')} (free tier + plus-ones) are not in the denominator.`;
+            }
+
+            // Lifetime revenue per buyer, MEASURED — what a buyer has paid us
+            // to date, shown as the two factors that move it. No projection and
+            // no floor: this is not a forecast.
+            document.getElementById('kpiLTV').textContent = payingBuyers ? '$' + ltv.toFixed(2) : '—';
+            const ltvTrendEl = document.getElementById('kpiLTVTrend');
+            ltvTrendEl.textContent = `$${revPerTicket.toFixed(2)}/ticket × ${ticketsPerBuyer.toFixed(2)}`;
+            ltvTrendEl.title = `${money(revPerTicket)} per paid ticket × ${ticketsPerBuyer.toFixed(2)} paid tickets per paying buyer `
+                + `(measured — ${plural(repeatBuyers, 'repeat buyer')} of ${payingBuyers}). Lifetime revenue per buyer TO DATE: `
+                + `it rises only when buyers actually come back, and it is what LTV:CAC divides.`;
+
             document.getElementById('kpiCAC').textContent = cac > 0 ? '$' + cac.toFixed(2) : 'No spend yet';
             // Show what's actually IN the CAC figure. The old label only ever said
             // "FB spend", which is exactly the assumption that made the number
@@ -6840,8 +7899,9 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             const cacTrendEl = document.getElementById('kpiCACTrend');
             if (cacTrendEl) {
                 if (totalAcquisition > 0) {
-                    cacTrendEl.textContent = `÷ ${firstTimers} first-timer${firstTimers === 1 ? '' : 's'}`;
-                    cacTrendEl.title = `${money(totalAcquisition)} total acquisition spend ÷ ${firstTimers} first-time buyer${firstTimers === 1 ? '' : 's'}`;
+                    cacTrendEl.textContent = `÷ ${plural(payingBuyers, 'paying buyer')}`;
+                    cacTrendEl.title = `${money(totalAcquisition)} total acquisition spend ÷ ${plural(payingBuyers, 'unique paying buyer')}. `
+                        + `Every buyer was acquired once, so repeat buyers stay in the denominator; $0 seats never enter it.`;
                 } else {
                     cacTrendEl.textContent = 'No spend entered';
                     cacTrendEl.title = 'Enter ad spend on an event, or a monthly recurring cost';
@@ -6853,68 +7913,58 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             const target = ratio >= 3 ? '<span class="up">✓ Target met</span>' : (ratio > 0 ? `<span class="down">Below 3:1 target</span>` : 'Enter acquisition spend to calculate');
             document.getElementById('kpiLTVCACTrend').innerHTML = target;
 
-            // ── Ticket velocity: confirmed, NON-COMP tickets sold ÷ the number
-            // of days the event has been ON SALE, averaged across every open
-            // (upcoming, non-canceled) event. "Days on sale" is the window
-            // from when the event was published (createdAt) to the event
-            // itself (date) — sales necessarily close at/before the event
-            // happens, so there's no separate "close" field to read.
+            // ── Sales pace ───────────────────────────────────
+            // Where each open event sits against how the past events were
+            // selling at the same distance from their own date. See
+            // pacingCurves() above for why this is not a tickets-per-day rate.
             //
-            // This previously divided by days REMAINING until the event
-            // (date − now), which inverts the metric: an event that's been
-            // selling steadily for weeks read as an implausibly high
-            // "velocity" purely because few days were left on the clock,
-            // and a brand-new event read as slow no matter how fast it was
-            // actually moving. Dividing by the elapsed sale window instead
-            // of the remaining runway is what makes this a real per-day
-            // sales rate. Target is a flat 30 tickets / 20-day window
-            // (TARGET_TICKETS_PER_DAY, 1.5/day), the same pace for every
-            // event regardless of its capacity.
+            // The ticket source is the same `tickets` list every revenue KPI
+            // reads — allPayments, confirmed only — which #502 made the WHOLE
+            // ticket collection rather than the 200 newest. That matters here
+            // more than anywhere else on the page: a reference curve is built
+            // from an event that is now months old, and under the old cap the
+            // earliest events would have quietly shed their tickets, flattened
+            // toward zero, dropped the median and flattered every open event.
+            // Nothing would have thrown. If a future change ever re-caps that
+            // read, this metric breaks silently along with the all-time totals.
             //
-            // This also previously counted every event_registrations row,
-            // comps included. event_registrations carries the same isComp
-            // flag tickets does (lead-signup.js's enroll-as-comp channel sets
-            // it on both), and every other sales metric on this dashboard —
-            // the heatmap, revenue, CAC — excludes isComp for the same reason:
-            // a giveaway isn't market demand, and letting it inflate "how fast
-            // is this event selling" is exactly backwards for a pace metric a
-            // marketing decision gets made from.
-            const now = Date.now();
-            const openEvents = allEvents.filter(e => {
-                const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-                return d instanceof Date && !isNaN(d) && d.getTime() > now && e.status !== 'canceled';
-            });
-            const soldForEvent = (eventId) => allRegistrations.filter(r => r.eventId === eventId && !r.isComp).length;
-            const velocities = [];
-            openEvents.forEach(e => {
-                const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-                const opened = e.createdAt?.toDate ? e.createdAt.toDate() : (e.createdAt ? new Date(e.createdAt) : null);
-                if (!opened || isNaN(opened)) return; // no usable createdAt — can't measure a sale window
-                const daysOnSale = Math.max(1, (d.getTime() - opened.getTime()) / 86400000);
-                velocities.push(soldForEvent(e.id) / daysOnSale);
-            });
-            const avgVelocity = velocities.length
-                ? velocities.reduce((s, v) => s + v, 0) / velocities.length
-                : 0;
-            const totalOpenSold = openEvents.reduce((s, e) => s + soldForEvent(e.id), 0);
+            // Deliberately NOT allRegistrations, which the old velocity KPI
+            // used: registrations carry no `amount`, so a free-tier seat and a
+            // $25 ticket are indistinguishable there and the pace metric would
+            // count giveaways as demand.
+            const pacing = pacingCurves(tickets, allEvents, Date.now());
+            const primary = pacing.open[0] || null;   // soonest open event
 
-            document.getElementById('kpiVelocity').textContent = velocities.length ? avgVelocity.toFixed(1) + '/day' : '—';
-            // Short label in the card, the target arithmetic on hover — same
-            // reasoning as the CAC caption above.
+            const paceValEl = document.getElementById('kpiVelocity');
             const velEl = document.getElementById('kpiVelocityTrend');
-            if (!openEvents.length) {
+            if (!primary) {
+                paceValEl.textContent = '—';
                 velEl.textContent = 'No open events';
                 velEl.className = 'kpi-delta';
                 velEl.title = '';
-            } else if (!velocities.length) {
-                velEl.textContent = `${totalOpenSold} sold · no start date`;
-                velEl.className = 'kpi-delta';
-                velEl.title = `${totalOpenSold} tickets across ${openEvents.length} open event${openEvents.length !== 1 ? 's' : ''}, but no createdAt to measure a sale window from`;
             } else {
-                const onPace = avgVelocity >= TARGET_TICKETS_PER_DAY;
-                velEl.textContent = onPace ? '✓ on pace' : 'behind pace';
-                velEl.className = 'kpi-delta ' + (onPace ? 'up' : 'down');
-                velEl.title = `Target ${TARGET_TICKETS_PER_DAY.toFixed(1)}/day (30 tickets over a 20-day sale window)`;
+                // Value is the glance: sold against the median. The sentence
+                // underneath carries the T-minus and the range, and the rest of
+                // the open events go on hover — same terse-card/full-hover split
+                // the CAC caption above uses.
+                paceValEl.textContent = primary.n
+                    ? `${primary.sold} vs ${paceNum(primary.median)}`
+                    : String(primary.sold);
+                velEl.textContent = paceLine(primary);
+                velEl.className = 'kpi-delta ' + (primary.n
+                    ? (primary.sold >= primary.median ? 'up' : 'down')
+                    : '');
+                velEl.title = [
+                    `${primary.title} — ${paceLine(primary)}`,
+                    ...pacing.open.slice(1).map(o => `${o.title} — ${paceLine(o)}`),
+                    '',
+                    pacing.past.length
+                        ? `Benchmark: ${pacing.past.length} past event${pacing.past.length !== 1 ? 's' : ''} `
+                          + `(${pacing.past.map(p => `${p.title} ${p.final}`).join(', ')}), `
+                          + `cumulative PAID tickets at the same number of days before the event. `
+                          + `Comps and $0 seats excluded, same definition as every revenue KPI here.`
+                        : 'No past event has a dated paid ticket yet, so there is nothing to compare against.',
+                ].join('\n');
             }
 
             // Snapshot for the Full Report tab. Taken here, at the end of the
@@ -6924,13 +7974,27 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 members: total,
                 membersTrend: document.getElementById('kpiMembersTrend')?.textContent || '',
                 active,
-                ticketRevenue, netRevenue, arpu, ltv, cac, ltvCac, avgEvents,
-                uniqueBuyers, paidTickets: paidTickets.length,
+                ticketRevenue, netRevenue, arpu, ltv, cac, ltvCac,
+                // avgEvents and uniqueBuyers keep their names so anything
+                // reading the snapshot still works, but both changed meaning on
+                // 2026-09-10: avgEvents is paid tickets per PAYING buyer, and
+                // uniqueBuyers counts only buyers who paid money.
+                avgEvents: ticketsPerBuyer, uniqueBuyers: payingBuyers,
+                paidTickets, freeSeats, freeTierSeats, plusOneSeats, compCount,
+                payingBuyers, repeatBuyers, revPerTicket, ticketsPerBuyer,
                 totalAcquisition, totalEbFees, totalOtherCosts,
                 nonAcqRecurring: totalRecurring - totalAcqRecurring,
-                velocity: velocities.length ? avgVelocity.toFixed(1) + '/day' : '—',
-                velocityRate: velocities.length ? avgVelocity : 0,
+                // The three velocity* names are KEPT, and changed meaning on
+                // 2026-09-10 the same way avgEvents and uniqueBuyers did above:
+                // renaming them would have broken renderReport silently, which
+                // is the exact failure tests/admin-kpis.test.js exists to catch.
+                // velocity is now "sold vs median", not a per-day rate, and
+                // velocityRate is a pace INDEX — 1.0 means exactly at the median
+                // of the past events at this T-minus, above 1 is ahead of it.
+                velocity: primary ? paceValEl.textContent : '—',
+                velocityRate: primary && primary.median > 0 ? primary.sold / primary.median : 0,
                 velocityNote: velEl ? velEl.textContent : '',
+                pacing,
             };
             renderReport();
             renderCampaigns();
@@ -6999,30 +8063,6 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     <td style="color: rgba(245,243,240,0.6);">${timeAgo(u.createdAt)}</td>
                 </tr>
             `).join('');
-        }
-
-        function renderTierBreakdown() {
-            const tbody = document.getElementById('tierBreakdown');
-            const total = allUsers.length;
-            if (total === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="empty">No data yet</td></tr>';
-                return;
-            }
-            const tiers = ['free', 'mid', 'premium'];
-            tbody.innerHTML = tiers.map(tier => {
-                const users = allUsers.filter(u => u.tier === tier);
-                const paying = users.filter(u => u.subscriptionStatus === 'active').length;
-                const monthlyRev = paying * (TIER_PRICES[tier] || 0);
-                const pct = ((users.length / total) * 100).toFixed(1);
-                return `
-                    <tr>
-                        <td>${tierBadge(tier)}</td>
-                        <td style="color: var(--white); font-weight: 600;">${users.length}</td>
-                        <td style="color: rgba(245,243,240,0.7);">${pct}%</td>
-                        <td style="color: var(--white); font-weight: 600;">$${monthlyRev.toFixed(2)}</td>
-                    </tr>
-                `;
-            }).join('');
         }
 
         function activityIcon(type) {
@@ -7130,13 +8170,12 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             document.getElementById('memberCount').textContent = `${filtered.length} of ${allUsers.length}`;
 
             if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="empty">No members match your filters.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="empty">No members match your filters.</td></tr>';
                 return;
             }
 
             tbody.innerHTML = filtered.map(u => {
                 const interests = (u.interests || []).slice(0, 3).join(', ') || '—';
-                const ltv = (TIER_PRICES[u.tier] || 0) * AVG_LIFETIME_MONTHS;
                 const gender = ({woman:'Woman',man:'Man'})[u.gender] || u.gender || '—';
                 return `
                     <tr>
@@ -7155,7 +8194,6 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                         <td>${tierBadge(u.tier)}</td>
                         <td>${statusBadge(u.subscriptionStatus)}</td>
                         <td style="color: rgba(245,243,240,0.6);">${formatDate(u.createdAt)}</td>
-                        <td style="color: var(--gold); font-weight: 600;">$${ltv.toFixed(0)}</td>
                     </tr>
                 `;
             }).join('');
@@ -7181,28 +8219,45 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
 
         function renderPaymentHistory() {
             const tbody = document.getElementById('paymentHistory');
+            // TICKETS ONLY, since 2026-09-10. loadPayments() still reads the
+            // `payments` collection and still merges it into allPayments --
+            // harmless, because that collection has zero documents and has
+            // never had one -- but nothing here renders a subscription row any
+            // more. Memberships are paused (see the note at the top of
+            // api/declare-connection.js), so a Subscription badge that could
+            // never appear and a $0.00 Subscriptions chip that always did were
+            // furniture for a product that does not run.
+            const ticketPayments = allPayments.filter(p => p._type === 'ticket');
             // The table is capped at 460px now, so most rows sit below the fold.
             // Say how many there are -- otherwise a capped list looks like a
             // short list, and 103 payments read as 8.
             const note = document.getElementById('paymentHistoryNote');
             if (note) {
-                const total = allPayments.length + refundedPayments.length;
+                const total = ticketPayments.length + refundedPayments.length;
                 note.textContent = total
-                    ? `Tickets + subscriptions · newest first · ${total} shown, scroll for more`
-                    : 'Tickets + subscriptions · newest first';
+                    ? `Ticket sales · newest first · ${total} shown, scroll for more`
+                    : 'Ticket sales · newest first';
+                // The read is unbounded in practice, but if it ever stops at
+                // HARD_CAP every all-time figure on this page is a floor rather
+                // than a total, and the reader has to be told. A truncation
+                // nobody can see is the bug that made this whole change
+                // necessary.
+                if (paymentsTruncated) {
+                    note.textContent += ` · READ STOPPED AT ${HARD_CAP.toLocaleString()} DOCUMENTS — every all-time total below is a floor, not a total`;
+                    note.style.color = 'var(--coral)';
+                } else {
+                    note.style.color = '';
+                }
             }
-            if (allPayments.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty">No payments yet.</td></tr>';
+            if (!ticketPayments.length && !refundedPayments.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty">No ticket sales yet.</td></tr>';
                 return;
             }
 
             // Summary KPIs — split across all three channels. This used to be a
             // binary source !== 'eventbrite_import' test, which silently counted
             // Meetup sales as Direct.
-            const ticketPayments = allPayments.filter(p => p._type === 'ticket');
-            const ticketTotal    = ticketPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-            const subTotal       = allPayments.filter(p => p._type === 'subscription').reduce((s, p) => s + (Number(p.amount) || 0), 0);
-            const grandTotal     = ticketTotal + subTotal;
+            const ticketTotal = ticketPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
             const channelStats = CHANNEL_KEYS.map(k => {
                 const tix = ticketPayments.filter(p => channelOf(p) === k);
                 const cents = tix.reduce((s, p) => s + num(p.amount), 0);
@@ -7216,36 +8271,31 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 ? `<div class="candidate-stat" title="Refunded tickets — excluded from every revenue figure"><strong style="color:#f87171;">−$${(refundTotal / 100).toFixed(2)}</strong>Refunds (${refundedPayments.length})</div>`
                 : '';
             document.getElementById('revenueKPIs').innerHTML = `
-                <div class="candidate-stat"><strong>$${(grandTotal / 100).toFixed(2)}</strong>Total revenue</div>
                 <div class="candidate-stat"><strong>$${(ticketTotal / 100).toFixed(2)}</strong>Ticket sales</div>
                 ${channelStats}
-                <div class="candidate-stat"><strong>$${(subTotal / 100).toFixed(2)}</strong>Subscriptions</div>
                 ${refundChip}
             `;
             renderEventPnl();
             renderChannelPnl();
 
             // Merge refunded rows back for DISPLAY, newest first with the rest.
-            const displayRows = [...allPayments, ...refundedPayments].sort((a, b) => {
+            const displayRows = [...ticketPayments, ...refundedPayments].sort((a, b) => {
                 const ta = (a.paidAt || a.createdAt)?.toMillis?.() ?? 0;
                 const tb = (b.paidAt || b.createdAt)?.toMillis?.() ?? 0;
                 return tb - ta;
             });
             tbody.innerHTML = displayRows.map(p => {
-                const isTicket = p._type === 'ticket';
                 const isRefunded = p.status === 'refunded';
                 const user = allUsers.find(u => u.id === (p.userId || p.firebaseUid));
                 const name = p.name || (user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '') || '—';
                 const email = p.email || p.userEmail || user?.email || '—';
                 const amount = Number(p.amount) || 0;
                 const when = p.paidAt || p.createdAt;
-                const event = isTicket ? (allEvents.find(e => e.id === p.eventId)?.title || p.eventName || '—') : (user?.tier ? user.tier + ' plan' : '—');
+                const event = allEvents.find(e => e.id === p.eventId)?.title || p.eventName || '—';
                 const typeBadge = isRefunded
                     ? `<span class="badge" style="font-size:10px;background:rgba(248,113,113,0.12);color:#f87171;border:1px solid rgba(248,113,113,0.35);">Refunded</span>`
-                    : isTicket
-                    ? `<span class="badge badge-active" style="font-size:10px;">Ticket</span>`
-                    : `<span class="badge badge-pending" style="font-size:10px;">Subscription</span>`;
-                const source = isTicket && p.source === 'eventbrite_import'
+                    : `<span class="badge badge-active" style="font-size:10px;">Ticket</span>`;
+                const source = p.source === 'eventbrite_import'
                     ? ' <span style="font-size:10px;color:rgba(245,243,240,0.4);">Eventbrite</span>' : '';
                 return `<tr>
                     <td>
@@ -7561,6 +8611,45 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             e && e.date && e.date.toDate ? e.date.toDate()
             : (e && e.date ? new Date(e.date) : null);
 
+        // ── Show rate: door count vs confirmed registrations ─────────────
+        // The only attendance figure on this dashboard that is not a floor.
+        // Digital check-in coverage measures a different thing -- how many
+        // confirmed registrations were SCANNED. Eventbrite imports and anyone
+        // who never scanned are legitimately confirmed with no timestamp, so a
+        // no-show rate built on check-ins would be wrong by construction and
+        // wrong in the direction that looks alarming. `doorCount` is the hand
+        // count, typed at the end of the night on the run-of-show screen or
+        // afterwards in the event's Costs row.
+        //
+        // ONLY events carrying a door count enter EITHER side of the ratio.
+        // Treating a missing count as 0 would drag the rate toward zero on
+        // every uncounted night, which is worse than not having the metric at
+        // all: absent stays absent, `rate` comes back null, and the card reads
+        // "not counted" rather than 0%.
+        //
+        // The denominator is raw confirmed registrations for the event, which
+        // is exactly what mixCell() divides by, so the Events tab and the
+        // Retention card can never print two different show rates for one
+        // night.
+        //
+        // Pure on purpose: tests/admin-door-count.test.js lifts this out of
+        // the page and runs it, the same way tests/admin-kpis.test.js lifts
+        // ticketKpis(). A rate that renders is not caught by anything else.
+        function showRateFrom(pastEventIds, eventsById, registrations) {
+            const out = { events: 0, door: 0, regs: 0, rate: null };
+            [...pastEventIds].forEach(id => {
+                const ev = eventsById[id];
+                const dc = ev ? ev.doorCount : null;
+                if (dc === null || dc === undefined || dc === '' || !isFinite(Number(dc))) return;
+                out.events++;
+                out.door += Number(dc);
+                out.regs += registrations.filter(r => r.eventId === id).length;
+            });
+            // No counted event, or nothing to divide by, is NOT 0%.
+            out.rate = out.events && out.regs ? Math.round(100 * out.door / out.regs) : null;
+            return out;
+        }
+
         function retentionColor(rate) {
             if (rate >= 40) return 'rgba(74, 222, 128, 0.18)';  // strong
             if (rate >= 25) return 'rgba(212, 175, 55, 0.18)';  // ok
@@ -7650,6 +8739,10 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     });
                 }
 
+                // Attendance, as opposed to check-in coverage. See the note
+                // on showRateFrom() above for why absent is not zero.
+                const showRate = showRateFrom(pastEventIds, evById, allRegistrations);
+
                 const unique = new Set();
                 sold.forEach(s => s.emails.forEach(em => unique.add(em)));
                 const avg = sold.length ? Math.round(sold.reduce((n, s) => n + s.count, 0) / sold.length) : 0;
@@ -7686,7 +8779,7 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 repeat.rate = repeat.attendees ? (repeat.repeaters / repeat.attendees * 100) : 0;
 
                 renderRetention({
-                    sold, retention, repeat,
+                    sold, retention, repeat, showRate,
                     totalEvents: sold.length,
                     unique: unique.size,
                     avg,
@@ -7706,11 +8799,30 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 root.innerHTML = '<p class="empty">No confirmed registrations yet. This populates once your first event has attendees.</p>';
                 return;
             }
-            const stat = (label, val) => `
+            // `note` is optional -- the four original cards pass two
+            // arguments and render exactly as they did.
+            const stat = (label, val, note = '') => `
                 <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,107,107,0.2); border-left: 4px solid var(--coral); border-radius: 6px; padding: 18px 20px;">
                     <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:rgba(245,243,240,0.55); margin-bottom:6px;">${label}</div>
                     <div style="font-size:26px; font-weight:800; color:var(--white);">${val}</div>
+                    ${note ? `<div style="font-size:11px; color:var(--text-faint); margin-top:6px; line-height:1.5;">${note}</div>` : ''}
                 </div>`;
+
+            // Show rate, beside the check-in coverage strip below. Renders
+            // "not counted" -- never 0% -- when nothing has been counted,
+            // because 0% is a claim about attendance and this is an absence of
+            // measurement. Same three-band colouring mixCell() uses, so the
+            // two surfaces speak one language.
+            const sr = d.showRate || { events: 0, door: 0, regs: 0, rate: null };
+            const notCounted = (why) => stat('Show rate',
+                '<span style="font-size:17px; color:var(--text-faint); font-weight:600;">not counted</span>', why);
+            const showRateCard = sr.rate === null
+                ? (sr.events
+                    ? notCounted(`${sr.events} event${sr.events === 1 ? ' has a' : 's have'} door count${sr.events === 1 ? '' : 's'}, but no confirmed registrations to divide by.`)
+                    : notCounted('No past event has a door count yet. Type one at the end of the run-of-show screen, or in an event&rsquo;s Costs row.'))
+                : stat('Show rate',
+                       `<span style="color:${sr.rate >= 85 ? 'var(--success)' : sr.rate >= 70 ? 'var(--gold)' : 'var(--coral)'};">${sr.rate}%</span>`,
+                       `${sr.door} through the door · ${sr.regs} confirmed · ${sr.events} event${sr.events === 1 ? '' : 's'} counted`);
 
             const cards = `
                 <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-bottom:28px;">
@@ -7718,6 +8830,7 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     ${stat('Unique Attendees', d.unique)}
                     ${stat('Avg Attendees/Event', d.avg)}
                     ${stat('Latest Event', safe(d.last))}
+                    ${showRateCard}
                 </div>`;
 
             // Repeat attendance — the headline. Distinct PAST events per
@@ -7769,7 +8882,9 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     — how many confirmed registrations were scanned at the door. This is
                     <em>coverage of the check-in flow</em>, not a no-show rate: Eventbrite imports and anyone who
                     never scanned are legitimately confirmed with no timestamp, so a missing check-in does not mean
-                    somebody failed to turn up.
+                    somebody failed to turn up. The no-show question is answered by the <strong>Show rate</strong> card
+                    above, which divides the hand-counted door number by confirmed registrations &mdash; and reads
+                    &ldquo;not counted&rdquo; until a door count has been typed for at least one past event.
                 </div>` : '';
 
             const rateRows = d.retention.length
@@ -7813,6 +8928,288 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 </div>`;
 
             root.innerHTML = cards + repeatBlock + coverageBlock + table + timeline;
+        }
+
+        // ─── MATCHES (the product outcome, per event) ──────────────
+        // "If they tell us the same about you, we exchange your contact
+        // info" is the promise. Until 2026-09-10 no tab read the three
+        // collections that record whether it happened, although every one
+        // of them was already admin-readable in firestore.rules. All three
+        // are server-written only: api/declare-connection.js writes
+        // connection_intents ({fromUserId, toUserId, eventId, createdAt})
+        // and matches ({eventId, users:[uid, uid], matchedAt}), and
+        // api/cron-send-emails.js writes post_event_prompts
+        // ({userId, eventId, sentAt}).
+        //
+        // Attendees are keyed exactly as loadRetention keys them (email
+        // first, uid fallback) so the denominator here is the same
+        // confirmed-registration count the cards above show. Picks,
+        // prompts and matches carry only a uid, so pickers and matched
+        // people are counted by uid and their share is taken against that
+        // attendee count. A picker whose uid has no registration row still
+        // counts: declare-connection deliberately never blocks on
+        // attendance, and dropping them would hide real picks.
+        //
+        // Reference values, measured against live Firestore on 2026-09-10
+        // (reports/ADMIN_DASHBOARD_METRICS_REVIEW_2026-09-10.md) and pinned
+        // as fixtures in tests/matches-panel.test.js:
+        //   Founders Mixer   24 attendees / 15 pickers / 67 picks / 12 matches / 11 matched
+        //   Round 2          30 / 16 / 47 / 13 / 14
+        //   Tellus AfterDark 34 / 13 / 36 /  2 /  3
+        //   Good Good        23 / 10 / 21 /  4 /  6
+        //
+        // Picks keep arriving for days after the night (Marion Court had 60
+        // at two days old and counting), so an event younger than this is
+        // shown as "still open" rather than read as a low-matching night.
+        const MATCH_WINDOW_DAYS = 7;
+
+        function computeMatchStats({ events, registrations, users, intents, matches, prompts, now }) {
+            now = now ?? Date.now();
+            const usersById = {};
+            (users || []).forEach(u => { usersById[u.id] = u; });
+            const gNorm = g => String(g || '').toLowerCase().trim();
+
+            // Past events only; an upcoming event has no picks to count.
+            const rows = {};
+            (events || []).forEach(e => {
+                const dt = toEventDate(e);
+                if (!dt || isNaN(dt) || dt.getTime() >= now) return;
+                rows[e.id] = {
+                    id: e.id, dt,
+                    dateLabel: dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    venue: e.venue || e.title || '(unknown event)',
+                    open: (now - dt.getTime()) < MATCH_WINDOW_DAYS * 86400000,
+                    attendeeKeys: new Set(), genderByUid: {}, attendeeByKey: new Map(),
+                    promptedUids: new Set(), pickerUids: new Set(), picks: 0,
+                    matches: 0, matchedUids: new Set(),
+                };
+            });
+
+            (registrations || []).forEach(r => {
+                const row = rows[r.eventId];
+                if (!row) return;
+                const key = (r.email ? String(r.email).toLowerCase().trim() : '') || r.userId || '';
+                if (!key) return;
+                row.attendeeKeys.add(key);
+                // One record per PERSON, not per registration row. The two
+                // rows a duplicate-uid person has under one email are merged:
+                // either row's gender counts, and a check-in on either means
+                // that human walked in. Counting rows instead would put one
+                // woman in the denominator twice.
+                const prev = row.attendeeByKey.get(key) || { uid: '', gender: '', checkedIn: false };
+                row.attendeeByKey.set(key, {
+                    uid: prev.uid || r.userId || '',
+                    gender: prev.gender || gNorm(r.gender),
+                    checkedIn: prev.checkedIn || !!r.checkedInAt,
+                });
+                if (r.userId) {
+                    if (r.gender) row.genderByUid[r.userId] = gNorm(r.gender);
+                    // The cron honours the legacy per-registration flag as
+                    // "already prompted" alongside the lock collection, so
+                    // count it the same way here rather than under-report.
+                    if (r.postEventPromptSent) row.promptedUids.add(r.userId);
+                }
+            });
+            (prompts || []).forEach(p => {
+                const row = rows[p.eventId];
+                if (row && p.userId) row.promptedUids.add(p.userId);
+            });
+            (intents || []).forEach(i => {
+                const row = rows[i.eventId];
+                if (!row || !i.fromUserId) return;
+                row.pickerUids.add(i.fromUserId);
+                row.picks++;
+            });
+            (matches || []).forEach(m => {
+                const row = rows[m.eventId];
+                if (!row) return;
+                row.matches++;
+                (m.users || []).forEach(u => row.matchedUids.add(u));
+            });
+
+            // Gender of a picker: users/{uid} first (the profile), then the
+            // registration row for that night, then unknown.
+            const genderOf = (row, uid) => {
+                const u = usersById[uid];
+                return gNorm(u && u.gender) || row.genderByUid[uid] || '';
+            };
+            const pct = (n, d) => d ? (n / d * 100) : 0;
+            const out = Object.values(rows)
+                .filter(r => r.attendeeKeys.size || r.pickerUids.size || r.matches)
+                .map(r => {
+                    let women = 0, men = 0;
+                    r.pickerUids.forEach(uid => {
+                        const g = genderOf(r, uid);
+                        if (g === 'woman') women++; else if (g === 'man') men++;
+                    });
+                    const attendees = r.attendeeKeys.size;
+
+                    // Who was actually in the room, by gender. Same gender
+                    // resolution as the pickers above — the profile first,
+                    // the night's registration second — so the numerator and
+                    // the denominator of the rate below cannot disagree about
+                    // who is a woman.
+                    let womenRegistered = 0, menRegistered = 0, womenCheckedIn = 0, menCheckedIn = 0;
+                    r.attendeeByKey.forEach(a => {
+                        const g = (a.uid && gNorm((usersById[a.uid] || {}).gender)) || a.gender || '';
+                        if (g === 'woman') { womenRegistered++; if (a.checkedIn) womenCheckedIn++; }
+                        else if (g === 'man') { menRegistered++; if (a.checkedIn) menCheckedIn++; }
+                    });
+                    return {
+                        id: r.id, dt: r.dt, dateLabel: r.dateLabel, venue: r.venue, open: r.open,
+                        attendees,
+                        prompted: r.promptedUids.size,
+                        pickers: r.pickerUids.size, pickerShare: pct(r.pickerUids.size, attendees),
+                        picks: r.picks,
+                        matches: r.matches,
+                        matched: r.matchedUids.size, matchedShare: pct(r.matchedUids.size, attendees),
+                        pickersWomen: women, pickersMen: men,
+                        pickersUnknown: r.pickerUids.size - women - men,
+                        // womenPicked IS pickersWomen — the same set, named
+                        // for the column it feeds, where it is read against
+                        // the check-in count rather than against the men.
+                        womenRegistered, womenCheckedIn, womenPicked: women,
+                        womenPickRate: pct(women, womenCheckedIn),
+                        menRegistered, menCheckedIn, menPicked: men,
+                        menPickRate: pct(men, menCheckedIn),
+                    };
+                })
+                .sort((a, b) => b.dt.getTime() - a.dt.getTime()); // newest first: the open one on top
+
+            const sum = (list, k) => list.reduce((n, r) => n + r[k], 0);
+            const settled = out.filter(r => !r.open);
+            return {
+                events: out,
+                totals: {
+                    events: out.length, settledEvents: settled.length,
+                    attendees: sum(out, 'attendees'), pickers: sum(out, 'pickers'), picks: sum(out, 'picks'),
+                    matches: sum(out, 'matches'), matched: sum(out, 'matched'),
+                    pickersWomen: sum(out, 'pickersWomen'), pickersMen: sum(out, 'pickersMen'),
+                    womenCheckedIn: sum(out, 'womenCheckedIn'), womenPicked: sum(out, 'womenPicked'),
+                    menCheckedIn: sum(out, 'menCheckedIn'), menPicked: sum(out, 'menPicked'),
+                    // Pooled, not an average of the per-event rates: an event
+                    // with two women checked in would otherwise carry the same
+                    // weight as one with sixteen.
+                    womenPickRate: pct(sum(out, 'womenPicked'), sum(out, 'womenCheckedIn')),
+                    menPickRate: pct(sum(out, 'menPicked'), sum(out, 'menCheckedIn')),
+                    // The headline share is over SETTLED events only, so an
+                    // event two days old cannot drag the all-time figure down.
+                    matchedShare: pct(sum(settled, 'matched'), sum(settled, 'attendees')),
+                },
+            };
+        }
+
+        async function loadMatches() {
+            const root = document.getElementById('matchesBody');
+            if (!root) return;
+            root.innerHTML = '<div class="spinner"></div>';
+            try {
+                // Whole-collection reads, but small ones (231 / 34 / 113 docs
+                // on 2026-09-10) and paid only when someone opens this tab —
+                // the same gating as the Leads table, for the same quota
+                // reason (see the comment in loadDashboard).
+                if (!allEvents.length) await loadAdminEvents();
+                if (!allUsers.length) await loadUsers();
+                const [intSnap, matchSnap, promptSnap] = await Promise.all([
+                    getDocs(collection(db, 'connection_intents')),
+                    getDocs(collection(db, 'matches')),
+                    getDocs(collection(db, 'post_event_prompts')),
+                ]);
+                const rows = snap => snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderMatches(computeMatchStats({
+                    events: allEvents, registrations: allRegistrations, users: allUsers,
+                    intents: rows(intSnap), matches: rows(matchSnap), prompts: rows(promptSnap),
+                }));
+            } catch (err) {
+                console.error('[matches] load error:', err);
+                root.innerHTML = '<p class="empty">Error loading match data. Check Firestore rules / admin claim.</p>';
+            }
+        }
+        window.loadMatches = loadMatches;
+
+        function renderMatches(d) {
+            const root = document.getElementById('matchesBody');
+            if (!d.events.length) {
+                root.innerHTML = '<p class="empty">No picks yet. This populates once a past event\'s attendees have answered the "who did you click with" email.</p>';
+                return;
+            }
+            const t = d.totals;
+            const stat = (label, val, sub, color) => `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,107,107,0.2); border-left: 4px solid ${color || 'var(--coral)'}; border-radius: 6px; padding: 18px 20px;">
+                    <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:rgba(245,243,240,0.55); margin-bottom:6px;">${label}</div>
+                    <div style="font-size:26px; font-weight:800; color:${color || 'var(--white)'};">${val}</div>
+                    ${sub ? `<div style="font-size:11px; color:var(--text-faint); margin-top:4px;">${sub}</div>` : ''}
+                </div>`;
+            const cards = `
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-bottom:24px;">
+                    ${stat('Mutual matches', t.matches, `across ${t.events} past event${t.events === 1 ? '' : 's'}`)}
+                    ${stat('Attendees matched', `${t.matchedShare.toFixed(0)}%`,
+                           `${t.settledEvents} settled event${t.settledEvents === 1 ? '' : 's'}${t.events > t.settledEvents ? ' · open ones excluded' : ''}`,
+                           'var(--coral)')}
+                    ${stat('Picks', t.picks, `by ${t.pickers} people who picked anyone`)}
+                    ${stat('Women picked / checked in', `${t.womenPicked} <span style="color:var(--text-faint); font-weight:400;">/</span> ${t.womenCheckedIn} <span style="font-size:16px; color:var(--text-muted);">· ${t.womenPickRate.toFixed(0)}%</span>`, 'pooled across events, not an average of rates')}
+                    ${stat('Men picked / checked in', `${t.menPicked} <span style="color:var(--text-faint); font-weight:400;">/</span> ${t.menCheckedIn} <span style="font-size:16px; color:var(--text-muted);">· ${t.menPickRate.toFixed(0)}%</span>`, 'same, for comparison')}
+                </div>`;
+
+            const share = (n, p, open) => open
+                ? `<strong style="color:var(--white);">${n}</strong> <span style="color:var(--text-faint); font-size:11px;">· ${p.toFixed(0)}% so far</span>`
+                : `<strong style="color:var(--white);">${n}</strong> <span style="color:var(--text-muted); font-size:11px;">· ${p.toFixed(0)}%</span>`;
+            const rows = d.events.map(e => `
+                <tr>
+                    <td><strong style="color:var(--white);">${safe(e.dateLabel)}</strong>
+                        ${e.open ? `<span title="Under ${MATCH_WINDOW_DAYS} days old — picks are still arriving" style="margin-left:8px; font-size:10px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold); border-radius:3px; padding:1px 6px;">still open</span>` : ''}
+                        <div style="font-size:12px; color:rgba(245,243,240,0.45);">${safe(e.venue)}</div></td>
+                    <td style="text-align:center;">${e.attendees}</td>
+                    <td style="text-align:center;">${e.prompted}</td>
+                    <td style="text-align:center;">${share(e.pickers, e.pickerShare, e.open)}</td>
+                    <td style="text-align:center;">${e.picks}</td>
+                    <td style="text-align:center; color:var(--coral); font-weight:700;">${e.matches}</td>
+                    <td style="text-align:center;">
+                        ${e.open
+                            ? share(e.matched, e.matchedShare, true)
+                            : `<span style="background:${retentionColor(e.matchedShare)}; padding:4px 10px; border-radius:4px; font-weight:700;">${e.matched} · ${e.matchedShare.toFixed(0)}%</span>`}
+                    </td>
+                    <td style="text-align:center;">
+                        <span style="background:${retentionColor(e.womenPickRate)}; padding:4px 10px; border-radius:4px; font-weight:700;">${e.womenPicked} / ${e.womenCheckedIn} · ${e.womenPickRate.toFixed(0)}%</span>
+                    </td>
+                    <td style="text-align:center; color:var(--text-muted);">${e.menPicked} / ${e.menCheckedIn} · ${e.menPickRate.toFixed(0)}%${e.pickersUnknown ? ` <span title="pickers with no gender on file, counted in neither column" style="color:var(--text-faint); font-size:11px;">(+${e.pickersUnknown} ?)</span>` : ''}</td>
+                </tr>`).join('');
+
+            const table = `
+                <div class="table-scroll">
+                    <table>
+                        <thead><tr>
+                            <th>Event</th>
+                            <th style="text-align:center;">Attendees</th>
+                            <th style="text-align:center;" title="Sent the post-event 'who did you click with' email">Prompted</th>
+                            <th style="text-align:center;" title="Attendees who picked at least one person">Picked anyone</th>
+                            <th style="text-align:center;">Picks</th>
+                            <th style="text-align:center;" title="Pairs who picked each other">Mutual</th>
+                            <th style="text-align:center;" title="People in at least one mutual match, as a share of attendees">Matched</th>
+                            <th style="text-align:center;" title="Women who picked someone, over women scanned in at the door">Women picked / in</th>
+                            <th style="text-align:center;" title="The same for men, for comparison">Men picked / in</th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+                <p style="font-size:11px; color:var(--text-faint); margin:14px 0 0; line-height:1.6;">
+                    <strong>Matched</strong> is people in at least one mutual match ÷ attendees — the number the
+                    product promises. Read the two shares against each other: a low <em>Picked anyone</em> with
+                    a normal reciprocity is a response problem (prompt timing, the email); a normal
+                    <em>Picked anyone</em> with few <em>Mutual</em> is a chemistry problem (the room, the
+                    format). Pickers are counted by uid, so a picker with no registration row still counts
+                    and the share can, in principle, exceed 100%.
+                </p>
+                <p style="font-size:11px; color:var(--text-faint); margin:10px 0 0; line-height:1.6;">
+                    <strong>Women picked / in</strong> is women who picked someone over women <em>scanned in at the
+                    door</em>. Check-in is a <strong>floor, not attendance</strong> — not everyone scans, and
+                    Eventbrite imports often never do — so this rate <strong>can exceed 100%</strong>. That is a
+                    check-in gap, not a data error: it means more women picked than the door recorded arriving.
+                    Read a rate over 100% as "scan more people", and a low one as "the women in the room did not
+                    answer the prompt".
+                </p>`;
+
+            root.innerHTML = cards + table;
         }
 
         // ─── FUNNEL (Lead → Buyer conversion + source attribution) ──
@@ -8127,7 +9524,7 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             if (id === 'venues') loadVenues();
             if (id === 'leads')  loadLeads();
             if (id === 'events') { populateVenuePicker(); loadEbLive(); }
-            if (id === 'retention') loadRetention();
+            if (id === 'retention') { loadRetention(); loadMatches(); }
             if (id === 'funnel') loadFunnel();
             if (id === 'enroll') populateEventDropdown();
         };

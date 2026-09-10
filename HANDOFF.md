@@ -72,6 +72,168 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   that fires reliably.** Do not "fix" it by shortening the interval; GitHub is
   already ignoring `*/15`.
 
+- **Tellus produced 2 matches from 34 people, and the dashboard now says the
+  likely reason is nobody answered the email — not the room. Tellus is booked
+  again for Oct 6.** (09-10, #499 and #507) The Matches panel on the Retention
+  tab reads `matches`, `connection_intents` and `post_event_prompts`, which no
+  tab had ever read. It puts a number on what was previously an anecdote: Tellus
+  had **10 women checked in, the most of any night, and 2 of them picked anyone
+  — a 20% answer rate against 71%, 100% and 167% elsewhere.** 32 of its 34
+  attendees were sent the prompt, so the email went out and was not acted on.
+  That points at a **response** problem (prompt timing, the email itself, or the
+  `/matches` page for that event) rather than the chemistry of the room, which
+  was the earlier assumption and is now the less likely one. **Next step, before
+  Oct 6: open `public/matches.html` against the Tellus event id and confirm it
+  actually renders that night's co-attendees — the review lists a per-event bug
+  there as an untested candidate, and it is the one explanation nobody has ruled
+  out.** If it renders fine, the question is email timing and Taylor's call.
+  The panel reports what is stored; it does not explain the gap.
+
+- **The admin metrics review is a live worklist, and the last silent
+  truncation on the dashboard is now in the sales heatmap rather than in the
+  totals.** (09-10) The queue is the DECISION list in
+  `reports/ADMIN_DASHBOARD_METRICS_REVIEW_2026-09-10.md`. Item 1 (a Matches
+  panel, #499, plus women's answer rate in #507), item 3 (the 200-ticket cap in
+  `loadPayments`, #502), item 4 (Sales Pace against past events at the same
+  T-minus, #504), item 6 (door count and show rate, #505), item 9 (subscription
+  surfaces retired, #505) and the three arithmetic defects of item 2 (#500) are
+  done and need no revisiting; what is left is listed below so nobody
+  re-derives it from the report.
+  **`startLiveTickets()` still carries `limit(200)` and Taylor said on 09-10 it
+  is being handled in another session — do not fix it here and do not re-raise
+  it.** Recorded because it is the same class of bug #502 removed: past 200
+  tickets, "when tickets sell" silently becomes "when the last 200 sold", and
+  the cap is a deliberate cost decision about a listener held open for the whole
+  session, so it is a billing call rather than an arithmetic one.
+  **Next step for whoever picks the report back up, in the order the report
+  ranks them:** (5) a women's acquisition strip on the Ads tab — **now only two
+  of its three parts, cost per woman ticket and women's share at T-7. The
+  third, women's share of pickers, shipped in #507** as a "women picked /
+  checked in" column on the Matches panel, so build the Ads strip against that
+  rather than recomputing it; (7) a `web_daily`
+  sync beside the Google Ads pull, so landing-page-view → purchase stops living
+  only in the nightly reports; (8) email aggregate rates on the Leads tab;
+  (10) surface per-ticket attribution and a plain "referral leads: 0" line.
+  **Show rate is built but has never been measured:** #505 put a door-count
+  box at the foot of the run-of-show screen, shown once the event date has
+  passed, and the Retention tab's Show rate card reads "not counted" until a
+  count exists. No event carried one when #505 merged, so the first real
+  figure arrives only when a host types a count in at the end of a night.
+  **Also still undone from item 2: a per-event CAC on the Event P&L detail
+  row**, where the synced spend already sits — the blended figure is all-time
+  over all-time and can only drift.
+  **Items 4, 6 and 9 are built — do not re-derive any of them from the report.**
+  4 is #504 (09-10): the flat 1.5/day target is gone, the card is now **Sales
+  Pace** and its trend line reads "vs past events at the same T-minus".
+  *(Corrected 09-10 by the session that shipped #505; the evidence is #504's
+  own diff, and the rename is also what turned main red — see #511.)*
+  9 is #505: it removed all four subscription surfaces outright (the Active
+  Subscriptions KPI on Revenue AND in the Full Report list, the Subscription
+  Breakdown card, the subscription rows and chip in Payment History, and the
+  Members-table LTV column) along with `TIER_PRICES` and `AVG_LIFETIME_MONTHS`;
+  `loadPayments`'s read of `payments` and `kpiSnapshot.active` are deliberately
+  kept, so bringing memberships back is a markup change and not an arithmetic
+  one.
+  6 is #505 too: it added the door-count box to the run-of-show screen and the
+  Show rate card to the Retention tab. What 6 could NOT do is the entry
+  immediately below.
+
+- **The show rate finally has somewhere to be typed, and still has no number in
+  it — five past events, not one with a `doorCount`.** (09-10, #505) `mixCell`
+  has rendered "door N · %show" since #324 and the field has been empty for its
+  entire life, so the one figure that decides whether to oversell 30 seats has
+  never been measured once. There are now two places to enter it: a box at the
+  foot of the run-of-show screen, shown only after the event date has passed
+  (that screen is the one a host is holding at the end of the night, which is
+  the only moment the number exists), and the Costs row on the Events tab that
+  already existed. Both write `events/<id>.doorCount`, and blank is stored as
+  NULL rather than 0 on purpose. The Retention tab's Show rate card reads
+  **"not counted" rather than 0%** until a real number exists, because an
+  uncounted night summed as zero reports a no-show crisis that never happened.
+  **Next step is a human's, not a session's: type the door count for the five
+  past events.** Nobody else knows the numbers and they cannot be reconstructed
+  — digital check-in reached 91 of 140 past confirmed registrations and is a
+  FLOOR, not attendance (`attended.txt` recorded 31 real heads against 26
+  registered at Event 1; see [[checkin-counts-undercount-attendance]]), so
+  back-filling from check-ins would be wrong by construction and in the
+  flattering direction. Until a number is typed the card stays "not counted" and
+  the Mix column keeps showing the gender split instead, which is the correct
+  behaviour and not a bug to chase. **Delete this entry once any past event
+  carries a count.**
+
+- **A match email Resend refuses is now visible on the `matches` doc, but still
+  nothing re-sends it.** (09-10, #492) `resend.emails.send()` RESOLVES with
+  `{ error }` on a 4xx/5xx rather than throwing, so `notifyMatch` in
+  `api/declare-connection.js` logged `match notified` for mail that never went
+  out — behind an idempotency lock it had already claimed, so nothing would ever
+  retry. That is the highest-value email SparkDate sends. It now reads each send
+  result and records `notified` true/false plus `notifyError` on
+  `matches/{eventId}_{sortedPair}`. **The lock deliberately still PRECEDES the
+  send** — it closes the race between both directions of a mutual pick landing at
+  once, and `handleUnpick` reads the same doc to refuse an undo once contact info
+  is out, so a lock that only appeared on success would let someone unpick a real
+  match. **Next step: query `matches` for `notified == false` carrying a
+  `notifyError`. A non-empty result means those two people were told they matched
+  and never learned who — the fix is a re-send sweep, and nothing does it
+  today.** Same PR: the six silent `else { skipped++; }` branches in
+  `api/cron-send-emails.js` now log and count rejections separately (`rejected:`
+  in the `Cron complete` line), so a run being refused stops reading like a run
+  with nothing to send.
+
+- **TikTok legs are not publishing at all, and a separate chat owns it as of
+  09-10 — do not fix it here, and do not re-raise it with Taylor.**
+  `TIKTOK_ACCESS_TOKEN` is unset in `.github/workflows/social-publish.yml`, so
+  every TikTok surface hits `SKIP -- no token configured` on every run. Measured
+  against `content/queue.csv` at `c87f8e2a`: 18 of 48 rows list `tiktok`, **11
+  are already past their slot with the TikTok half never sent**, and 7 are still
+  ahead — LX-17 (09-12), LX-18 (09-14), LX-19 (09-15), LX-20 (09-16), LX-22
+  (09-19), LX-23 (09-20), all `approved`, plus LX-27 (09-23) which is `pending`
+  for the separate reason two entries below. They were approved expecting three
+  surfaces and are getting two. **Next step: none in this repo — Taylor said on
+  09-10 that TikTok is being handled in another session.** Recorded so the next
+  chat does not spend a round rediscovering it and proposing the fix again.
+
+- **Run-of-show audit fixes 2 and 3 are unbuilt, and Taylor has been asked twice
+  without answering either way — do not treat silence as a no.** (09-10) From
+  `reports/CHEMISTRY_RUN_OF_SHOW_AUDIT_2026-09-09.md`: **fix 2** prints
+  `Men → Table N next` on the table card beside the `← men from N` already
+  there (rotation is +1, so the number is free, and it answers "where next" for
+  a whole table at once without anyone searching). **Fix 3** retires the
+  `Intro order` tab, moves `printIntros()` into Priority Intros, and unions
+  `_introsDone` with `_priorityDone` — those use identical key formats as two
+  separate Sets today, so a pair ticked off in one view still reads as
+  outstanding in the other, and whichever view the host happens to be holding is
+  the one that is right. **Next step: put both to Taylor once more as a yes/no;
+  each is self-contained, neither is started.** Fixes 1 and 4 are closed — 1 is
+  built, 4 is retired rather than deferred (a standing 1-on-1 has no table to
+  number, see [[one-on-ones-strand-a-third-of-a-skewed-room]]).
+
+- **TL2's 14 queue rows are drafted and all `pending` — they need art, then
+  Taylor's `approve`.** (09-10) TL2 had ZERO rows in `content/queue.csv` while
+  being live on Eventbrite, Nextdoor, LancasterOnline and Facebook, so the event
+  had no organic social at all. Cadence mirrors LX (TL2-01 .. TL2-14, Sep 11 →
+  Oct 7). Lint is clean: 0 errors. **Next steps: (1) art — nothing exists, so
+  every row warns "not yet in public/social/"; the Claude Design brief for the
+  PAID creative is `build/TL2-design-brief.md` (regenerate any time with
+  `node scripts/build-paid-campaign.js --event=TL2 --handoff`), but the ORGANIC
+  slide art is a separate job. Then `python scripts/prep-social-assets.py`.
+  (2) `node scripts/social.js approve --through=<date>` — Taylor's click, not
+  mine.** Three things deliberately decided, all reversible: **TL2-04 is the
+  early-bird deadline post and moved to Sep 21 at Taylor's call**, off LX's
+  event day. Its COPY changed with the date, which is the part worth
+  remembering: `early_bird_through` is 2026-09-22, so the price still holds ON
+  the 22nd and the original "ends tonight" would have been false a day early —
+  it now reads "ends tomorrow / $24.99 through tomorrow / $29.99 from
+  Wednesday". Sep 21 still carries LX-24, but at 18:30 against 12:30, so the
+  linter warns on the day rather than erroring on a slot. **Every row from TL2-05 on says
+  $29.99, never $24.99** — the lint only checks price MEMBERSHIP, not the date,
+  so it would not have caught a stale early-bird price. **TL2-11 carries one
+  1080x1080 feed frame plus one story frame**, not the `_tt`+`_story` pair LX-24
+  used, because a story-only set is exactly what makes `lib/social-publish.js`
+  refuse the Facebook leg — the failure that has now bitten MC-12 and LX-24.
+  TL2-14 keeps a `[REAL NUMBER]` placeholder on purpose and cannot be approved
+  until the counted check-in figure exists after 2026-10-06.
+
 - **TL2 (Tellus AfterDark, Oct 6) is LIVE on Eventbrite and Nextdoor; three
   things about it still need a human.** (09-09) Eventbrite
   `2000197587829` is On Sale, 0/30, tiers copied from Loxleys
@@ -98,24 +260,45 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   attempts to set 14 days were almost certainly just Eventbrite 500s, not the
   "only make it more flexible after publishing" rule — no-refunds → 14 days is
   a LOOSENING and would have been permitted. That page lives under **Event
-  Finances**, not Order Options. (3) Evvnt (→ LNP/LancasterOnline) is sign-in walled at
-  both my.evvnt.com and lancasteronline.evvnt.com — this is the highest-value
-  free channel on the list (136 sessions in one day) and TL2 is not on it. When
-  submitting, set the ticket URL to `sparkdate.date/l/tl2-lancasteronline`; their
-  query-string rewrite is what produced 129 zero-conversion sessions in
-  September.**
+  Finances**, not Order Options. (3) **Evvnt / LancasterOnline: SUBMITTED 09-10
+  by Taylor.** The "sign-in walled" note this entry used to carry was wrong and
+  is corrected in `content/listing-sites.json` — only the direct Evvnt domains
+  wall you; the "Promote Your Event" link in the LancasterOnline calendar FOOTER
+  opens the whole form with no login, and the account gate is at the final
+  submit only. Composed with the ticket URL set to
+  `sparkdate.date/l/tl2-lancasteronline` (the path-only link, because their
+  publisher's query-string rewrite is what produced 129 zero-conversion sessions
+  in September). **Next step: this is a moderated calendar, so confirm the
+  listing actually appears on lancasteronline.com/calendar within a few days,
+  and around 09-17 check GA4 for `lancasteronline / listing` showing NON-ZERO
+  `view_item` — that is the specific thing the `/l/` link was introduced to fix
+  and it has never yet been observed working.**
 
 - **Patch and Discover Lancaster for TL2 are composed-but-unposted, and Patch has
   a payment trap.** (09-09) Patch's step 2 pre-selects 8 paid communities at
   $14.00; choosing "I do not want to feature my event" flips the CTA from "Next"
   (→ payment) to "Post", but the panel still displays a price (it read
   "You pay $1.75" even with every community unchecked), so it was left unposted
-  rather than risk an unauthorised charge overnight. Discover Lancaster was
-  filled once and lost by navigating the same tab away — it also ends in a
-  reCAPTCHA, which cannot be automated at all, so it will always need a human for
-  the last step. **Next step: re-open both forms from `build/listing-pack.md`
-  (per-site `/l/` links are in there) and click through the final button by
-  hand.** AllEvents needs no submission — it auto-imports from Eventbrite — but
+  rather than risk an unauthorised charge overnight. Patch is SKIPPED for TL2 by
+  Taylor's call on 09-10. **Discover Lancaster is re-filled as of 09-10 and
+  waiting on three things only a human can do: a Business Phone (REQUIRED, and
+  no number exists anywhere in this repo), the certification checkbox — "I
+  certify that my event is tourism-related and will have the potential to bring
+  visitors to Lancaster County", which is an attestation about the event and not
+  mine to tick — and the reCAPTCHA.** Everything else is in: name, Oct 6
+  6:30–8:30 PM, Tellus360 / 24 E King St / Lancaster / PA / 17602, categories
+  After Five + Downtown Lancaster, admission, 839-char description, and both URL
+  fields set to `sparkdate.date/l/tl2-discoverlancaster` (46 chars, under their
+  100-char cap). Contact is Taylor Chambers / taylor.ancapital@gmail.com —
+  change it if a tourism-board moderator should reply elsewhere. **Two traps
+  found, both worth knowing before anyone refills this form: (1) the category
+  checkboxes RENDER TWICE — 34 boxes for 17 categories, both blocks live — so
+  ticking by label submits every category twice; untick the duplicate.
+  (2) NO IMAGE was uploaded on purpose: their spec is 600x600 with "no logos and
+  no words in the image", and the SparkDate cover art is exactly a logo with
+  words, so uploading it invites a moderation rejection. The image field is not
+  required. Art here has to be a photo of the venue or the room, not the brand
+  card.** AllEvents needs no submission — it auto-imports from Eventbrite — but
   its imported body and link both need the manual fix afterwards.
 
 - **LX-24's Facebook leg cannot publish and will fail silently on 09-21 — it

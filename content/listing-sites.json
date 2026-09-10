@@ -41,7 +41,7 @@
     {
       "key": "facebook_event",
       "name": "Facebook Event (from the SparkDate Page)",
-      "status": "not_pursued",
+      "status": "active",
       "market": "any",
       "cost": "free",
       "submit_url": "https://www.facebook.com/events/create",
@@ -50,7 +50,16 @@
       "priority": 1,
       "why_now": "The account already runs paid Facebook and has the Page, the audience and the creative. A Page Event is the same asset posted to a surface that costs nothing, and every RSVP is shown to that person's friends -- the one channel here with built-in amplification. GA4 shows zero organic Facebook event traffic, so this is unworked ground, not a saturated one.",
       "gotchas": [
-        "Facebook wraps outbound links. Confirm the utm_* params survive the l.facebook.com hop before trusting the GA4 row -- 53 sessions already land as 'm.facebook.com / referral' with no campaign attached.",
+        "THE l.facebook.com WRAPPER IS FINE -- VERIFIED 2026-09-10, and this had never actually been checked. Facebook wraps the outbound link but only APPENDS `?fbclid=...`; it does not touch the path. So `/l/tl2-facebook-event` arrives intact and the redirect still fires, delivering all four utm_* params plus the event id (fbclid just rides along in the final URL). The 53 sessions landing as 'm.facebook.com / referral' with no campaign are therefore NOT the wrapper eating tags -- they are untagged links posted elsewhere. Use the `/l/` short link and trust the GA4 row.",
+        "STATUS CORRECTED 2026-09-10 (was `not_pursued`, and why_now claimed 'GA4 shows zero organic Facebook event traffic, so this is unworked ground'). A Facebook Event for Loxleys (Sep 22) already existed when TL2's was created -- both are visible under Your upcoming events. Same wrong-status pattern as lancasteronline, nextdoor_event and patch.",
+        "TL2's event: facebook.com/events/38939721868974414, created 2026-09-10.",
+        "Creating the event AUTO-OPENS an 'Invite followers' dialog. That is a send-on-someone's-behalf action -- Cancel it unless a human has asked for invites. Taylor asked on 2026-09-10 and they were sent for TL2.",
+        "'500 INVITES LEFT' IS THE QUOTA, NOT THE AUDIENCE. The Page's actual invitable follower list is NINE people. 'Select all' takes those 9; two further entries (a person and a Page) cannot be selected at all. So why_now's 'the one channel here with built-in amplification' is true in mechanism and tiny in practice -- 9 invitees, each RSVP visible to that person's friends. Judge this channel by the SEO/discovery value of a public Facebook event and by venue-Page tagging, not by follower reach, until the Page's following actually grows.",
+        "Tag the VENUE's Facebook Page in the location field, not a plain address. 'Tellus 360' (24 E King St, 83,750 check-ins) is a real Page, and choosing it exposes the event to people who follow the venue -- which is far larger than our own follower count.",
+        "The invite dialog opens on the PERSONAL 'Facebook Friends' tab by default and shows 'No results'. Click the 'Switch to Sparkdate.date to send invites to your followers' toggle first, or you will be looking at the wrong (empty) audience and conclude there is nobody to invite.",
+        "The Ticket URL field is under the collapsed 'Add tickets' section at the bottom of the create dialog. It is what produces the 'Find tickets' button and the Tickets line in Details; a link in the description alone does not.",
+        "The host dropdown offered exactly one identity, `Sparkdate.date`, so there is no personal-profile trap here in practice -- but confirm it before creating, since a Page Event and a profile event behave differently.",
+        "The default cover art is public/og-image.jpg, whose footer band reads 'SPARKDATE.DATE - PHILADELPHIA & LANCASTER'. Facebook's cover crop cuts it to '...PHILADELPHIA' on a Lancaster event. Cosmetic, but wrong-city-in-the-image on the surface built for amplification. Reposition or use a Lancaster-specific cover.",
         "An Event is distinct from a post about the event. Both are worth doing; only the Event gets RSVPs and reminders."
       ]
     },
@@ -72,7 +81,12 @@
       },
       "gotchas": [
         "Submit at least two weeks ahead or it will not clear moderation in time.",
-        "Check the calendar for an existing duplicate before submitting; they ask for this explicitly."
+        "Check the calendar for an existing duplicate before submitting; they ask for this explicitly.",
+        "THE CATEGORY CHECKBOXES RENDER TWICE -- 34 boxes for 17 categories, and BOTH blocks are live and visible. Ticking by label checks each category twice and submits it twice. Untick the duplicate before submitting. Found 2026-09-10.",
+        "DO NOT UPLOAD THE BRAND COVER ART. Their spec is 600x600 with 'no logos and no words in the image', and every SparkDate cover is a logo with words on it. The image field is NOT required, so submit without one rather than invite a moderation rejection. Art for this surface has to be a photo of the venue or the room.",
+        "Three fields no automation can supply: Business Phone (REQUIRED, and no number for SparkDate exists in this repo), the certification checkbox 'I certify that my event is tourism-related and will have the potential to bring visitors to Lancaster County' (an attestation about the event, not a form field to tick on someone's behalf), and a reCAPTCHA. Compose everything else, then hand over.",
+        "THE TIME WIDGET IGNORES THE HIDDEN TIME INPUT -- this nearly posted a 6:30 PM event at 9:00 AM on 2026-09-10. 'All Day Event' is CHECKED by default and hides the time controls. Unchecking it reveals a separate VISIBLE segmented widget (hour | minute | AM/PM) that defaults to 09 : 00 AM. Setting the hidden input calendarEvent[startDate][time] does NOT move that widget, so the form still shows and submits 9:00 AM. Set the three visible segments instead -- they are the three unnamed text inputs directly after each hidden [time] input (06, 30, PM). The tell that it took: the widget writes back a ZERO-PADDED value into the hidden input, e.g. '06:30 PM' rather than the '6:30 PM' you typed. Read that back before handing over. On a fresh render the checkbox is also not reliably selectable by name=allDay -- find it by its 'All Day Event' label text.",
+        "The form does not hydrate until the page is scrolled -- a fresh tab reports zero fields. Scroll, then read the DOM."
       ]
     },
     {
@@ -87,7 +101,13 @@
       "priority": 2,
       "why_now": "The local paper's calendar. High local trust and indexed by Google, which is the point -- 'singles events Lancaster PA' currently returns nothing of ours.",
       "gotchas": [
-        "The submit flow is inside the calendar app itself (a #! route), not a separate /submit page. Open the calendar and find the submit control on the page rather than guessing a URL.",
+        "THE SIGN-IN WALL IS AVOIDABLE, and going to Evvnt directly is what hits it. Both my.evvnt.com and lancasteronline.evvnt.com redirect straight to /sign_in. Instead open https://lancasteronline.com/calendar/ and use the 'Promote Your Event' link in the FOOTER: it carries a partner token to new.evvnt.com and drops you into the submission form with no login at all. The whole listing -- title, category, venue, date, times, image, summary, description, tags, price, capacity, ticketing URL -- can be composed that way. Verified 2026-09-10.",
+    "The account gate is at the LAST step only ('Just One More Thing... we need you to sign up or sign in', asking for an email). Compose everything first; only the final submit needs the account.",
+    "Use the ADVANCED form, not the quick modal that opens on top of it. Close that modal first (its X) or every field you fill goes into the wrong form. 'Advanced Form' is the button top-left.",
+    "The image field is a real hidden input[type=file] and accepts a programmatic upload -- public/og-image.jpg (1200x630) went in cleanly. This is NOT the Plupload situation AllEvents has.",
+    "The preview step TRUNCATES the description -- the Details block and the ticket URL vanish from it. That is display only; the stored textarea still holds the full text. Do not retype it.",
+    "Tags strip spaces: 'singles events Lancaster' is stored as 'singleseventsLancaster'. Add single words.",
+    "The submit flow is inside the calendar app itself (a #! route), not a separate /submit page. Open the calendar and find the submit control on the page rather than guessing a URL.",
         "STATUS CORRECTED 2026-09-08 (was `not_pursued`, which was wrong for six days). Both live events were submitted via Evvnt on 2026-09-02 and its newsletter went out 09-03 and produced 136 sessions in ONE day -- larger than any free surface here except Eventbrite's whole-window total. This is the highest-performing free channel on the list, not an unworked one.",
         "SUBMIT THROUGH EVVNT, not the LancasterOnline page. Evvnt syndicates to LNP; the calendar page itself is the output, not the input.",
         "It arrives in GA4 under an OBFUSCATED source tag AND as a second plaintext row, so reading either alone understates it. Cipher: a-f shift +1, g-z ROT13. scripts/ga4-nightly-summary.js decodes and pairs these automatically.",
