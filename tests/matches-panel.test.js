@@ -60,20 +60,39 @@ const MATCH_WINDOW_DAYS = vm.runInContext('MATCH_WINDOW_DAYS', sandbox);
 const NOW = Date.parse('2026-09-10T10:00:00Z');
 const daysAgo = (n) => new Date(NOW - n * 86400000).toISOString();
 
-function attendees(ev, n, women) {
-  return Array.from({ length: n }, (_, i) => ({
-    eventId: ev, userId: `${ev}-u${i}`, email: `${ev}-p${i}@example.com`,
-    status: 'confirmed', gender: i < women ? 'woman' : 'man',
-  }));
+// The first `women` registrations are the women. `wCheckedIn` of those and
+// `mCheckedIn` of the men carry a door scan; the rest legitimately have no
+// timestamp (Eventbrite imports, missed scans), which is the whole reason
+// check-in is a floor.
+function attendees(ev, n, women, wCheckedIn = 0, mCheckedIn = 0) {
+  return Array.from({ length: n }, (_, i) => {
+    const isWoman = i < women;
+    const scanned = isWoman ? i < wCheckedIn : (i - women) < mCheckedIn;
+    return {
+      eventId: ev, userId: `${ev}-u${i}`, email: `${ev}-p${i}@example.com`,
+      status: 'confirmed', gender: isWoman ? 'woman' : 'man',
+      ...(scanned ? { checkedInAt: dateOf(ev) } : {}),
+    };
+  });
 }
+const dateOf = () => '2026-06-01T23:30:00Z'; // any timestamp; only truthiness is read
 
-// `pickers` people each pick somebody; picks are spread across them so the
-// total lands exactly on `picks`. `matchPairs` of those become mutual.
-function eventFixture({ id, venue, dateISO, n, women, pickers, picks, matchPairs, matchedPeople, prompted }) {
-  const regs = attendees(id, n, women);
+// `pickers` people each pick somebody, `wPickers` of them women; picks are
+// spread across those pickers so the total lands exactly on `picks`.
+// `matchPairs` of the pairs become mutual.
+function eventFixture({ id, venue, dateISO, n, women, pickers, picks, matchPairs, matchedPeople, prompted,
+                        wPickers = 0, wCheckedIn = 0, mCheckedIn = 0 }) {
+  const regs = attendees(id, n, women, wCheckedIn, mCheckedIn);
+  // Pickers: the first wPickers women, then men. Deliberately independent of
+  // who checked in, so a woman can pick without having been scanned — the
+  // case that pushes the rate over 100%.
+  const pickerRegs = [
+    ...regs.slice(0, wPickers),
+    ...regs.slice(women, women + (pickers - wPickers)),
+  ];
   const intents = [];
   for (let i = 0; i < picks; i++) {
-    const from = regs[i % pickers].userId;           // round-robin over the pickers
+    const from = pickerRegs[i % pickerRegs.length].userId;   // round-robin over the pickers
     const to = regs[(i * 7 + 3) % n].userId;
     intents.push({ fromUserId: from, toUserId: to, eventId: id, createdAt: dateISO });
   }
@@ -100,20 +119,29 @@ function eventFixture({ id, venue, dateISO, n, women, pickers, picks, matchPairs
 // the measured "attendees matched" figure for each event.
 const seq = (n) => Array.from({ length: n }, (_, i) => i);
 
+// Women registered per event come from the review's §3 gender shares:
+// 33% of 24, 31% of 30, 47% of 34, 26% of 23, 45% of 29.
+// Women pickers (5 / 5 / 2 / 2 / 3) sum to the 17 the review counted
+// all-time, and women checked in (7 / 3 / 10 / 2 / 8) are the door scans.
 const FIXTURES = [
   eventFixture({ id: 'founders', venue: 'Founders Mixer', dateISO: '2026-06-24T23:00:00Z',
-    n: 24, women: 8, pickers: 15, picks: 67, matchPairs: 12, matchedPeople: seq(11), prompted: 22 }),
+    n: 24, women: 8, pickers: 15, picks: 67, matchPairs: 12, matchedPeople: seq(11), prompted: 22,
+    wPickers: 5, wCheckedIn: 7, mCheckedIn: 9 }),
   eventFixture({ id: 'round2', venue: 'Round 2 — Summer Nights', dateISO: '2026-07-29T23:00:00Z',
-    n: 30, women: 9, pickers: 16, picks: 47, matchPairs: 13, matchedPeople: seq(14), prompted: 28 }),
+    n: 30, women: 9, pickers: 16, picks: 47, matchPairs: 13, matchedPeople: seq(14), prompted: 28,
+    wPickers: 5, wCheckedIn: 3, mCheckedIn: 12 }),
   eventFixture({ id: 'tellus', venue: 'Tellus AfterDark: Singles Edition', dateISO: '2026-08-26T23:00:00Z',
-    n: 34, women: 16, pickers: 13, picks: 36, matchPairs: 2, matchedPeople: seq(3), prompted: 32 }),
+    n: 34, women: 16, pickers: 13, picks: 36, matchPairs: 2, matchedPeople: seq(3), prompted: 32,
+    wPickers: 2, wCheckedIn: 10, mCheckedIn: 14 }),
   eventFixture({ id: 'goodgood', venue: 'Good Good Night', dateISO: '2026-08-31T23:00:00Z',
-    n: 23, women: 6, pickers: 10, picks: 21, matchPairs: 4, matchedPeople: seq(6), prompted: 21 }),
+    n: 23, women: 6, pickers: 10, picks: 21, matchPairs: 4, matchedPeople: seq(6), prompted: 21,
+    wPickers: 2, wCheckedIn: 2, mCheckedIn: 11 }),
 ];
 
 // Marion Court: two days old at the reference read, still accumulating.
 const MARION = eventFixture({ id: 'marion', venue: 'Marion Court', dateISO: '2026-09-08T23:00:00Z',
-  n: 29, women: 13, pickers: 11, picks: 60, matchPairs: 3, matchedPeople: seq(5), prompted: 27 });
+  n: 29, women: 13, pickers: 11, picks: 60, matchPairs: 3, matchedPeople: seq(5), prompted: 27,
+  wPickers: 3, wCheckedIn: 8, mCheckedIn: 10 });
 
 // An event that has not happened yet has no picks to count.
 const UPCOMING = {
@@ -299,10 +327,118 @@ describe('prompts', () => {
   });
 });
 
+describe('women picked / checked in', () => {
+  const d = run([...FIXTURES, MARION]);
+
+  // The measured pairs, 2026-09-10.
+  const CASES = [
+    ['founders', 5, 7],
+    ['round2', 5, 3],
+    ['tellus', 2, 10],
+    ['goodgood', 2, 2],
+    ['marion', 3, 8],
+  ];
+
+  it.each(CASES)('%s: %i women picked of %i checked in', (id, picked, checkedIn) => {
+    const e = byId(d, id);
+    expect(e.womenPicked).toBe(picked);
+    expect(e.womenCheckedIn).toBe(checkedIn);
+    expect(e.womenPickRate).toBeCloseTo(picked / checkedIn * 100, 6);
+  });
+
+  it('lets the rate exceed 100% rather than clamping it', () => {
+    // Round 2: 5 women picked, 3 women scanned at the door. Check-in is a
+    // floor, not attendance — two women who picked never scanned. Clamping
+    // this to 100% would hide a check-in gap by pretending it is a ceiling.
+    const e = byId(d, 'round2');
+    expect(e.womenPickRate).toBeGreaterThan(100);
+    expect(e.womenPickRate).toBeCloseTo(166.666, 2);
+  });
+
+  it('reads Tellus as the low one: most women in the room, fewest answering', () => {
+    const tellus = byId(d, 'tellus');
+    expect(tellus.womenCheckedIn).toBe(10);   // the largest of any event
+    expect(tellus.womenPickRate).toBe(20);    // and the lowest rate
+    FIXTURES.filter(f => f.event.id !== 'tellus')
+      .forEach(f => expect(byId(d, f.event.id).womenPickRate).toBeGreaterThan(20));
+  });
+
+  it('counts men the same way, on their own denominator', () => {
+    const e = byId(d, 'tellus');
+    expect(e.menPicked).toBe(11);             // 13 pickers, 2 of them women
+    expect(e.menCheckedIn).toBe(14);
+    expect(e.menPickRate).toBeCloseTo(11 / 14 * 100, 6);
+  });
+
+  it('registered is not check-in: the unscanned still count as attendees', () => {
+    const e = byId(d, 'goodgood');
+    expect(e.womenRegistered).toBe(6);
+    expect(e.womenCheckedIn).toBe(2);
+    expect(e.attendees).toBe(23);
+    expect(e.womenRegistered + e.menRegistered).toBe(e.attendees);
+  });
+
+  it('is 0, not NaN, when nobody scanned in', () => {
+    const f = eventFixture({ id: 'noscan', venue: 'No scan', dateISO: '2026-06-01T23:00:00Z',
+      n: 6, women: 3, pickers: 3, picks: 3, matchPairs: 1, matchedPeople: [0, 1], prompted: 6,
+      wPickers: 2, wCheckedIn: 0, mCheckedIn: 0 });
+    const e = byId(run([f]), 'noscan');
+    expect(e.womenCheckedIn).toBe(0);
+    expect(e.womenPicked).toBe(2);
+    expect(e.womenPickRate).toBe(0);
+    expect(Number.isFinite(e.womenPickRate)).toBe(true);
+  });
+
+  it('counts one check-in for a person with two registration rows', () => {
+    // The duplicate-uid person again: scanned on one row only. She is one
+    // woman in the room, so she must not add two to the denominator.
+    const f = eventFixture({ id: 'dupin', venue: 'Dup in', dateISO: '2026-06-01T23:00:00Z',
+      n: 4, women: 2, pickers: 2, picks: 2, matchPairs: 1, matchedPeople: [0, 1], prompted: 4,
+      wPickers: 2, wCheckedIn: 1, mCheckedIn: 0 });
+    f.regs.push({ eventId: 'dupin', userId: 'dupin-alt', email: 'dupin-p0@example.com',
+                  status: 'confirmed', gender: 'woman', checkedInAt: '2026-06-01T23:40:00Z' });
+    const e = byId(run([f]), 'dupin');
+    expect(e.womenRegistered).toBe(2);
+    expect(e.womenCheckedIn).toBe(1);
+  });
+
+  it('counts a check-in on either duplicate row', () => {
+    // Scanned on the second row, not the first: still checked in.
+    const f = eventFixture({ id: 'dupin2', venue: 'Dup in 2', dateISO: '2026-06-01T23:00:00Z',
+      n: 4, women: 2, pickers: 2, picks: 2, matchPairs: 1, matchedPeople: [0, 1], prompted: 4,
+      wPickers: 2, wCheckedIn: 0, mCheckedIn: 0 });
+    f.regs.push({ eventId: 'dupin2', userId: 'dupin2-alt', email: 'dupin2-p0@example.com',
+                  status: 'confirmed', gender: 'woman', checkedInAt: '2026-06-01T23:40:00Z' });
+    expect(byId(run([f]), 'dupin2').womenCheckedIn).toBe(1);
+  });
+
+  it('resolves the counted gender from the profile, like the picker split', () => {
+    const f = eventFixture({ id: 'gp', venue: 'Gp', dateISO: '2026-06-01T23:00:00Z',
+      n: 4, women: 2, pickers: 2, picks: 2, matchPairs: 0, matchedPeople: [], prompted: 4,
+      wPickers: 2, wCheckedIn: 2, mCheckedIn: 2 });
+    // The registration says man; the profile says woman. Both the numerator
+    // and the denominator must move together, or the rate is nonsense.
+    const e = byId(run([f], { users: [{ id: 'gp-u2', gender: 'woman' }] }), 'gp');
+    expect(e.womenRegistered).toBe(3);
+    expect(e.womenCheckedIn).toBe(3);
+    expect(e.menRegistered).toBe(1);
+    expect(e.menCheckedIn).toBe(1);
+  });
+
+  it('pools the totals rather than averaging the per-event rates', () => {
+    // The average of the five rates is ~79%; the pooled rate is 17/30.
+    expect(d.totals.womenPicked).toBe(17);
+    expect(d.totals.womenCheckedIn).toBe(7 + 3 + 10 + 2 + 8);
+    expect(d.totals.womenPickRate).toBeCloseTo(17 / 30 * 100, 6);
+    expect(d.totals.menPicked).toBe(48);
+    expect(d.totals.menPickRate).toBeCloseTo(48 / d.totals.menCheckedIn * 100, 6);
+  });
+});
+
 describe('the women / men picker split', () => {
   it('prefers users[].gender and falls back to the registration', () => {
     const f = eventFixture({ id: 'g', venue: 'G', dateISO: '2026-06-01T23:00:00Z',
-      n: 6, women: 3, pickers: 6, picks: 6, matchPairs: 0, matchedPeople: [], prompted: 6 });
+      n: 6, women: 3, pickers: 6, picks: 6, matchPairs: 0, matchedPeople: [], prompted: 6, wPickers: 3 });
     // Registrations say 3 W / 3 M. The profile disagrees for one man.
     const users = [{ id: 'g-u3', gender: 'woman' }];
     const e = byId(run([f], { users }), 'g');
@@ -314,7 +450,7 @@ describe('the women / men picker split', () => {
 
   it('reports pickers with no gender anywhere as unknown, not as men', () => {
     const f = eventFixture({ id: 'gu', venue: 'Gu', dateISO: '2026-06-01T23:00:00Z',
-      n: 4, women: 2, pickers: 4, picks: 4, matchPairs: 0, matchedPeople: [], prompted: 4 });
+      n: 4, women: 2, pickers: 4, picks: 4, matchPairs: 0, matchedPeople: [], prompted: 4, wPickers: 2 });
     delete f.regs[2].gender;
     delete f.regs[3].gender;
     const e = byId(run([f]), 'gu');
@@ -326,7 +462,7 @@ describe('the women / men picker split', () => {
 
   it('normalises case and whitespace on gender', () => {
     const f = eventFixture({ id: 'gc', venue: 'Gc', dateISO: '2026-06-01T23:00:00Z',
-      n: 2, women: 1, pickers: 2, picks: 2, matchPairs: 0, matchedPeople: [], prompted: 2 });
+      n: 2, women: 1, pickers: 2, picks: 2, matchPairs: 0, matchedPeople: [], prompted: 2, wPickers: 1 });
     f.regs[0].gender = ' Woman ';
     f.regs[1].gender = 'MAN';
     const e = byId(run([f]), 'gc');
@@ -437,7 +573,7 @@ describe('renderMatches', () => {
     expect(html).toContain('Marion Court');
     // One <tr> per event, plus the header row.
     expect((html.match(/<tr>/g) || []).length).toBe(5 + 1);
-    expect((html.match(/<td /g) || []).length).toBe(5 * 8 - 5); // 8 cells a row, the first has no attrs
+    expect((html.match(/<td /g) || []).length).toBe(5 * 9 - 5); // 9 cells a row, the first has no attrs
     // Tellus: 34 attendees, 13 pickers, 36 picks, 2 mutual.
     const tellusRow = html.split('<tr>').find(r => r.includes('Tellus'));
     expect(tellusRow).toContain('>34<');
