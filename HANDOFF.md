@@ -36,6 +36,21 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **The chemistry run-of-show audit is written and waiting on Taylor's yes to
+  four proposed changes — nothing has been built yet.** (09-09, PR #487) He asked
+  for an audit and a proposal, not an implementation, so the PR is report-only:
+  `reports/CHEMISTRY_RUN_OF_SHOW_AUDIT_2026-09-09.md` plus a designed page. The
+  two measured findings are that the "where do I sit?" lookup answers only 3 of
+  the 9 plan steps (it is handed the seated rounds and never the 1-on-1s), and
+  that the intro lists are structurally empty below ~20 people — so on every
+  roster SparkDate has run they have nothing to show. **Next step: Taylor picks
+  which of the four to build.** One of them needs an answer from him first —
+  fix 4 (give the 1-on-1s a table number) assumes the physical tables stay in
+  the room for the 1-on-1 segment, which is a question about how the night runs,
+  not about the code. Fixes 1-3 are unblocked and self-contained; the seating
+  solver, the pin, the wall-clock timer and `runStepIn()` are all deliberately
+  out of scope and `tests/chemistry-rotation.test.js` should stay green.
+
 - **TL2 (Tellus AfterDark, Oct 6) is LIVE on Eventbrite and Nextdoor; three
   things about it still need a human.** (09-09) Eventbrite
   `2000197587829` is On Sale, 0/30, tiers copied from Loxleys
