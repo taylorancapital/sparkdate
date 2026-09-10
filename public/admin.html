@@ -1333,7 +1333,64 @@
         .run-find-leg.now .run-find-r { color:var(--gold); }
         .run-find-t { font-weight:700; color:var(--white); white-space:nowrap; flex-shrink:0; }
         .run-find-with { font-size:12px; color:rgba(245,243,240,0.5); overflow:hidden; text-overflow:ellipsis; }
-        @media (max-width: 640px) { .run-clock { font-size:56px; } .run-step { min-width:100%; } }
+        /* Tap a name instead of typing it — a dark, loud room, one hand. */
+        /* Capped, because at 29 people this is eight wrapped rows and it
+           pushed the pair list — the thing the host is actually reading out —
+           clean off a phone screen. Three rows and a scroll: still one tap for
+           anyone near the top, still browsable, and typing narrows it to a
+           single row. */
+        .rs-roster {
+            display:flex; flex-wrap:wrap; gap:5px; margin-top:10px;
+            max-height:104px; overflow-y:auto;
+            -webkit-overflow-scrolling:touch;
+        }
+        .rs-roster::-webkit-scrollbar { width:5px; }
+        .rs-roster::-webkit-scrollbar-thumb { background:rgba(255,107,107,0.25); border-radius:3px; }
+        .rs-pick { cursor:pointer; font-family:inherit; font-size:12px; }
+        .rs-pick:hover { border-color:var(--coral); color:#fff; }
+        .rs-picked { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+        .rs-clear { font-size:12px; padding:5px 11px; }
+
+        /* NOW / NEXT — the two things the question actually wants. */
+        .rs-now { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .rs-cell {
+            border:1px solid rgba(255,255,255,0.09); border-radius:10px; padding:10px 12px;
+            background:rgba(255,255,255,0.03); min-width:0;
+        }
+        .rs-cell.next { background:rgba(212,175,55,0.06); border-color:rgba(212,175,55,0.22); }
+        .rs-cell.idle { background:rgba(255,107,107,0.07); border-color:rgba(255,107,107,0.25); }
+        .rs-k { font-size:10px; text-transform:uppercase; letter-spacing:.08em;
+                color:rgba(245,243,240,0.4); margin-bottom:3px; }
+        .rs-cell.next .rs-k { color:var(--gold); }
+        .rs-cell.idle .rs-k { color:var(--coral); }
+        .rs-v { font-size:19px; font-weight:700; color:var(--white); line-height:1.15;
+                overflow-wrap:anywhere; }
+        .rs-sub { font-size:11px; color:rgba(245,243,240,0.45); margin-top:3px; overflow-wrap:anywhere; }
+        .rs-all { margin-top:10px; }
+        .rs-all > summary { cursor:pointer; font-size:11px; color:rgba(245,243,240,0.45); list-style:none; }
+        .rs-all > summary::-webkit-details-marker { display:none; }
+        .rs-all > summary::before { content:"▸ "; color:var(--coral); }
+        .rs-all[open] > summary::before { content:"▾ "; }
+        .run-find-leg.idle .run-find-t { color:var(--coral); }
+
+        /* The people this round forgot. */
+        .rs-idle {
+            margin-top:12px; padding:10px 12px; border-radius:9px;
+            background:rgba(255,107,107,0.07); border:1px solid rgba(255,107,107,0.25);
+        }
+        .rs-idle-head {
+            font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+            color:var(--coral); font-weight:700; margin-bottom:7px;
+        }
+        .rs-idle-note { font-size:11px; color:rgba(245,243,240,0.45); margin-top:7px; }
+
+        @media (max-width: 640px) {
+            .run-clock { font-size:56px; }
+            .run-step { min-width:100%; }
+            /* Two cells side by side at 375px leaves ~120px each, which cuts
+               "Table 3" in half once the label wraps. Stack them. */
+            .rs-now { grid-template-columns:1fr; }
+        }
 
         /* Arrived together — the party editor and its markers */
         .party-box {
@@ -3788,6 +3845,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             _prioMode = 'all';
             _shortlistN = 3;
             _runFind = '';
+            _runPickId = null;
             _tableRound = 1;
             // Half-made party selection, not the parties themselves — those
             // are stored, because re-entering them at the door is the one
@@ -4547,6 +4605,63 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 return { round: i + 1, table: ti + 1, withThem: isW ? t.men : t.women };
             });
         }
+        // ── The whole night for one person, not just the seated half ───
+        //
+        // itineraryFor() above answers for the SEATED rounds, and that is all
+        // it was ever given: renderRunOfShow handed the lookup
+        // `plan.filter(s => s.kind === 'round')`. On a 10W/10M room at the
+        // defaults that is 3 of the 9 steps — the lookup returned nothing at
+        // all for the entire 1-on-1 segment, which is more than half the
+        // night by wall clock and the part the host was most often asked
+        // about. The pairings were never missing; buildOneOnOnes() had
+        // already computed every one of them. They were simply never handed
+        // over.
+        //
+        // So this walks the PLAN. One leg per step, in the order the night
+        // runs, and it answers three different questions with the same
+        // shape:
+        //
+        //   round  → which table, and who is there to meet
+        //   ones   → which single person, by name
+        //   idle   → nobody, said out loud rather than left blank
+        //
+        // That last case is not an edge case. On the two most skewed rosters
+        // this business has actually run (9W/20M and 4W/9M) it is 38% of the
+        // room in EVERY 1-on-1 round. A blank leg told those people nothing,
+        // and told the host nothing about them either.
+        function planLegsFor(person, plan) {
+            if (!person || !plan || !plan.length) return [];
+            return plan.map((step, i) => {
+                const base = { step: i, kind: step.kind, label: step.label };
+                if (step.kind === 'round') {
+                    const ti = step.tables.findIndex(t =>
+                        t.women.some(w => w.id === person.id) || t.men.some(m => m.id === person.id));
+                    if (ti === -1) return { ...base, table: null, withThem: [], partner: null, idle: true };
+                    const t = step.tables[ti];
+                    const isW = t.women.some(w => w.id === person.id);
+                    return { ...base, table: ti + 1, withThem: isW ? t.men : t.women, partner: null, idle: false };
+                }
+                const pr = (step.pairs || []).find(p => p.a.id === person.id || p.b.id === person.id);
+                if (!pr) return { ...base, table: null, withThem: [], partner: null, idle: true };
+                const other = pr.a.id === person.id ? pr.b : pr.a;
+                return { ...base, table: null, withThem: [other], partner: other, score: pr.score, idle: false };
+            });
+        }
+
+        // Everyone with nobody to talk to in this step.
+        //
+        // Only meaningful for a 1-on-1 step: the seated rounds put the whole
+        // room at a table by construction. Returned rather than counted so
+        // the host gets NAMES — "six people are idle" is a statistic, and
+        // what a host can act on is "Ben, Sam and Ruy are idle, put them at
+        // table 2 together".
+        function idleInStep(step) {
+            if (!step || step.kind !== 'ones') return [];
+            const busy = new Set();
+            (step.pairs || []).forEach(p => { busy.add(p.a.id); busy.add(p.b.id); });
+            return [..._chemWomen, ..._chemMen].filter(u => !busy.has(u.id));
+        }
+
         // ── 1-on-1s: rounds of simultaneous pairs ──────────────────────
         //
         // Each round is a matching: every person in at most one pair. Built
@@ -5155,6 +5270,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         let _runPaused = null;        // ms remaining when paused, else null
         let _runStep = 0;             // index into the built plan
         let _runFind = '';            // "where do I sit?" lookup query
+        let _runPickId = null;        // whose whereabouts the panel is showing
 
         // Minutes per 1-on-1. Seven, not five: five is long enough to trade
         // names and not long enough to get past them, and this is the segment
@@ -5324,50 +5440,114 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // re-focused with the caret at the end after each repaint.
         window.runFind = (q) => { _runFind = q; renderRunOfShow(); };
         window.runFindClear = () => { _runFind = ''; renderRunOfShow(); };
+        // Picking somebody clears the query too: the roster is the index and
+        // the card is the answer, so leaving a half-typed name behind the
+        // answer only makes going back to the list confusing.
+        window.runPick = (id) => { _runPickId = id; if (id) _runFind = ''; renderRunOfShow(); };
 
-        // Everyone in the room, for the lookup. Matches on first name, last
-        // name, or email — a host who only caught a first name should not
-        // have to know the spelling of the surname.
+        // The roster, narrowed by whatever has been typed. Matches on first
+        // name, last name, or email — a host who only caught a first name
+        // should not have to know the spelling of the surname.
+        //
+        // An empty query returns EVERYONE rather than nothing, because the
+        // panel now shows the roster as tappable chips and typing only
+        // filters it. That is the substantive change: this used to require
+        // two characters before it would answer at all and then cap at six
+        // results, which made sense when its output was a search-results
+        // list and makes none when its output is the index itself. Typing is
+        // the worst available input in a dark, loud room, one-handed, and it
+        // is no longer the only way in.
         function findAttendees(q) {
             const needle = (q || '').trim().toLowerCase();
-            if (needle.length < 2) return [];
+            const roster = [..._chemWomen, ..._chemMen];
+            if (!needle) return roster;
             const hay = (u) => [u.firstName, u.lastName, u.email].filter(Boolean).join(' ').toLowerCase();
-            return [..._chemWomen, ..._chemMen].filter(u => hay(u).includes(needle)).slice(0, 6);
+            return roster.filter(u => hay(u).includes(needle));
         }
 
-        function renderFindPanel(rounds, currentRound) {
-            const results = findAttendees(_runFind);
+        // How one leg reads out loud. The whole point of the panel is that a
+        // host can say this to someone without translating anything.
+        function legText(leg) {
+            if (!leg) return { where: 'Done', who: 'that is the end of the night' };
+            if (leg.idle) {
+                return leg.kind === 'ones'
+                    ? { where: 'Sitting out', who: 'no partner this round — grab a drink or join a table' }
+                    : { where: 'Not seated', who: 'they arrived after the plan was pinned' };
+            }
+            if (leg.kind === 'round') {
+                return { where: 'Table ' + leg.table,
+                         who: 'with ' + leg.withThem.map(o => _chemShortName(o)).join(', ') };
+            }
+            return { where: _chemShortName(leg.partner), who: 'one-on-one' };
+        }
+
+        function renderFindPanel(plan, stepIdx) {
+            // Typing narrows the roster; tapping picks someone out of it.
+            // One mechanism instead of two — the old panel had a text query
+            // that produced its own separate result list, which meant a host
+            // who could see the name on screen still had to type it.
+            const shown = findAttendees(_runFind);
+            const picked = _runPickId
+                ? [..._chemWomen, ..._chemMen].find(u => u.id === _runPickId) : null;
+
             const box = `<input class="run-find-input" id="runFindInput" type="search"
-                    placeholder="Where do I sit? — type a name"
+                    placeholder="Who are you looking for?"
                     value="${safe(_runFind)}"
                     oninput="runFind(this.value)" autocomplete="off">`;
 
-            if (!_runFind.trim()) return `<div class="run-find">${box}</div>`;
-            if (!results.length) {
-                return `<div class="run-find">${box}
-                    <div class="run-find-empty">No one by that name in this event.</div></div>`;
-            }
+            // Once someone is picked the roster collapses. At 24 people it is
+            // six wrapped rows, and the answer is what the host wants on
+            // screen, not the index they got it from.
+            if (picked) {
+                const legs = planLegsFor(picked, plan);
+                const now = legs[stepIdx] || null;
+                const next = legs[stepIdx + 1] || null;
+                const isW = _chemWomen.some(w => w.id === picked.id);
+                const nowT = legText(now), nextT = legText(next);
 
-            const cards = results.map(u => {
-                const isW = _chemWomen.some(w => w.id === u.id);
-                const legs = itineraryFor(u, rounds).map(leg => {
-                    const here = leg.round === currentRound;
-                    const names = leg.withThem.map(o => _chemShortName(o)).join(', ');
-                    return `<div class="run-find-leg${here ? ' now' : ''}">
-                        <span class="run-find-r">R${leg.round}</span>
-                        <span class="run-find-t">${leg.table ? 'Table ' + leg.table : '—'}</span>
-                        <span class="run-find-with">${safe(names)}</span>
+                const rest = legs.map((leg, i) => {
+                    const t = legText(leg);
+                    return `<div class="run-find-leg${i === stepIdx ? ' now' : ''}${leg.idle ? ' idle' : ''}">
+                        <span class="run-find-r">${safe(leg.label)}</span>
+                        <span class="run-find-t">${safe(t.where)}</span>
+                        <span class="run-find-with">${safe(t.who)}</span>
                     </div>`;
                 }).join('');
-                return `<div class="run-find-card">
-                    <div class="run-find-name"><span class="table-chip ${isW ? 'w' : 'm'}">${safe(_chemShortName(u))}</span></div>
-                    ${legs}
+
+                return `<div class="run-find">
+                    <div class="rs-picked">
+                        <span class="table-chip ${isW ? 'w' : 'm'}">${safe(_chemShortName(picked))}</span>
+                        <button class="action-btn rs-clear" onclick="runPick(null)">Someone else</button>
+                    </div>
+                    <div class="rs-now">
+                        <div class="rs-cell${now && now.idle ? ' idle' : ''}">
+                            <div class="rs-k">Now &middot; ${safe(now ? now.label : '—')}</div>
+                            <div class="rs-v">${safe(nowT.where)}</div>
+                            <div class="rs-sub">${safe(nowT.who)}</div>
+                        </div>
+                        <div class="rs-cell next${next && next.idle ? ' idle' : ''}">
+                            <div class="rs-k">Next${next ? ' &middot; ' + safe(next.label) : ''}</div>
+                            <div class="rs-v">${safe(nextT.where)}</div>
+                            <div class="rs-sub">${safe(nextT.who)}</div>
+                        </div>
+                    </div>
+                    <details class="rs-all"><summary>The whole night</summary>
+                        <div class="run-find-results">${rest}</div>
+                    </details>
                 </div>`;
+            }
+
+            const chips = shown.map(u => {
+                const isW = _chemWomen.some(w => w.id === u.id);
+                return `<button class="table-chip ${isW ? 'w' : 'm'} rs-pick"
+                    onclick="runPick('${safe(u.id)}')">${safe(_chemShortName(u))}</button>`;
             }).join('');
 
             return `<div class="run-find">${box}
-                <button class="run-find-x" onclick="runFindClear()" title="Clear">&times;</button>
-                <div class="run-find-results">${cards}</div></div>`;
+                ${_runFind.trim() ? `<button class="run-find-x" onclick="runFindClear()" title="Clear">&times;</button>` : ''}
+                ${shown.length
+                    ? `<div class="rs-roster">${chips}</div>`
+                    : `<div class="run-find-empty">No one by that name in this event.</div>`}</div>`;
         }
 
         function renderRunOfShow() {
@@ -5387,8 +5567,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             const remain = _runPaused !== null ? _runPaused : (running ? _runEndsAt - Date.now() : step.ms);
             const over = running && _runPaused === null && remain <= 0;
 
-            const seatedRounds = plan.filter(s => s.kind === 'round').map(s => s.tables);
-            const currentRound = step.kind === 'round' ? _runStep + 1 : null;
+            // (The lookup used to be handed only `plan.filter(kind ===
+            // 'round')`, which is why it went silent for the 1-on-1s. It gets
+            // the whole plan now — see planLegsFor.)
 
             // Body: what the host reads out for this segment.
             let body;
@@ -5419,6 +5600,28 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                              <span class="intro-score ${p.score >= 70 ? 'high' : p.score < 45 ? 'low' : ''}" style="margin-left:6px;">${p.score}</span></div>
                     </div>`).join('') + `</div>`;
                 if (!step.pairs.length) body = '<div class="empty" style="padding:18px;">Everyone has already met everyone available.</div>';
+
+                // Who has nobody this round. The pair list is a list of
+                // people who are fine; these are the ones who are not, and
+                // until now they appeared nowhere on the screen at all.
+                //
+                // It matters more the more skewed the room is, and it matters
+                // MORE STILL if the 1-on-1s are run standing: seated, an
+                // unpaired person is sitting at a table and reads as normal;
+                // standing, they are alone in the middle of a room every
+                // seven minutes. Measured on real rosters, this is 11 of 29
+                // people (9W/20M) and 5 of 13 (4W/9M), every single round.
+                const idle = idleInStep(step);
+                if (idle.length) {
+                    const total = _chemWomen.length + _chemMen.length;
+                    body += `<div class="rs-idle">
+                        <div class="rs-idle-head">Nobody to talk to &middot; ${idle.length} of ${total}</div>
+                        <div>${idle.map(u => `<button class="table-chip ${
+                            _chemWomen.some(w => w.id === u.id) ? 'w' : 'm'} rs-pick"
+                            onclick="runPick('${safe(u.id)}')">${safe(_chemShortName(u))}</button>`).join('')}</div>
+                        <div class="rs-idle-note">Put them together at a spare table rather than leaving them standing.</div>
+                    </div>`;
+                }
             }
 
             const seatedCount = plan.filter(s => s.kind === 'round').length;
@@ -5458,7 +5661,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         _tableRounds > seatedCount ? ` · ${_tableRounds} asked for, only ${seatedCount} fit without repeating` : ''
                     } · <strong>${seatedCount * _roundMinutes} min of tables</strong>, then ${_oneOnOneMinutes}-minute 1-on-1s</span>
                 </div>
-                ${renderFindPanel(seatedRounds, currentRound)}
+                ${renderFindPanel(plan, runStepIn(plan))}
                 ${step.kind === 'round' && step.rotated
                     ? '<div style="font-size:13px;color:var(--gold);margin:8px 0 2px;">Women stay seated. Men move one table along.</div>' : ''}
                 ${step.kind === 'ones' && step.revisiting
