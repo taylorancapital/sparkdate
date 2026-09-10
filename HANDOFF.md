@@ -46,24 +46,23 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   nextdoor.com/p/P3BcQxxgJXJp. **Next steps, in priority order: (1) the listing
   has NO COVER IMAGE — Eventbrite's uploader needs a native file picker, and
   AllEvents auto-imports from Eventbrite and freezes the banner at import time,
-  so this wants doing before that crawl runs. (2) **Refund policy: Taylor asked
-  for 14 days on 09-09 and Eventbrite REFUSED the save. Live value is still
-  "Refunds up to 7 days before event", verified on the public page.** The
-  control is at `/manage/events/<id>/refund_policy` — NOT under Order Options,
-  and it disappears from the publish step once an event goes live. That page
-  states the rule: *"After your event is published, you can only update your
-  policy to make it more flexible for your attendees."* **14 days is STRICTER
-  than 7** (the refund window closes a week earlier), so this may simply be
-  impossible now — note the gate is PUBLICATION, not the first sale, so being
-  at 0/30 does not help. Two Save attempts both failed with "There was an error
-  saving your refund policy" and the form still held unsaved changes
-  afterwards. **Not conclusive, though: Eventbrite was throwing Internal Server
-  Errors on this very route throughout, the same instability seen 09-08.**
-  **Next step: retry once when Eventbrite is healthy. If it fails again with
-  the same message, the flexibility rule is the cause and 7 days is permanent
-  for TL2** — in which case decide whether to match it on future events rather
-  than fight it, since the account is already inconsistent (Marion Court
-  no-refunds, Loxleys 14, TL2 7). (3) Evvnt (→ LNP/LancasterOnline) is sign-in walled at
+  so this wants doing before that crawl runs. (2) **Refund policy: CLOSED 09-10,
+  no action needed. TL2 is "No refunds", matching Marion Court, which is what
+  Taylor wants.** Recording this because I reported it wrong twice on 09-09 and
+  the wrong version is the memorable one: I claimed the live value was "Refunds
+  up to 7 days before event" and that the publish step had silently dropped my
+  `no_refunds` selection. **Both false.** The selection persisted fine; the
+  "7 days" reading came from a STALE CACHED public page. A `?cb=` param is not
+  sufficient on its own — the reliable tell is the organizer stat line
+  (`N followers · N events · N total attendees`). The read that had it says
+  "No refunds"; the read that lacked it said 7 days. The admin page at
+  `/manage/events/<id>/refund_policy` had also shown `no_refunds` checked and I
+  talked myself out of it as an unhydrated default. **Trust the admin page and
+  the stat-line tell over a bare cache-buster.** Corollary: the two failed
+  attempts to set 14 days were almost certainly just Eventbrite 500s, not the
+  "only make it more flexible after publishing" rule — no-refunds → 14 days is
+  a LOOSENING and would have been permitted. That page lives under **Event
+  Finances**, not Order Options. (3) Evvnt (→ LNP/LancasterOnline) is sign-in walled at
   both my.evvnt.com and lancasteronline.evvnt.com — this is the highest-value
   free channel on the list (136 sessions in one day) and TL2 is not on it. When
   submitting, set the ticket URL to `sparkdate.date/l/tl2-lancasteronline`; their
