@@ -82,6 +82,28 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   hand.** AllEvents needs no submission — it auto-imports from Eventbrite — but
   its imported body and link both need the manual fix afterwards.
 
+- **LX-24's Facebook leg cannot publish and will fail silently on 09-21 — it
+  needs a 1080x1080 export.** (09-10) Approved with the rest of the Loxleys run,
+  but `plan` already skips `LX-24/fb` with "every asset is story-shaped". Its
+  four files are two `_tt` and two `_story` frames; there is no feed-shaped one,
+  so `lib/social-publish.js`'s guard refuses it every run. **This is MC-12's
+  failure exactly**, and that one was only fixed because Taylor exported a square
+  by hand. The Instagram Story half is fine and will go. **Next step: a 1080x1080
+  `LX-24` export into `SourceArt` before 2026-09-21 18:30, then
+  `python scripts/prep-social-assets.py`** — or decide LX-24 is Story-only and
+  drop `fb` from its platforms so it stops reading as a scheduled post that never
+  happened.
+
+- **LX-27 is deliberately still `pending` — it is the Loxleys recap and its
+  caption still says `[REAL NUMBER]`.** (09-10) It cannot be approved until the
+  counted check-in figure exists, which is after the event on 09-22. `social.js
+  approve` now refuses it by itself rather than relying on someone noticing (see
+  the guard added in this PR), so a bulk `approve --through=` cannot post the
+  literal words. **Next step: after Loxleys on 2026-09-22, put the counted
+  check-in number into LX-27's `caption` and `caption_x`, then
+  `node scripts/social.js approve --row=LX-27`.** This is the same trap MC-15 was
+  one keystroke from on 09-10.
+
 - **MC-12's Instagram Story and MC-13's Instagram feed post are queued correctly
   but need `social.js run --execute` run again at their actual moments — nothing
   currently does that automatically.** (09-07, PR #471) Both are `state=approved`
