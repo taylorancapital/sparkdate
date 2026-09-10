@@ -1729,10 +1729,15 @@
                     </div>
                 </div>
                 <div class="kpi-card">
-                    <div class="kpi-label">Ticket Velocity</div>
+                    <!-- Ids keep their velocity* names on purpose: renaming
+                         them would have to be matched in renderKPIs, the
+                         snapshot and renderReport at once, and a missed one
+                         renders "undefined" or throws. The METRIC changed on
+                         2026-09-10, the ids did not. -->
+                    <div class="kpi-label">Sales Pace</div>
                     <div class="kpi-value" id="kpiVelocity">—</div>
                     <div class="kpi-foot">
-                        <span class="kpi-delta" id="kpiVelocityTrend">Tickets / day</span>
+                        <span class="kpi-delta" id="kpiVelocityTrend">vs past events at the same T-minus</span>
                         <span class="kpi-spark" id="sparkTickets"></span>
                     </div>
                 </div>
@@ -1783,8 +1788,11 @@
                         <div class="metric-title" style="margin-bottom:14px;">Tickets by event</div>
                         <div id="reportEventBars"><div class="spinner"></div></div>
                     </div>
-                    <div class="card" style="padding:16px 18px;display:flex;flex-direction:column;align-items:center;">
-                        <div class="metric-title" style="align-self:flex-start;margin-bottom:14px;">Ticket velocity</div>
+                    <!-- Was a centered 96px donut; the pacing chart wants the
+                         full width of the card, so this no longer centers. -->
+                    <div class="card" style="padding:16px 18px;">
+                        <div class="metric-title" style="margin-bottom:4px;">Sales pace</div>
+                        <div style="font-size:10.5px;color:var(--text-faint);margin-bottom:12px;">Paid tickets sold by each day before the event</div>
                         <div id="reportVelocity"></div>
                     </div>
                 </div>
@@ -2655,8 +2663,11 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // (commonly ~0.029) — and if the 3.7% already includes processing on your
         // plan, leave this at 0 or you'll double-count.
         const EB_PAYMENT_RATE = 0;
-        // Ticket velocity benchmark: 30 tickets across a 20-day sale window (1.5/day).
-        const TARGET_TICKETS_PER_DAY = 30 / 20;
+        // There is deliberately no flat tickets-per-day target here any more.
+        // TARGET_TICKETS_PER_DAY (30 tickets / 20 days = 1.5/day) was removed on
+        // 2026-09-10: tickets do not sell at a constant rate, so a constant
+        // benchmark cannot judge them. Sales pace is measured against the past
+        // events themselves instead — see pacingCurves().
 
         // ─── Sales channels ────────────────────────────────
         // Three channels now: our own site, Eventbrite, and Meetup. Classification
@@ -7215,6 +7226,83 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             ], (v) => '$' + (Math.round(v * 100) / 100).toFixed(2));
         }
 
+        // Sales pacing chart — the shape the donut it replaced could not show.
+        // Past events run as muted cumulative curves from the left (early) to
+        // T-0 on the right; each open event is one marked point at wherever it
+        // stands today. The reader's question is "is my dot inside the band",
+        // and a picture answers that in a way a single percentage never did.
+        //
+        // Drawn as inline SVG rather than through rcChart(): those charts plot
+        // a daily time series against a shared x-axis of calendar days, and
+        // this one plots several events against a shared COUNTDOWN, which is a
+        // different axis with the origin on the right.
+        function pacingChart(pacing) {
+            if (!pacing || (!pacing.past.length && !pacing.open.length)) {
+                return '<div class="empty">No events to pace yet.</div>';
+            }
+            const W = 320, H = 150, PAD_L = 24, PAD_R = 12, PAD_T = 12, PAD_B = 22;
+
+            // Furthest-out day worth drawing: the earliest day any past event
+            // had sold anything, or the furthest-out open event. Floored at 30
+            // so the fortnight that carries two thirds of every ticket is never
+            // squeezed into the right-hand corner.
+            let xMax = 30;
+            pacing.past.forEach(p => {
+                for (let d = pacing.maxT; d > xMax; d--) { if (p.cum[d] > 0) { xMax = d; break; } }
+            });
+            pacing.open.forEach(o => { xMax = Math.max(xMax, Math.min(pacing.maxT, o.tMinus)); });
+            let yMax = 1;
+            pacing.past.forEach(p => { yMax = Math.max(yMax, p.final); });
+            pacing.open.forEach(o => { yMax = Math.max(yMax, o.sold); });
+
+            const x = (d) => (PAD_L + (1 - d / xMax) * (W - PAD_L - PAD_R)).toFixed(1);
+            const y = (v) => (H - PAD_B - (v / yMax) * (H - PAD_T - PAD_B)).toFixed(1);
+
+            const curves = pacing.past.map(p => {
+                const pts = [];
+                for (let d = xMax; d >= 0; d--) pts.push(`${x(d)},${y(p.cum[Math.min(pacing.maxT, d)])}`);
+                return `<polyline points="${pts.join(' ')}" fill="none" stroke="var(--text-faint)"
+                    stroke-width="1.4" stroke-opacity="0.5" stroke-linejoin="round"><title>${safe(p.title)} — ${p.final} paid</title></polyline>`;
+            }).join('');
+
+            // Ticks only where they fit on the axis we actually drew.
+            const ticks = [30, 14, 7, 0].filter(d => d <= xMax).map(d =>
+                `<line x1="${x(d)}" y1="${PAD_T}" x2="${x(d)}" y2="${H - PAD_B}" stroke="var(--surface-hover)" stroke-width="1"/>
+                 <text x="${x(d)}" y="${H - 7}" fill="var(--text-faint)" font-size="9" text-anchor="middle">T-${d}</text>`).join('');
+
+            const dots = pacing.open.map(o => {
+                const cx = x(Math.min(pacing.maxT, o.tMinus)), cy = y(o.sold);
+                const ahead = o.n ? o.sold >= o.median : true;
+                const c = ahead ? 'var(--gold)' : 'var(--coral)';
+                // Label flips to the left of the dot near the right edge so it
+                // cannot run off the T-0 end of the chart.
+                const right = Number(cx) > W - 60;
+                return `<circle cx="${cx}" cy="${cy}" r="4.5" fill="${c}" stroke="var(--navy)" stroke-width="1.5">
+                        <title>${safe(o.title)} — ${safe(paceLine(o))}</title></circle>
+                    <text x="${right ? Number(cx) - 8 : Number(cx) + 8}" y="${Number(cy) - 7}" fill="${c}" font-size="9.5"
+                        text-anchor="${right ? 'end' : 'start'}">${o.sold} · T-${o.tMinus}</text>`;
+            }).join('');
+
+            const n = pacing.past.length;
+            const note = n
+                ? `${n} past event${n !== 1 ? 's' : ''}, cumulative paid tickets · open events marked`
+                : 'No past event with dated paid tickets yet';
+
+            // Uniform scaling (the default preserveAspectRatio), NOT stretch —
+            // a non-uniform scale distorts every label in here. max-height is
+            // what stops that uniform scale running away: the Full Report's
+            // right-hand column can be 900px wide, and width:100% alone blew
+            // the 9px axis labels up to 25px there. With a height cap the SVG
+            // letterboxes instead, staying legible at any column width.
+            return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-height:${H + 20}px;display:block;"
+                        role="img" aria-label="Cumulative paid tickets by days before the event">
+                    <text x="2" y="${PAD_T + 4}" fill="var(--text-faint)" font-size="9">${yMax}</text>
+                    <text x="2" y="${H - PAD_B}" fill="var(--text-faint)" font-size="9">0</text>
+                    ${ticks}${curves}${dots}
+                </svg>
+                <div style="font-size:10.5px;color:var(--text-faint);margin-top:8px;">${note}</div>`;
+        }
+
         function renderReport() {
             const grid = document.getElementById('reportKpis');
             if (!grid) return;
@@ -7237,7 +7325,7 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 ['Blended CAC', k.cac > 0 ? money(k.cac) : '—', `${money(k.totalAcquisition)} ÷ ${k.payingBuyers} buyers`],
                 ['LTV : CAC', k.ltvCac === '—' ? '—' : `${k.ltvCac}:1`, 'Target 3:1+'],
                 // — Operational —
-                ['Ticket Velocity', k.velocity, k.velocityNote],
+                ['Sales Pace', k.velocity, k.velocityNote],
                 ['Total Members', k.members, k.membersTrend],
             ];
             grid.innerHTML = cards.map(([label, value, note]) => `
@@ -7272,18 +7360,11 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     </div>`).join('')}</div>` : '<div class="empty">No ticket sales yet.</div>';
             }
 
-            // Velocity donut. Capped at 100% so an event beating target doesn't
-            // wrap the ring back past zero and read as a failure.
+            // Sales pacing chart, in place of the donut that showed a per-day
+            // rate as a percentage of a flat 1.5/day target. See pacingCurves()
+            // for why that target was the wrong shape to judge these events by.
             const vel = document.getElementById('reportVelocity');
-            if (vel && kpiSnapshot) {
-                const rate = kpiSnapshot.velocityRate || 0;
-                const pct = Math.min(100, Math.round((rate / TARGET_TICKETS_PER_DAY) * 100));
-                vel.innerHTML = `
-                    <div style="width:96px;height:96px;border-radius:50%;background:conic-gradient(var(--coral) 0% ${pct}%, var(--surface-hover) ${pct}% 100%);display:flex;align-items:center;justify-content:center;">
-                        <div style="width:70px;height:70px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--white);">${rate.toFixed(1)}/d</div>
-                    </div>
-                    <div style="font-size:10.5px;color:var(--text-faint);margin-top:10px;">${pct}% of ${TARGET_TICKETS_PER_DAY.toFixed(1)}/day target</div>`;
-            }
+            if (vel) vel.innerHTML = pacingChart(k.pacing);
 
             // Revenue stat strip.
             const stats = document.getElementById('reportRevenueStats');
@@ -7596,6 +7677,121 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             };
         }
 
+        // ─── Sales pacing ──────────────────────────────────
+        // Tickets do not sell at a constant rate, so a constant target cannot
+        // judge them. Measured across 128 dated paid tickets over five events
+        // (reports/ADMIN_DASHBOARD_METRICS_REVIEW_2026-09-10.md, Evidence §2):
+        // 9 sold on the day or the day before, 37 in T-2..7, 38 in T-8..14, 33
+        // in T-15..30 and 10 earlier. Two thirds of every ticket sells inside
+        // the final fortnight.
+        //
+        // The KPI this replaced divided non-comp registrations by days since
+        // the event doc was created and compared the result with a flat
+        // 1.5/day. Against that curve it reads "behind pace" for essentially
+        // every event until about T-7 and then flips — the verdict changes
+        // without the event changing its behaviour. And it could not answer the
+        // question actually being asked: is this event selling like the last
+        // five did AT THIS POINT? Nothing on the dashboard could.
+        //
+        // So the benchmark is the past events themselves. For each open event
+        // this returns tickets sold so far against the median, min and max of
+        // every past event's cumulative sales at the SAME number of days before
+        // the event.
+        //
+        // Definitions match ticketKpis() exactly, so the two cannot disagree:
+        // PAID means amount > 0 (a $0 free-tier seat or a two-for-one plus-one
+        // is not a sale) and comps are excluded (a giveaway is not demand).
+        function pacingCurves(tickets, events, nowMs) {
+            const asDate = (v) => (v && v.toDate ? v.toDate() : (v ? new Date(v) : null));
+            const ok = (d) => d instanceof Date && !isNaN(d.getTime());
+            const paidFor = (id) => tickets.filter(t =>
+                t.eventId === id && !t.isComp && (Number(t.amount) || 0) > 0);
+            // Whole days before the event a moment falls. Floored and clamped
+            // at 0, so T-0 is the event day itself and a door sale lands there
+            // rather than in a negative bucket.
+            const tMinusOf = (ms, eventMs) => Math.max(0, Math.floor((eventMs - ms) / 86400000));
+
+            const dated = (events || [])
+                .filter(e => e && e.status !== 'canceled')
+                .map(e => ({ e, when: asDate(e.date) }))
+                .filter(x => ok(x.when));
+
+            // Reference curves. cum[d] is the number of paid tickets sold AT
+            // LEAST d days before the event, so cum[0] is the final total and
+            // the series runs downhill as d grows. Read it as "sold by T-d",
+            // which is how the evidence table is written.
+            const MAX_T = 60;
+            const past = [];
+            dated.filter(x => x.when.getTime() <= nowMs).forEach(({ e, when }) => {
+                const paid = paidFor(e.id);
+                const buckets = new Array(MAX_T + 1).fill(0);
+                let datedPaid = 0;
+                paid.forEach(t => {
+                    const sold = asDate(t.createdAt);
+                    if (!ok(sold)) return;
+                    datedPaid++;
+                    buckets[Math.min(MAX_T, tMinusOf(sold.getTime(), when.getTime()))]++;
+                });
+                // An event with no dated paid ticket is not a reference curve.
+                // A stub or draft event doc that never sold would otherwise
+                // pull the median toward zero at every single T-minus.
+                if (!datedPaid) return;
+                const cum = new Array(MAX_T + 1).fill(0);
+                let run = 0;
+                for (let d = MAX_T; d >= 0; d--) { run += buckets[d]; cum[d] = run; }
+                // `undated` is carried so a curve built from partial data can
+                // be spotted: a paid ticket with no createdAt is in the final
+                // count on the Events tab but cannot be placed on this axis.
+                past.push({
+                    id: e.id, title: e.title || 'Untitled event', date: when,
+                    cum, final: cum[0], undated: paid.length - datedPaid,
+                });
+            });
+            past.sort((a, b) => a.date - b.date);
+
+            const median = (xs) => {
+                if (!xs.length) return 0;
+                const s = [...xs].sort((a, b) => a - b);
+                const mid = s.length >> 1;
+                return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+            };
+
+            // Open events, soonest first — the soonest is the one still worth
+            // acting on, so it is the one the KPI card headlines.
+            const open = dated
+                .filter(x => x.when.getTime() > nowMs)
+                .map(({ e, when }) => {
+                    const tMinus = tMinusOf(nowMs, when.getTime());
+                    const at = past.map(p => p.cum[Math.min(MAX_T, tMinus)]);
+                    return {
+                        id: e.id, title: e.title || 'Untitled event', date: when, tMinus,
+                        sold: paidFor(e.id).length,
+                        median: median(at),
+                        min: at.length ? Math.min(...at) : 0,
+                        max: at.length ? Math.max(...at) : 0,
+                        n: at.length,
+                    };
+                })
+                .sort((a, b) => a.tMinus - b.tMinus);
+
+            return { past, open, maxT: MAX_T };
+        }
+
+        // A median of an even number of events lands on a .5, and "median 7.5"
+        // is a real answer — don't round it away, but don't print "7.0" either.
+        function paceNum(n) {
+            return Number.isInteger(n) ? String(n) : Number(n).toFixed(1);
+        }
+
+        // The sentence the Overview card, the Full Report card and the chart
+        // tooltips all show. One definition, because three would drift.
+        function paceLine(o) {
+            return `${o.sold} sold at T-${o.tMinus}`
+                + (o.n
+                    ? ` · past events: median ${paceNum(o.median)} (range ${o.min}-${o.max})`
+                    : ' · no past event to compare against');
+        }
+
         function renderKPIs() {
             // ── Member counts ────────────────────────────────
             const total = allUsers.length;
@@ -7717,68 +7913,58 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             const target = ratio >= 3 ? '<span class="up">✓ Target met</span>' : (ratio > 0 ? `<span class="down">Below 3:1 target</span>` : 'Enter acquisition spend to calculate');
             document.getElementById('kpiLTVCACTrend').innerHTML = target;
 
-            // ── Ticket velocity: confirmed, NON-COMP tickets sold ÷ the number
-            // of days the event has been ON SALE, averaged across every open
-            // (upcoming, non-canceled) event. "Days on sale" is the window
-            // from when the event was published (createdAt) to the event
-            // itself (date) — sales necessarily close at/before the event
-            // happens, so there's no separate "close" field to read.
+            // ── Sales pace ───────────────────────────────────
+            // Where each open event sits against how the past events were
+            // selling at the same distance from their own date. See
+            // pacingCurves() above for why this is not a tickets-per-day rate.
             //
-            // This previously divided by days REMAINING until the event
-            // (date − now), which inverts the metric: an event that's been
-            // selling steadily for weeks read as an implausibly high
-            // "velocity" purely because few days were left on the clock,
-            // and a brand-new event read as slow no matter how fast it was
-            // actually moving. Dividing by the elapsed sale window instead
-            // of the remaining runway is what makes this a real per-day
-            // sales rate. Target is a flat 30 tickets / 20-day window
-            // (TARGET_TICKETS_PER_DAY, 1.5/day), the same pace for every
-            // event regardless of its capacity.
+            // The ticket source is the same `tickets` list every revenue KPI
+            // reads — allPayments, confirmed only — which #502 made the WHOLE
+            // ticket collection rather than the 200 newest. That matters here
+            // more than anywhere else on the page: a reference curve is built
+            // from an event that is now months old, and under the old cap the
+            // earliest events would have quietly shed their tickets, flattened
+            // toward zero, dropped the median and flattered every open event.
+            // Nothing would have thrown. If a future change ever re-caps that
+            // read, this metric breaks silently along with the all-time totals.
             //
-            // This also previously counted every event_registrations row,
-            // comps included. event_registrations carries the same isComp
-            // flag tickets does (lead-signup.js's enroll-as-comp channel sets
-            // it on both), and every other sales metric on this dashboard —
-            // the heatmap, revenue, CAC — excludes isComp for the same reason:
-            // a giveaway isn't market demand, and letting it inflate "how fast
-            // is this event selling" is exactly backwards for a pace metric a
-            // marketing decision gets made from.
-            const now = Date.now();
-            const openEvents = allEvents.filter(e => {
-                const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-                return d instanceof Date && !isNaN(d) && d.getTime() > now && e.status !== 'canceled';
-            });
-            const soldForEvent = (eventId) => allRegistrations.filter(r => r.eventId === eventId && !r.isComp).length;
-            const velocities = [];
-            openEvents.forEach(e => {
-                const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-                const opened = e.createdAt?.toDate ? e.createdAt.toDate() : (e.createdAt ? new Date(e.createdAt) : null);
-                if (!opened || isNaN(opened)) return; // no usable createdAt — can't measure a sale window
-                const daysOnSale = Math.max(1, (d.getTime() - opened.getTime()) / 86400000);
-                velocities.push(soldForEvent(e.id) / daysOnSale);
-            });
-            const avgVelocity = velocities.length
-                ? velocities.reduce((s, v) => s + v, 0) / velocities.length
-                : 0;
-            const totalOpenSold = openEvents.reduce((s, e) => s + soldForEvent(e.id), 0);
+            // Deliberately NOT allRegistrations, which the old velocity KPI
+            // used: registrations carry no `amount`, so a free-tier seat and a
+            // $25 ticket are indistinguishable there and the pace metric would
+            // count giveaways as demand.
+            const pacing = pacingCurves(tickets, allEvents, Date.now());
+            const primary = pacing.open[0] || null;   // soonest open event
 
-            document.getElementById('kpiVelocity').textContent = velocities.length ? avgVelocity.toFixed(1) + '/day' : '—';
-            // Short label in the card, the target arithmetic on hover — same
-            // reasoning as the CAC caption above.
+            const paceValEl = document.getElementById('kpiVelocity');
             const velEl = document.getElementById('kpiVelocityTrend');
-            if (!openEvents.length) {
+            if (!primary) {
+                paceValEl.textContent = '—';
                 velEl.textContent = 'No open events';
                 velEl.className = 'kpi-delta';
                 velEl.title = '';
-            } else if (!velocities.length) {
-                velEl.textContent = `${totalOpenSold} sold · no start date`;
-                velEl.className = 'kpi-delta';
-                velEl.title = `${totalOpenSold} tickets across ${openEvents.length} open event${openEvents.length !== 1 ? 's' : ''}, but no createdAt to measure a sale window from`;
             } else {
-                const onPace = avgVelocity >= TARGET_TICKETS_PER_DAY;
-                velEl.textContent = onPace ? '✓ on pace' : 'behind pace';
-                velEl.className = 'kpi-delta ' + (onPace ? 'up' : 'down');
-                velEl.title = `Target ${TARGET_TICKETS_PER_DAY.toFixed(1)}/day (30 tickets over a 20-day sale window)`;
+                // Value is the glance: sold against the median. The sentence
+                // underneath carries the T-minus and the range, and the rest of
+                // the open events go on hover — same terse-card/full-hover split
+                // the CAC caption above uses.
+                paceValEl.textContent = primary.n
+                    ? `${primary.sold} vs ${paceNum(primary.median)}`
+                    : String(primary.sold);
+                velEl.textContent = paceLine(primary);
+                velEl.className = 'kpi-delta ' + (primary.n
+                    ? (primary.sold >= primary.median ? 'up' : 'down')
+                    : '');
+                velEl.title = [
+                    `${primary.title} — ${paceLine(primary)}`,
+                    ...pacing.open.slice(1).map(o => `${o.title} — ${paceLine(o)}`),
+                    '',
+                    pacing.past.length
+                        ? `Benchmark: ${pacing.past.length} past event${pacing.past.length !== 1 ? 's' : ''} `
+                          + `(${pacing.past.map(p => `${p.title} ${p.final}`).join(', ')}), `
+                          + `cumulative PAID tickets at the same number of days before the event. `
+                          + `Comps and $0 seats excluded, same definition as every revenue KPI here.`
+                        : 'No past event has a dated paid ticket yet, so there is nothing to compare against.',
+                ].join('\n');
             }
 
             // Snapshot for the Full Report tab. Taken here, at the end of the
@@ -7798,9 +7984,17 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 payingBuyers, repeatBuyers, revPerTicket, ticketsPerBuyer,
                 totalAcquisition, totalEbFees, totalOtherCosts,
                 nonAcqRecurring: totalRecurring - totalAcqRecurring,
-                velocity: velocities.length ? avgVelocity.toFixed(1) + '/day' : '—',
-                velocityRate: velocities.length ? avgVelocity : 0,
+                // The three velocity* names are KEPT, and changed meaning on
+                // 2026-09-10 the same way avgEvents and uniqueBuyers did above:
+                // renaming them would have broken renderReport silently, which
+                // is the exact failure tests/admin-kpis.test.js exists to catch.
+                // velocity is now "sold vs median", not a per-day rate, and
+                // velocityRate is a pace INDEX — 1.0 means exactly at the median
+                // of the past events at this T-minus, above 1 is ahead of it.
+                velocity: primary ? paceValEl.textContent : '—',
+                velocityRate: primary && primary.median > 0 ? primary.sold / primary.median : 0,
                 velocityNote: velEl ? velEl.textContent : '',
+                pacing,
             };
             renderReport();
             renderCampaigns();
