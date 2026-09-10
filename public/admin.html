@@ -8785,7 +8785,7 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     dateLabel: dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                     venue: e.venue || e.title || '(unknown event)',
                     open: (now - dt.getTime()) < MATCH_WINDOW_DAYS * 86400000,
-                    attendeeKeys: new Set(), genderByUid: {},
+                    attendeeKeys: new Set(), genderByUid: {}, attendeeByKey: new Map(),
                     promptedUids: new Set(), pickerUids: new Set(), picks: 0,
                     matches: 0, matchedUids: new Set(),
                 };
@@ -8797,6 +8797,17 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 const key = (r.email ? String(r.email).toLowerCase().trim() : '') || r.userId || '';
                 if (!key) return;
                 row.attendeeKeys.add(key);
+                // One record per PERSON, not per registration row. The two
+                // rows a duplicate-uid person has under one email are merged:
+                // either row's gender counts, and a check-in on either means
+                // that human walked in. Counting rows instead would put one
+                // woman in the denominator twice.
+                const prev = row.attendeeByKey.get(key) || { uid: '', gender: '', checkedIn: false };
+                row.attendeeByKey.set(key, {
+                    uid: prev.uid || r.userId || '',
+                    gender: prev.gender || gNorm(r.gender),
+                    checkedIn: prev.checkedIn || !!r.checkedInAt,
+                });
                 if (r.userId) {
                     if (r.gender) row.genderByUid[r.userId] = gNorm(r.gender);
                     // The cron honours the legacy per-registration flag as
@@ -8838,6 +8849,18 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                         if (g === 'woman') women++; else if (g === 'man') men++;
                     });
                     const attendees = r.attendeeKeys.size;
+
+                    // Who was actually in the room, by gender. Same gender
+                    // resolution as the pickers above — the profile first,
+                    // the night's registration second — so the numerator and
+                    // the denominator of the rate below cannot disagree about
+                    // who is a woman.
+                    let womenRegistered = 0, menRegistered = 0, womenCheckedIn = 0, menCheckedIn = 0;
+                    r.attendeeByKey.forEach(a => {
+                        const g = (a.uid && gNorm((usersById[a.uid] || {}).gender)) || a.gender || '';
+                        if (g === 'woman') { womenRegistered++; if (a.checkedIn) womenCheckedIn++; }
+                        else if (g === 'man') { menRegistered++; if (a.checkedIn) menCheckedIn++; }
+                    });
                     return {
                         id: r.id, dt: r.dt, dateLabel: r.dateLabel, venue: r.venue, open: r.open,
                         attendees,
@@ -8848,6 +8871,13 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                         matched: r.matchedUids.size, matchedShare: pct(r.matchedUids.size, attendees),
                         pickersWomen: women, pickersMen: men,
                         pickersUnknown: r.pickerUids.size - women - men,
+                        // womenPicked IS pickersWomen — the same set, named
+                        // for the column it feeds, where it is read against
+                        // the check-in count rather than against the men.
+                        womenRegistered, womenCheckedIn, womenPicked: women,
+                        womenPickRate: pct(women, womenCheckedIn),
+                        menRegistered, menCheckedIn, menPicked: men,
+                        menPickRate: pct(men, menCheckedIn),
                     };
                 })
                 .sort((a, b) => b.dt.getTime() - a.dt.getTime()); // newest first: the open one on top
@@ -8861,6 +8891,13 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     attendees: sum(out, 'attendees'), pickers: sum(out, 'pickers'), picks: sum(out, 'picks'),
                     matches: sum(out, 'matches'), matched: sum(out, 'matched'),
                     pickersWomen: sum(out, 'pickersWomen'), pickersMen: sum(out, 'pickersMen'),
+                    womenCheckedIn: sum(out, 'womenCheckedIn'), womenPicked: sum(out, 'womenPicked'),
+                    menCheckedIn: sum(out, 'menCheckedIn'), menPicked: sum(out, 'menPicked'),
+                    // Pooled, not an average of the per-event rates: an event
+                    // with two women checked in would otherwise carry the same
+                    // weight as one with sixteen.
+                    womenPickRate: pct(sum(out, 'womenPicked'), sum(out, 'womenCheckedIn')),
+                    menPickRate: pct(sum(out, 'menPicked'), sum(out, 'menCheckedIn')),
                     // The headline share is over SETTLED events only, so an
                     // event two days old cannot drag the all-time figure down.
                     matchedShare: pct(sum(settled, 'matched'), sum(settled, 'attendees')),
@@ -8916,7 +8953,8 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                            `${t.settledEvents} settled event${t.settledEvents === 1 ? '' : 's'}${t.events > t.settledEvents ? ' · open ones excluded' : ''}`,
                            'var(--coral)')}
                     ${stat('Picks', t.picks, `by ${t.pickers} people who picked anyone`)}
-                    ${stat('Pickers · women / men', `${t.pickersWomen} <span style="color:var(--text-faint); font-weight:400;">/</span> ${t.pickersMen}`, 'who answered the prompt, by gender')}
+                    ${stat('Women picked / checked in', `${t.womenPicked} <span style="color:var(--text-faint); font-weight:400;">/</span> ${t.womenCheckedIn} <span style="font-size:16px; color:var(--text-muted);">· ${t.womenPickRate.toFixed(0)}%</span>`, 'pooled across events, not an average of rates')}
+                    ${stat('Men picked / checked in', `${t.menPicked} <span style="color:var(--text-faint); font-weight:400;">/</span> ${t.menCheckedIn} <span style="font-size:16px; color:var(--text-muted);">· ${t.menPickRate.toFixed(0)}%</span>`, 'same, for comparison')}
                 </div>`;
 
             const share = (n, p, open) => open
@@ -8937,7 +8975,10 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                             ? share(e.matched, e.matchedShare, true)
                             : `<span style="background:${retentionColor(e.matchedShare)}; padding:4px 10px; border-radius:4px; font-weight:700;">${e.matched} · ${e.matchedShare.toFixed(0)}%</span>`}
                     </td>
-                    <td style="text-align:center;">${e.pickersWomen} <span style="color:var(--text-faint);">/</span> ${e.pickersMen}${e.pickersUnknown ? ` <span title="pickers with no gender on file" style="color:var(--text-faint); font-size:11px;">(+${e.pickersUnknown} ?)</span>` : ''}</td>
+                    <td style="text-align:center;">
+                        <span style="background:${retentionColor(e.womenPickRate)}; padding:4px 10px; border-radius:4px; font-weight:700;">${e.womenPicked} / ${e.womenCheckedIn} · ${e.womenPickRate.toFixed(0)}%</span>
+                    </td>
+                    <td style="text-align:center; color:var(--text-muted);">${e.menPicked} / ${e.menCheckedIn} · ${e.menPickRate.toFixed(0)}%${e.pickersUnknown ? ` <span title="pickers with no gender on file, counted in neither column" style="color:var(--text-faint); font-size:11px;">(+${e.pickersUnknown} ?)</span>` : ''}</td>
                 </tr>`).join('');
 
             const table = `
@@ -8951,7 +8992,8 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                             <th style="text-align:center;">Picks</th>
                             <th style="text-align:center;" title="Pairs who picked each other">Mutual</th>
                             <th style="text-align:center;" title="People in at least one mutual match, as a share of attendees">Matched</th>
-                            <th style="text-align:center;" title="Pickers by gender (users.gender, falling back to the registration)">Pickers W / M</th>
+                            <th style="text-align:center;" title="Women who picked someone, over women scanned in at the door">Women picked / in</th>
+                            <th style="text-align:center;" title="The same for men, for comparison">Men picked / in</th>
                         </tr></thead>
                         <tbody>${rows}</tbody>
                     </table>
@@ -8963,6 +9005,14 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     <em>Picked anyone</em> with few <em>Mutual</em> is a chemistry problem (the room, the
                     format). Pickers are counted by uid, so a picker with no registration row still counts
                     and the share can, in principle, exceed 100%.
+                </p>
+                <p style="font-size:11px; color:var(--text-faint); margin:10px 0 0; line-height:1.6;">
+                    <strong>Women picked / in</strong> is women who picked someone over women <em>scanned in at the
+                    door</em>. Check-in is a <strong>floor, not attendance</strong> — not everyone scans, and
+                    Eventbrite imports often never do — so this rate <strong>can exceed 100%</strong>. That is a
+                    check-in gap, not a data error: it means more women picked than the door recorded arriving.
+                    Read a rate over 100% as "scan more people", and a low one as "the women in the room did not
+                    answer the prompt".
                 </p>`;
 
             root.innerHTML = cards + table;
