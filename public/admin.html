@@ -1305,6 +1305,24 @@
         .run-nudge .action-btn:hover { background:rgba(212,175,55,0.12); }
         .run-nudge-note { color:rgba(245,243,240,0.35); flex-basis:100%; font-size:11px; }
 
+        /* Door count. Same gold "this needs a human" treatment as the nudge
+           bar, because it is the same kind of thing: the host supplying
+           something the data cannot. Only rendered once the event is past. */
+        .run-door {
+            display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+            font-size:12px; color:rgba(245,243,240,0.55);
+            margin-top:16px; padding:10px 12px;
+            background:rgba(212,175,55,0.07);
+            border:1px solid rgba(212,175,55,0.18);
+            border-radius:8px;
+        }
+        .run-door .action-btn { border-color:rgba(212,175,55,0.4); color:var(--gold); }
+        .run-door .action-btn:hover { background:rgba(212,175,55,0.12); }
+        .run-door input { width:82px; background:rgba(255,255,255,0.06);
+            border:1px solid rgba(212,175,55,0.3); border-radius:4px;
+            padding:5px 8px; color:var(--white); font-size:13px; }
+        .run-door-note { color:rgba(245,243,240,0.4); flex-basis:100%; font-size:11px; line-height:1.5; }
+
         /* "Where do I sit?" — the lookup that replaces scanning a printed
            seating chart for a name while the room waits. */
         .run-find { position:relative; margin:10px 0 4px; }
@@ -1711,10 +1729,15 @@
                     </div>
                 </div>
                 <div class="kpi-card">
-                    <div class="kpi-label">Ticket Velocity</div>
+                    <!-- Ids keep their velocity* names on purpose: renaming
+                         them would have to be matched in renderKPIs, the
+                         snapshot and renderReport at once, and a missed one
+                         renders "undefined" or throws. The METRIC changed on
+                         2026-09-10, the ids did not. -->
+                    <div class="kpi-label">Sales Pace</div>
                     <div class="kpi-value" id="kpiVelocity">—</div>
                     <div class="kpi-foot">
-                        <span class="kpi-delta" id="kpiVelocityTrend">Tickets / day</span>
+                        <span class="kpi-delta" id="kpiVelocityTrend">vs past events at the same T-minus</span>
                         <span class="kpi-spark" id="sparkTickets"></span>
                     </div>
                 </div>
@@ -1735,11 +1758,11 @@
             </div>
 
             <!-- No tables on Overview. It is hero, KPIs, trend chart — nothing
-                 else. The three cards that used to sit here all moved and none
-                 were rebuilt: Recent Signups and Live Activity to Full Report,
-                 Subscription Breakdown to Revenue (next to the Active
-                 Subscriptions KPI it explains). Same markup, same renderers,
-                 same element ids in their new homes. -->
+                 else. Recent Signups and Live Activity moved to Full Report --
+                 same markup, same renderers, same element ids in their new home.
+                 Subscription Breakdown moved here too and was then retired
+                 outright on 2026-09-10, with the rest of the subscription
+                 surfaces: memberships are paused and `payments` is empty. -->
         </div>
 
         <!-- Full Report Tab -->
@@ -1765,8 +1788,11 @@
                         <div class="metric-title" style="margin-bottom:14px;">Tickets by event</div>
                         <div id="reportEventBars"><div class="spinner"></div></div>
                     </div>
-                    <div class="card" style="padding:16px 18px;display:flex;flex-direction:column;align-items:center;">
-                        <div class="metric-title" style="align-self:flex-start;margin-bottom:14px;">Ticket velocity</div>
+                    <!-- Was a centered 96px donut; the pacing chart wants the
+                         full width of the card, so this no longer centers. -->
+                    <div class="card" style="padding:16px 18px;">
+                        <div class="metric-title" style="margin-bottom:4px;">Sales pace</div>
+                        <div style="font-size:10.5px;color:var(--text-faint);margin-bottom:12px;">Paid tickets sold by each day before the event</div>
                         <div id="reportVelocity"></div>
                     </div>
                 </div>
@@ -1881,11 +1907,10 @@
                                 <th>Tier</th>
                                 <th>Status</th>
                                 <th>Joined</th>
-                                <th>LTV</th>
                             </tr>
                         </thead>
                         <tbody id="allMembers">
-                            <tr><td colspan="8"><div class="spinner"></div></td></tr>
+                            <tr><td colspan="7"><div class="spinner"></div></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1931,11 +1956,6 @@
                     <div class="kpi-value" id="kpiLTVCAC">—</div>
                     <div class="kpi-foot"><span class="kpi-delta" id="kpiLTVCACTrend">Target: 3:1+</span></div>
                 </div>
-                <div class="kpi-card">
-                    <div class="kpi-label">Active Subscriptions</div>
-                    <div class="kpi-value" id="kpiActive">—</div>
-                    <div class="kpi-foot"><span class="kpi-delta" id="kpiActiveTrend">Paying + trialing</span></div>
-                </div>
             </div>
 
             <!-- Revenue/cost and tickets, plotted on a real numbered grid.
@@ -1960,35 +1980,11 @@
                 <div class="rc-chart" id="chartTickets"></div>
             </div>
 
-            <!-- Moved off Overview. It sits here because it is the breakdown of
-                 the Active Subscriptions KPI directly above it — same numbers,
-                 split by tier, with the monthly dollars each tier contributes. -->
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">Subscription Breakdown</h2>
-                </div>
-                <div class="table-scroll">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Tier</th>
-                                <th>Count</th>
-                                <th>% of total</th>
-                                <th>Monthly $</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tierBreakdown">
-                            <tr><td colspan="4"><div class="spinner"></div></td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
             <div class="candidate-stats" id="revenueKPIs" style="margin-bottom:20px;"></div>
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">Payment History</h2>
-                    <span id="paymentHistoryNote" style="font-size:12px;color:rgba(245,243,240,0.5);">Tickets + subscriptions · newest first</span>
+                    <span id="paymentHistoryNote" style="font-size:12px;color:rgba(245,243,240,0.5);">Ticket sales · newest first</span>
                 </div>
                 <div class="table-scroll is-capped">
                     <table>
@@ -1997,7 +1993,7 @@
                                 <th>Person</th>
                                 <th>Type</th>
                                 <th>Amount</th>
-                                <th>Event / Tier</th>
+                                <th>Event</th>
                                 <th>Date</th>
                             </tr>
                         </thead>
@@ -2648,9 +2644,15 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         const db = getFirestore(app);
 
         // ─── Constants ─────────────────────────────────────
-        const TIER_PRICES = { free: 9.99, mid: 19.99, premium: 39.99 };
+        // TIER_PRICES and AVG_LIFETIME_MONTHS went out with the subscription
+        // surfaces on 2026-09-10. The `payments` collection holds zero
+        // documents and all 117 users sit at subscriptionStatus null / tier
+        // free -- memberships are paused (see the note at the top of
+        // api/declare-connection.js). Every number those two constants
+        // produced was a model: a monthly revenue nobody billed and a $180
+        // per-member LTV no dollar backed. TIER_LABELS stays; the tier badge
+        // still has to name a tier.
         const TIER_LABELS = { free: 'Spark', mid: 'Kindling', premium: 'Fire' };
-        const AVG_LIFETIME_MONTHS = 18; // conservative
         // Eventbrite's standard organizer fee schedule
         const EB_FEE_RATE = 0.037;  // 3.7% of face value
         const EB_FEE_FLAT = 1.79;   // + $1.79 per ticket
@@ -2661,8 +2663,11 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // (commonly ~0.029) — and if the 3.7% already includes processing on your
         // plan, leave this at 0 or you'll double-count.
         const EB_PAYMENT_RATE = 0;
-        // Ticket velocity benchmark: 30 tickets across a 20-day sale window (1.5/day).
-        const TARGET_TICKETS_PER_DAY = 30 / 20;
+        // There is deliberately no flat tickets-per-day target here any more.
+        // TARGET_TICKETS_PER_DAY (30 tickets / 20 days = 1.5/day) was removed on
+        // 2026-09-10: tickets do not sell at a constant rate, so a constant
+        // benchmark cannot judge them. Sales pace is measured against the past
+        // events themselves instead — see pacingCurves().
 
         // ─── Sales channels ────────────────────────────────
         // Three channels now: our own site, Eventbrite, and Meetup. Classification
@@ -2960,7 +2965,6 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 renderMetric();
                 startMetricRotation();
                 renderRecentSignups();
-                renderTierBreakdown();
                 renderActivityFeed();
                 renderAllMembers();
                 renderPaymentHistory();
@@ -5649,10 +5653,62 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
 
             const seatedCount = plan.filter(s => s.kind === 'round').length;
 
+            // ── Door count, once the night is over ──────────────────
+            // The morning-after number: how many people actually walked in.
+            // Nothing else on this dashboard can supply it. Digital check-in
+            // reached 91 of 140 past confirmed registrations and is a FLOOR,
+            // not a count -- attended.txt recorded 31 real heads against 26
+            // registered at Event 1. mixCell() has rendered "door N · %show"
+            // since #324 and no event has ever carried a doorCount, so that
+            // branch has been dead for the life of the field, and the show
+            // rate -- the number that decides whether to oversell 30 seats --
+            // has never been measured once.
+            //
+            // It goes HERE because this is the screen the host is holding at
+            // the end of the night, which is the only moment the number
+            // exists. The Costs row on the Events tab writes the same field
+            // for a night already gone; neither is the other's backup.
+            const runEvent = _chemEventId ? (allEvents.find(e => e.id === _chemEventId) || null) : null;
+            const runEventDate = runEvent
+                ? (runEvent.date?.toDate ? runEvent.date.toDate() : (runEvent.date ? new Date(runEvent.date) : null))
+                : null;
+            const runIsPast = !!(runEventDate && !isNaN(runEventDate) && runEventDate.getTime() < Date.now());
+            const runConfirmed = runEvent ? allRegistrations.filter(r => r.eventId === runEvent.id).length : 0;
+
             // The 1s clock repaint replaces this whole panel, caret and all.
             // Only steal focus back if the host was actually typing in it --
             // otherwise the lookup grabs the cursor once a second forever.
             const wasTyping = document.activeElement && document.activeElement.id === 'runFindInput';
+            // Same problem for the door box, plus one the lookup does not
+            // have: its value comes off the event doc, so a repaint mid-type
+            // would snap a half-typed "3" back to whatever is stored. Keep
+            // what is in the box whenever it is the focused element.
+            const doorTyping = !!(document.activeElement && document.activeElement.id === 'runDoorInput');
+            // Only looked up when it is the focused element -- otherwise this
+            // is a DOM query once a second for a value we are about to
+            // overwrite from the event doc anyway.
+            const doorEl = doorTyping ? document.getElementById('runDoorInput') : null;
+            const storedDoor = runEvent && runEvent.doorCount !== null && runEvent.doorCount !== undefined
+                && isFinite(Number(runEvent.doorCount)) ? String(Number(runEvent.doorCount)) : '';
+            const doorValue = (doorTyping && doorEl) ? doorEl.value : storedDoor;
+            const doorPct = (runConfirmed && doorValue !== '' && isFinite(Number(doorValue)))
+                ? Math.round(100 * Number(doorValue) / runConfirmed) : null;
+            const doorPanel = !runIsPast ? '' : `
+                <div class="run-door">
+                    <span style="color:var(--gold);font-weight:600;">Door count</span>
+                    <input id="runDoorInput" type="number" min="0" step="1" value="${safe(doorValue)}" placeholder="—"
+                           title="People actually counted at the door. Blank means NOT COUNTED, which is not the same as nobody came — the two are stored differently and read differently.">
+                    <button class="action-btn" onclick="runSaveDoorCount()">Save</button>
+                    <span id="runDoorSaved" style="font-size:11px;color:var(--success);display:none;">✓ Saved</span>
+                    <span>how many actually walked in${runConfirmed ? `, against ${runConfirmed} confirmed registered` : ''}${
+                        doorPct === null ? '' : ` — <strong style="color:var(--white);">${doorPct}% show</strong>`}</span>
+                    <span class="run-door-note">
+                        Count heads before you leave; nothing else can supply this number. Digital check-in is a floor, not
+                        attendance — Eventbrite imports and anyone who never scanned are confirmed with no timestamp. Blank
+                        means <em>not counted</em>, which is stored and read differently from zero. Feeds the show rate on
+                        Retention and the Mix column on Events.
+                    </span>
+                </div>`;
 
             c.innerHTML = `
                 <div class="run-head">
@@ -5694,11 +5750,13 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     ${seatedCount} &times; ${_roundMinutes}-minute seating${seatedCount === 1 ? '' : 's'} (${movesLabel(seatedCount)}), then ${_oneOnOneMinutes}-minute 1-on-1s. The clock runs on wall
                     time, so it stays correct if the screen sleeps. 1-on-1 pairs never repeat someone you
                     already sat with, unless the room is small enough that everyone has met.
-                </div>`;
+                </div>
+                ${doorPanel}`;
 
             // Restore the caret the repaint just destroyed.
-            if (wasTyping) {
-                const input = document.getElementById('runFindInput');
+            const refocus = wasTyping ? 'runFindInput' : (doorTyping ? 'runDoorInput' : null);
+            if (refocus) {
+                const input = document.getElementById(refocus);
                 if (input) {
                     input.focus();
                     const end = input.value.length;
@@ -5706,6 +5764,42 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 }
             }
         }
+
+        // Writes events/<id>.doorCount -- the same field, in the same shape,
+        // that the Costs row on the Events tab writes. Blank is stored as
+        // NULL, not 0: "nobody counted" and "nobody came" are different
+        // answers, and every reader of this field (mixCell, the Retention
+        // show-rate card) is built to tell them apart. Rounding a blank to 0
+        // would silently drag the show rate down on every uncounted night.
+        window.runSaveDoorCount = async () => {
+            if (!_chemEventId) return;
+            const input = document.getElementById('runDoorInput');
+            if (!input) return;
+            const raw = input.value;
+            const val = raw === '' || raw == null ? null : Math.max(0, parseInt(raw, 10) || 0);
+            try {
+                await updateDoc(doc(db, 'events', _chemEventId), { doorCount: val });
+                // Local cache, so the Events tab's Mix cell and this panel's
+                // own "% show" pick it up without a reload.
+                const ev = allEvents.find(e => e.id === _chemEventId);
+                if (ev) ev.doorCount = val;
+                const saved = document.getElementById('runDoorSaved');
+                if (saved) { saved.style.display = ''; setTimeout(() => { saved.style.display = 'none'; }, 2000); }
+                renderAdminEvents();
+                // Retention re-reads Firestore, so only nudge it when its tab
+                // is the one on screen -- otherwise entering the tab reloads
+                // it anyway and this would be a read for nobody.
+                const rt = document.getElementById('tab-retention');
+                if (rt && rt.classList.contains('active')) loadRetention();
+                // Repaint the panel AFTER the tick has been seen, same reason
+                // the Costs row waits: an instant repaint swallows it and
+                // makes a save that worked feel like one that did not.
+                setTimeout(renderRunOfShow, 2100);
+            } catch (e) {
+                console.error('[run] door count save failed:', e);
+                alert('Could not save the door count: ' + (e && e.message ? e.message : e));
+            }
+        };
 
         window.togglePrio = (wId, mId) => {
             const key = wId + '|' + mId;
@@ -7132,6 +7226,83 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             ], (v) => '$' + (Math.round(v * 100) / 100).toFixed(2));
         }
 
+        // Sales pacing chart — the shape the donut it replaced could not show.
+        // Past events run as muted cumulative curves from the left (early) to
+        // T-0 on the right; each open event is one marked point at wherever it
+        // stands today. The reader's question is "is my dot inside the band",
+        // and a picture answers that in a way a single percentage never did.
+        //
+        // Drawn as inline SVG rather than through rcChart(): those charts plot
+        // a daily time series against a shared x-axis of calendar days, and
+        // this one plots several events against a shared COUNTDOWN, which is a
+        // different axis with the origin on the right.
+        function pacingChart(pacing) {
+            if (!pacing || (!pacing.past.length && !pacing.open.length)) {
+                return '<div class="empty">No events to pace yet.</div>';
+            }
+            const W = 320, H = 150, PAD_L = 24, PAD_R = 12, PAD_T = 12, PAD_B = 22;
+
+            // Furthest-out day worth drawing: the earliest day any past event
+            // had sold anything, or the furthest-out open event. Floored at 30
+            // so the fortnight that carries two thirds of every ticket is never
+            // squeezed into the right-hand corner.
+            let xMax = 30;
+            pacing.past.forEach(p => {
+                for (let d = pacing.maxT; d > xMax; d--) { if (p.cum[d] > 0) { xMax = d; break; } }
+            });
+            pacing.open.forEach(o => { xMax = Math.max(xMax, Math.min(pacing.maxT, o.tMinus)); });
+            let yMax = 1;
+            pacing.past.forEach(p => { yMax = Math.max(yMax, p.final); });
+            pacing.open.forEach(o => { yMax = Math.max(yMax, o.sold); });
+
+            const x = (d) => (PAD_L + (1 - d / xMax) * (W - PAD_L - PAD_R)).toFixed(1);
+            const y = (v) => (H - PAD_B - (v / yMax) * (H - PAD_T - PAD_B)).toFixed(1);
+
+            const curves = pacing.past.map(p => {
+                const pts = [];
+                for (let d = xMax; d >= 0; d--) pts.push(`${x(d)},${y(p.cum[Math.min(pacing.maxT, d)])}`);
+                return `<polyline points="${pts.join(' ')}" fill="none" stroke="var(--text-faint)"
+                    stroke-width="1.4" stroke-opacity="0.5" stroke-linejoin="round"><title>${safe(p.title)} — ${p.final} paid</title></polyline>`;
+            }).join('');
+
+            // Ticks only where they fit on the axis we actually drew.
+            const ticks = [30, 14, 7, 0].filter(d => d <= xMax).map(d =>
+                `<line x1="${x(d)}" y1="${PAD_T}" x2="${x(d)}" y2="${H - PAD_B}" stroke="var(--surface-hover)" stroke-width="1"/>
+                 <text x="${x(d)}" y="${H - 7}" fill="var(--text-faint)" font-size="9" text-anchor="middle">T-${d}</text>`).join('');
+
+            const dots = pacing.open.map(o => {
+                const cx = x(Math.min(pacing.maxT, o.tMinus)), cy = y(o.sold);
+                const ahead = o.n ? o.sold >= o.median : true;
+                const c = ahead ? 'var(--gold)' : 'var(--coral)';
+                // Label flips to the left of the dot near the right edge so it
+                // cannot run off the T-0 end of the chart.
+                const right = Number(cx) > W - 60;
+                return `<circle cx="${cx}" cy="${cy}" r="4.5" fill="${c}" stroke="var(--navy)" stroke-width="1.5">
+                        <title>${safe(o.title)} — ${safe(paceLine(o))}</title></circle>
+                    <text x="${right ? Number(cx) - 8 : Number(cx) + 8}" y="${Number(cy) - 7}" fill="${c}" font-size="9.5"
+                        text-anchor="${right ? 'end' : 'start'}">${o.sold} · T-${o.tMinus}</text>`;
+            }).join('');
+
+            const n = pacing.past.length;
+            const note = n
+                ? `${n} past event${n !== 1 ? 's' : ''}, cumulative paid tickets · open events marked`
+                : 'No past event with dated paid tickets yet';
+
+            // Uniform scaling (the default preserveAspectRatio), NOT stretch —
+            // a non-uniform scale distorts every label in here. max-height is
+            // what stops that uniform scale running away: the Full Report's
+            // right-hand column can be 900px wide, and width:100% alone blew
+            // the 9px axis labels up to 25px there. With a height cap the SVG
+            // letterboxes instead, staying legible at any column width.
+            return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-height:${H + 20}px;display:block;"
+                        role="img" aria-label="Cumulative paid tickets by days before the event">
+                    <text x="2" y="${PAD_T + 4}" fill="var(--text-faint)" font-size="9">${yMax}</text>
+                    <text x="2" y="${H - PAD_B}" fill="var(--text-faint)" font-size="9">0</text>
+                    ${ticks}${curves}${dots}
+                </svg>
+                <div style="font-size:10.5px;color:var(--text-faint);margin-top:8px;">${note}</div>`;
+        }
+
         function renderReport() {
             const grid = document.getElementById('reportKpis');
             if (!grid) return;
@@ -7143,7 +7314,8 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             // Within revenue, the money runs in the order it actually flows:
             // gross, then net, then what a buyer is worth, then what a buyer
             // costs, then the ratio that judges the two. Within operational,
-            // pace then headcount, with Active Subscriptions last.
+            // pace then headcount. Active Subscriptions used to close the
+            // list; withdrawn 2026-09-10, it printed 0 of 117 every time.
             const cards = [
                 // — Revenue —
                 ['Ticket Revenue', money(k.ticketRevenue), `${k.paidTickets} paid` + (k.freeSeats ? ` · ${k.freeSeats} free` : '')],
@@ -7153,9 +7325,8 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 ['Blended CAC', k.cac > 0 ? money(k.cac) : '—', `${money(k.totalAcquisition)} ÷ ${k.payingBuyers} buyers`],
                 ['LTV : CAC', k.ltvCac === '—' ? '—' : `${k.ltvCac}:1`, 'Target 3:1+'],
                 // — Operational —
-                ['Ticket Velocity', k.velocity, k.velocityNote],
+                ['Sales Pace', k.velocity, k.velocityNote],
                 ['Total Members', k.members, k.membersTrend],
-                ['Active Subscriptions', k.active, 'Paying + trialing'],
             ];
             grid.innerHTML = cards.map(([label, value, note]) => `
                 <div class="kpi-card">
@@ -7189,18 +7360,11 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     </div>`).join('')}</div>` : '<div class="empty">No ticket sales yet.</div>';
             }
 
-            // Velocity donut. Capped at 100% so an event beating target doesn't
-            // wrap the ring back past zero and read as a failure.
+            // Sales pacing chart, in place of the donut that showed a per-day
+            // rate as a percentage of a flat 1.5/day target. See pacingCurves()
+            // for why that target was the wrong shape to judge these events by.
             const vel = document.getElementById('reportVelocity');
-            if (vel && kpiSnapshot) {
-                const rate = kpiSnapshot.velocityRate || 0;
-                const pct = Math.min(100, Math.round((rate / TARGET_TICKETS_PER_DAY) * 100));
-                vel.innerHTML = `
-                    <div style="width:96px;height:96px;border-radius:50%;background:conic-gradient(var(--coral) 0% ${pct}%, var(--surface-hover) ${pct}% 100%);display:flex;align-items:center;justify-content:center;">
-                        <div style="width:70px;height:70px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--white);">${rate.toFixed(1)}/d</div>
-                    </div>
-                    <div style="font-size:10.5px;color:var(--text-faint);margin-top:10px;">${pct}% of ${TARGET_TICKETS_PER_DAY.toFixed(1)}/day target</div>`;
-            }
+            if (vel) vel.innerHTML = pacingChart(k.pacing);
 
             // Revenue stat strip.
             const stats = document.getElementById('reportRevenueStats');
@@ -7513,9 +7677,130 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             };
         }
 
+        // ─── Sales pacing ──────────────────────────────────
+        // Tickets do not sell at a constant rate, so a constant target cannot
+        // judge them. Measured across 128 dated paid tickets over five events
+        // (reports/ADMIN_DASHBOARD_METRICS_REVIEW_2026-09-10.md, Evidence §2):
+        // 9 sold on the day or the day before, 37 in T-2..7, 38 in T-8..14, 33
+        // in T-15..30 and 10 earlier. Two thirds of every ticket sells inside
+        // the final fortnight.
+        //
+        // The KPI this replaced divided non-comp registrations by days since
+        // the event doc was created and compared the result with a flat
+        // 1.5/day. Against that curve it reads "behind pace" for essentially
+        // every event until about T-7 and then flips — the verdict changes
+        // without the event changing its behaviour. And it could not answer the
+        // question actually being asked: is this event selling like the last
+        // five did AT THIS POINT? Nothing on the dashboard could.
+        //
+        // So the benchmark is the past events themselves. For each open event
+        // this returns tickets sold so far against the median, min and max of
+        // every past event's cumulative sales at the SAME number of days before
+        // the event.
+        //
+        // Definitions match ticketKpis() exactly, so the two cannot disagree:
+        // PAID means amount > 0 (a $0 free-tier seat or a two-for-one plus-one
+        // is not a sale) and comps are excluded (a giveaway is not demand).
+        function pacingCurves(tickets, events, nowMs) {
+            const asDate = (v) => (v && v.toDate ? v.toDate() : (v ? new Date(v) : null));
+            const ok = (d) => d instanceof Date && !isNaN(d.getTime());
+            const paidFor = (id) => tickets.filter(t =>
+                t.eventId === id && !t.isComp && (Number(t.amount) || 0) > 0);
+            // Whole days before the event a moment falls. Floored and clamped
+            // at 0, so T-0 is the event day itself and a door sale lands there
+            // rather than in a negative bucket.
+            const tMinusOf = (ms, eventMs) => Math.max(0, Math.floor((eventMs - ms) / 86400000));
+
+            const dated = (events || [])
+                .filter(e => e && e.status !== 'canceled')
+                .map(e => ({ e, when: asDate(e.date) }))
+                .filter(x => ok(x.when));
+
+            // Reference curves. cum[d] is the number of paid tickets sold AT
+            // LEAST d days before the event, so cum[0] is the final total and
+            // the series runs downhill as d grows. Read it as "sold by T-d",
+            // which is how the evidence table is written.
+            const MAX_T = 60;
+            const past = [];
+            dated.filter(x => x.when.getTime() <= nowMs).forEach(({ e, when }) => {
+                const paid = paidFor(e.id);
+                const buckets = new Array(MAX_T + 1).fill(0);
+                let datedPaid = 0;
+                paid.forEach(t => {
+                    const sold = asDate(t.createdAt);
+                    if (!ok(sold)) return;
+                    datedPaid++;
+                    buckets[Math.min(MAX_T, tMinusOf(sold.getTime(), when.getTime()))]++;
+                });
+                // An event with no dated paid ticket is not a reference curve.
+                // A stub or draft event doc that never sold would otherwise
+                // pull the median toward zero at every single T-minus.
+                if (!datedPaid) return;
+                const cum = new Array(MAX_T + 1).fill(0);
+                let run = 0;
+                for (let d = MAX_T; d >= 0; d--) { run += buckets[d]; cum[d] = run; }
+                // `undated` is carried so a curve built from partial data can
+                // be spotted: a paid ticket with no createdAt is in the final
+                // count on the Events tab but cannot be placed on this axis.
+                past.push({
+                    id: e.id, title: e.title || 'Untitled event', date: when,
+                    cum, final: cum[0], undated: paid.length - datedPaid,
+                });
+            });
+            past.sort((a, b) => a.date - b.date);
+
+            const median = (xs) => {
+                if (!xs.length) return 0;
+                const s = [...xs].sort((a, b) => a - b);
+                const mid = s.length >> 1;
+                return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+            };
+
+            // Open events, soonest first — the soonest is the one still worth
+            // acting on, so it is the one the KPI card headlines.
+            const open = dated
+                .filter(x => x.when.getTime() > nowMs)
+                .map(({ e, when }) => {
+                    const tMinus = tMinusOf(nowMs, when.getTime());
+                    const at = past.map(p => p.cum[Math.min(MAX_T, tMinus)]);
+                    return {
+                        id: e.id, title: e.title || 'Untitled event', date: when, tMinus,
+                        sold: paidFor(e.id).length,
+                        median: median(at),
+                        min: at.length ? Math.min(...at) : 0,
+                        max: at.length ? Math.max(...at) : 0,
+                        n: at.length,
+                    };
+                })
+                .sort((a, b) => a.tMinus - b.tMinus);
+
+            return { past, open, maxT: MAX_T };
+        }
+
+        // A median of an even number of events lands on a .5, and "median 7.5"
+        // is a real answer — don't round it away, but don't print "7.0" either.
+        function paceNum(n) {
+            return Number.isInteger(n) ? String(n) : Number(n).toFixed(1);
+        }
+
+        // The sentence the Overview card, the Full Report card and the chart
+        // tooltips all show. One definition, because three would drift.
+        function paceLine(o) {
+            return `${o.sold} sold at T-${o.tMinus}`
+                + (o.n
+                    ? ` · past events: median ${paceNum(o.median)} (range ${o.min}-${o.max})`
+                    : ' · no past event to compare against');
+        }
+
         function renderKPIs() {
             // ── Member counts ────────────────────────────────
             const total = allUsers.length;
+            // Computed, deliberately not rendered. The Active Subscriptions
+            // card came off the Revenue tab and the Full Report on 2026-09-10:
+            // it has read 0 of 117 for the life of the collection, because
+            // memberships are paused. kpiSnapshot keeps the field so nothing
+            // reading the snapshot breaks, and so turning subscriptions back on
+            // is a markup change rather than an arithmetic one.
             const active = allUsers.filter(u => ['active', 'trialing'].includes(u.subscriptionStatus)).length;
             const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
             const newThisWeek = allUsers.filter(u => {
@@ -7525,8 +7810,6 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
 
             document.getElementById('kpiMembers').textContent = total.toLocaleString();
             document.getElementById('kpiMembersTrend').innerHTML = `<span class="up">+${newThisWeek}</span> this week`;
-            document.getElementById('kpiActive').textContent = active.toLocaleString();
-            document.getElementById('kpiActiveTrend').textContent = `${total > 0 ? Math.round(active/total*100) : 0}% of total`;
 
             // ── Ticket arithmetic ────────────────────────────
             // All of it lives in ticketKpis() above — one pure function, so
@@ -7630,68 +7913,58 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             const target = ratio >= 3 ? '<span class="up">✓ Target met</span>' : (ratio > 0 ? `<span class="down">Below 3:1 target</span>` : 'Enter acquisition spend to calculate');
             document.getElementById('kpiLTVCACTrend').innerHTML = target;
 
-            // ── Ticket velocity: confirmed, NON-COMP tickets sold ÷ the number
-            // of days the event has been ON SALE, averaged across every open
-            // (upcoming, non-canceled) event. "Days on sale" is the window
-            // from when the event was published (createdAt) to the event
-            // itself (date) — sales necessarily close at/before the event
-            // happens, so there's no separate "close" field to read.
+            // ── Sales pace ───────────────────────────────────
+            // Where each open event sits against how the past events were
+            // selling at the same distance from their own date. See
+            // pacingCurves() above for why this is not a tickets-per-day rate.
             //
-            // This previously divided by days REMAINING until the event
-            // (date − now), which inverts the metric: an event that's been
-            // selling steadily for weeks read as an implausibly high
-            // "velocity" purely because few days were left on the clock,
-            // and a brand-new event read as slow no matter how fast it was
-            // actually moving. Dividing by the elapsed sale window instead
-            // of the remaining runway is what makes this a real per-day
-            // sales rate. Target is a flat 30 tickets / 20-day window
-            // (TARGET_TICKETS_PER_DAY, 1.5/day), the same pace for every
-            // event regardless of its capacity.
+            // The ticket source is the same `tickets` list every revenue KPI
+            // reads — allPayments, confirmed only — which #502 made the WHOLE
+            // ticket collection rather than the 200 newest. That matters here
+            // more than anywhere else on the page: a reference curve is built
+            // from an event that is now months old, and under the old cap the
+            // earliest events would have quietly shed their tickets, flattened
+            // toward zero, dropped the median and flattered every open event.
+            // Nothing would have thrown. If a future change ever re-caps that
+            // read, this metric breaks silently along with the all-time totals.
             //
-            // This also previously counted every event_registrations row,
-            // comps included. event_registrations carries the same isComp
-            // flag tickets does (lead-signup.js's enroll-as-comp channel sets
-            // it on both), and every other sales metric on this dashboard —
-            // the heatmap, revenue, CAC — excludes isComp for the same reason:
-            // a giveaway isn't market demand, and letting it inflate "how fast
-            // is this event selling" is exactly backwards for a pace metric a
-            // marketing decision gets made from.
-            const now = Date.now();
-            const openEvents = allEvents.filter(e => {
-                const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-                return d instanceof Date && !isNaN(d) && d.getTime() > now && e.status !== 'canceled';
-            });
-            const soldForEvent = (eventId) => allRegistrations.filter(r => r.eventId === eventId && !r.isComp).length;
-            const velocities = [];
-            openEvents.forEach(e => {
-                const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-                const opened = e.createdAt?.toDate ? e.createdAt.toDate() : (e.createdAt ? new Date(e.createdAt) : null);
-                if (!opened || isNaN(opened)) return; // no usable createdAt — can't measure a sale window
-                const daysOnSale = Math.max(1, (d.getTime() - opened.getTime()) / 86400000);
-                velocities.push(soldForEvent(e.id) / daysOnSale);
-            });
-            const avgVelocity = velocities.length
-                ? velocities.reduce((s, v) => s + v, 0) / velocities.length
-                : 0;
-            const totalOpenSold = openEvents.reduce((s, e) => s + soldForEvent(e.id), 0);
+            // Deliberately NOT allRegistrations, which the old velocity KPI
+            // used: registrations carry no `amount`, so a free-tier seat and a
+            // $25 ticket are indistinguishable there and the pace metric would
+            // count giveaways as demand.
+            const pacing = pacingCurves(tickets, allEvents, Date.now());
+            const primary = pacing.open[0] || null;   // soonest open event
 
-            document.getElementById('kpiVelocity').textContent = velocities.length ? avgVelocity.toFixed(1) + '/day' : '—';
-            // Short label in the card, the target arithmetic on hover — same
-            // reasoning as the CAC caption above.
+            const paceValEl = document.getElementById('kpiVelocity');
             const velEl = document.getElementById('kpiVelocityTrend');
-            if (!openEvents.length) {
+            if (!primary) {
+                paceValEl.textContent = '—';
                 velEl.textContent = 'No open events';
                 velEl.className = 'kpi-delta';
                 velEl.title = '';
-            } else if (!velocities.length) {
-                velEl.textContent = `${totalOpenSold} sold · no start date`;
-                velEl.className = 'kpi-delta';
-                velEl.title = `${totalOpenSold} tickets across ${openEvents.length} open event${openEvents.length !== 1 ? 's' : ''}, but no createdAt to measure a sale window from`;
             } else {
-                const onPace = avgVelocity >= TARGET_TICKETS_PER_DAY;
-                velEl.textContent = onPace ? '✓ on pace' : 'behind pace';
-                velEl.className = 'kpi-delta ' + (onPace ? 'up' : 'down');
-                velEl.title = `Target ${TARGET_TICKETS_PER_DAY.toFixed(1)}/day (30 tickets over a 20-day sale window)`;
+                // Value is the glance: sold against the median. The sentence
+                // underneath carries the T-minus and the range, and the rest of
+                // the open events go on hover — same terse-card/full-hover split
+                // the CAC caption above uses.
+                paceValEl.textContent = primary.n
+                    ? `${primary.sold} vs ${paceNum(primary.median)}`
+                    : String(primary.sold);
+                velEl.textContent = paceLine(primary);
+                velEl.className = 'kpi-delta ' + (primary.n
+                    ? (primary.sold >= primary.median ? 'up' : 'down')
+                    : '');
+                velEl.title = [
+                    `${primary.title} — ${paceLine(primary)}`,
+                    ...pacing.open.slice(1).map(o => `${o.title} — ${paceLine(o)}`),
+                    '',
+                    pacing.past.length
+                        ? `Benchmark: ${pacing.past.length} past event${pacing.past.length !== 1 ? 's' : ''} `
+                          + `(${pacing.past.map(p => `${p.title} ${p.final}`).join(', ')}), `
+                          + `cumulative PAID tickets at the same number of days before the event. `
+                          + `Comps and $0 seats excluded, same definition as every revenue KPI here.`
+                        : 'No past event has a dated paid ticket yet, so there is nothing to compare against.',
+                ].join('\n');
             }
 
             // Snapshot for the Full Report tab. Taken here, at the end of the
@@ -7711,9 +7984,17 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 payingBuyers, repeatBuyers, revPerTicket, ticketsPerBuyer,
                 totalAcquisition, totalEbFees, totalOtherCosts,
                 nonAcqRecurring: totalRecurring - totalAcqRecurring,
-                velocity: velocities.length ? avgVelocity.toFixed(1) + '/day' : '—',
-                velocityRate: velocities.length ? avgVelocity : 0,
+                // The three velocity* names are KEPT, and changed meaning on
+                // 2026-09-10 the same way avgEvents and uniqueBuyers did above:
+                // renaming them would have broken renderReport silently, which
+                // is the exact failure tests/admin-kpis.test.js exists to catch.
+                // velocity is now "sold vs median", not a per-day rate, and
+                // velocityRate is a pace INDEX — 1.0 means exactly at the median
+                // of the past events at this T-minus, above 1 is ahead of it.
+                velocity: primary ? paceValEl.textContent : '—',
+                velocityRate: primary && primary.median > 0 ? primary.sold / primary.median : 0,
                 velocityNote: velEl ? velEl.textContent : '',
+                pacing,
             };
             renderReport();
             renderCampaigns();
@@ -7782,30 +8063,6 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     <td style="color: rgba(245,243,240,0.6);">${timeAgo(u.createdAt)}</td>
                 </tr>
             `).join('');
-        }
-
-        function renderTierBreakdown() {
-            const tbody = document.getElementById('tierBreakdown');
-            const total = allUsers.length;
-            if (total === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="empty">No data yet</td></tr>';
-                return;
-            }
-            const tiers = ['free', 'mid', 'premium'];
-            tbody.innerHTML = tiers.map(tier => {
-                const users = allUsers.filter(u => u.tier === tier);
-                const paying = users.filter(u => u.subscriptionStatus === 'active').length;
-                const monthlyRev = paying * (TIER_PRICES[tier] || 0);
-                const pct = ((users.length / total) * 100).toFixed(1);
-                return `
-                    <tr>
-                        <td>${tierBadge(tier)}</td>
-                        <td style="color: var(--white); font-weight: 600;">${users.length}</td>
-                        <td style="color: rgba(245,243,240,0.7);">${pct}%</td>
-                        <td style="color: var(--white); font-weight: 600;">$${monthlyRev.toFixed(2)}</td>
-                    </tr>
-                `;
-            }).join('');
         }
 
         function activityIcon(type) {
@@ -7913,13 +8170,12 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             document.getElementById('memberCount').textContent = `${filtered.length} of ${allUsers.length}`;
 
             if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="empty">No members match your filters.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="empty">No members match your filters.</td></tr>';
                 return;
             }
 
             tbody.innerHTML = filtered.map(u => {
                 const interests = (u.interests || []).slice(0, 3).join(', ') || '—';
-                const ltv = (TIER_PRICES[u.tier] || 0) * AVG_LIFETIME_MONTHS;
                 const gender = ({woman:'Woman',man:'Man'})[u.gender] || u.gender || '—';
                 return `
                     <tr>
@@ -7938,7 +8194,6 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                         <td>${tierBadge(u.tier)}</td>
                         <td>${statusBadge(u.subscriptionStatus)}</td>
                         <td style="color: rgba(245,243,240,0.6);">${formatDate(u.createdAt)}</td>
-                        <td style="color: var(--gold); font-weight: 600;">$${ltv.toFixed(0)}</td>
                     </tr>
                 `;
             }).join('');
@@ -7964,15 +8219,24 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
 
         function renderPaymentHistory() {
             const tbody = document.getElementById('paymentHistory');
+            // TICKETS ONLY, since 2026-09-10. loadPayments() still reads the
+            // `payments` collection and still merges it into allPayments --
+            // harmless, because that collection has zero documents and has
+            // never had one -- but nothing here renders a subscription row any
+            // more. Memberships are paused (see the note at the top of
+            // api/declare-connection.js), so a Subscription badge that could
+            // never appear and a $0.00 Subscriptions chip that always did were
+            // furniture for a product that does not run.
+            const ticketPayments = allPayments.filter(p => p._type === 'ticket');
             // The table is capped at 460px now, so most rows sit below the fold.
             // Say how many there are -- otherwise a capped list looks like a
             // short list, and 103 payments read as 8.
             const note = document.getElementById('paymentHistoryNote');
             if (note) {
-                const total = allPayments.length + refundedPayments.length;
+                const total = ticketPayments.length + refundedPayments.length;
                 note.textContent = total
-                    ? `Tickets + subscriptions · newest first · ${total} shown, scroll for more`
-                    : 'Tickets + subscriptions · newest first';
+                    ? `Ticket sales · newest first · ${total} shown, scroll for more`
+                    : 'Ticket sales · newest first';
                 // The read is unbounded in practice, but if it ever stops at
                 // HARD_CAP every all-time figure on this page is a floor rather
                 // than a total, and the reader has to be told. A truncation
@@ -7985,18 +8249,15 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     note.style.color = '';
                 }
             }
-            if (allPayments.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty">No payments yet.</td></tr>';
+            if (!ticketPayments.length && !refundedPayments.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty">No ticket sales yet.</td></tr>';
                 return;
             }
 
             // Summary KPIs — split across all three channels. This used to be a
             // binary source !== 'eventbrite_import' test, which silently counted
             // Meetup sales as Direct.
-            const ticketPayments = allPayments.filter(p => p._type === 'ticket');
-            const ticketTotal    = ticketPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-            const subTotal       = allPayments.filter(p => p._type === 'subscription').reduce((s, p) => s + (Number(p.amount) || 0), 0);
-            const grandTotal     = ticketTotal + subTotal;
+            const ticketTotal = ticketPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
             const channelStats = CHANNEL_KEYS.map(k => {
                 const tix = ticketPayments.filter(p => channelOf(p) === k);
                 const cents = tix.reduce((s, p) => s + num(p.amount), 0);
@@ -8010,36 +8271,31 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 ? `<div class="candidate-stat" title="Refunded tickets — excluded from every revenue figure"><strong style="color:#f87171;">−$${(refundTotal / 100).toFixed(2)}</strong>Refunds (${refundedPayments.length})</div>`
                 : '';
             document.getElementById('revenueKPIs').innerHTML = `
-                <div class="candidate-stat"><strong>$${(grandTotal / 100).toFixed(2)}</strong>Total revenue</div>
                 <div class="candidate-stat"><strong>$${(ticketTotal / 100).toFixed(2)}</strong>Ticket sales</div>
                 ${channelStats}
-                <div class="candidate-stat"><strong>$${(subTotal / 100).toFixed(2)}</strong>Subscriptions</div>
                 ${refundChip}
             `;
             renderEventPnl();
             renderChannelPnl();
 
             // Merge refunded rows back for DISPLAY, newest first with the rest.
-            const displayRows = [...allPayments, ...refundedPayments].sort((a, b) => {
+            const displayRows = [...ticketPayments, ...refundedPayments].sort((a, b) => {
                 const ta = (a.paidAt || a.createdAt)?.toMillis?.() ?? 0;
                 const tb = (b.paidAt || b.createdAt)?.toMillis?.() ?? 0;
                 return tb - ta;
             });
             tbody.innerHTML = displayRows.map(p => {
-                const isTicket = p._type === 'ticket';
                 const isRefunded = p.status === 'refunded';
                 const user = allUsers.find(u => u.id === (p.userId || p.firebaseUid));
                 const name = p.name || (user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '') || '—';
                 const email = p.email || p.userEmail || user?.email || '—';
                 const amount = Number(p.amount) || 0;
                 const when = p.paidAt || p.createdAt;
-                const event = isTicket ? (allEvents.find(e => e.id === p.eventId)?.title || p.eventName || '—') : (user?.tier ? user.tier + ' plan' : '—');
+                const event = allEvents.find(e => e.id === p.eventId)?.title || p.eventName || '—';
                 const typeBadge = isRefunded
                     ? `<span class="badge" style="font-size:10px;background:rgba(248,113,113,0.12);color:#f87171;border:1px solid rgba(248,113,113,0.35);">Refunded</span>`
-                    : isTicket
-                    ? `<span class="badge badge-active" style="font-size:10px;">Ticket</span>`
-                    : `<span class="badge badge-pending" style="font-size:10px;">Subscription</span>`;
-                const source = isTicket && p.source === 'eventbrite_import'
+                    : `<span class="badge badge-active" style="font-size:10px;">Ticket</span>`;
+                const source = p.source === 'eventbrite_import'
                     ? ' <span style="font-size:10px;color:rgba(245,243,240,0.4);">Eventbrite</span>' : '';
                 return `<tr>
                     <td>
@@ -8355,6 +8611,45 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             e && e.date && e.date.toDate ? e.date.toDate()
             : (e && e.date ? new Date(e.date) : null);
 
+        // ── Show rate: door count vs confirmed registrations ─────────────
+        // The only attendance figure on this dashboard that is not a floor.
+        // Digital check-in coverage measures a different thing -- how many
+        // confirmed registrations were SCANNED. Eventbrite imports and anyone
+        // who never scanned are legitimately confirmed with no timestamp, so a
+        // no-show rate built on check-ins would be wrong by construction and
+        // wrong in the direction that looks alarming. `doorCount` is the hand
+        // count, typed at the end of the night on the run-of-show screen or
+        // afterwards in the event's Costs row.
+        //
+        // ONLY events carrying a door count enter EITHER side of the ratio.
+        // Treating a missing count as 0 would drag the rate toward zero on
+        // every uncounted night, which is worse than not having the metric at
+        // all: absent stays absent, `rate` comes back null, and the card reads
+        // "not counted" rather than 0%.
+        //
+        // The denominator is raw confirmed registrations for the event, which
+        // is exactly what mixCell() divides by, so the Events tab and the
+        // Retention card can never print two different show rates for one
+        // night.
+        //
+        // Pure on purpose: tests/admin-door-count.test.js lifts this out of
+        // the page and runs it, the same way tests/admin-kpis.test.js lifts
+        // ticketKpis(). A rate that renders is not caught by anything else.
+        function showRateFrom(pastEventIds, eventsById, registrations) {
+            const out = { events: 0, door: 0, regs: 0, rate: null };
+            [...pastEventIds].forEach(id => {
+                const ev = eventsById[id];
+                const dc = ev ? ev.doorCount : null;
+                if (dc === null || dc === undefined || dc === '' || !isFinite(Number(dc))) return;
+                out.events++;
+                out.door += Number(dc);
+                out.regs += registrations.filter(r => r.eventId === id).length;
+            });
+            // No counted event, or nothing to divide by, is NOT 0%.
+            out.rate = out.events && out.regs ? Math.round(100 * out.door / out.regs) : null;
+            return out;
+        }
+
         function retentionColor(rate) {
             if (rate >= 40) return 'rgba(74, 222, 128, 0.18)';  // strong
             if (rate >= 25) return 'rgba(212, 175, 55, 0.18)';  // ok
@@ -8444,6 +8739,10 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     });
                 }
 
+                // Attendance, as opposed to check-in coverage. See the note
+                // on showRateFrom() above for why absent is not zero.
+                const showRate = showRateFrom(pastEventIds, evById, allRegistrations);
+
                 const unique = new Set();
                 sold.forEach(s => s.emails.forEach(em => unique.add(em)));
                 const avg = sold.length ? Math.round(sold.reduce((n, s) => n + s.count, 0) / sold.length) : 0;
@@ -8480,7 +8779,7 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 repeat.rate = repeat.attendees ? (repeat.repeaters / repeat.attendees * 100) : 0;
 
                 renderRetention({
-                    sold, retention, repeat,
+                    sold, retention, repeat, showRate,
                     totalEvents: sold.length,
                     unique: unique.size,
                     avg,
@@ -8500,11 +8799,30 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 root.innerHTML = '<p class="empty">No confirmed registrations yet. This populates once your first event has attendees.</p>';
                 return;
             }
-            const stat = (label, val) => `
+            // `note` is optional -- the four original cards pass two
+            // arguments and render exactly as they did.
+            const stat = (label, val, note = '') => `
                 <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,107,107,0.2); border-left: 4px solid var(--coral); border-radius: 6px; padding: 18px 20px;">
                     <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:rgba(245,243,240,0.55); margin-bottom:6px;">${label}</div>
                     <div style="font-size:26px; font-weight:800; color:var(--white);">${val}</div>
+                    ${note ? `<div style="font-size:11px; color:var(--text-faint); margin-top:6px; line-height:1.5;">${note}</div>` : ''}
                 </div>`;
+
+            // Show rate, beside the check-in coverage strip below. Renders
+            // "not counted" -- never 0% -- when nothing has been counted,
+            // because 0% is a claim about attendance and this is an absence of
+            // measurement. Same three-band colouring mixCell() uses, so the
+            // two surfaces speak one language.
+            const sr = d.showRate || { events: 0, door: 0, regs: 0, rate: null };
+            const notCounted = (why) => stat('Show rate',
+                '<span style="font-size:17px; color:var(--text-faint); font-weight:600;">not counted</span>', why);
+            const showRateCard = sr.rate === null
+                ? (sr.events
+                    ? notCounted(`${sr.events} event${sr.events === 1 ? ' has a' : 's have'} door count${sr.events === 1 ? '' : 's'}, but no confirmed registrations to divide by.`)
+                    : notCounted('No past event has a door count yet. Type one at the end of the run-of-show screen, or in an event&rsquo;s Costs row.'))
+                : stat('Show rate',
+                       `<span style="color:${sr.rate >= 85 ? 'var(--success)' : sr.rate >= 70 ? 'var(--gold)' : 'var(--coral)'};">${sr.rate}%</span>`,
+                       `${sr.door} through the door · ${sr.regs} confirmed · ${sr.events} event${sr.events === 1 ? '' : 's'} counted`);
 
             const cards = `
                 <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-bottom:28px;">
@@ -8512,6 +8830,7 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     ${stat('Unique Attendees', d.unique)}
                     ${stat('Avg Attendees/Event', d.avg)}
                     ${stat('Latest Event', safe(d.last))}
+                    ${showRateCard}
                 </div>`;
 
             // Repeat attendance — the headline. Distinct PAST events per
@@ -8563,7 +8882,9 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     — how many confirmed registrations were scanned at the door. This is
                     <em>coverage of the check-in flow</em>, not a no-show rate: Eventbrite imports and anyone who
                     never scanned are legitimately confirmed with no timestamp, so a missing check-in does not mean
-                    somebody failed to turn up.
+                    somebody failed to turn up. The no-show question is answered by the <strong>Show rate</strong> card
+                    above, which divides the hand-counted door number by confirmed registrations &mdash; and reads
+                    &ldquo;not counted&rdquo; until a door count has been typed for at least one past event.
                 </div>` : '';
 
             const rateRows = d.retention.length
@@ -8658,7 +8979,7 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     dateLabel: dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                     venue: e.venue || e.title || '(unknown event)',
                     open: (now - dt.getTime()) < MATCH_WINDOW_DAYS * 86400000,
-                    attendeeKeys: new Set(), genderByUid: {},
+                    attendeeKeys: new Set(), genderByUid: {}, attendeeByKey: new Map(),
                     promptedUids: new Set(), pickerUids: new Set(), picks: 0,
                     matches: 0, matchedUids: new Set(),
                 };
@@ -8670,6 +8991,17 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 const key = (r.email ? String(r.email).toLowerCase().trim() : '') || r.userId || '';
                 if (!key) return;
                 row.attendeeKeys.add(key);
+                // One record per PERSON, not per registration row. The two
+                // rows a duplicate-uid person has under one email are merged:
+                // either row's gender counts, and a check-in on either means
+                // that human walked in. Counting rows instead would put one
+                // woman in the denominator twice.
+                const prev = row.attendeeByKey.get(key) || { uid: '', gender: '', checkedIn: false };
+                row.attendeeByKey.set(key, {
+                    uid: prev.uid || r.userId || '',
+                    gender: prev.gender || gNorm(r.gender),
+                    checkedIn: prev.checkedIn || !!r.checkedInAt,
+                });
                 if (r.userId) {
                     if (r.gender) row.genderByUid[r.userId] = gNorm(r.gender);
                     // The cron honours the legacy per-registration flag as
@@ -8711,6 +9043,18 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                         if (g === 'woman') women++; else if (g === 'man') men++;
                     });
                     const attendees = r.attendeeKeys.size;
+
+                    // Who was actually in the room, by gender. Same gender
+                    // resolution as the pickers above — the profile first,
+                    // the night's registration second — so the numerator and
+                    // the denominator of the rate below cannot disagree about
+                    // who is a woman.
+                    let womenRegistered = 0, menRegistered = 0, womenCheckedIn = 0, menCheckedIn = 0;
+                    r.attendeeByKey.forEach(a => {
+                        const g = (a.uid && gNorm((usersById[a.uid] || {}).gender)) || a.gender || '';
+                        if (g === 'woman') { womenRegistered++; if (a.checkedIn) womenCheckedIn++; }
+                        else if (g === 'man') { menRegistered++; if (a.checkedIn) menCheckedIn++; }
+                    });
                     return {
                         id: r.id, dt: r.dt, dateLabel: r.dateLabel, venue: r.venue, open: r.open,
                         attendees,
@@ -8721,6 +9065,13 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                         matched: r.matchedUids.size, matchedShare: pct(r.matchedUids.size, attendees),
                         pickersWomen: women, pickersMen: men,
                         pickersUnknown: r.pickerUids.size - women - men,
+                        // womenPicked IS pickersWomen — the same set, named
+                        // for the column it feeds, where it is read against
+                        // the check-in count rather than against the men.
+                        womenRegistered, womenCheckedIn, womenPicked: women,
+                        womenPickRate: pct(women, womenCheckedIn),
+                        menRegistered, menCheckedIn, menPicked: men,
+                        menPickRate: pct(men, menCheckedIn),
                     };
                 })
                 .sort((a, b) => b.dt.getTime() - a.dt.getTime()); // newest first: the open one on top
@@ -8734,6 +9085,13 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     attendees: sum(out, 'attendees'), pickers: sum(out, 'pickers'), picks: sum(out, 'picks'),
                     matches: sum(out, 'matches'), matched: sum(out, 'matched'),
                     pickersWomen: sum(out, 'pickersWomen'), pickersMen: sum(out, 'pickersMen'),
+                    womenCheckedIn: sum(out, 'womenCheckedIn'), womenPicked: sum(out, 'womenPicked'),
+                    menCheckedIn: sum(out, 'menCheckedIn'), menPicked: sum(out, 'menPicked'),
+                    // Pooled, not an average of the per-event rates: an event
+                    // with two women checked in would otherwise carry the same
+                    // weight as one with sixteen.
+                    womenPickRate: pct(sum(out, 'womenPicked'), sum(out, 'womenCheckedIn')),
+                    menPickRate: pct(sum(out, 'menPicked'), sum(out, 'menCheckedIn')),
                     // The headline share is over SETTLED events only, so an
                     // event two days old cannot drag the all-time figure down.
                     matchedShare: pct(sum(settled, 'matched'), sum(settled, 'attendees')),
@@ -8789,7 +9147,8 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                            `${t.settledEvents} settled event${t.settledEvents === 1 ? '' : 's'}${t.events > t.settledEvents ? ' · open ones excluded' : ''}`,
                            'var(--coral)')}
                     ${stat('Picks', t.picks, `by ${t.pickers} people who picked anyone`)}
-                    ${stat('Pickers · women / men', `${t.pickersWomen} <span style="color:var(--text-faint); font-weight:400;">/</span> ${t.pickersMen}`, 'who answered the prompt, by gender')}
+                    ${stat('Women picked / checked in', `${t.womenPicked} <span style="color:var(--text-faint); font-weight:400;">/</span> ${t.womenCheckedIn} <span style="font-size:16px; color:var(--text-muted);">· ${t.womenPickRate.toFixed(0)}%</span>`, 'pooled across events, not an average of rates')}
+                    ${stat('Men picked / checked in', `${t.menPicked} <span style="color:var(--text-faint); font-weight:400;">/</span> ${t.menCheckedIn} <span style="font-size:16px; color:var(--text-muted);">· ${t.menPickRate.toFixed(0)}%</span>`, 'same, for comparison')}
                 </div>`;
 
             const share = (n, p, open) => open
@@ -8810,7 +9169,10 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                             ? share(e.matched, e.matchedShare, true)
                             : `<span style="background:${retentionColor(e.matchedShare)}; padding:4px 10px; border-radius:4px; font-weight:700;">${e.matched} · ${e.matchedShare.toFixed(0)}%</span>`}
                     </td>
-                    <td style="text-align:center;">${e.pickersWomen} <span style="color:var(--text-faint);">/</span> ${e.pickersMen}${e.pickersUnknown ? ` <span title="pickers with no gender on file" style="color:var(--text-faint); font-size:11px;">(+${e.pickersUnknown} ?)</span>` : ''}</td>
+                    <td style="text-align:center;">
+                        <span style="background:${retentionColor(e.womenPickRate)}; padding:4px 10px; border-radius:4px; font-weight:700;">${e.womenPicked} / ${e.womenCheckedIn} · ${e.womenPickRate.toFixed(0)}%</span>
+                    </td>
+                    <td style="text-align:center; color:var(--text-muted);">${e.menPicked} / ${e.menCheckedIn} · ${e.menPickRate.toFixed(0)}%${e.pickersUnknown ? ` <span title="pickers with no gender on file, counted in neither column" style="color:var(--text-faint); font-size:11px;">(+${e.pickersUnknown} ?)</span>` : ''}</td>
                 </tr>`).join('');
 
             const table = `
@@ -8824,7 +9186,8 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                             <th style="text-align:center;">Picks</th>
                             <th style="text-align:center;" title="Pairs who picked each other">Mutual</th>
                             <th style="text-align:center;" title="People in at least one mutual match, as a share of attendees">Matched</th>
-                            <th style="text-align:center;" title="Pickers by gender (users.gender, falling back to the registration)">Pickers W / M</th>
+                            <th style="text-align:center;" title="Women who picked someone, over women scanned in at the door">Women picked / in</th>
+                            <th style="text-align:center;" title="The same for men, for comparison">Men picked / in</th>
                         </tr></thead>
                         <tbody>${rows}</tbody>
                     </table>
@@ -8836,6 +9199,14 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     <em>Picked anyone</em> with few <em>Mutual</em> is a chemistry problem (the room, the
                     format). Pickers are counted by uid, so a picker with no registration row still counts
                     and the share can, in principle, exceed 100%.
+                </p>
+                <p style="font-size:11px; color:var(--text-faint); margin:10px 0 0; line-height:1.6;">
+                    <strong>Women picked / in</strong> is women who picked someone over women <em>scanned in at the
+                    door</em>. Check-in is a <strong>floor, not attendance</strong> — not everyone scans, and
+                    Eventbrite imports often never do — so this rate <strong>can exceed 100%</strong>. That is a
+                    check-in gap, not a data error: it means more women picked than the door recorded arriving.
+                    Read a rate over 100% as "scan more people", and a low one as "the women in the room did not
+                    answer the prompt".
                 </p>`;
 
             root.innerHTML = cards + table;
