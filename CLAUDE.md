@@ -39,6 +39,22 @@ Exit with `ExitWorktree` — `keep` if the work continues later, `remove` once i
 is merged. If you genuinely need the main checkout (inspecting another session's
 in-flight state, say), **read it, do not write to it**, and say so.
 
+**`EnterWorktree` with a name that already exists RESUMES it, commits and all
+— it does not refuse and it does not branch fresh.** On 2026-09-10 a session
+ending with `/handoff` called `EnterWorktree name:"handoff-2026-09-10"` and
+landed inside another chat's worktree, on its branch, carrying its unmerged
+commit for PR #496. Nothing was lost only because the next command was
+`git log origin/main..HEAD` rather than an edit. The tool does say "resumed
+as-is" in its result — read that line. **Anything generic enough to collide is
+a name to avoid: `handoff`, `fix`, today's date.** If you find yourself in one,
+`ExitWorktree keep` (never `remove`) and pick another name.
+
+**Squash-merged branches read as unmerged to `ExitWorktree remove`.** The squash
+makes a new commit, so the branch's own commit is not an ancestor of `main` and
+the tool refuses, asking for `discard_changes: true`. That is a real guardrail,
+not a formality — confirm the content actually landed on `main` before forcing
+it, and get the user's word first.
+
 ---
 
 ## STARTING AND ENDING A SESSION (2026-08-31)
