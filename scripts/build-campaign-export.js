@@ -236,15 +236,24 @@ function pickTestimonials(brand, rowId, count) {
   const long = byLength.slice(0, Math.ceil(byLength.length / 2));
   const short = byLength.slice(Math.ceil(byLength.length / 2));
 
+  // Never repeat a person inside one post. Keyed on attribution, not id:
+  // Laura M. has three ids, so an id check would let her fill a whole
+  // carousel. On a collision, walk on to the next person in the pool rather
+  // than dropping the slot, so a three-slide post still gets three people.
   const out = [];
+  const seen = new Set();
   for (let i = 0; i < count; i++) {
     const pool = i % 2 === 0 ? long : short;
     if (!pool.length) break;
-    out.push(pool[(seed + i) % pool.length]);
+    for (let k = 0; k < pool.length; k++) {
+      const t = pool[(seed + i + k) % pool.length];
+      if (seen.has(t.attribution)) continue;
+      seen.add(t.attribution);
+      out.push(t);
+      break;
+    }
   }
-  // Never repeat a person inside one post.
-  const seen = new Set();
-  return out.filter((t) => (seen.has(t.id) ? false : seen.add(t.id)));
+  return out;
 }
 
 /** Turn one queue row into the frame objects the renderer expects. */

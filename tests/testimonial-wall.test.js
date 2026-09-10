@@ -47,6 +47,10 @@ function decode(s) {
     .replace(/&gt;/g, '>');
 }
 
+// One key per card. A person can have more than one approved quote (Laura M.
+// has three), so the attribution alone no longer identifies a card.
+const key = (who, quote) => `${who}\n${quote}`;
+
 describe('homepage testimonial wall', () => {
   it('is found at all', () => {
     // Guard on the guard: a renamed class would make every assertion below
@@ -56,38 +60,43 @@ describe('homepage testimonial wall', () => {
   });
 
   it('shows every approved testimonial, none missing', () => {
-    const shown = new Set(wallCards().map((c) => c.who));
-    const missing = approved.map((t) => t.attribution).filter((a) => !shown.has(a));
+    const shown = new Set(wallCards().map((c) => key(c.who, c.quote)));
+    const missing = approved
+      .filter((t) => !shown.has(key(t.attribution, t.quote)))
+      .map((t) => ({ who: t.attribution, quote: t.quote }));
     expect(missing).toEqual([]);
   });
 
   it('shows nothing that is not approved', () => {
-    const ok = new Set(approved.map((t) => t.attribution));
-    const extra = wallCards().map((c) => c.who).filter((w) => !ok.has(w));
+    // Also catches a card whose name is right and whose wording is a release
+    // old -- that card is not an approved (name, quote) pair.
+    const ok = new Set(approved.map((t) => key(t.attribution, t.quote)));
+    const extra = wallCards().filter((c) => !ok.has(key(c.who, c.quote)));
     expect(extra).toEqual([]);
   });
 
-  it('quotes each person exactly as brand.json has them', () => {
-    // Catches the subtler half of the same drift: the name is present, the
-    // wording is a release old. brand.json keeps superseded text as
-    // previous_quote for three people, and that is what would show here.
-    const byWho = new Map(approved.map((t) => [t.attribution, t.quote]));
-    const wrong = wallCards()
-      .filter((c) => byWho.get(c.who) !== c.quote)
-      .map((c) => ({ who: c.who, onPage: c.quote, inBrand: byWho.get(c.who) }));
+  it('never shows superseded wording', () => {
+    // The subtler half of the same drift, named outright: brand.json keeps
+    // replaced text as previous_quote, and that is what a stale wall shows.
+    const stale = new Set(
+      approved.filter((t) => t.previous_quote).map((t) => key(t.attribution, t.previous_quote)),
+    );
+    const wrong = wallCards().filter((c) => stale.has(key(c.who, c.quote)));
     expect(wrong).toEqual([]);
   });
 
-  it('lists each person once', () => {
-    const who = wallCards().map((c) => c.who);
-    expect(who.length).toBe(new Set(who).size);
+  it('lists each quote once', () => {
+    // Each QUOTE, not each person: Laura M. has three approved quotes, and
+    // all three belong on the wall.
+    const keys = wallCards().map((c) => key(c.who, c.quote));
+    expect(keys.length).toBe(new Set(keys).size);
   });
 
   it('puts the women first, as the rotators do', () => {
     // Same rule and same reason as tests/testimonial-rotator.test.js: women are
     // the constrained side of the room, and social proof is the only thing that
     // has demonstrably converted them. Keep the two lists in step.
-    const WOMEN = new Set(['Molly', 'Helesha', 'Anonymous M.']);
+    const WOMEN = new Set(['Molly', 'Helesha', 'Anonymous M.', 'Laura M.']);
     const flags = wallCards().map((c) => WOMEN.has(c.who));
     const firstMan = flags.indexOf(false);
     const lastWoman = flags.lastIndexOf(true);
