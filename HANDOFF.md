@@ -50,20 +50,52 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   the cap is a deliberate cost decision about a listener held open for the whole
   session, so it is a billing call rather than an arithmetic one.
   **Next step for whoever picks the report back up, in the order the report
-  ranks them:** (4) replace Ticket Velocity's flat 1.5/day target with a pacing
-  curve — sold-now against the median of past events at the same T-minus, and
-  the reference table is already computed in the report's Evidence §2; (5) a
-  women's acquisition strip on the Ads tab (cost per woman ticket, women's share
-  at T-7, women's share of pickers); (6) show rate — the `doorCount` INPUT now
-  exists on the Events tab and `mixCell` already renders "door N · %show" from
-  it, so the only thing missing is that no event has ever had a number typed in;
-  (7) a `web_daily` sync beside the Google Ads pull, so landing-page-view →
-  purchase stops living only in the nightly reports; (8) email aggregate rates
-  on the Leads tab; (9) retire the subscription surfaces while memberships are
-  paused; (10) surface per-ticket attribution and a plain "referral leads: 0"
-  line. **Also still undone from item 2: a per-event CAC on the Event P&L detail
+  ranks them:** (5) a women's acquisition strip on the Ads tab (cost per woman
+  ticket, women's share at T-7, women's share of pickers); (7) a `web_daily`
+  sync beside the Google Ads pull, so landing-page-view → purchase stops living
+  only in the nightly reports; (8) email aggregate rates on the Leads tab;
+  (10) surface per-ticket attribution and a plain "referral leads: 0" line.
+  **Also still undone from item 2: a per-event CAC on the Event P&L detail
   row**, where the synced spend already sits — the blended figure is all-time
   over all-time and can only drift.
+  **Items 4, 6 and 9 are built — do not re-derive any of them from the report.**
+  4 is #504 (09-10): the flat 1.5/day target is gone, the card is now **Sales
+  Pace** and its trend line reads "vs past events at the same T-minus".
+  *(Corrected 09-10 by the session that shipped #505; the evidence is #504's
+  own diff, and the rename is also what turned main red — see #511.)*
+  9 is #505: it removed all four subscription surfaces outright (the Active
+  Subscriptions KPI on Revenue AND in the Full Report list, the Subscription
+  Breakdown card, the subscription rows and chip in Payment History, and the
+  Members-table LTV column) along with `TIER_PRICES` and `AVG_LIFETIME_MONTHS`;
+  `loadPayments`'s read of `payments` and `kpiSnapshot.active` are deliberately
+  kept, so bringing memberships back is a markup change and not an arithmetic
+  one.
+  6 is #505 too: it added the door-count box to the run-of-show screen and the
+  Show rate card to the Retention tab. What 6 could NOT do is the entry
+  immediately below.
+
+- **The show rate finally has somewhere to be typed, and still has no number in
+  it — five past events, not one with a `doorCount`.** (09-10, #505) `mixCell`
+  has rendered "door N · %show" since #324 and the field has been empty for its
+  entire life, so the one figure that decides whether to oversell 30 seats has
+  never been measured once. There are now two places to enter it: a box at the
+  foot of the run-of-show screen, shown only after the event date has passed
+  (that screen is the one a host is holding at the end of the night, which is
+  the only moment the number exists), and the Costs row on the Events tab that
+  already existed. Both write `events/<id>.doorCount`, and blank is stored as
+  NULL rather than 0 on purpose. The Retention tab's Show rate card reads
+  **"not counted" rather than 0%** until a real number exists, because an
+  uncounted night summed as zero reports a no-show crisis that never happened.
+  **Next step is a human's, not a session's: type the door count for the five
+  past events.** Nobody else knows the numbers and they cannot be reconstructed
+  — digital check-in reached 91 of 140 past confirmed registrations and is a
+  FLOOR, not attendance (`attended.txt` recorded 31 real heads against 26
+  registered at Event 1; see [[checkin-counts-undercount-attendance]]), so
+  back-filling from check-ins would be wrong by construction and in the
+  flattering direction. Until a number is typed the card stays "not counted" and
+  the Mix column keeps showing the gender split instead, which is the correct
+  behaviour and not a bug to chase. **Delete this entry once any past event
+  carries a count.**
 
 - **A match email Resend refuses is now visible on the `matches` doc, but still
   nothing re-sends it.** (09-10, #492) `resend.emails.send()` RESOLVES with
