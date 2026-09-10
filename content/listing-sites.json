@@ -41,7 +41,7 @@
     {
       "key": "facebook_event",
       "name": "Facebook Event (from the SparkDate Page)",
-      "status": "not_pursued",
+      "status": "active",
       "market": "any",
       "cost": "free",
       "submit_url": "https://www.facebook.com/events/create",
@@ -50,7 +50,13 @@
       "priority": 1,
       "why_now": "The account already runs paid Facebook and has the Page, the audience and the creative. A Page Event is the same asset posted to a surface that costs nothing, and every RSVP is shown to that person's friends -- the one channel here with built-in amplification. GA4 shows zero organic Facebook event traffic, so this is unworked ground, not a saturated one.",
       "gotchas": [
-        "Facebook wraps outbound links. Confirm the utm_* params survive the l.facebook.com hop before trusting the GA4 row -- 53 sessions already land as 'm.facebook.com / referral' with no campaign attached.",
+        "THE l.facebook.com WRAPPER IS FINE -- VERIFIED 2026-09-10, and this had never actually been checked. Facebook wraps the outbound link but only APPENDS `?fbclid=...`; it does not touch the path. So `/l/tl2-facebook-event` arrives intact and the redirect still fires, delivering all four utm_* params plus the event id (fbclid just rides along in the final URL). The 53 sessions landing as 'm.facebook.com / referral' with no campaign are therefore NOT the wrapper eating tags -- they are untagged links posted elsewhere. Use the `/l/` short link and trust the GA4 row.",
+        "STATUS CORRECTED 2026-09-10 (was `not_pursued`, and why_now claimed 'GA4 shows zero organic Facebook event traffic, so this is unworked ground'). A Facebook Event for Loxleys (Sep 22) already existed when TL2's was created -- both are visible under Your upcoming events. Same wrong-status pattern as lancasteronline, nextdoor_event and patch.",
+        "TL2's event: facebook.com/events/38939721868974414, created 2026-09-10.",
+        "Creating the event AUTO-OPENS an 'Invite followers' dialog with 500 invites and the follower list pre-loaded. That is a send-on-someone's-behalf action -- Cancel it unless a human has asked for invites.",
+        "The Ticket URL field is under the collapsed 'Add tickets' section at the bottom of the create dialog. It is what produces the 'Find tickets' button and the Tickets line in Details; a link in the description alone does not.",
+        "The host dropdown offered exactly one identity, `Sparkdate.date`, so there is no personal-profile trap here in practice -- but confirm it before creating, since a Page Event and a profile event behave differently.",
+        "The default cover art is public/og-image.jpg, whose footer band reads 'SPARKDATE.DATE - PHILADELPHIA & LANCASTER'. Facebook's cover crop cuts it to '...PHILADELPHIA' on a Lancaster event. Cosmetic, but wrong-city-in-the-image on the surface built for amplification. Reposition or use a Lancaster-specific cover.",
         "An Event is distinct from a post about the event. Both are worth doing; only the Event gets RSVPs and reminders."
       ]
     },
