@@ -2420,6 +2420,16 @@
                 </p>
                 <div id="retentionBody"><div class="spinner"></div></div>
             </div>
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">💘 Matches</h2>
+                    <button onclick="loadMatches()" style="padding:7px 14px; background:var(--coral); color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:13px;">↻ Refresh</button>
+                </div>
+                <p style="font-size: 13px; color: rgba(245,243,240,0.55); margin: -6px 0 16px; line-height: 1.6;">
+                    Did the promise happen? Per past event: who was sent the <strong>"who did you click with"</strong> email, who <strong>picked</strong> anyone, and how many <strong>mutual matches</strong> came out of it — from <code>post_event_prompts</code>, <code>connection_intents</code> and <code>matches</code>. Attendees are the same confirmed-registration count as above. An event under 7 days old is <strong>still open</strong>: picks keep arriving for days after the night, so its shares are not yet a verdict.
+                </p>
+                <div id="matchesBody"><div class="spinner"></div></div>
+            </div>
         </div>
 
         <!-- Funnel Tab -->
@@ -7815,6 +7825,238 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             root.innerHTML = cards + repeatBlock + coverageBlock + table + timeline;
         }
 
+        // ─── MATCHES (the product outcome, per event) ──────────────
+        // "If they tell us the same about you, we exchange your contact
+        // info" is the promise. Until 2026-09-10 no tab read the three
+        // collections that record whether it happened, although every one
+        // of them was already admin-readable in firestore.rules. All three
+        // are server-written only: api/declare-connection.js writes
+        // connection_intents ({fromUserId, toUserId, eventId, createdAt})
+        // and matches ({eventId, users:[uid, uid], matchedAt}), and
+        // api/cron-send-emails.js writes post_event_prompts
+        // ({userId, eventId, sentAt}).
+        //
+        // Attendees are keyed exactly as loadRetention keys them (email
+        // first, uid fallback) so the denominator here is the same
+        // confirmed-registration count the cards above show. Picks,
+        // prompts and matches carry only a uid, so pickers and matched
+        // people are counted by uid and their share is taken against that
+        // attendee count. A picker whose uid has no registration row still
+        // counts: declare-connection deliberately never blocks on
+        // attendance, and dropping them would hide real picks.
+        //
+        // Reference values, measured against live Firestore on 2026-09-10
+        // (reports/ADMIN_DASHBOARD_METRICS_REVIEW_2026-09-10.md) and pinned
+        // as fixtures in tests/matches-panel.test.js:
+        //   Founders Mixer   24 attendees / 15 pickers / 67 picks / 12 matches / 11 matched
+        //   Round 2          30 / 16 / 47 / 13 / 14
+        //   Tellus AfterDark 34 / 13 / 36 /  2 /  3
+        //   Good Good        23 / 10 / 21 /  4 /  6
+        //
+        // Picks keep arriving for days after the night (Marion Court had 60
+        // at two days old and counting), so an event younger than this is
+        // shown as "still open" rather than read as a low-matching night.
+        const MATCH_WINDOW_DAYS = 7;
+
+        function computeMatchStats({ events, registrations, users, intents, matches, prompts, now }) {
+            now = now ?? Date.now();
+            const usersById = {};
+            (users || []).forEach(u => { usersById[u.id] = u; });
+            const gNorm = g => String(g || '').toLowerCase().trim();
+
+            // Past events only; an upcoming event has no picks to count.
+            const rows = {};
+            (events || []).forEach(e => {
+                const dt = toEventDate(e);
+                if (!dt || isNaN(dt) || dt.getTime() >= now) return;
+                rows[e.id] = {
+                    id: e.id, dt,
+                    dateLabel: dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    venue: e.venue || e.title || '(unknown event)',
+                    open: (now - dt.getTime()) < MATCH_WINDOW_DAYS * 86400000,
+                    attendeeKeys: new Set(), genderByUid: {},
+                    promptedUids: new Set(), pickerUids: new Set(), picks: 0,
+                    matches: 0, matchedUids: new Set(),
+                };
+            });
+
+            (registrations || []).forEach(r => {
+                const row = rows[r.eventId];
+                if (!row) return;
+                const key = (r.email ? String(r.email).toLowerCase().trim() : '') || r.userId || '';
+                if (!key) return;
+                row.attendeeKeys.add(key);
+                if (r.userId) {
+                    if (r.gender) row.genderByUid[r.userId] = gNorm(r.gender);
+                    // The cron honours the legacy per-registration flag as
+                    // "already prompted" alongside the lock collection, so
+                    // count it the same way here rather than under-report.
+                    if (r.postEventPromptSent) row.promptedUids.add(r.userId);
+                }
+            });
+            (prompts || []).forEach(p => {
+                const row = rows[p.eventId];
+                if (row && p.userId) row.promptedUids.add(p.userId);
+            });
+            (intents || []).forEach(i => {
+                const row = rows[i.eventId];
+                if (!row || !i.fromUserId) return;
+                row.pickerUids.add(i.fromUserId);
+                row.picks++;
+            });
+            (matches || []).forEach(m => {
+                const row = rows[m.eventId];
+                if (!row) return;
+                row.matches++;
+                (m.users || []).forEach(u => row.matchedUids.add(u));
+            });
+
+            // Gender of a picker: users/{uid} first (the profile), then the
+            // registration row for that night, then unknown.
+            const genderOf = (row, uid) => {
+                const u = usersById[uid];
+                return gNorm(u && u.gender) || row.genderByUid[uid] || '';
+            };
+            const pct = (n, d) => d ? (n / d * 100) : 0;
+            const out = Object.values(rows)
+                .filter(r => r.attendeeKeys.size || r.pickerUids.size || r.matches)
+                .map(r => {
+                    let women = 0, men = 0;
+                    r.pickerUids.forEach(uid => {
+                        const g = genderOf(r, uid);
+                        if (g === 'woman') women++; else if (g === 'man') men++;
+                    });
+                    const attendees = r.attendeeKeys.size;
+                    return {
+                        id: r.id, dt: r.dt, dateLabel: r.dateLabel, venue: r.venue, open: r.open,
+                        attendees,
+                        prompted: r.promptedUids.size,
+                        pickers: r.pickerUids.size, pickerShare: pct(r.pickerUids.size, attendees),
+                        picks: r.picks,
+                        matches: r.matches,
+                        matched: r.matchedUids.size, matchedShare: pct(r.matchedUids.size, attendees),
+                        pickersWomen: women, pickersMen: men,
+                        pickersUnknown: r.pickerUids.size - women - men,
+                    };
+                })
+                .sort((a, b) => b.dt.getTime() - a.dt.getTime()); // newest first: the open one on top
+
+            const sum = (list, k) => list.reduce((n, r) => n + r[k], 0);
+            const settled = out.filter(r => !r.open);
+            return {
+                events: out,
+                totals: {
+                    events: out.length, settledEvents: settled.length,
+                    attendees: sum(out, 'attendees'), pickers: sum(out, 'pickers'), picks: sum(out, 'picks'),
+                    matches: sum(out, 'matches'), matched: sum(out, 'matched'),
+                    pickersWomen: sum(out, 'pickersWomen'), pickersMen: sum(out, 'pickersMen'),
+                    // The headline share is over SETTLED events only, so an
+                    // event two days old cannot drag the all-time figure down.
+                    matchedShare: pct(sum(settled, 'matched'), sum(settled, 'attendees')),
+                },
+            };
+        }
+
+        async function loadMatches() {
+            const root = document.getElementById('matchesBody');
+            if (!root) return;
+            root.innerHTML = '<div class="spinner"></div>';
+            try {
+                // Whole-collection reads, but small ones (231 / 34 / 113 docs
+                // on 2026-09-10) and paid only when someone opens this tab —
+                // the same gating as the Leads table, for the same quota
+                // reason (see the comment in loadDashboard).
+                if (!allEvents.length) await loadAdminEvents();
+                if (!allUsers.length) await loadUsers();
+                const [intSnap, matchSnap, promptSnap] = await Promise.all([
+                    getDocs(collection(db, 'connection_intents')),
+                    getDocs(collection(db, 'matches')),
+                    getDocs(collection(db, 'post_event_prompts')),
+                ]);
+                const rows = snap => snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderMatches(computeMatchStats({
+                    events: allEvents, registrations: allRegistrations, users: allUsers,
+                    intents: rows(intSnap), matches: rows(matchSnap), prompts: rows(promptSnap),
+                }));
+            } catch (err) {
+                console.error('[matches] load error:', err);
+                root.innerHTML = '<p class="empty">Error loading match data. Check Firestore rules / admin claim.</p>';
+            }
+        }
+        window.loadMatches = loadMatches;
+
+        function renderMatches(d) {
+            const root = document.getElementById('matchesBody');
+            if (!d.events.length) {
+                root.innerHTML = '<p class="empty">No picks yet. This populates once a past event\'s attendees have answered the "who did you click with" email.</p>';
+                return;
+            }
+            const t = d.totals;
+            const stat = (label, val, sub, color) => `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,107,107,0.2); border-left: 4px solid ${color || 'var(--coral)'}; border-radius: 6px; padding: 18px 20px;">
+                    <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:rgba(245,243,240,0.55); margin-bottom:6px;">${label}</div>
+                    <div style="font-size:26px; font-weight:800; color:${color || 'var(--white)'};">${val}</div>
+                    ${sub ? `<div style="font-size:11px; color:var(--text-faint); margin-top:4px;">${sub}</div>` : ''}
+                </div>`;
+            const cards = `
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-bottom:24px;">
+                    ${stat('Mutual matches', t.matches, `across ${t.events} past event${t.events === 1 ? '' : 's'}`)}
+                    ${stat('Attendees matched', `${t.matchedShare.toFixed(0)}%`,
+                           `${t.settledEvents} settled event${t.settledEvents === 1 ? '' : 's'}${t.events > t.settledEvents ? ' · open ones excluded' : ''}`,
+                           'var(--coral)')}
+                    ${stat('Picks', t.picks, `by ${t.pickers} people who picked anyone`)}
+                    ${stat('Pickers · women / men', `${t.pickersWomen} <span style="color:var(--text-faint); font-weight:400;">/</span> ${t.pickersMen}`, 'who answered the prompt, by gender')}
+                </div>`;
+
+            const share = (n, p, open) => open
+                ? `<strong style="color:var(--white);">${n}</strong> <span style="color:var(--text-faint); font-size:11px;">· ${p.toFixed(0)}% so far</span>`
+                : `<strong style="color:var(--white);">${n}</strong> <span style="color:var(--text-muted); font-size:11px;">· ${p.toFixed(0)}%</span>`;
+            const rows = d.events.map(e => `
+                <tr>
+                    <td><strong style="color:var(--white);">${safe(e.dateLabel)}</strong>
+                        ${e.open ? `<span title="Under ${MATCH_WINDOW_DAYS} days old — picks are still arriving" style="margin-left:8px; font-size:10px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold); border-radius:3px; padding:1px 6px;">still open</span>` : ''}
+                        <div style="font-size:12px; color:rgba(245,243,240,0.45);">${safe(e.venue)}</div></td>
+                    <td style="text-align:center;">${e.attendees}</td>
+                    <td style="text-align:center;">${e.prompted}</td>
+                    <td style="text-align:center;">${share(e.pickers, e.pickerShare, e.open)}</td>
+                    <td style="text-align:center;">${e.picks}</td>
+                    <td style="text-align:center; color:var(--coral); font-weight:700;">${e.matches}</td>
+                    <td style="text-align:center;">
+                        ${e.open
+                            ? share(e.matched, e.matchedShare, true)
+                            : `<span style="background:${retentionColor(e.matchedShare)}; padding:4px 10px; border-radius:4px; font-weight:700;">${e.matched} · ${e.matchedShare.toFixed(0)}%</span>`}
+                    </td>
+                    <td style="text-align:center;">${e.pickersWomen} <span style="color:var(--text-faint);">/</span> ${e.pickersMen}${e.pickersUnknown ? ` <span title="pickers with no gender on file" style="color:var(--text-faint); font-size:11px;">(+${e.pickersUnknown} ?)</span>` : ''}</td>
+                </tr>`).join('');
+
+            const table = `
+                <div class="table-scroll">
+                    <table>
+                        <thead><tr>
+                            <th>Event</th>
+                            <th style="text-align:center;">Attendees</th>
+                            <th style="text-align:center;" title="Sent the post-event 'who did you click with' email">Prompted</th>
+                            <th style="text-align:center;" title="Attendees who picked at least one person">Picked anyone</th>
+                            <th style="text-align:center;">Picks</th>
+                            <th style="text-align:center;" title="Pairs who picked each other">Mutual</th>
+                            <th style="text-align:center;" title="People in at least one mutual match, as a share of attendees">Matched</th>
+                            <th style="text-align:center;" title="Pickers by gender (users.gender, falling back to the registration)">Pickers W / M</th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+                <p style="font-size:11px; color:var(--text-faint); margin:14px 0 0; line-height:1.6;">
+                    <strong>Matched</strong> is people in at least one mutual match ÷ attendees — the number the
+                    product promises. Read the two shares against each other: a low <em>Picked anyone</em> with
+                    a normal reciprocity is a response problem (prompt timing, the email); a normal
+                    <em>Picked anyone</em> with few <em>Mutual</em> is a chemistry problem (the room, the
+                    format). Pickers are counted by uid, so a picker with no registration row still counts
+                    and the share can, in principle, exceed 100%.
+                </p>`;
+
+            root.innerHTML = cards + table;
+        }
+
         // ─── FUNNEL (Lead → Buyer conversion + source attribution) ──
         // Joins the `leads` email funnel to CONFIRMED ticket buyers by
         // email (same lowercase join key as Retention). Read-only: no
@@ -8127,7 +8369,7 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             if (id === 'venues') loadVenues();
             if (id === 'leads')  loadLeads();
             if (id === 'events') { populateVenuePicker(); loadEbLive(); }
-            if (id === 'retention') loadRetention();
+            if (id === 'retention') { loadRetention(); loadMatches(); }
             if (id === 'funnel') loadFunnel();
             if (id === 'enroll') populateEventDropdown();
         };
