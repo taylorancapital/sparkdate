@@ -81,7 +81,12 @@
       },
       "gotchas": [
         "Submit at least two weeks ahead or it will not clear moderation in time.",
-        "Check the calendar for an existing duplicate before submitting; they ask for this explicitly."
+        "Check the calendar for an existing duplicate before submitting; they ask for this explicitly.",
+        "THE CATEGORY CHECKBOXES RENDER TWICE -- 34 boxes for 17 categories, and BOTH blocks are live and visible. Ticking by label checks each category twice and submits it twice. Untick the duplicate before submitting. Found 2026-09-10.",
+        "DO NOT UPLOAD THE BRAND COVER ART. Their spec is 600x600 with 'no logos and no words in the image', and every SparkDate cover is a logo with words on it. The image field is NOT required, so submit without one rather than invite a moderation rejection. Art for this surface has to be a photo of the venue or the room.",
+        "Three fields no automation can supply: Business Phone (REQUIRED, and no number for SparkDate exists in this repo), the certification checkbox 'I certify that my event is tourism-related and will have the potential to bring visitors to Lancaster County' (an attestation about the event, not a form field to tick on someone's behalf), and a reCAPTCHA. Compose everything else, then hand over.",
+        "'All Day Event' is CHECKED by default and hides the start/end TIME inputs while it is. Uncheck it first or the event submits with dates and no times.",
+        "The form does not hydrate until the page is scrolled -- a fresh tab reports zero fields. Scroll, then read the DOM."
       ]
     },
     {

@@ -174,12 +174,26 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   $14.00; choosing "I do not want to feature my event" flips the CTA from "Next"
   (→ payment) to "Post", but the panel still displays a price (it read
   "You pay $1.75" even with every community unchecked), so it was left unposted
-  rather than risk an unauthorised charge overnight. Discover Lancaster was
-  filled once and lost by navigating the same tab away — it also ends in a
-  reCAPTCHA, which cannot be automated at all, so it will always need a human for
-  the last step. **Next step: re-open both forms from `build/listing-pack.md`
-  (per-site `/l/` links are in there) and click through the final button by
-  hand.** AllEvents needs no submission — it auto-imports from Eventbrite — but
+  rather than risk an unauthorised charge overnight. Patch is SKIPPED for TL2 by
+  Taylor's call on 09-10. **Discover Lancaster is re-filled as of 09-10 and
+  waiting on three things only a human can do: a Business Phone (REQUIRED, and
+  no number exists anywhere in this repo), the certification checkbox — "I
+  certify that my event is tourism-related and will have the potential to bring
+  visitors to Lancaster County", which is an attestation about the event and not
+  mine to tick — and the reCAPTCHA.** Everything else is in: name, Oct 6
+  6:30–8:30 PM, Tellus360 / 24 E King St / Lancaster / PA / 17602, categories
+  After Five + Downtown Lancaster, admission, 839-char description, and both URL
+  fields set to `sparkdate.date/l/tl2-discoverlancaster` (46 chars, under their
+  100-char cap). Contact is Taylor Chambers / taylor.ancapital@gmail.com —
+  change it if a tourism-board moderator should reply elsewhere. **Two traps
+  found, both worth knowing before anyone refills this form: (1) the category
+  checkboxes RENDER TWICE — 34 boxes for 17 categories, both blocks live — so
+  ticking by label submits every category twice; untick the duplicate.
+  (2) NO IMAGE was uploaded on purpose: their spec is 600x600 with "no logos and
+  no words in the image", and the SparkDate cover art is exactly a logo with
+  words, so uploading it invites a moderation rejection. The image field is not
+  required. Art here has to be a photo of the venue or the room, not the brand
+  card.** AllEvents needs no submission — it auto-imports from Eventbrite — but
   its imported body and link both need the manual fix afterwards.
 
 - **LX-24's Facebook leg cannot publish and will fail silently on 09-21 — it
