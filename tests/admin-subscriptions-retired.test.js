@@ -55,10 +55,19 @@ describe('the Active Subscriptions KPI is gone from both places it rendered', ()
 
   it('the Full Report card list no longer prints it', () => {
     const b = body('        function renderReport() {');
-    expect(b).not.toContain("'Active Subscriptions'");
-    // The cards either side of it are untouched.
-    expect(b).toContain("'Ticket Velocity'");
-    expect(b).toContain("'Total Members'");
+    const cards = b.slice(b.indexOf('const cards = ['), b.indexOf('];', b.indexOf('const cards = [')));
+    expect(cards.length, 'the cards array scrape is not finding anything').toBeGreaterThan(100);
+    expect(cards).not.toContain("'Active Subscriptions'");
+    expect(cards).not.toMatch(/subscription/i);
+    // Pinning a NEIGHBOUR'S LABEL here was a mistake and broke main once.
+    // This test asserted "'Ticket Velocity'" as an is-the-list-intact check;
+    // #504 renamed that card to Sales Pace in a branch cut before the
+    // subscription removal landed, so neither PR's CI saw the other and main
+    // went red on the merge. The list being intact is worth checking; which
+    // words another card uses is not this file's business. So: the list still
+    // renders cards, and none of them is a subscription card.
+    expect(cards).toContain("'Ticket Revenue'");   // the section this file did edit
+    expect(cards.match(/^\s*\['/gm).length).toBeGreaterThanOrEqual(7);
   });
 
   it('kpiSnapshot still carries `active`, so the restore stays a markup change', () => {
