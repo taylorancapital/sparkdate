@@ -113,11 +113,14 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `node scripts/build-paid-campaign.js --event=TL2 --handoff`), but the ORGANIC
   slide art is a separate job. Then `python scripts/prep-social-assets.py`.
   (2) `node scripts/social.js approve --through=<date>` — Taylor's click, not
-  mine.** Three things deliberately decided, all reversible: **TL2-04 (Sep 22,
-  "early bird ends tonight") knowingly shares a day with LX's EVENT day** and is
-  slotted at 12:30 against LX-25's 09:00 — the linter warns on the day and errors
-  only on a shared slot. Moving it means letting the deadline pass unmarked, so
-  it stays unless Taylor prefers otherwise. **Every row from TL2-05 on says
+  mine.** Three things deliberately decided, all reversible: **TL2-04 is the
+  early-bird deadline post and moved to Sep 21 at Taylor's call**, off LX's
+  event day. Its COPY changed with the date, which is the part worth
+  remembering: `early_bird_through` is 2026-09-22, so the price still holds ON
+  the 22nd and the original "ends tonight" would have been false a day early —
+  it now reads "ends tomorrow / $24.99 through tomorrow / $29.99 from
+  Wednesday". Sep 21 still carries LX-24, but at 18:30 against 12:30, so the
+  linter warns on the day rather than erroring on a slot. **Every row from TL2-05 on says
   $29.99, never $24.99** — the lint only checks price MEMBERSHIP, not the date,
   so it would not have caught a stale early-bird price. **TL2-11 carries one
   1080x1080 feed frame plus one story frame**, not the `_tt`+`_story` pair LX-24
