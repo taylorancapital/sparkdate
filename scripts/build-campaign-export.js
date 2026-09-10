@@ -236,10 +236,11 @@ function pickTestimonials(brand, rowId, count) {
   const long = byLength.slice(0, Math.ceil(byLength.length / 2));
   const short = byLength.slice(Math.ceil(byLength.length / 2));
 
-  // Never repeat a person inside one post. Keyed on attribution, not id:
-  // Laura M. has three ids, so an id check would let her fill a whole
-  // carousel. On a collision, walk on to the next person in the pool rather
-  // than dropping the slot, so a three-slide post still gets three people.
+  // Never repeat a person inside one post. Keyed on attribution, not id: a
+  // person with more than one approved quote has more than one id, and an id
+  // check would let them fill a whole carousel. On a collision, walk on to the
+  // next person in the pool rather than dropping the slot, so a three-slide
+  // post still gets three people.
   const out = [];
   const seen = new Set();
   for (let i = 0; i < count; i++) {
