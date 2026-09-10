@@ -59,7 +59,13 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
     DIRECT_POST "succeeds" and posts privately to nobody. Preflight reports the
     account's real allowed privacy levels — read that before flipping the mode.
   - **MC-15's TikTok leg was lost to this on 09-10** and is past its 6h grace,
-    so it would have to be posted by hand if it is wanted at all.
+    so it would have to be posted by hand if it is wanted at all. Measured
+    against `content/queue.csv` at `c87f8e2a`: 18 of 48 rows list `tiktok`, 11
+    are already past their slot with the TikTok half never sent, and 7 are still
+    ahead — LX-17 (09-12), LX-18 (09-14), LX-19 (09-15), LX-20 (09-16), LX-22
+    (09-19), LX-23 (09-20), all `approved`, plus LX-27 (09-23), `pending` for
+    its own reason below. Until step (3) above is done, every one of those
+    publishes two surfaces instead of the three it was approved for.
 
 - **The `*/15` publish cron is really running every 2–3.5 hours, and that
   should be measured rather than assumed.** (09-10) Observed run starts on
@@ -179,19 +185,6 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `api/cron-send-emails.js` now log and count rejections separately (`rejected:`
   in the `Cron complete` line), so a run being refused stops reading like a run
   with nothing to send.
-
-- **TikTok legs are not publishing at all, and a separate chat owns it as of
-  09-10 — do not fix it here, and do not re-raise it with Taylor.**
-  `TIKTOK_ACCESS_TOKEN` is unset in `.github/workflows/social-publish.yml`, so
-  every TikTok surface hits `SKIP -- no token configured` on every run. Measured
-  against `content/queue.csv` at `c87f8e2a`: 18 of 48 rows list `tiktok`, **11
-  are already past their slot with the TikTok half never sent**, and 7 are still
-  ahead — LX-17 (09-12), LX-18 (09-14), LX-19 (09-15), LX-20 (09-16), LX-22
-  (09-19), LX-23 (09-20), all `approved`, plus LX-27 (09-23) which is `pending`
-  for the separate reason two entries below. They were approved expecting three
-  surfaces and are getting two. **Next step: none in this repo — Taylor said on
-  09-10 that TikTok is being handled in another session.** Recorded so the next
-  chat does not spend a round rediscovering it and proposing the fix again.
 
 - **Run-of-show audit fixes 2 and 3 are unbuilt, and Taylor has been asked twice
   without answering either way — do not treat silence as a no.** (09-10) From
