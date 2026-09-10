@@ -36,12 +36,30 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **Tellus produced 2 matches from 34 people, and the dashboard now says the
+  likely reason is nobody answered the email — not the room. Tellus is booked
+  again for Oct 6.** (09-10, #499 and #507) The Matches panel on the Retention
+  tab reads `matches`, `connection_intents` and `post_event_prompts`, which no
+  tab had ever read. It puts a number on what was previously an anecdote: Tellus
+  had **10 women checked in, the most of any night, and 2 of them picked anyone
+  — a 20% answer rate against 71%, 100% and 167% elsewhere.** 32 of its 34
+  attendees were sent the prompt, so the email went out and was not acted on.
+  That points at a **response** problem (prompt timing, the email itself, or the
+  `/matches` page for that event) rather than the chemistry of the room, which
+  was the earlier assumption and is now the less likely one. **Next step, before
+  Oct 6: open `public/matches.html` against the Tellus event id and confirm it
+  actually renders that night's co-attendees — the review lists a per-event bug
+  there as an untested candidate, and it is the one explanation nobody has ruled
+  out.** If it renders fine, the question is email timing and Taylor's call.
+  The panel reports what is stored; it does not explain the gap.
+
 - **The admin metrics review is a live worklist, and the last silent
   truncation on the dashboard is now in the sales heatmap rather than in the
   totals.** (09-10) The queue is the DECISION list in
   `reports/ADMIN_DASHBOARD_METRICS_REVIEW_2026-09-10.md`. Item 1 (a Matches
-  panel, #499), item 3 (the 200-ticket cap in `loadPayments`, #502) and the
-  three arithmetic defects of item 2 (#500) are done and need no revisiting;
+  panel, #499, extended by #507), item 3 (the 200-ticket cap in `loadPayments`,
+  #502) and the three arithmetic defects of item 2 (#500) are done and need no
+  revisiting;
   what is left is listed below so nobody re-derives it from the report.
   **`startLiveTickets()` still carries `limit(200)` and Taylor said on 09-10 it
   is being handled in another session — do not fix it here and do not re-raise
@@ -50,8 +68,11 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   the cap is a deliberate cost decision about a listener held open for the whole
   session, so it is a billing call rather than an arithmetic one.
   **Next step for whoever picks the report back up, in the order the report
-  ranks them:** (5) a women's acquisition strip on the Ads tab (cost per woman
-  ticket, women's share at T-7, women's share of pickers); (7) a `web_daily`
+  ranks them:** (5) a women's acquisition strip on the Ads tab — **now only two
+  of its three parts, cost per woman ticket and women's share at T-7. The
+  third, women's share of pickers, shipped in #507** as a "women picked /
+  checked in" column on the Matches panel, so build the Ads strip against that
+  rather than recomputing it; (7) a `web_daily`
   sync beside the Google Ads pull, so landing-page-view → purchase stops living
   only in the nightly reports; (8) email aggregate rates on the Leads tab;
   (10) surface per-ticket attribution and a plain "referral leads: 0" line.
