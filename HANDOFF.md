@@ -36,6 +36,20 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **Seating women who arrived together is built and open as PR #488; the
+  Eventbrite half of the input is deliberately NOT in it.** (09-10) Taylor
+  asked for it directly. The seating change is done and tested — quotas and the
+  men's partition are untouched, and with no recorded parties the seating is
+  byte-identical to before. What is unfinished is where the parties come from:
+  only 18% of women carry the one field that identifies one, 47% walk up to the
+  door, and `scripts/sync-eventbrite.js` throws away Eventbrite's `order_id`
+  (see [[who-arrived-together-is-not-in-the-data]]). So the host types most of
+  them in by hand. **Next step: ask Taylor whether to retain `order_id` at
+  import** — a small change to the attendee mapping in `sync-eventbrite.js`
+  that would cover another 37% automatically, future imports only, no backfill
+  possible. Left out of #488 rather than bundled so the seating PR stays one
+  reviewable thing.
+
 - **MC-12's Instagram Story and MC-13's Instagram feed post are queued correctly
   but need `social.js run --execute` run again at their actual moments — nothing
   currently does that automatically.** (09-07, PR #471) Both are `state=approved`
