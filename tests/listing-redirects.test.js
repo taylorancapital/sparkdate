@@ -17,7 +17,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import { shortPath, taggedUrl, campaignFor } from '../lib/listing-links.js';
+import { shortPath, taggedUrl, campaignFor, recentPastEvents, PAST_EVENT_GRACE_DAYS } from '../lib/listing-links.js';
 
 const REPO = process.cwd();
 const vercel = JSON.parse(fs.readFileSync(path.join(REPO, 'vercel.json'), 'utf8'));
@@ -72,7 +72,12 @@ describe('listing short links', () => {
     // goes. If these two ever disagree, the listing is live and wrong.
     for (const r of listingRedirects) {
       const q = new URL(r.destination).searchParams;
-      const [, eventKey, siteSlug] = r.source.match(/^\/l\/([a-z]+)-(.+)$/);
+      // [a-z0-9]+, not [a-z]+: brand keys carry digits (TL2 is the second
+      // Tellus event) and a letters-only pattern returns null here, which
+      // fails as an unreadable "object null is not iterable".
+      const m = r.source.match(/^\/l\/([a-z0-9]+)-(.+)$/);
+      expect(m, `${r.source} is not a well-formed /l/<event>-<site> path`).toBeTruthy();
+      const [, eventKey, siteSlug] = m;
       const site = sites.sites.find((x) => x.key.replace(/_/g, '-') === siteSlug);
       expect(site, `${r.source} names a site not in listing-sites.json`).toBeTruthy();
       expect(q.get('utm_source')).toBe(site.utm_source);
@@ -85,9 +90,80 @@ describe('listing short links', () => {
     // The old shape was 'week3_Solution', which was wrong by construction the
     // following month. brand.json's format is {event_key}_{YYYYMM}.
     expect(campaignFor('lx', new Date('2026-09-22T22:30:00Z'))).toBe('lx_202609');
+    // A brand key may contain a digit — TL2 is the second Tellus event, and a
+    // letters-only assertion here went red the moment its routes were generated.
+    expect(campaignFor('tl2', new Date('2026-10-06T22:30:00Z'))).toBe('tl2_202610');
     for (const r of listingRedirects) {
-      expect(new URL(r.destination).searchParams.get('utm_campaign')).toMatch(/^[a-z]+_\d{6}$/);
+      expect(new URL(r.destination).searchParams.get('utm_campaign')).toMatch(/^[a-z0-9]+_\d{6}$/);
     }
+  });
+
+  // A past event's links do not stop mattering when the event ends. On
+  // 2026-09-09 a --write deleted all 19 /l/mc-* routes the morning after
+  // Marion Court ran, because fetchUpcomingEvents() drops an event the instant
+  // its start time passes. Those links were live inside listings on Patch,
+  // AllEvents and Nextdoor — which stay up until a human removes them — so
+  // every one of them became a 404.
+  describe('past events keep their short links', () => {
+    const brandEvents = JSON.parse(
+      fs.readFileSync(path.join(REPO, 'content', 'brand.json'), 'utf8'),
+    ).events;
+
+    it('keeps an event inside the grace window and drops one outside it', () => {
+      const now = new Date('2026-09-09T12:00:00Z');
+      const b = {
+        events: {
+          YESTERDAY: { event_id: 'past-recent', date: '2026-09-08' },
+          TOMORROW: { event_id: 'upcoming', date: '2026-09-10' },
+          ANCIENT: { event_id: 'past-old', date: '2024-01-01' },
+          NOID: { date: '2026-09-08' },
+        },
+      };
+      const ids = recentPastEvents(b, now).map((e) => e.id);
+      expect(ids).toContain('past-recent');
+      expect(ids).not.toContain('upcoming'); // still on the sitemap, not ours to add
+      expect(ids).not.toContain('past-old'); // beyond the window
+      expect(ids).toHaveLength(1); // the entry with no event_id is skipped
+    });
+
+    it('puts the boundary exactly at the grace window', () => {
+      const now = new Date('2026-09-09T12:00:00Z');
+      const inside = new Date(now.getTime() - (PAST_EVENT_GRACE_DAYS - 1) * 86400000);
+      const outside = new Date(now.getTime() - (PAST_EVENT_GRACE_DAYS + 1) * 86400000);
+      const day = (d) => d.toISOString().slice(0, 10);
+      const b = {
+        events: {
+          IN: { event_id: 'in', date: day(inside) },
+          OUT: { event_id: 'out', date: day(outside) },
+        },
+      };
+      const ids = recentPastEvents(b, now).map((e) => e.id);
+      expect(ids).toEqual(['in']);
+    });
+
+    it('vercel.json carries routes for EVERY past event still inside the window', () => {
+      // Not "at least one": Marion Court alone losing its 19 routes is the
+      // whole incident, and an any-past-event-will-do assertion would have
+      // stayed green throughout it as long as some other event survived.
+      const idsWithRoutes = new Set(
+        listingRedirects.map((r) => new URL(r.destination).searchParams.get('id')),
+      );
+      const expected = recentPastEvents({ events: brandEvents });
+      expect(
+        expected.length,
+        'no past event is inside the grace window, so this test proves nothing — ' +
+          'check PAST_EVENT_GRACE_DAYS against the dates in content/brand.json',
+      ).toBeGreaterThan(0);
+
+      for (const ev of expected) {
+        expect(
+          idsWithRoutes.has(ev.id),
+          `event ${ev.id} (${ev.start.toISOString().slice(0, 10)}) has no /l/ route. ` +
+            'A --write has dropped a past event again; any listing still live on ' +
+            'Patch/AllEvents/Nextdoor pointing at it now serves a 404.',
+        ).toBe(true);
+      }
+    });
   });
 
   it('tags a destination without ever double-tagging it', () => {

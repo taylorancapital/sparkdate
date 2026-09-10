@@ -44,7 +44,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { buildPairs } = require('../lib/listing-links');
+const { buildPairs, brand, fetchUpcomingEvents, recentPastEvents } = require('../lib/listing-links');
 
 const REPO = path.join(__dirname, '..');
 const VERCEL = path.join(REPO, 'vercel.json');
@@ -52,7 +52,27 @@ const VERCEL = path.join(REPO, 'vercel.json');
 const arg = (n) => process.argv.includes(`--${n}`);
 
 (async () => {
-  const pairs = await buildPairs();
+  // Upcoming events come from the sitemap; recently-past ones from brand.json,
+  // because the sitemap has already dropped them. A past event keeps its routes
+  // so that listings still live on Patch/AllEvents/Nextdoor do not 404 — see
+  // recentPastEvents() in lib/listing-links.js. Sorted by start so the
+  // generated block is stable and --check stays a clean equality test.
+  let upcoming;
+  try {
+    upcoming = await fetchUpcomingEvents();
+  } catch (e) {
+    // --check runs in CI, where this is the only step that touches the network.
+    // A stale vercel.json must fail the build; sparkdate.date being briefly
+    // unreachable must not, or an unrelated PR goes red for an outage. --write
+    // still throws, because writing half the redirects would delete the rest.
+    if (!arg('check')) throw e;
+    console.warn(`SKIPPED: could not reach the site to list upcoming events (${e.message}).`);
+    console.warn('Staleness was NOT verified. Re-run when the site is reachable.');
+    process.exit(0);
+  }
+
+  const events = [...recentPastEvents(brand()), ...upcoming].sort((a, b) => a.start - b.start);
+  const pairs = await buildPairs(events);
   const generated = pairs.map((p) => ({
     source: p.short,
     destination: p.tagged,

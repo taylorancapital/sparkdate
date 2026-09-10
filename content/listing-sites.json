@@ -7,7 +7,7 @@
     "eventbrite_listing": "170 sessions / 81 users / 23 key events / $290.39 -- the highest revenue of any source except (direct), and the ONLY event-listing surface producing anything at all.",
     "patch_referral": "1 session, 0 key events. It is in the hand-kept UTM sheet, so it was planned; it was never actually worked.",
     "nextdoor_cpc": "22 sessions, 1 key event -- and it is PAID. The free Nextdoor Events post is a different surface and has never been used.",
-    "everything_else": "Zero. No meetup, no allevents, no discoverlancaster, no lancasteronline, no facebook.com/events organic, no google business. Free listing discovery is currently a one-legged stool.",
+    "everything_else": "Written 2026-09-01, when it was true. NO LONGER TRUE as of 2026-09-08 -- lancasteronline (via Evvnt) went live 09-02 and produced 136 sessions in a single day, and allevents auto-imports from Eventbrite under an organizer page we own. Still zero: meetup (group exists, no events ever posted), facebook.com/events organic, google business, yelp.",
     "_the_headline": "One free channel carries the entire non-paid, non-direct funnel. That is the risk this registry exists to spread."
   },
   "_utm": {
@@ -77,17 +77,22 @@
     },
     {
       "key": "lancasteronline",
-      "name": "LancasterOnline / LNP calendar",
-      "status": "not_pursued",
+      "name": "LancasterOnline / LNP calendar (via Evvnt)",
+      "status": "active",
       "market": "lancaster",
       "cost": "free",
-      "submit_url": "https://lancasteronline.com/calendar/",
+      "submit_url": "https://lancasteronline.evvnt.com/",
       "utm_source": "lancasteronline",
       "role": "discovery + SEO backlink",
       "priority": 2,
       "why_now": "The local paper's calendar. High local trust and indexed by Google, which is the point -- 'singles events Lancaster PA' currently returns nothing of ours.",
       "gotchas": [
-        "The submit flow is inside the calendar app itself (a #! route), not a separate /submit page. Open the calendar and find the submit control on the page rather than guessing a URL."
+        "The submit flow is inside the calendar app itself (a #! route), not a separate /submit page. Open the calendar and find the submit control on the page rather than guessing a URL.",
+        "STATUS CORRECTED 2026-09-08 (was `not_pursued`, which was wrong for six days). Both live events were submitted via Evvnt on 2026-09-02 and its newsletter went out 09-03 and produced 136 sessions in ONE day -- larger than any free surface here except Eventbrite's whole-window total. This is the highest-performing free channel on the list, not an unworked one.",
+        "SUBMIT THROUGH EVVNT, not the LancasterOnline page. Evvnt syndicates to LNP; the calendar page itself is the output, not the input.",
+        "It arrives in GA4 under an OBFUSCATED source tag AND as a second plaintext row, so reading either alone understates it. Cipher: a-f shift +1, g-z ROT13. scripts/ga4-nightly-summary.js decodes and pairs these automatically.",
+        "The publisher REWRITES the query string, which killed the ticket link: 129 sessions on the obfuscated link fired zero view_item; the 7 on the clean link fired 6. Use the path-only /l/ short link -- there is no query string to mangle. Fixed 2026-09-06; re-check ~09-13 that lancasteronline / listing shows non-zero view_item.",
+        "A 200 does not mean the ticket link works -- /event serves event.html with HTTP 200 whether or not the id resolves. Load the page and read title/date/venue/price out of the DOM."
       ]
     },
     {
@@ -202,7 +207,7 @@
     {
       "key": "patch",
       "name": "Patch — Lancaster PA",
-      "status": "dormant",
+      "status": "active",
       "market": "lancaster",
       "cost": "free",
       "submit_url": "https://patch.com/pennsylvania/lancaster-pa/calendar",
@@ -212,23 +217,28 @@
       "why_now": "Already in the hand-kept UTM sheet and has produced exactly 1 session ever, which means it was planned and then dropped rather than tried and rejected. Low cost to revive.",
       "gotchas": [
         "The community slug is `lancaster-pa`, not `lancaster` -- the bare slug 404s.",
-        "CONFIRMED 2026-09-04: 'dormant' understates it. A Summer Nights listing (2026-07-29) is still live and indexed at patch.com/pennsylvania/lancaster-pa/calendar/event/20260729. Something was posted here and then abandoned, so check for and update the existing entry rather than assuming a clean slate."
+        "CONFIRMED 2026-09-04: 'dormant' understates it. A Summer Nights listing (2026-07-29) is still live and indexed at patch.com/pennsylvania/lancaster-pa/calendar/event/20260729. Something was posted here and then abandoned, so check for and update the existing entry rather than assuming a clean slate.",
+        "CONFIRMED AGAIN 2026-09-09: BOTH current events (Marion Court Sep 8, Loxleys Sep 22) are live on the Lancaster calendar right now. This is an active channel, not a dormant one.",
+        "THE SUBMIT FLOW ENDS IN A PAYWALL PANEL AND THE FREE PATH IS EASY TO MISS. 'Promote Your Event' -> compose -> Next lands on a community picker with ~8 nearby communities PRE-SELECTED at $14.00 total, and the copy says 'Click Next to continue to payment'. The free option is the small 'I do not want to feature my event / Post only to my home community without featured placement' control BELOW that panel. Clicking it toggles the primary CTA from 'Next' to 'Post'; clicking it again toggles back to paid. THE PRICE PANEL KEEPS DISPLAYING A CHARGE EITHER WAY -- it still read 'You pay $1.75' with every community unchecked -- so the CTA label is the only reliable signal of which path you are on. Verify it says 'Post', not 'Next', before committing.",
+        "Setting the community re-renders the form and WIPES date, venue and title. Fill the community first, let it settle, then fill everything else."
       ]
     },
     {
       "key": "nextdoor_event",
       "name": "Nextdoor — free Events post",
-      "status": "not_pursued",
+      "status": "active",
       "market": "any",
       "cost": "free",
       "submit_url": "https://nextdoor.com/events/",
       "utm_source": "nextdoor_event",
       "role": "discovery",
       "priority": 3,
-      "why_now": "Nextdoor is ALREADY being paid for (22 sessions at cpc). The free Events post is a separate surface on the same account and has never been used.",
+      "why_now": "Nextdoor is ALREADY being paid for (22 sessions at cpc). The free Events post is a separate surface on the same account.",
       "gotchas": [
-        "Requires a logged-in neighbourhood account; the events URL bounces to login.",
-        "Keep utm_source distinct from the paid Nextdoor traffic or the free post's contribution is unreadable."
+        "Requires a logged-in neighbourhood account, but the user's Chrome profile IS signed in -- the events URL loads straight to the feed. The 'bounces to login' note below was written from a logged-out check.",
+        "STATUS CORRECTED 2026-09-09 (was `not_pursued`, and why_now said 'has never been used'). Both were wrong: THREE SparkDate Marion Court listings were already on Nextdoor when checked. TL2 was posted 2026-09-09 -- nextdoor.com/p/P3BcQxxgJXJp.",
+        "Keep utm_source distinct from the paid Nextdoor traffic or the free post's contribution is unreadable.",
+        "The composer is Create event -> fill -> Next -> Post. Dates need the calendar's month arrows (typing into the date field does not commit); times are a filter-then-click dropdown. Audience defaults to 'Anyone', which is what you want for an event."
       ]
     },
     {
