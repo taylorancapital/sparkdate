@@ -374,21 +374,23 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
     [[check-for-existing-system-first]] — this is that failure exactly, and it
     cost a proposal to build something that shipped months ago. *(09-08)*
 
-- **OPEN QUESTION for a separate chat: §8.3's "zero gender-restricted ad sets,
-  ever" versus the women-only 2-for-1 offer. Taylor's call 09-08: do not edit
-  §8, he will review it himself.** Surfaced while proposing a narrow rule banning
-  `relationship_statuses` — the first draft read "no demographic filter beyond
-  age and geography", which would have banned gender targeting too. His reason
-  for deferring, verbatim: *"we have 2 for 1 offers that realistically should
-  only go towards female audiences."* §8.3 has no account of how a women-only
-  creative reaches women without a women-targeted ad set, and
-  [[two-for-one-is-female-ads-only]] is a standing marketing rule, so the two
-  are in live tension. **Nothing was written and nothing was built** — no edit
-  to `brand.json` or either playbook report. The assembled case (78-80% measured
-  twice, why the field is not a demographic, why the detection check matters
-  more than the written rule) is §6 of
-  `reports/LOXLEYS_RETARGETING_LAUNCH_2026-09-08.md`. **Next step: that separate
-  review, his.** *(09-08)*
+- **§8.3 vs the women-only 2-for-1 — REVIEWED 09-10 at Taylor's ask; the
+  decision is still his.** `reports/TWO_FOR_ONE_TO_EVERYONE_2026-09-10.md`.
+  His question: *if we advertise it to all people do we get more women?* Answer
+  from the account's own delivery data: no. Every broad cold sales cell spent
+  60–68% on men; a women-locked cell lands 2.7× the women per dollar at the same
+  cost per woman ($1.64 vs $1.61); men click the 2-for-1 creative as readily as
+  women and produced its only attributed purchase; the +1 mirrors the buyer 7/7
+  (09-08 Firestore figure, quoted). Recommends a carve-out (report §6, option
+  A): one women-locked cold ad set, gender expansion off, as the only home for
+  the 2-for-1; retargeting stays broad; §8.3 points 2 and 4 retired. Option B is
+  an A/B if he wants it measured rather than ruled. **Nothing changed** — no §8,
+  `brand.json` or live ad set edit. Firestore was NOT re-read (the production
+  env pull was blocked in-session). **Next step: Taylor picks A or B. Then ONE
+  PR: rewrite §8.3, fix `brand.json` `_no_gender_axis` (it says the female ad
+  set "no longer exists" — it is live), and add the assertion to
+  `scripts/meta-ads-review.js` that a 2-for-1 ad with women's share of spend
+  under 97% fails loudly.** *(09-10)*
 
 - **Loxleys retargeting went LIVE 09-08 — first spend since the shell was created
   2026-08-17. Three things to check, then it retires with the event.**
