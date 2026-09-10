@@ -1335,6 +1335,53 @@
         .run-find-with { font-size:12px; color:rgba(245,243,240,0.5); overflow:hidden; text-overflow:ellipsis; }
         @media (max-width: 640px) { .run-clock { font-size:56px; } .run-step { min-width:100%; } }
 
+        /* Arrived together — the party editor and its markers */
+        .party-box {
+            margin: 0 0 12px; padding: 10px 12px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 9px;
+        }
+        .party-box > summary {
+            cursor: pointer; font-size: 12px; font-weight: 600;
+            color: rgba(245,243,240,0.75); list-style: none;
+        }
+        .party-box > summary::-webkit-details-marker { display: none; }
+        .party-box > summary::before { content: "▸ "; color: var(--coral); }
+        .party-box[open] > summary::before { content: "▾ "; }
+        .party-note { font-size: 11.5px; line-height: 1.55; color: rgba(245,243,240,0.45); margin: 8px 0 10px; max-width: 72ch; }
+        .party-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+        .party-tag {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 12px; color: rgba(245,243,240,0.85);
+            background: rgba(212,175,55,0.10);
+            border: 1px solid rgba(212,175,55,0.30);
+            border-radius: 14px; padding: 4px 6px 4px 5px;
+        }
+        .party-x {
+            background: none; border: none; color: rgba(245,243,240,0.45);
+            font-size: 15px; line-height: 1; cursor: pointer; padding: 0 3px;
+        }
+        .party-x:hover { color: var(--coral); }
+        /* The party letter, on a seating chip and on the tag that defines it. */
+        .party-mark {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 13px; height: 13px; margin-left: 4px; padding: 0 2px;
+            border-radius: 3px; font-size: 9px; font-weight: 700;
+            background: var(--gold); color: #1a1200;
+            vertical-align: baseline;
+        }
+        .party-picker { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+        .group-pick { cursor: pointer; font-family: inherit; }
+        .group-pick.sel { outline: 2px solid var(--coral); outline-offset: 1px; color: #fff; }
+        .group-pick.taken { border-style: dashed; }
+        .party-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .party-warn {
+            margin-top: 10px; padding: 8px 10px; border-radius: 7px;
+            font-size: 11.5px; line-height: 1.55; color: rgba(245,243,240,0.8);
+            background: rgba(255,107,107,0.07); border: 1px solid rgba(255,107,107,0.25);
+        }
+
         /* Tables view */
         .table-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
         .table-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 12px 14px; }
@@ -3557,6 +3604,30 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             // Expose to rounds functions
             _chemWomen = women; _chemMen = men; _chemPairs = pairs;
 
+            // Seed the "arrived together" parties from the one field that
+            // records a shared purchase: registrations for this event sharing
+            // a paymentIntentId are one checkout — a 2-for-1 buyer and their
+            // +1, or a guest added to that ticket afterwards. Same-gender
+            // members only: the seating holds women in place and rotates men,
+            // so a mixed party cannot be kept together past round one anyway.
+            //
+            // Assigned, not merged, so opening a second event never inherits
+            // the first one's parties. chemStoreRestore() merges the host's
+            // hand-linked ones on top a few lines below.
+            const emailOf = (u) => (u.email || '').toLowerCase();
+            const byEmail = new Map(attendees.filter(u => u.email).map(u => [emailOf(u), u]));
+            const byUserId = new Map(attendees.map(u => [u.id, u]));
+            const parties = new Map();
+            eventRegs.forEach(r => {
+                if (!r.paymentIntentId) return;
+                const u = byUserId.get(r.userId) || byEmail.get((r.email || '').toLowerCase());
+                if (!u) return;
+                const key = r.paymentIntentId + '|' + (u.gender || '').toLowerCase();
+                if (!parties.has(key)) parties.set(key, []);
+                if (!parties.get(key).includes(u.id)) parties.get(key).push(u.id);
+            });
+            _chemGroups = normaliseGroups([...parties.values()], attendees);
+
             // Restore this device's memory of the event — the pinned seating,
             // the run clock, the ticked-off intros — then pin a plan if there
             // is not one yet. Pinning on first open rather than on first
@@ -3708,6 +3779,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             _shortlistN = 3;
             _runFind = '';
             _tableRound = 1;
+            // Half-made party selection, not the parties themselves — those
+            // are stored, because re-entering them at the door is the one
+            // thing the host cannot spare a minute for.
+            _groupSel = new Set();
         };
 
         // ── View toggle ───────────────────────────────────────
@@ -4153,6 +4228,139 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             return (x, y) => idx.get(x.id + '|' + y.id) || null;
         }
 
+        // ── Who arrived together ───────────────────────────────────────
+        //
+        // Two women who came as a pair usually want the same table, and the
+        // seating had no idea they existed: it placed every woman purely on
+        // her chemistry against the men, so friends landed together only by
+        // luck. Measured on a 10/10 room, the solver kept 1 of 2 pairs whole
+        // by accident, and 2 of 5.
+        //
+        // WHERE THE ANSWER COMES FROM, AND WHY IT IS MOSTLY THE HOST.
+        // Only one field in the data has ever identified a party: a shared
+        // `paymentIntentId`, written by the on-site Stripe checkout for a
+        // 2-for-1 buyer and their +1. Measured against the live collection,
+        // that covers 11 of 60 women ever registered (18%), and has
+        // identified exactly ONE pair in the whole history. The rest arrive
+        // by Eventbrite import (37% of women — Eventbrite's own order_id is
+        // available on the attendee record and is currently discarded at
+        // import) or walk up to the door (47%, `source: 'checkin'`, where no
+        // upstream system knows who they came with and only the host does).
+        //
+        // So this is seeded from the data where the data knows, and is
+        // otherwise the host tapping two names together. Building it on the
+        // payment key alone would have shipped a feature that looks right and
+        // does nothing at a real event.
+        //
+        // Stored per event in the same localStorage record as the pin and the
+        // ticked-off intros — deliberately not Firestore, for the reason
+        // given at chemStoreWrite: a denied read there fails silently, which
+        // is the one failure mode this panel cannot afford.
+        let _chemGroups = [];      // [[attendeeId, attendeeId, ...], ...]
+
+        // Group key for one attendee, or null when they came alone.
+        function groupKeyOf(u) {
+            for (let i = 0; i < _chemGroups.length; i++) {
+                if (_chemGroups[i].includes(u.id)) return 'g' + i;
+            }
+            return null;
+        }
+
+        // Normalise: drop ids no longer registered, drop groups of one, and
+        // merge any two groups that share a member (linking A-B then B-C is
+        // one party of three, not two overlapping pairs).
+        function normaliseGroups(groups, roster) {
+            const live = new Set(roster.map(u => u.id));
+            const out = [];
+            (groups || []).forEach(g => {
+                const ids = [...new Set((g || []).filter(id => live.has(id)))];
+                if (ids.length < 2) return;
+                const hit = out.find(o => o.some(id => ids.includes(id)));
+                if (hit) ids.forEach(id => { if (!hit.includes(id)) hit.push(id); });
+                else out.push(ids);
+            });
+            return out;
+        }
+
+        // Seat every party at one table, without breaking a quota.
+        //
+        // Runs as a post-pass over the solver's own output rather than inside
+        // it, so the no-groups path is a literal no-op — the seating an event
+        // with no recorded parties gets is byte-for-byte the one it got
+        // before. Two things are deliberately NOT negotiable here:
+        //
+        //   1. THE MEN ARE NOT TOUCHED. Rotation moves whole men-groups, and
+        //      the no-repeat guarantee (tests/chemistry-rotation.test.js)
+        //      rests on their partition. Only women are re-seated.
+        //   2. QUOTAS HOLD EXACTLY. Each table keeps the same number of women
+        //      it already had. A party too big for any table's quota is seated
+        //      as far together as it fits and REPORTED, never silently split
+        //      and never allowed to unbalance a table.
+        //
+        // The cost is real and small: average table chemistry falls about 2.6
+        // to 4.4 points out of ~62 (4-7%) on a 10/10 room, and zero when
+        // there are no parties.
+        function applyGroups(tables) {
+            const parties = _chemGroups
+                .map(ids => ids.map(id => _chemWomen.find(w => w.id === id)).filter(Boolean))
+                .filter(p => p.length > 1);
+            if (!parties.length || tables.length < 2) return tables;
+
+            const pairOf = pairLookup();
+            const quota = tables.map(t => t.women.length);
+            const totalAgainst = (w, t) =>
+                t.men.reduce((s, m) => { const pr = pairOf(w, m); return s + (pr ? pr.score : 0); }, 0);
+
+            const seated = new Set();
+            tables.forEach(t => { t.women = []; });
+            _groupSplits = [];
+
+            // Biggest party first — it needs the roomiest table, and a small
+            // one placed first can strand it.
+            [...parties].sort((a, b) => b.length - a.length).forEach(party => {
+                const room = (i) => quota[i] - tables[i].women.length;
+                const fits = tables.map((t, i) => i).filter(i => room(i) >= party.length);
+                if (fits.length) {
+                    let best = fits[0], bestFit = -1;
+                    fits.forEach(i => {
+                        const f = party.reduce((s, w) => s + totalAgainst(w, tables[i]), 0) / party.length;
+                        if (f > bestFit) { bestFit = f; best = i; }
+                    });
+                    party.forEach(w => { tables[best].women.push(w); seated.add(w.id); });
+                    return;
+                }
+                // Too big for any single table's quota. Fill the roomiest
+                // tables in turn and tell the host where they ended up.
+                const order = tables.map((t, i) => i).sort((a, b) => room(b) - room(a));
+                const rest = [...party], landed = [];
+                order.forEach(i => {
+                    const n = Math.min(room(i), rest.length);
+                    if (n <= 0) return;
+                    rest.splice(0, n).forEach(w => { tables[i].women.push(w); seated.add(w.id); landed.push(i + 1); });
+                });
+                _groupSplits.push({ names: party.map(_chemShortName), tables: [...new Set(landed)] });
+            });
+
+            // Everyone else back in by the solver's own rule: the unseated
+            // woman with the most chemistry against the men already there.
+            tables.forEach((t, i) => {
+                while (t.women.length < quota[i]) {
+                    const pool = _chemWomen.filter(w => !seated.has(w.id));
+                    if (!pool.length) break;
+                    let best = pool[0], bestTotal = -1;
+                    pool.forEach(w => {
+                        const tot = totalAgainst(w, t);
+                        if (tot > bestTotal) { bestTotal = tot; best = w; }
+                    });
+                    t.women.push(best); seated.add(best.id);
+                }
+                fillTablePairs(t, pairOf);
+            });
+            return tables;
+        }
+        // Parties the quota could not keep whole, from the last applyGroups().
+        let _groupSplits = [];
+
         function buildTables(size) {
             const women = [..._chemWomen], men = [..._chemMen];
             const nTables = tableCount(size);
@@ -4228,7 +4436,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 fillTablePairs(best, pairOf);
             });
 
-            return tables;
+            // Last, because it re-seats women against the finished men
+            // partition. A no-op when nobody is recorded as arriving with
+            // anybody.
+            return applyGroups(tables);
         }
 
         // ── Rotation: men move, women hold ─────────────────────────────
@@ -4460,6 +4671,9 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                          oneOnOne: _oneOnOneMinutes },
                 run: { step: _runStep, endsAt: _runEndsAt, paused: _runPaused },
                 done: { intros: [..._introsDone], priority: [..._priorityDone] },
+                // Who arrived together. Mostly entered by the host — see the
+                // note above _chemGroups for why the data cannot supply it.
+                groups: _chemGroups,
             });
             try {
                 localStorage.setItem(CHEM_STORE_PREFIX + _chemEventId, payload);
@@ -4519,6 +4733,14 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             if (data.done) {
                 _introsDone   = new Set(data.done.intros   || []);
                 _priorityDone = new Set(data.done.priority || []);
+            }
+            // Merged, not replaced: the payment-derived seeds are computed
+            // fresh from the roster on every open, and a stored record that
+            // simply overwrote them would drop a 2-for-1 party the moment the
+            // host linked anyone by hand. normaliseGroups folds the overlap.
+            if (Array.isArray(data.groups)) {
+                _chemGroups = normaliseGroups(
+                    [..._chemGroups, ...data.groups], [..._chemWomen, ..._chemMen]);
             }
         }
 
@@ -4642,6 +4864,56 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                 ${added.length ? `<span class="pin-names">${added.map(u => safe(_chemShortName(u))).join(', ')}</span>` : ''}</span>`;
         }
 
+        // The "arrived together" editor. Deliberately a flat row of tappable
+        // names rather than a dropdown per person: at the door the host knows
+        // the two names and wants two taps, not two menus.
+        function groupPanel() {
+            if (!_chemWomen.length) return '';
+            const nameOf = (id) => {
+                const u = _chemWomen.find(w => w.id === id) || _chemMen.find(m => m.id === id);
+                return u ? _chemShortName(u) : '(left)';
+            };
+            const parties = _chemGroups.map((ids, i) => `
+                <span class="party-tag">
+                    <span class="party-mark">${String.fromCharCode(65 + i)}</span>
+                    ${ids.map(id => safe(nameOf(id))).join(' <span style="opacity:0.4">+</span> ')}
+                    <button class="party-x" title="They do not need to sit together" onclick="unlinkGroup(${i})">&times;</button>
+                </span>`).join('');
+
+            const chips = _chemWomen.map(w => {
+                const inParty = groupKeyOf(w);
+                return `<button class="table-chip w group-pick${_groupSel.has(w.id) ? ' sel' : ''}${inParty ? ' taken' : ''}"
+                    onclick="toggleGroupSel('${safe(w.id)}')"
+                    title="${inParty ? 'Already in a party — link her again to merge the two' : 'Tap her and whoever she came with, then Link'}"
+                    >${safe(_chemShortName(w))}</button>`;
+            }).join('');
+
+            const splits = _groupSplits.length
+                ? `<div class="party-warn">${_groupSplits.map(s =>
+                    `${safe(s.names.join(' + '))} could not fit one table at ${_tableSize} seats — split across ${
+                        s.tables.length === 1 ? 'table ' + s.tables[0] : 'tables ' + s.tables.join(' and ')
+                    }. Fewer seats per table makes more, smaller tables and usually fixes it.`).join('<br>')}</div>`
+                : '';
+
+            return `<details class="party-box"${_chemGroups.length || _groupSel.size ? ' open' : ''}>
+                <summary>Arrived together${_chemGroups.length ? ` &middot; ${_chemGroups.length} part${_chemGroups.length === 1 ? 'y' : 'ies'}` : ''}</summary>
+                <div class="party-note">
+                    Women in one party are seated at the same table, and they stay there all night —
+                    women hold their seats while the men rotate. Only a shared checkout
+                    (a 2-for-1 and its +1) is detected automatically; anyone who arrived by
+                    Eventbrite or walked up to the door has to be linked here.
+                </div>
+                ${parties ? `<div class="party-list">${parties}</div>` : ''}
+                <div class="party-picker">${chips}</div>
+                <div class="party-actions">
+                    <button class="action-btn" onclick="linkGroup()"${_groupSel.size < 2 ? ' disabled' : ''}>
+                        ${_groupSel.size < 2 ? 'Tap two or more names' : `Link ${_groupSel.size} as one party`}
+                    </button>
+                </div>
+                ${splits}
+            </details>`;
+        }
+
         function renderTables() {
             const container = document.getElementById('tablesView');
             if (!_chemWomen.length && !_chemMen.length) {
@@ -4673,7 +4945,15 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     ? (((i - (_tableRound - 1)) % nTables) + nTables) % nTables + 1
                     : null;
 
-                const chip = (u, cls) => `<span class="table-chip ${cls}" title="${safe((u.firstName || '') + ' ' + (u.lastName || ''))}">${safe(_chemShortName(u))}</span>`;
+                // A woman in a party carries her party's letter, so two
+                // parties at one table stay tellable apart at a glance.
+                const chip = (u, cls) => {
+                    const gk = cls === 'w' ? groupKeyOf(u) : null;
+                    const letter = gk ? String.fromCharCode(65 + Number(gk.slice(1))) : '';
+                    return `<span class="table-chip ${cls}" title="${safe((u.firstName || '') + ' ' + (u.lastName || ''))}${
+                        letter ? ` — arrived with party ${letter}` : ''}">${safe(_chemShortName(u))}${
+                        letter ? `<span class="party-mark" aria-label="party ${letter}">${letter}</span>` : ''}</span>`;
+                };
                 return `<div class="table-card">
                     <div class="table-card-head">
                         <span class="table-card-title">Table ${i + 1}</span>
@@ -4726,6 +5006,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     ${_tableRound > 1 ? ' <span class="rotation-live">Women stay seated. Men move one table along between seatings.</span>' : ''}
                     ${driftNote()}
                 </div>
+                ${groupPanel()}
                 <div class="table-cards">${cards}</div>
                 <div style="font-size:11px;color:rgba(245,243,240,0.4);margin-top:10px;">
                     Round 1 is seeded from the strongest unseated pair, then filled with whoever has the
@@ -4736,6 +5017,41 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                         : '<br>Every scored pair shares a table at some point &mdash; the rotation covers the whole room.'}
                 </div>`;
         }
+
+        // ── Linking a party by hand ────────────────────────────────────
+        //
+        // The host is the only source of this for most of the room, so the
+        // interaction has to survive a doorway: tap two names, tap Link.
+        let _groupSel = new Set();
+
+        window.toggleGroupSel = (id) => {
+            if (_groupSel.has(id)) _groupSel.delete(id);
+            else _groupSel.add(id);
+            renderTables();
+        };
+
+        // Re-pins for the same reason setTableSize does: this changes who
+        // sits where, and a pinned plan that no longer honours the parties
+        // would be a plan nobody asked for. Same cost, too — a run in
+        // progress is reset, because the room would have to be re-seated.
+        const regroup = () => {
+            _chemGroups = normaliseGroups(_chemGroups, [..._chemWomen, ..._chemMen]);
+            _groupSel = new Set();
+            pinSeating(_tableSize);
+            runReset();
+            renderTables();
+        };
+
+        window.linkGroup = () => {
+            if (_groupSel.size < 2) return;
+            _chemGroups.push([..._groupSel]);
+            regroup();
+        };
+
+        window.unlinkGroup = (i) => {
+            _chemGroups.splice(i, 1);
+            regroup();
+        };
 
         // Changing the seat count changes the table count, which changes who
         // sits with whom — so it re-pins rather than leaving a stale plan
@@ -5074,7 +5390,13 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
                     return `
                     <div class="run-table">
                         <div class="run-table-n">Table ${i + 1}${from ? ` <span class="run-table-from">&larr; men from ${from}</span>` : ''}</div>
-                        <div>${[...t.women, ...t.men].map(u => `<span class="table-chip ${t.women.includes(u) ? 'w' : 'm'}">${safe(_chemShortName(u))}</span>`).join('')}</div>
+                        <div>${[...t.women, ...t.men].map(u => {
+                            const isW = t.women.includes(u);
+                            const gk = isW ? groupKeyOf(u) : null;
+                            const letter = gk ? String.fromCharCode(65 + Number(gk.slice(1))) : '';
+                            return `<span class="table-chip ${isW ? 'w' : 'm'}">${safe(_chemShortName(u))}${
+                                letter ? `<span class="party-mark">${letter}</span>` : ''}</span>`;
+                        }).join('')}</div>
                     </div>`;
                 }).join('') + `</div>`;
             } else {

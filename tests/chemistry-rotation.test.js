@@ -58,7 +58,11 @@ function lift(name) {
 
 const NAMES = ['ROUND_CHOICES', 'movesLabel',
                '_nameLabels', '_nameLabelsFor', '_nameRungs', 'buildNameLabels', 'ensureNameLabels', 'tableCount', 'quotas', 'fillTablePairs',
-               'pairLookup', 'buildTables', 'rotateTables', 'maxRoundsFor', 'rehydratePin',
+               'pairLookup',
+               // buildTables ends by calling applyGroups (women who arrived
+               // together share a table), so these travel with it.
+               '_chemGroups', '_groupSplits', 'groupKeyOf', 'normaliseGroups', 'applyGroups',
+               'buildTables', 'rotateTables', 'maxRoundsFor', 'rehydratePin',
                'seatingTables', 'buildRounds',
                'seatedRoundOf', 'metInRounds', 'itineraryFor', 'buildOneOnOnes',
                'topMatchesFor'];

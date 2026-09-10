@@ -46,12 +46,18 @@ const LIFTED = ['INTENT_LABELS', 'ROUND_CHOICES',
                 '_nameLabels', '_nameLabelsFor', '_nameRungs', 'buildNameLabels',
                 'ensureNameLabels', '_chemShortName', '_chemInitials',
                 'movesLabel', 'tableCount', 'quotas', 'fillTablePairs', 'pairLookup',
+                // buildTables ends by calling applyGroups (women who arrived
+                // together share a table), so these travel with it.
+                '_chemGroups', '_groupSplits', 'groupKeyOf', 'normaliseGroups', 'applyGroups',
                 'buildTables', 'rotateTables', 'maxRoundsFor', 'rehydratePin', 'seatingTables',
                 'buildRounds', 'seatedRoundOf', 'rosterDrift', 'driftNote', 'pinSeating',
                 'chemStoreWrite',
                 'metInRounds', 'itineraryFor', 'buildOneOnOnes', 'introRowsFor',
                 'topMatchesFor', 'shortlistControl', 'prioRows', 'renderChemistryCards',
-                'renderIntros', 'renderPriorityIntros', 'renderTables', 'renderRunOfShow',
+                'renderIntros', 'renderPriorityIntros',
+                // renderTables opens with the "arrived together" editor.
+                '_groupSel', 'groupPanel',
+                'renderTables', 'renderRunOfShow',
                 'renderFindPanel', 'findAttendees', 'runPlanKey', 'computeRunPlan', 'buildRunPlan', 'fmtClock', 'runStepIn', 'safe'];
 
 // Element ids the chemistry modal actually declares. Rendering into an id
