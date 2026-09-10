@@ -235,6 +235,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // OAuth refresh tokens for third-party publishing (currently TikTok).
+    // Written and read ONLY by the Admin SDK, which bypasses these rules
+    // entirely, so denying everything here costs nothing and loses nothing.
+    //
+    // The default-deny below would already cover this. It is stated again
+    // because the contents are a live credential: an admin dashboard that
+    // later grows a broad `allow read: if isAdmin()` over some parent path
+    // must not quietly start serving a token that can post as SparkDate.
+    match /integration_tokens/{provider} {
+      allow read, write: if false;
+    }
+
     // ── Default deny ─────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

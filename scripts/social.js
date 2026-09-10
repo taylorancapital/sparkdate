@@ -35,7 +35,7 @@ const path = require('path');
 const Q = require('../lib/content-queue');
 const P = require('../lib/social-publish');
 const R = require('../lib/social-requests');
-const TikTokAuth = require('../lib/tiktok-auth');
+const TikTokStore = require('../lib/tiktok-token-store');
 
 const QUEUE = path.join(__dirname, '..', 'content', 'queue.csv');
 const BASE_URL = process.env.SOCIAL_ASSET_BASE_URL || 'https://sparkdate.date/social';
@@ -299,7 +299,7 @@ async function cmdRun() {
   let tiktokToken = null;
   if (!dry && plans.some((p) => p.surface === 'tiktok')) {
     try {
-      const t = await TikTokAuth.getAccessToken(process.env, { log: (m) => console.log(m) });
+      const t = await TikTokStore.acquireAccessToken(process.env, { log: (m) => console.log(m) });
       tiktokToken = t && t.accessToken;
       if (!tiktokToken) console.log('  !! TikTok credentials unset -- TikTok items will be skipped.\n');
     } catch (e) {

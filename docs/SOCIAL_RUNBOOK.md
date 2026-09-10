@@ -143,15 +143,56 @@ puts an action rail down the right edge and the caption across the bottom, so
 these frames reserve the right 250px and the bottom 380px. A frame laid out for
 an Instagram Story puts its headline under the like button.
 
-**Tokens expire in ~24 hours**, unlike Meta's. Set `TIKTOK_CLIENT_KEY`,
-`TIKTOK_CLIENT_SECRET` and `TIKTOK_REFRESH_TOKEN`; the access token is minted
-per run. `TIKTOK_ACCESS_TOKEN` still works for debugging and will die overnight.
+**Tokens expire in ~24 hours**, unlike Meta's, so the access token is minted
+per run from a refresh token. Only the CLIENT pair is configuration:
 
-> **The one thing that will silently kill TikTok publishing:** a refresh rotates
-> the refresh token, and the old one stops working. When that happens the run
-> prints the new value and tells you to update the secret. **Do it that day.**
-> Ignore it and the next run fails with credentials nobody can recover without
-> re-authorising by hand.
+```
+TIKTOK_CLIENT_KEY      repo secret
+TIKTOK_CLIENT_SECRET   repo secret
+```
+
+**The refresh token is NOT a secret you set.** TikTok issues a new one on
+nearly every refresh and kills the old one, and a GitHub secret cannot rewrite
+itself — so wiring it in as a secret gives you exactly one working run, then
+silent failure, with the only copy of the new token in an Actions log that
+expires. It lives in Firestore instead (`integration_tokens/tiktok`), read at
+the start of each run and written back on rotation, with no human in the loop.
+That is why the publish workflow carries `FIREBASE_*` credentials at all. See
+`lib/tiktok-token-store.js`.
+
+`TIKTOK_REFRESH_TOKEN` is still honoured when the store is empty — that is how
+the first token gets in, and how you recover if a rotation is ever lost. Once
+the store holds one, the store wins; don't leave a stale copy in the secrets to
+confuse the next person.
+
+### First-time setup
+
+The refresh token cannot be created by a machine. It comes out of an OAuth
+authorization performed by a human signed in as the SparkDate account.
+
+1. **Developer portal** (developers.tiktok.com) — create the app, add the
+   **Content Posting API** product, request the `video.publish` scope, and
+   **verify `sparkdate.date` as a property**. That last one is not optional:
+   publishing uses `PULL_FROM_URL`, and TikTok refuses to fetch media from an
+   unverified domain. It fails at publish time with an error that does not
+   name the cause.
+2. **Authorize**, with the client key and secret plus the three `FIREBASE_*`
+   variables in your shell:
+   ```
+   node scripts/tiktok-authorize.js               # prints a URL
+   node scripts/tiktok-authorize.js --code=<code> # exchanges and stores it
+   ```
+   Sign in as SparkDate *before* opening the URL — whichever account is signed
+   in is the one this posts as, and there is no later prompt.
+3. **Set `TIKTOK_CLIENT_KEY` and `TIKTOK_CLIENT_SECRET`** as repo secrets.
+4. `node scripts/social-preflight.js` — it reports the account it will post as
+   and the privacy levels the account actually allows, which is how you read
+   the audit state.
+
+`social-preflight` goes through the same store as the publisher, deliberately.
+It refreshes, and a refresh rotates the credential the scheduled job depends
+on — so a preflight that talked to TikTok directly would quietly break
+publishing every time someone checked whether publishing worked.
 
 **Draft vs direct.** Default is `UPLOAD_TO_DRAFT` — posts land in the app's
 drafts, you tap publish, and this needs **no audit**.
