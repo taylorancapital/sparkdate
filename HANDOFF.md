@@ -36,20 +36,40 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **The chemistry run-of-show audit is written and waiting on Taylor's yes to
-  four proposed changes — nothing has been built yet.** (09-09, PR #487) He asked
-  for an audit and a proposal, not an implementation, so the PR is report-only:
-  `reports/CHEMISTRY_RUN_OF_SHOW_AUDIT_2026-09-09.md` plus a designed page. The
-  two measured findings are that the "where do I sit?" lookup answers only 3 of
-  the 9 plan steps (it is handed the seated rounds and never the 1-on-1s), and
-  that the intro lists are structurally empty below ~20 people — so on every
-  roster SparkDate has run they have nothing to show. **Next step: Taylor picks
-  which of the four to build.** One of them needs an answer from him first —
-  fix 4 (give the 1-on-1s a table number) assumes the physical tables stay in
-  the room for the 1-on-1 segment, which is a question about how the night runs,
-  not about the code. Fixes 1-3 are unblocked and self-contained; the seating
-  solver, the pin, the wall-clock timer and `runStepIn()` are all deliberately
-  out of scope and `tests/chemistry-rotation.test.js` should stay green.
+- **The admin still seeds "arrived together" from the Stripe key alone, so the
+  Eventbrite order id it now stores is written and never read.** (09-10)
+  `public/admin.html`'s `parties` loop, where the roster is assembled, tests
+  `r.paymentIntentId` only. **Next step: make it `r.paymentIntentId ||
+  r.orderId`** — one line. Until then the party detection covers the 18% of
+  women who bought through the on-site checkout and not the 37% who came via
+  Eventbrite, which is the larger half
+  (see [[who-arrived-together-is-not-in-the-data]]). Nothing recovers the
+  ~47% who walk up to the door; those are linked by hand in the Tables view
+  and always will be.
+
+- **Two of the four run-of-show fixes are still unbuilt and nobody has decided
+  against them.** (09-10) From `reports/CHEMISTRY_RUN_OF_SHOW_AUDIT_2026-09-09.md`:
+  fix 2 is printing `Men → Table N next` on the table card beside the
+  `← men from N` already there (the rotation is +1, so the number is free);
+  fix 3 is retiring the `Intro order` tab, moving `printIntros()` into Priority
+  Intros, and unioning `_introsDone` with `_priorityDone` — they use identical
+  key formats as two separate Sets today, so a pair ticked in one view still
+  reads as outstanding in the other. **Next step: ask Taylor whether he wants
+  either; both are self-contained and neither is started.** Fix 1 is done. Fix 4
+  is retired, not deferred: Taylor's call is that the tables stay in the room
+  but the 1-on-1s are likely run standing, and giving a standing pair a table
+  number is wrong — with ten women you would need ten stations and there are
+  three tables. Standing, the location is the person.
+
+- **A standing 1-on-1 segment leaves 38% of a skewed room with nobody, which is
+  a format question rather than a code one.** (09-10) Measured on real rosters:
+  Round 2 (9W/20M) and Good Good (4W/9M) both leave 38% of the room unpaired in
+  EVERY 1-on-1 round, all men; a balanced 10/10 leaves nobody. Seated that reads
+  as normal; standing it is eleven men alone in a room every seven minutes. The
+  screen names them now and suggests seating them together at a spare table.
+  **Next step: none in code — this is here so that whoever next changes the
+  1-on-1 packing knows the constraint is social, not algorithmic.** Delete this
+  entry if the rooms stop being skewed.
 
 - **TL2 (Tellus AfterDark, Oct 6) is LIVE on Eventbrite and Nextdoor; three
   things about it still need a human.** (09-09) Eventbrite
