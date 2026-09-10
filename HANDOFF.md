@@ -103,6 +103,29 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   1-on-1 packing knows the constraint is social, not algorithmic.** Delete this
   entry if the rooms stop being skewed.
 
+- **TL2's 14 queue rows are drafted and all `pending` — they need art, then
+  Taylor's `approve`.** (09-10) TL2 had ZERO rows in `content/queue.csv` while
+  being live on Eventbrite, Nextdoor, LancasterOnline and Facebook, so the event
+  had no organic social at all. Cadence mirrors LX (TL2-01 .. TL2-14, Sep 11 →
+  Oct 7). Lint is clean: 0 errors. **Next steps: (1) art — nothing exists, so
+  every row warns "not yet in public/social/"; the Claude Design brief for the
+  PAID creative is `build/TL2-design-brief.md` (regenerate any time with
+  `node scripts/build-paid-campaign.js --event=TL2 --handoff`), but the ORGANIC
+  slide art is a separate job. Then `python scripts/prep-social-assets.py`.
+  (2) `node scripts/social.js approve --through=<date>` — Taylor's click, not
+  mine.** Three things deliberately decided, all reversible: **TL2-04 (Sep 22,
+  "early bird ends tonight") knowingly shares a day with LX's EVENT day** and is
+  slotted at 12:30 against LX-25's 09:00 — the linter warns on the day and errors
+  only on a shared slot. Moving it means letting the deadline pass unmarked, so
+  it stays unless Taylor prefers otherwise. **Every row from TL2-05 on says
+  $29.99, never $24.99** — the lint only checks price MEMBERSHIP, not the date,
+  so it would not have caught a stale early-bird price. **TL2-11 carries one
+  1080x1080 feed frame plus one story frame**, not the `_tt`+`_story` pair LX-24
+  used, because a story-only set is exactly what makes `lib/social-publish.js`
+  refuse the Facebook leg — the failure that has now bitten MC-12 and LX-24.
+  TL2-14 keeps a `[REAL NUMBER]` placeholder on purpose and cannot be approved
+  until the counted check-in figure exists after 2026-10-06.
+
 - **TL2 (Tellus AfterDark, Oct 6) is LIVE on Eventbrite and Nextdoor; three
   things about it still need a human.** (09-09) Eventbrite
   `2000197587829` is On Sale, 0/30, tiers copied from Loxleys
