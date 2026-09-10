@@ -57,10 +57,12 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   truncation on the dashboard is now in the sales heatmap rather than in the
   totals.** (09-10) The queue is the DECISION list in
   `reports/ADMIN_DASHBOARD_METRICS_REVIEW_2026-09-10.md`. Item 1 (a Matches
-  panel, #499, extended by #507), item 3 (the 200-ticket cap in `loadPayments`,
-  #502) and the three arithmetic defects of item 2 (#500) are done and need no
-  revisiting;
-  what is left is listed below so nobody re-derives it from the report.
+  panel, #499, plus women's answer rate in #507), item 3 (the 200-ticket cap in
+  `loadPayments`, #502), item 4 (Sales Pace against past events at the same
+  T-minus, #504), item 6 (door count and show rate, #505), item 9 (subscription
+  surfaces retired, #505) and the three arithmetic defects of item 2 (#500) are
+  done and need no revisiting; what is left is listed below so nobody
+  re-derives it from the report.
   **`startLiveTickets()` still carries `limit(200)` and Taylor said on 09-10 it
   is being handled in another session — do not fix it here and do not re-raise
   it.** Recorded because it is the same class of bug #502 removed: past 200
@@ -76,6 +78,11 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   sync beside the Google Ads pull, so landing-page-view → purchase stops living
   only in the nightly reports; (8) email aggregate rates on the Leads tab;
   (10) surface per-ticket attribution and a plain "referral leads: 0" line.
+  **Show rate is built but has never been measured:** #505 put a door-count
+  box at the foot of the run-of-show screen, shown once the event date has
+  passed, and the Retention tab's Show rate card reads "not counted" until a
+  count exists. No event carried one when #505 merged, so the first real
+  figure arrives only when a host types a count in at the end of a night.
   **Also still undone from item 2: a per-event CAC on the Event P&L detail
   row**, where the synced spend already sits — the blended figure is all-time
   over all-time and can only drift.
