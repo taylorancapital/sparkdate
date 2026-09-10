@@ -6025,6 +6025,24 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
         // silence.
         let paymentsTruncated = false;
 
+        // What the last ticket read actually managed, for the freshness strip.
+        //
+        // readAllDocs() already refuses to truncate in silence, and
+        // renderPaymentHistory() shouts when HARD_CAP is hit. This is the
+        // quieter half of the same idea: a STANDING count, on the strip above
+        // the KPIs, present whether or not anything is wrong.
+        //
+        // The distinction matters because of where the two live. The truncation
+        // notice sits on the Payment History caption, most of a page below the
+        // cards it invalidates, and only exists in the failure case -- so on a
+        // normal day nothing anywhere states how many tickets the all-time
+        // figures were computed from. That number is the one fact that makes
+        // the NEXT ceiling visible, whatever form it takes: a cap raised and
+        // forgotten, a rules change that hides rows, a read that fails and
+        // fails soft. 145 loaded is a fact the admin can check against
+        // Eventbrite. Nothing is not.
+        let ticketLoad = { ok: false, loaded: 0, complete: false };
+
         async function loadPayments() {
             try {
                 // Documents MISSING the order field are excluded by Firestore
@@ -6038,6 +6056,9 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 paymentsTruncated = subRes.truncated || tkRes.truncated;
                 const subs = subRes.docs.map(d => ({ id: d.id, _type: 'subscription', ...d.data() }));
                 const allTix = tkRes.docs.map(d => ({ id: d.id, _type: 'ticket', ...d.data() }));
+                // Every ticket document, before the confirmed-only filter --
+                // the count the all-time figures were actually built from.
+                ticketLoad = { ok: true, loaded: allTix.length, complete: !tkRes.truncated };
                 const tickets = allTix.filter(t => t.status === 'confirmed');
                 // Separate list, NOT merged into allPayments: the P&L and the
                 // revenue KPIs read allPayments and trust that every row in it
@@ -6053,6 +6074,10 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 allPayments = [];
                 refundedPayments = [];
                 paymentsTruncated = false;
+                // Not `complete: true` with zero rows. A read that threw and a
+                // collection that is genuinely empty produce the same blank
+                // dashboard, and only this flag tells them apart.
+                ticketLoad = { ok: false, loaded: 0, complete: false };
             }
         }
 
@@ -6308,7 +6333,21 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     'Newest eventbrite_import ticket. Sales made on Eventbrite after this moment are NOT in any number on this page.')
                 + syncBtn('eventbrite')
                 + item('Manual costs', hasMonth ? mk + ' filled' : mk + ' NOT filled', hasMonth ? '' : 'warn',
-                    'Whether recurring_costs has a document for the current month. An unfilled month reads as free and understates CAC.');
+                    'Whether recurring_costs has a document for the current month. An unfilled month reads as free and understates CAC.')
+                // Coverage rather than staleness, but the same principle this
+                // strip was built on. Every all-time figure in the cards below
+                // is summed off exactly these rows, so their COUNT is the one
+                // number that says whether "all time" meant all of time.
+                // A short read is a hard signal, not a soft one: the cards keep
+                // rendering, keep agreeing with each other, and are all low
+                // together, which is precisely what nobody can see.
+                + item('Tickets', ticketLoad.ok
+                        ? `${ticketLoad.loaded} loaded${ticketLoad.complete ? '' : ' — TRUNCATED'}`
+                        : 'not loaded',
+                    ticketLoad.ok && ticketLoad.complete ? '' : 'stale',
+                    ticketLoad.ok && ticketLoad.complete
+                        ? 'Every ticket document in the collection. All-time revenue, ARPU, CAC, LTV and the P&L are computed from these rows — check the number against Eventbrite if a figure looks low.'
+                        : 'The ticket read did not reach the end of the collection. Every all-time figure on this page is a FLOOR, not a total.');
             strips.forEach(el => { el.innerHTML = html; });
         }
 
@@ -7224,14 +7263,36 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
         // shipped. loadPayments() next to this already filters status the
         // same way for the same reason — matching it, not inventing a new
         // pattern.
+        //
+        // This cap STAYS. loadPayments() pages the whole collection now and
+        // this listener deliberately does not follow it: the two reads answer
+        // different questions. allPayments has to total all of time; this is a
+        // recent-activity view of WHEN purchases land, and a weekday-by-block
+        // heatmap of the newest 200 is a fair answer to that. Paging a listener
+        // would also break the billing argument three paragraphs up, which
+        // depends on the query staying small.
+        //
+        // What was wrong was not the cap. It was that the grid presented itself
+        // as the whole history and the cap lived only in this comment. So the
+        // caption says it, on the page, in the reader's face -- the same fix as
+        // the ticket count on the freshness strip, applied to a number that is
+        // capped ON PURPOSE and should still not be mistaken for a total.
+        const LIVE_TICKET_LIMIT = 200;
         let liveTickets = [];
+        let liveTicketsRead = 0;
         let liveTicketsUnsub = null;
 
         function startLiveTickets() {
             if (liveTicketsUnsub) return; // already listening
             liveTicketsUnsub = onSnapshot(
-                query(collection(db, 'tickets'), orderBy('createdAt', 'desc'), limit(200)),
+                query(collection(db, 'tickets'), orderBy('createdAt', 'desc'), limit(LIVE_TICKET_LIMIT)),
                 (snap) => {
+                    // Raw document count, BEFORE the confirmed-only filter:
+                    // once it reaches the limit the window is capped rather
+                    // than complete, and the caption has to say which. Reading
+                    // it off liveTickets instead would call a window capped at
+                    // 200 "195 tickets" the moment five were refunded.
+                    liveTicketsRead = snap.docs.length;
                     liveTickets = snap.docs
                         .map(d => ({ id: d.id, ...d.data() }))
                         .filter(t => t.status === 'confirmed');
@@ -7244,6 +7305,16 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
         function stopLiveTickets() {
             if (liveTicketsUnsub) { liveTicketsUnsub(); liveTicketsUnsub = null; }
             liveTickets = [];
+            liveTicketsRead = 0;
+        }
+
+        // What the grid is actually drawn from, in words. Pure and separate so
+        // tests/admin-ticket-scope.test.js can assert that a full window admits
+        // it is a window, rather than the assertion living in a comment.
+        function liveTicketScopeNote(read, limitN) {
+            return read >= limitN
+                ? `Newest ${limitN} tickets only — a recent-activity view, not all-time. The totals above the KPIs cover every ticket.`
+                : `All ${read} ticket${read === 1 ? '' : 's'} on record (this view holds the newest ${limitN}).`;
         }
 
         function renderSalesClock() {
@@ -7295,6 +7366,7 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     <div style="font-size:11px;color:var(--text-muted);margin-top:12px;">
                         Busiest: <span class="clock-peak">${safe(peak.txt)}</span> (${peak.n} ticket${peak.n === 1 ? '' : 's'}).
                         Times are in this browser's timezone.
+                        ${safe(liveTicketScopeNote(liveTicketsRead, LIVE_TICKET_LIMIT))}
                     </div>`;
                 if (note) note.innerHTML = `<span class="live-dot"></span> ${counted} paid ticket${counted === 1 ? '' : 's'} by purchase time`;
             }
