@@ -48,7 +48,7 @@ function decode(s) {
 }
 
 // One key per card. A person can have more than one approved quote (Laura M.
-// has three), so the attribution alone no longer identifies a card.
+// briefly had three, in #513), so the attribution alone does not identify a card.
 const key = (who, quote) => `${who}\n${quote}`;
 
 describe('homepage testimonial wall', () => {
@@ -86,8 +86,8 @@ describe('homepage testimonial wall', () => {
   });
 
   it('lists each quote once', () => {
-    // Each QUOTE, not each person: Laura M. has three approved quotes, and
-    // all three belong on the wall.
+    // Each QUOTE, not each person: someone with several approved quotes
+    // gets a card for each.
     const keys = wallCards().map((c) => key(c.who, c.quote));
     expect(keys.length).toBe(new Set(keys).size);
   });
