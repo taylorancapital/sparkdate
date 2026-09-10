@@ -27,6 +27,26 @@ const { EMAIL_FROM, EMAIL_REPLY_TO, listUnsubscribeHeader } = require('../lib/em
 const db = admin.firestore();
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// ── A rejected send is not a skip ────────────────────────────────────
+// resend.emails.send() RESOLVES with { error } on a 4xx/5xx — it does not
+// throw — so the `catch` around each send never sees a rejection. Every pass
+// below used to fold one into the same `skipped++` bucket as "already
+// registered" and "unsubscribed", with no log line at all.
+//
+// That went untested until 2026-09-09, when the account crossed its 100/day
+// Resend quota twenty seconds into the 9 AM run. Nothing was actually lost
+// that day — Resend kept accepting, and match emails sent eighteen minutes
+// after the 100% notice were delivered — but the run's summary line would
+// have read exactly the same if every send after the cap had been refused.
+// That is the part worth fixing: not the quota, the blind spot.
+//
+// A rejected send leaves no sent-stamp behind, so the next run retries it on
+// its own. The counter is how we notice a run where that keeps happening.
+function logRejected(tag, ref, error) {
+  const msg = (error && error.message) || 'unknown Resend error';
+  console.error(`⚠️ ${tag} rejected → ${ref}: ${msg}`);
+}
+
 // ── Email templates ──────────────────────────────────────────────────
 // Each html(firstName, event, ctaUrl) returns a full HTML doc. `firstName`
 // is pre-escaped by the caller; `event` may be null (evergreen fallback);
@@ -421,6 +441,10 @@ async function sendBucket(leads, dayNum, emailKey, nowMs, emailedThisRun, event,
         // Log doc id only, not email — avoids PII in Vercel logs.
         console.log(`✅ ${emailKey} → lead/${leadDoc.id}`);
       } else {
+        // The one pass that already surfaced rejections (via `errors` in the
+        // summary line). Log it too, so every rejected send in the run reads
+        // the same way whichever pass it came from.
+        logRejected(emailKey, `lead/${leadDoc.id}`, result.error);
         errors.push(`lead/${leadDoc.id}: ${result.error.message}`);
       }
     } catch (e) {
@@ -463,7 +487,7 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 }
 
 async function sendProfileReminders(nowMs, emailedThisRun) {
-  let sent = 0, skipped = 0;
+  let sent = 0, skipped = 0, rejects = 0;
   try {
     const horizon = new Date(nowMs + PROFILE_REMINDER_WINDOW_DAYS * 86400000);
     const evSnap = await db.collection('events')
@@ -516,14 +540,14 @@ async function sendProfileReminders(nowMs, emailedThisRun) {
             if (emailedThisRun) emailedThisRun.add(String(u.email).toLowerCase().trim());
             sent++;
             console.log(`✅ profile reminder → users/${r.userId}`);
-          } else { skipped++; }
+          } else { logRejected('profile reminder', `users/${r.userId}`, result.error); rejects++; }
         } catch (e) { console.error('[profile-reminder]', r.userId, e.message); skipped++; }
       }
     }
   } catch (e) {
     console.error('[profile-reminder] pass failed:', e.message);
   }
-  return { sent, skipped };
+  return { sent, skipped, rejected: rejects };
 }
 
 // ── Pre-event countdown for ticket-holders ──────────────────────────────────
@@ -627,7 +651,7 @@ Just bring your phone — everything else is handled.`) +
 }
 
 async function sendPreEventEmails(nowMs, emailedThisRun) {
-  let sent = 0, skipped = 0;
+  let sent = 0, skipped = 0, rejects = 0;
   try {
     const horizon = new Date(nowMs + PRE_EVENT_WINDOW_DAYS * 86400000);
     const evSnap = await db.collection('events')
@@ -702,14 +726,14 @@ async function sendPreEventEmails(nowMs, emailedThisRun) {
             emailedThisRun.add(email);
             sent++;
             console.log(`✅ pre-event ${stage} → reg/${er.id}`);
-          } else { skipped++; }
+          } else { logRejected(`pre-event ${stage}`, `reg/${er.id}`, result.error); rejects++; }
         } catch (e) { console.error('[pre-event]', er.id, e.message); skipped++; }
       }
     }
   } catch (e) {
     console.error('[pre-event] pass failed:', e.message);
   }
-  return { sent, skipped };
+  return { sent, skipped, rejected: rejects };
 }
 
 // ── Post-event "who did you click with" prompt ──────────────────────────────
@@ -827,7 +851,7 @@ async function auditPostEventPrompts(nowMs, eventId) {
 }
 
 async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resendUids = null, nextEvent = null) {
-  let sent = 0, skipped = 0;
+  let sent = 0, skipped = 0, rejects = 0;
   try {
     const since = new Date(nowMs - POST_EVENT_LOOKBACK_DAYS * 86400000);
     const evSnap = await db.collection('events')
@@ -912,14 +936,14 @@ async function sendPostEventPrompts(nowMs, emailedThisRun, testUid = null, resen
             if (emailedThisRun) emailedThisRun.add(String(email).toLowerCase().trim());
             sent++;
             console.log(`✅ post-event prompt → ${cand.src}/${cand.ref.id}`);
-          } else { skipped++; }
+          } else { logRejected('post-event prompt', `${cand.src}/${cand.ref.id}`, result.error); rejects++; }
         } catch (e) { console.error('[post-event-prompt]', cand.ref.id, e.message); skipped++; }
       }
     }
   } catch (e) {
     console.error('[post-event-prompt] pass failed:', e.message);
   }
-  return { sent, skipped };
+  return { sent, skipped, rejected: rejects };
 }
 
 // ── Real "attended" activity-feed logging ───────────────────────────────────
@@ -1009,7 +1033,7 @@ function returningInviteCopy(count) {
 }
 
 async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAttendeeUids, registeredForNextUids, attendeeNameByUid, attendanceCountByUid) {
-  let sent = 0, skipped = 0;
+  let sent = 0, skipped = 0, rejects = 0;
   if (!event) return { sent, skipped, gated: true };
   try {
     for (const uid of pastAttendeeUids) {
@@ -1102,13 +1126,13 @@ async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAt
           emailedThisRun.add(email);
           sent++;
           console.log(`✅ returning-attendee invite → users/${uid}`);
-        } else { skipped++; }
+        } else { logRejected('returning-attendee invite', `users/${uid}`, result.error); rejects++; }
       } catch (e) { console.error('[returning-invite]', uid, e.message); skipped++; }
     }
   } catch (e) {
     console.error('[returning-invite] pass failed:', e.message);
   }
-  return { sent, skipped };
+  return { sent, skipped, rejected: rejects };
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -1119,7 +1143,7 @@ async function sendReturningAttendeeInvites(nowMs, event, emailedThisRun, pastAt
 // (via the 7-day cross-track spacing), so nobody gets more than one marketing
 // email per week overall.
 async function sendWeeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByEmail) {
-  let sent = 0, skipped = 0;
+  let sent = 0, skipped = 0, rejects = 0;
 
   // ONE issue for everyone this week. A GLOBAL index that advances every
   // 7 days — so the whole list receives the same newsletter in sequence,
@@ -1186,7 +1210,8 @@ async function sendWeeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByE
         sent++;
         console.log(`✅ newsletter[${issueIndex}] → leads/${leadDoc.id}`);
       } else {
-        skipped++;
+        logRejected(`newsletter[${issueIndex}]`, `leads/${leadDoc.id}`, result.error);
+        rejects++;
       }
     } catch (e) {
       console.error('[newsletter]', leadDoc.id, e.message);
@@ -1194,7 +1219,7 @@ async function sendWeeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByE
     }
   }
 
-  return { sent, skipped, issueIndex };
+  return { sent, skipped, rejected: rejects, issueIndex };
 }
 
 // ── Post-nurture event campaigns (2-week cadence after Day 25) ──────────────
@@ -1204,7 +1229,7 @@ async function sendWeeklyNewsletter(leads, nowMs, event, emailedThisRun, nameByE
 // never attended. Attendees have their own (returning-attendee invite) track,
 // so they're suppressed here to avoid two "come to the next one" emails.
 async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun, attendedEmails, nameByEmail, registeredUpcomingEmails) {
-  let sent = 0, skipped = 0;
+  let sent = 0, skipped = 0, rejects = 0;
 
   for (const leadDoc of leads) {
     const lead = leadDoc.data();
@@ -1284,7 +1309,8 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun,
         sent++;
         console.log(`✅ post-nurture event → leads/${leadDoc.id}`);
       } else {
-        skipped++;
+        logRejected('post-nurture event', `leads/${leadDoc.id}`, result.error);
+        rejects++;
       }
     } catch (e) {
       console.error('[post-nurture-event]', leadDoc.id, e.message);
@@ -1292,7 +1318,7 @@ async function sendPostNurtureEventCampaign(leads, nowMs, event, emailedThisRun,
     }
   }
 
-  return { sent, skipped };
+  return { sent, skipped, rejected: rejects };
 }
 
 module.exports = async function handler(req, res) {

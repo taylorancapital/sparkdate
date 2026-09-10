@@ -142,12 +142,29 @@ p{font-size:15px;line-height:1.6;color:#1a1f3a;margin:0 0 16px}
 // create sends the emails; a double-submit or both-directions race loses the
 // create (ALREADY_EXISTS) and no-ops. Best-effort — never throws, so a mail
 // failure can't 500 the POST.
+//
+// The lock is claimed BEFORE the send and stays that way. It cannot move to
+// after the send without reopening the race it exists to close (both
+// directions of a mutual pick can land at once), and `handleUnpick` reads
+// this same doc to refuse an undo once contact info is out — a lock that
+// only appears on a successful send would let someone unpick a real match.
+//
+// What DID need fixing is that the outcome was never recorded. resend's
+// send() resolves with { error } rather than throwing, so `await
+// Promise.all(sends)` succeeded even when Resend refused the mail, and the
+// line below logged "match notified" for an email that never went out. The
+// lock now carries the result: `notified` false plus `notifyError` marks a
+// match whose emails were rejected, and those are the docs to look at before
+// telling someone their match was told about them.
 async function notifyMatch(aUid, bUid, eventId) {
   const pair = [aUid, bUid].sort();
   const lockId = `${eventId}_${pair[0]}_${pair[1]}`;
+  const lockRef = db.collection('matches').doc(lockId);
   try {
-    await db.collection('matches').doc(lockId).create({
+    await lockRef.create({
       eventId, users: pair, matchedAt: FieldValue.serverTimestamp(),
+      // Flipped to true below once Resend has actually accepted both emails.
+      notified: false,
     });
   } catch (e) {
     if (e.code === 6 || /already exists/i.test(e.message || '')) return; // already notified
@@ -162,7 +179,17 @@ async function notifyMatch(aUid, bUid, eventId) {
       db.collection('event_registrations').doc(`reg_${aUid}_${eventId}`).get(),
       db.collection('event_registrations').doc(`reg_${bUid}_${eventId}`).get(),
     ]);
-    if (!aSnap.exists || !bSnap.exists) return;
+    if (!aSnap.exists || !bSnap.exists) {
+      // A match with no user doc on one side: nothing to address the mail to.
+      // Say so on the lock rather than leaving a bare `notified: false` that
+      // reads like a send which was never attempted.
+      await lockRef.update({
+        notifyError: 'missing user doc — no email built',
+        notifyAttemptedAt: FieldValue.serverTimestamp(),
+      });
+      console.error(`[declare-connection] match not notified (missing user doc): ${lockId}`);
+      return;
+    }
     // Reg `name` is the consolidated source of truth; fall back to it when the
     // users doc has no firstName so the match email isn't impersonal.
     const aRegName = aRegSnap.exists ? aRegSnap.data().name : null;
@@ -185,10 +212,46 @@ async function notifyMatch(aUid, bUid, eventId) {
       subject: `It's a match — say hi to ${aFirst || 'your match'}`,
       html: matchEmailHTML({ youFirstName: bFirst || 'there', theirName: shortName(a, aRegName), reachLine: reachLineFor(a), eventName, refUid: bUid }),
     }));
-    await Promise.all(sends);
+    // resend.emails.send() RESOLVES with { error } on a 4xx/5xx — a rejected
+    // send is a value here, not a throw, so every result has to be read.
+    const results = await Promise.all(sends);
+    const failures = results
+      .map((r) => r && r.error)
+      .filter(Boolean)
+      .map((err) => err.message || 'unknown Resend error');
+
+    // A match is two emails. One address missing means one person was never
+    // told, and zero means nobody was — neither is a notified match, and
+    // both used to log as one because Promise.all([]) resolves happily.
+    if (sends.length < 2) {
+      failures.push(`only ${sends.length} of 2 recipients had an email address`);
+    }
+
+    if (failures.length) {
+      await lockRef.update({
+        notified: false,
+        notifyError: failures.join('; '),
+        notifyAttemptedAt: FieldValue.serverTimestamp(),
+      });
+      console.error(`[declare-connection] match NOT fully notified: ${lockId}: ${failures.join('; ')}`);
+      return;
+    }
+
+    await lockRef.update({
+      notified: true,
+      notifiedAt: FieldValue.serverTimestamp(),
+    });
     console.log(`[declare-connection] match notified: ${lockId}`);
   } catch (e) {
     console.error('[declare-connection] match email failed:', e.message);
+    // Best-effort — the lock stays, but say so on the doc rather than leaving
+    // `notified: false` looking like a send that was never attempted.
+    try {
+      await lockRef.update({
+        notifyError: e.message || 'match email threw',
+        notifyAttemptedAt: FieldValue.serverTimestamp(),
+      });
+    } catch (_) { /* the lock write is the best-effort part of a best-effort path */ }
   }
 }
 
