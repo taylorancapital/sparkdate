@@ -3604,29 +3604,10 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
             // Expose to rounds functions
             _chemWomen = women; _chemMen = men; _chemPairs = pairs;
 
-            // Seed the "arrived together" parties from the one field that
-            // records a shared purchase: registrations for this event sharing
-            // a paymentIntentId are one checkout — a 2-for-1 buyer and their
-            // +1, or a guest added to that ticket afterwards. Same-gender
-            // members only: the seating holds women in place and rotates men,
-            // so a mixed party cannot be kept together past round one anyway.
-            //
             // Assigned, not merged, so opening a second event never inherits
             // the first one's parties. chemStoreRestore() merges the host's
             // hand-linked ones on top a few lines below.
-            const emailOf = (u) => (u.email || '').toLowerCase();
-            const byEmail = new Map(attendees.filter(u => u.email).map(u => [emailOf(u), u]));
-            const byUserId = new Map(attendees.map(u => [u.id, u]));
-            const parties = new Map();
-            eventRegs.forEach(r => {
-                if (!r.paymentIntentId) return;
-                const u = byUserId.get(r.userId) || byEmail.get((r.email || '').toLowerCase());
-                if (!u) return;
-                const key = r.paymentIntentId + '|' + (u.gender || '').toLowerCase();
-                if (!parties.has(key)) parties.set(key, []);
-                if (!parties.get(key).includes(u.id)) parties.get(key).push(u.id);
-            });
-            _chemGroups = normaliseGroups([...parties.values()], attendees);
+            _chemGroups = normaliseGroups(seedParties(eventRegs, attendees), attendees);
 
             // Restore this device's memory of the event — the pinned seating,
             // the run clock, the ticked-off intros — then pin a plan if there
@@ -4257,6 +4238,48 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
         // given at chemStoreWrite: a denied read there fails silently, which
         // is the one failure mode this panel cannot afford.
         let _chemGroups = [];      // [[attendeeId, attendeeId, ...], ...]
+
+        // Parties this event's registrations already record, before the host
+        // links anyone by hand.
+        //
+        // ONE CHECKOUT IS ONE PARTY, and two fields record a checkout:
+        // `paymentIntentId` for an on-site Stripe purchase (a 2-for-1 buyer
+        // and their +1, or a guest added to that ticket afterwards) and
+        // `orderId` for an Eventbrite order. Both are needed and neither is
+        // enough. Measured against the live collection: the Stripe key is
+        // carried by 18% of women ever registered and has identified exactly
+        // ONE pair in the whole history, while Eventbrite is 37% of women —
+        // the larger half. Reading only the first, as this did until the
+        // Eventbrite order id started being stored, is a party detector that
+        // looks correct and finds nobody.
+        //
+        // Neither field reaches the ~47% who walk up to the door: a check-in
+        // has no purchase record at all, and no upstream system knows who they
+        // arrived with. Those are linked by hand in the Tables view and always
+        // will be. See [[who-arrived-together-is-not-in-the-data]].
+        //
+        // SAME-GENDER MEMBERS ONLY, which is why gender is part of the key:
+        // the seating holds women in place and rotates men, so a mixed party
+        // cannot be kept together past round one however it is recorded.
+        //
+        // Extracted from the modal-open path rather than left inline so the
+        // rule can be tested; nothing else about it changed.
+        function seedParties(eventRegs, attendees) {
+            const byEmail = new Map(
+                attendees.filter(u => u.email).map(u => [u.email.toLowerCase(), u]));
+            const byUserId = new Map(attendees.map(u => [u.id, u]));
+            const parties = new Map();
+            (eventRegs || []).forEach(r => {
+                const order = r.paymentIntentId || r.orderId;
+                if (!order) return;
+                const u = byUserId.get(r.userId) || byEmail.get((r.email || '').toLowerCase());
+                if (!u) return;
+                const key = order + '|' + (u.gender || '').toLowerCase();
+                if (!parties.has(key)) parties.set(key, []);
+                if (!parties.get(key).includes(u.id)) parties.get(key).push(u.id);
+            });
+            return [...parties.values()];
+        }
 
         // Group key for one attendee, or null when they came alone.
         function groupKeyOf(u) {
