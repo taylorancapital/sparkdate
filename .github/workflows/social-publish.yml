@@ -62,7 +62,23 @@ jobs:
           META_SOCIAL_ACCESS_TOKEN: ${{ secrets.META_SOCIAL_ACCESS_TOKEN }}
           META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
           META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
-          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
+          # TikTok access tokens live ~24h, so only the CLIENT pair is
+          # configuration here. The refresh token is deliberately absent: it
+          # rotates on nearly every refresh, and a GitHub secret cannot
+          # rewrite itself, so it lives in Firestore instead -- which is why
+          # the FIREBASE_* trio below is in a publishing job at all.
+          # See lib/tiktok-token-store.js.
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          # Only for a hand-run recovery after a rotation is lost. Normally unset.
+          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+          # UPLOAD_TO_DRAFT needs no TikTok audit; DIRECT_POST does, and until
+          # it clears DIRECT_POST publishes privately to nobody. Do not flip
+          # this without checking social-preflight's reported privacy levels.
+          TIKTOK_POST_MODE: ${{ vars.TIKTOK_POST_MODE || 'UPLOAD_TO_DRAFT' }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
           SOCIAL_ASSET_BASE_URL: https://sparkdate.date/social
         run: |
           if [ -z "$META_SOCIAL_ACCESS_TOKEN" ]; then

@@ -26,7 +26,7 @@
 
 'use strict';
 
-const TikTokAuth = require('../lib/tiktok-auth');
+const TikTokStore = require('../lib/tiktok-token-store');
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const BUSINESS_ID = process.env.META_BUSINESS_ID || '2490071258114152';
@@ -153,13 +153,29 @@ async function main() {
   // visible to nobody. creator_info is the only place that state is legible
   // before publishing; the publish call itself just works and posts privately.
   console.log('\nTikTok');
-  if (!process.env.TIKTOK_REFRESH_TOKEN && !process.env.TIKTOK_ACCESS_TOKEN) {
+  // "Configured" cannot be read off the environment alone any more. In the
+  // steady state the refresh token lives in Firestore and NO TikTok token
+  // variable is set at all -- only the client key and secret are. Testing for
+  // the token here would report SKIP "not configured" on a working pipeline.
+  const tiktokConfigured = Boolean(
+    (process.env.TIKTOK_CLIENT_KEY && process.env.TIKTOK_CLIENT_SECRET)
+    || process.env.TIKTOK_REFRESH_TOKEN
+    || process.env.TIKTOK_ACCESS_TOKEN,
+  );
+  if (!tiktokConfigured) {
     console.log('  \x1b[90mSKIP\x1b[0m  not configured -- TikTok rows will be skipped, other surfaces unaffected');
   } else {
     try {
-      const t = await TikTokAuth.getAccessToken(process.env, { log: (m) => m && console.log('        ' + m) });
+      // Through the store, not TikTokAuth directly. Preflight is meant to be
+      // run casually, and a refresh rotates the credential the scheduled job
+      // depends on -- so a bare getAccessToken here would quietly break
+      // publishing every time someone checked whether publishing worked.
+      const t = await TikTokStore.acquireAccessToken(process.env, { log: (m) => m && console.log('        ' + m) });
       if (!t || !t.accessToken) throw new Error('no access token');
-      ok('access token obtained');
+      ok(`access token obtained (refresh token from ${t.source === 'store' ? 'Firestore' : 'the environment'})`);
+      if (t.rotated && !t.persisted) {
+        warn('the refresh token rotated and was NOT saved -- capture it from the log above');
+      }
 
       const res = await fetch('https://open.tiktokapis.com/v2/post/publish/creator_info/query/', {
         method: 'POST',

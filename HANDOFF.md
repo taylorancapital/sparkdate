@@ -36,6 +36,42 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **TikTok organic is now plumbed but has NO CREDENTIALS — the remaining half
+  is Taylor's and cannot be done by a machine.** (09-10) Confirmed by
+  `gh secret list`: of ten repo secrets, none is TikTok, so
+  `secrets.TIKTOK_ACCESS_TOKEN` in `social-publish.yml` has expanded to empty
+  since #215 and **TikTok has never published from CI** — every `tiktok` row
+  (17 of them) has silently skipped. The publishing code itself was already
+  complete and always has been; only the credentials and the token store were
+  missing. This PR adds the store, wires both entry points through it, and adds
+  `scripts/tiktok-authorize.js`. **Next step, in order: (1) create the app at
+  developers.tiktok.com with the Content Posting API product and the
+  `video.publish` scope, and verify `sparkdate.date` as a property — publishing
+  uses `PULL_FROM_URL` and TikTok refuses unverified domains, failing at publish
+  time with an error that names nothing; (2) `node scripts/tiktok-authorize.js`
+  signed in as SparkDate; (3) set `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET`
+  as repo secrets; (4) `node scripts/social-preflight.js` to confirm.** Full
+  sequence in `docs/SOCIAL_RUNBOOK.md` §9. Until then nothing changes — TikTok
+  rows keep skipping and Meta is unaffected.
+  - **Expect drafts, not posts, at first.** `UPLOAD_TO_DRAFT` needs no audit;
+    `DIRECT_POST` needs TikTok's app review (2–4 weeks, and it can be rejected),
+    and until that clears an unaudited app is capped at `SELF_ONLY`, so
+    DIRECT_POST "succeeds" and posts privately to nobody. Preflight reports the
+    account's real allowed privacy levels — read that before flipping the mode.
+  - **MC-15's TikTok leg was lost to this on 09-10** and is past its 6h grace,
+    so it would have to be posted by hand if it is wanted at all.
+
+- **The `*/15` publish cron is really running every 2–3.5 hours, and that
+  should be measured rather than assumed.** (09-10) Observed run starts on
+  09-09/09-10: 14:32, 17:58, 20:34, 22:44, 00:37, 05:15, 09:54 UTC. GitHub is
+  throttling the schedule heavily. Instagram's 6h grace window is wider than
+  the typical gap, which is why this has mostly worked and why nobody noticed —
+  but the margin is far thinner than the cron implies, and a single longer
+  outage drops an Instagram leg permanently. **Next step: decide whether to
+  widen the cron deliberately to match reality, or move the trigger somewhere
+  that fires reliably.** Do not "fix" it by shortening the interval; GitHub is
+  already ignoring `*/15`.
+
 - **TL2 (Tellus AfterDark, Oct 6) is LIVE on Eventbrite and Nextdoor; three
   things about it still need a human.** (09-09) Eventbrite
   `2000197587829` is On Sale, 0/30, tiers copied from Loxleys
