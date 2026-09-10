@@ -73,7 +73,7 @@ const MODAL_IDS = ['chemView', 'introsView', 'introsHeader', 'introsGrid', 'sche
                    'tablesView', 'runView', 'candidateTable', 'candidateStats',
                    'candidateModal', 'candidateModalTitle', 'candidateModalSub',
                    'viewChemBtn', 'viewIntrosBtn', 'viewScheduleBtn', 'viewTablesBtn',
-                   'viewRunBtn', 'runFindInput'];
+                   'viewRunBtn', 'runFindInput', 'runDoorInput'];
 
 function stubDom() {
   const nodes = new Map();
@@ -89,8 +89,10 @@ function stubDom() {
       activeElement: null,
       getElementById(id) {
         if (!nodes.has(id)) throw new Error(`render wrote to unknown element id "${id}"`);
-        // runFindInput only exists once the panel has rendered it.
-        if (id === 'runFindInput' && !nodes.get('runView').innerHTML.includes('runFindInput')) return null;
+        // Both of these only exist once the panel has rendered them --
+        // runDoorInput only for an event whose date has passed.
+        if ((id === 'runFindInput' || id === 'runDoorInput')
+            && !nodes.get('runView').innerHTML.includes(id)) return null;
         return nodes.get(id);
       },
     },
@@ -129,6 +131,10 @@ function view(W = 12, M = 12, size = 6) {
     // Pinning is covered in chemistry-persistence; these render against a
     // fresh solve, so the pin stays null.
     _pinnedPlan: null, _pinRev: 0, _chemEventId: null, _runPlanCache: null,
+    // The door-count panel at the foot of the run-of-show screen reads the
+    // event doc for its date and doorCount, and the roster for the
+    // denominator. Empty by default; the door tests below supply both.
+    allEvents: [], allRegistrations: [],
     _introsDone: new Set(), _priorityDone: new Set(), _prioMode: 'all', _shortlistN: 3,
     _tableSize: size, _tableRound: 1, _tableRounds: 4, _roundMinutes: 15, _oneOnOneMinutes: 7,
     _runTimer: null, _runEndsAt: null, _runPaused: null, _runStep: 0, _runFind: '',
@@ -731,5 +737,97 @@ describe('renderRunOfShow', () => {
     sandbox._chemWomen = []; sandbox._chemMen = []; sandbox._chemPairs = [];
     expect(() => sandbox.renderRunOfShow()).not.toThrow();
     expect(nodes.get('runView').innerHTML).toContain('No attendees scored yet');
+  });
+});
+
+// ── The door count ───────────────────────────────────────────────────────
+// This screen is the only moment the number exists: the host is holding it at
+// the end of the night, in the room, with the people still in front of them.
+// mixCell() has had a "door N · %show" branch since #324 and no event has ever
+// carried a doorCount, so the branch was dead and the show rate had never been
+// measured (Evidence §4 of the 2026-09-10 dashboard review).
+//
+// The gate matters as much as the box: asking how many showed up to an event
+// that has not happened is noise on the screen the host uses to run it.
+describe('renderRunOfShow — door count', () => {
+  const withEvent = (dateOffsetDays, extra = {}, regs = 20) => {
+    const v = view();
+    v.sandbox._chemEventId = 'ev1';
+    v.sandbox.allEvents = [{
+      id: 'ev1', title: 'Loxleys',
+      date: new Date(Date.now() + dateOffsetDays * 86400000),
+      ...extra,
+    }];
+    v.sandbox.allRegistrations = Array.from({ length: regs }, (_, i) => ({
+      eventId: 'ev1', email: `p${i}@example.com`,
+    }));
+    return v;
+  };
+
+  it('shows no door box before the event has happened', () => {
+    const { sandbox, nodes } = withEvent(3);
+    sandbox.renderRunOfShow();
+    expect(nodes.get('runView').innerHTML).not.toContain('runDoorInput');
+  });
+
+  it('shows the box, empty, once the date has passed', () => {
+    const { sandbox, nodes } = withEvent(-1);
+    sandbox.renderRunOfShow();
+    const html = nodes.get('runView').innerHTML;
+    expect(html).toContain('runDoorInput');
+    expect(html).toContain('runSaveDoorCount()');
+    expect(html).toContain('20 confirmed registered');
+    // No count typed yet, so no percentage is claimed.
+    expect(html).not.toContain('% show');
+  });
+
+  it('prefills a stored count and states the show rate', () => {
+    const { sandbox, nodes } = withEvent(-1, { doorCount: 17 });
+    sandbox.renderRunOfShow();
+    const html = nodes.get('runView').innerHTML;
+    expect(html).toContain('value="17"');
+    expect(html).toContain('85% show');
+  });
+
+  it('treats a stored zero as a real count, not as absent', () => {
+    // "Nobody came" and "nobody counted" are different answers and the box has
+    // to be able to say the first one.
+    const { sandbox, nodes } = withEvent(-1, { doorCount: 0 });
+    sandbox.renderRunOfShow();
+    const html = nodes.get('runView').innerHTML;
+    expect(html).toContain('value="0"');
+    expect(html).toContain('0% show');
+  });
+
+  it('leaves the box blank for null, undefined and a junk value alike', () => {
+    for (const doorCount of [null, undefined, 'twelve']) {
+      const { sandbox, nodes } = withEvent(-1, { doorCount });
+      sandbox.renderRunOfShow();
+      const html = nodes.get('runView').innerHTML;
+      expect(html, `doorCount: ${JSON.stringify(doorCount)}`).toContain('value=""');
+      expect(html).not.toContain('% show');
+    }
+  });
+
+  it('renders no panel at all when no event is loaded', () => {
+    // The modal can be open on a fresh solve with no _chemEventId; that must
+    // not throw on allEvents.find.
+    const { sandbox, nodes } = view();
+    expect(() => sandbox.renderRunOfShow()).not.toThrow();
+    expect(nodes.get('runView').innerHTML).not.toContain('runDoorInput');
+  });
+
+  it('keeps a half-typed count instead of snapping it back on the 1s repaint', () => {
+    // The clock repaint replaces this whole panel once a second. Reading the
+    // stored value back over what the host is typing loses the digit they just
+    // pressed -- the same failure runFindInput's caret restore exists for.
+    const { sandbox, nodes } = withEvent(-1, { doorCount: 17 });
+    sandbox.renderRunOfShow();
+    const box = nodes.get('runDoorInput');
+    box.value = '2';
+    sandbox.document.activeElement = { id: 'runDoorInput' };
+    sandbox.renderRunOfShow();
+    expect(nodes.get('runView').innerHTML).toContain('value="2"');
+    expect(nodes.get('runView').innerHTML).not.toContain('value="17"');
   });
 });
