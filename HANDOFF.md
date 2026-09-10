@@ -40,9 +40,12 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   truncation on the dashboard is now in the sales heatmap rather than in the
   totals.** (09-10) The queue is the DECISION list in
   `reports/ADMIN_DASHBOARD_METRICS_REVIEW_2026-09-10.md`. Item 1 (a Matches
-  panel, #499), item 3 (the 200-ticket cap in `loadPayments`, #502) and the
-  three arithmetic defects of item 2 (#500) are done and need no revisiting;
-  what is left is listed below so nobody re-derives it from the report.
+  panel, #499, plus women's answer rate in #507), item 3 (the 200-ticket cap in
+  `loadPayments`, #502), item 4 (Sales Pace against past events at the same
+  T-minus, #504), item 6 (door count and show rate, #505), item 9 (subscription
+  surfaces retired, #505) and the three arithmetic defects of item 2 (#500) are
+  done and need no revisiting; what is left is listed below so nobody
+  re-derives it from the report.
   **`startLiveTickets()` still carries `limit(200)` and Taylor said on 09-10 it
   is being handled in another session — do not fix it here and do not re-raise
   it.** Recorded because it is the same class of bug #502 removed: past 200
@@ -50,18 +53,17 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   the cap is a deliberate cost decision about a listener held open for the whole
   session, so it is a billing call rather than an arithmetic one.
   **Next step for whoever picks the report back up, in the order the report
-  ranks them:** (4) replace Ticket Velocity's flat 1.5/day target with a pacing
-  curve — sold-now against the median of past events at the same T-minus, and
-  the reference table is already computed in the report's Evidence §2; (5) a
-  women's acquisition strip on the Ads tab (cost per woman ticket, women's share
-  at T-7, women's share of pickers); (6) show rate — the `doorCount` INPUT now
-  exists on the Events tab and `mixCell` already renders "door N · %show" from
-  it, so the only thing missing is that no event has ever had a number typed in;
-  (7) a `web_daily` sync beside the Google Ads pull, so landing-page-view →
-  purchase stops living only in the nightly reports; (8) email aggregate rates
-  on the Leads tab; (9) retire the subscription surfaces while memberships are
-  paused; (10) surface per-ticket attribution and a plain "referral leads: 0"
-  line. **Also still undone from item 2: a per-event CAC on the Event P&L detail
+  ranks them:** (5) a women's acquisition strip on the Ads tab (cost per woman
+  ticket, women's share at T-7, women's share of pickers); (7) a `web_daily`
+  sync beside the Google Ads pull, so landing-page-view → purchase stops living
+  only in the nightly reports; (8) email aggregate rates on the Leads tab; (10)
+  surface per-ticket attribution and a plain "referral leads: 0" line. **Show
+  rate is built but has never been measured:** #505 put a door-count box at the
+  foot of the run-of-show screen, shown once the event date has passed, and the
+  Retention tab's Show rate card reads "not counted" until a count exists. No
+  event carried one when #505 merged, so the first real figure arrives only
+  when a host types a count in at the end of a night. **Also still undone from
+  item 2: a per-event CAC on the Event P&L detail
   row**, where the synced spend already sits — the blended figure is all-time
   over all-time and can only drift.
 
