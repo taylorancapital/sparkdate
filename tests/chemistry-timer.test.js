@@ -48,7 +48,11 @@ function lift(name) {
 const LIFTED = ['ROUND_CHOICES', 'CHEM_STORE_PREFIX', 'CHEM_STORE_VERSION',
                 '_nameLabels', '_nameLabelsFor', '_nameRungs', 'buildNameLabels',
                 'ensureNameLabels', '_chemShortName',
-                'movesLabel', 'tableCount', 'quotas', 'fillTablePairs', 'pairLookup', 'buildTables',
+                'movesLabel', 'tableCount', 'quotas', 'fillTablePairs', 'pairLookup',
+                // buildTables ends by calling applyGroups (women who arrived
+                // together share a table), so these travel with it.
+                '_chemGroups', '_groupSplits', 'groupKeyOf', 'normaliseGroups', 'applyGroups',
+                'buildTables',
                 'rotateTables', 'maxRoundsFor', 'rehydratePin', 'seatingTables', 'buildRounds',
                 'seatedRoundOf', 'metInRounds', 'itineraryFor', 'buildOneOnOnes',
                 'runPlanKey', 'computeRunPlan', 'buildRunPlan', 'fmtClock', 'runStepIn',

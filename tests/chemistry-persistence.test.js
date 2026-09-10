@@ -46,6 +46,11 @@ const LIFTED = ['CHEM_STORE_PREFIX', 'CHEM_STORE_VERSION', 'ROUND_CHOICES',
                 '_nameLabels', '_nameLabelsFor', '_nameRungs', 'buildNameLabels',
                 'ensureNameLabels', '_chemShortName',
                 'movesLabel', 'tableCount', 'quotas', 'fillTablePairs', 'pairLookup',
+                // buildTables ends by calling applyGroups (women who arrived
+                // together share a table), so these travel with it. Their
+                // state — _chemGroups, _groupSplits — is a sandbox global
+                // below, for the reason given there.
+                'groupKeyOf', 'normaliseGroups', 'applyGroups',
                 'buildTables', 'rotateTables', 'maxRoundsFor', 'seatingTables', 'buildRounds',
                 'seatedRoundOf', 'metInRounds', 'itineraryFor', 'buildOneOnOnes',
                 'chemStoreRead', 'chemStoreWrite', 'chemStoreRestore', 'pinSeating',
@@ -96,6 +101,7 @@ function ctx({ W = 12, M = 12, storage = fakeStorage(), size = 6 } = {}) {
     // writing to a different binding than the code reads.
     _chemEventId: null, _pinnedPlan: null, _pinRev: 0,
     _introsDone: new Set(), _priorityDone: new Set(),
+    _chemGroups: [], _groupSplits: [],
     _tableSize: size, _tableRound: 1, _tableRounds: 4, _roundMinutes: 15, _oneOnOneMinutes: 7,
     _runTimer: null, _runEndsAt: null, _runPaused: null, _runStep: 0, _runFind: '',
     // Render functions the store helpers call back into; stubbed so this
@@ -337,6 +343,53 @@ describe('chemStore — surviving a close and a reload', () => {
     expect([...c2.sandbox._introsDone].sort()).toEqual(['w0|m1', 'w2|m3']);
     expect([...c2.sandbox._priorityDone]).toEqual(['w4|m5']);
     expect(shape(c2.sandbox.rehydratePin(6))).toEqual(shape(c.sandbox.rehydratePin(6)));
+  });
+
+  // Who arrived together is the one thing in this record the host typed in
+  // by hand, at the door, with a queue behind them. Losing it costs more than
+  // losing a tick — the ticks can be re-derived from the room, the parties
+  // cannot.
+  it('carries the arrived-together parties across a reload', () => {
+    const c = ctx();
+    c.sandbox._chemEventId = 'ev1';
+    c.sandbox._chemGroups = [['w0', 'w1'], ['w2', 'w3', 'w4']];
+    c.sandbox.chemStoreWrite();
+
+    const c2 = ctx({ storage: c.storage });
+    c2.sandbox.chemStoreRestore('ev1');
+    expect(c2.sandbox._chemGroups.map(g => [...g].sort()).sort())
+      .toEqual([['w0', 'w1'], ['w2', 'w3', 'w4']]);
+  });
+
+  it('merges stored parties with the ones derived from the roster', () => {
+    // The payment-derived seeds are recomputed on every open and assigned
+    // before restore runs. A restore that overwrote them would silently drop
+    // a 2-for-1 party the moment the host linked anyone by hand.
+    const c = ctx();
+    c.sandbox._chemEventId = 'ev1';
+    c.sandbox._chemGroups = [['w0', 'w1']];       // hand-linked, stored
+    c.sandbox.chemStoreWrite();
+
+    const c2 = ctx({ storage: c.storage });
+    c2.sandbox._chemGroups = [['w2', 'w3']];      // seeded from paymentIntentId
+    c2.sandbox.chemStoreRestore('ev1');
+    expect(c2.sandbox._chemGroups.map(g => [...g].sort()).sort())
+      .toEqual([['w0', 'w1'], ['w2', 'w3']]);
+  });
+
+  it('drops a party member who is no longer registered', () => {
+    const c = ctx();
+    c.sandbox._chemEventId = 'ev1';
+    c.sandbox._chemGroups = [['w0', 'w1']];
+    c.sandbox.chemStoreWrite();
+
+    // A refund: w1 is gone from the roster on the next open.
+    const c2 = ctx({ storage: c.storage });
+    c2.sandbox._chemWomen = c2.sandbox._chemWomen.filter(w => w.id !== 'w1');
+    c2.sandbox._chemGroups = [];
+    c2.sandbox.chemStoreRestore('ev1');
+    // A party of one is not a party.
+    expect(c2.sandbox._chemGroups).toEqual([]);
   });
 
   it('keeps each event separate', () => {
