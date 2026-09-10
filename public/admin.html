@@ -2625,7 +2625,7 @@ Alex Johnson, alex@example.com, man" style="width:100%;background:rgba(255,255,2
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-        import { getFirestore, collection, query, orderBy, limit, getDocs, where, addDoc, Timestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+        import { getFirestore, collection, query, orderBy, limit, startAfter, getDocs, where, addDoc, Timestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
@@ -5967,14 +5967,77 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             }
         }
 
+        // Read a whole collection in pages, newest first.
+        //
+        // WHY THIS EXISTS: loadPayments() used to take the 200 newest tickets
+        // and stop. Every all-time figure on this dashboard -- revenue, net
+        // revenue, CAC, LTV:CAC, the channel and event P&L, the campaign
+        // panel's all-time cost per ticket -- is summed off that list, so past
+        // 200 tickets they would all simply stop growing. Nothing would error
+        // and no figure would look wrong; the dashboard would just quietly
+        // describe the 200 most recent tickets and call it all time. There
+        // were 145 confirmed tickets and events sell 19-29, so that was about
+        // two events away when it was found (the metrics review of
+        // 2026-09-10, MECHANISM).
+        //
+        // Reads are billed per DOCUMENT, not per query, so paging costs
+        // exactly what the capped read cost for the documents it already
+        // returned, plus the ones it was dropping. Whole-collection reads on
+        // the refresh tick are already how loadUsers() and loadAdminEvents()
+        // work -- this is the same pattern, not a new one.
+        //
+        // HARD_CAP is loop protection, not a data decision. If it is ever hit
+        // the caller SAYS SO on the page: silently truncating is the exact bug
+        // this function replaced, and re-introducing it behind a bigger number
+        // would be no better than the 200.
+        const PAGE_SIZE = 500;
+        const HARD_CAP = 10000;
+
+        async function readAllDocs(colName, orderField) {
+            const out = [];
+            const seen = new Set();
+            let cursor = null;
+            let truncated = false;
+            for (;;) {
+                const base = [collection(db, colName), orderBy(orderField, 'desc')];
+                const snap = await getDocs(cursor
+                    ? query(...base, startAfter(cursor), limit(PAGE_SIZE))
+                    : query(...base, limit(PAGE_SIZE)));
+                // Dedupe by id. A ticket written DURING the paging sorts to the
+                // top of a desc order and is simply missed until the next
+                // refresh, which is harmless -- but a document that shifts the
+                // other way could be returned twice, and a duplicated ticket is
+                // double-counted revenue. Cheap insurance on a sum.
+                for (const d of snap.docs) {
+                    if (seen.has(d.id)) continue;
+                    seen.add(d.id);
+                    out.push(d);
+                }
+                if (snap.docs.length < PAGE_SIZE) break;      // last page
+                if (out.length >= HARD_CAP) { truncated = true; break; }
+                cursor = snap.docs[snap.docs.length - 1];
+            }
+            return { docs: out, truncated };
+        }
+
+        // True when a read stopped at HARD_CAP. renderPaymentHistory() puts it
+        // on the page; see the note in readAllDocs about never truncating in
+        // silence.
+        let paymentsTruncated = false;
+
         async function loadPayments() {
             try {
-                const [subSnap, tkSnap] = await Promise.all([
-                    getDocs(query(collection(db, 'payments'), orderBy('paidAt', 'desc'), limit(200))).catch(() => ({ docs: [] })),
-                    getDocs(query(collection(db, 'tickets'), orderBy('createdAt', 'desc'), limit(200))).catch(() => ({ docs: [] })),
+                // Documents MISSING the order field are excluded by Firestore
+                // from an orderBy query altogether -- true of the capped read
+                // this replaced too, so it is not a new blind spot, but it is
+                // the reason a ticket with no createdAt would never appear.
+                const [subRes, tkRes] = await Promise.all([
+                    readAllDocs('payments', 'paidAt').catch(() => ({ docs: [], truncated: false })),
+                    readAllDocs('tickets', 'createdAt').catch(() => ({ docs: [], truncated: false })),
                 ]);
-                const subs = subSnap.docs.map(d => ({ id: d.id, _type: 'subscription', ...d.data() }));
-                const allTix = tkSnap.docs.map(d => ({ id: d.id, _type: 'ticket', ...d.data() }));
+                paymentsTruncated = subRes.truncated || tkRes.truncated;
+                const subs = subRes.docs.map(d => ({ id: d.id, _type: 'subscription', ...d.data() }));
+                const allTix = tkRes.docs.map(d => ({ id: d.id, _type: 'ticket', ...d.data() }));
                 const tickets = allTix.filter(t => t.status === 'confirmed');
                 // Separate list, NOT merged into allPayments: the P&L and the
                 // revenue KPIs read allPayments and trust that every row in it
@@ -5989,6 +6052,7 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             } catch (e) {
                 allPayments = [];
                 refundedPayments = [];
+                paymentsTruncated = false;
             }
         }
 
@@ -6261,13 +6325,18 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
         }
 
         // ─── Trend window ──────────────────────────────────
-        // loadPayments() caps at the 200 newest tickets, which is fine for the
-        // "all time" totals it feeds but WRONG as a basis for date-windowed
-        // charts: once 200 tickets sell inside the window the oldest days
-        // silently flatten to zero and every trend reads as a collapse.
-        // This is a separate, date-bounded read instead — a range filter on the
-        // same field it's ordered by, so it needs no composite index (same
-        // shape as city.html's upcoming-events query).
+        // A separate, date-bounded read: a range filter on the same field it's
+        // ordered by, so it needs no composite index (same shape as city.html's
+        // upcoming-events query).
+        //
+        // This existed because loadPayments() capped at the 200 newest tickets,
+        // which silently flattened the oldest days of any window once 200
+        // tickets sold inside it. That cap is gone (loadPayments pages the
+        // collection now), so the two reads overlap and trendTickets could be
+        // derived from allPayments instead of read again. Left as its own read
+        // deliberately: it is bounded by DATE rather than by count, so it stays
+        // one small query as the collection grows, and the charts keep a source
+        // that cannot be affected by anything the all-time read does.
         const TREND_DAYS = 60;
         let trendTickets = [];
 
@@ -6718,11 +6787,10 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             // reads allPayments, which is what the P&L and every other
             // all-time number on this page already uses.
             //
-            // allPayments is itself capped, at the 200 most recent tickets. That
-            // covers the current 102 and is the same limit the P&L lives with,
-            // so this panel agrees with the rest of the page rather than being
-            // separately wrong -- but past 200 tickets both understate together,
-            // and this comment is where to start looking.
+            // allPayments is the COMPLETE ticket list as of 2026-09-10 --
+            // loadPayments() pages the collection instead of taking the 200
+            // newest, so this panel and the P&L no longer understate together
+            // once the collection outgrows a single page.
             const paidFor = (t) => !t.isComp;
             if (allTime) {
                 allPayments.forEach(t => {
@@ -7833,6 +7901,17 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 note.textContent = total
                     ? `Tickets + subscriptions · newest first · ${total} shown, scroll for more`
                     : 'Tickets + subscriptions · newest first';
+                // The read is unbounded in practice, but if it ever stops at
+                // HARD_CAP every all-time figure on this page is a floor rather
+                // than a total, and the reader has to be told. A truncation
+                // nobody can see is the bug that made this whole change
+                // necessary.
+                if (paymentsTruncated) {
+                    note.textContent += ` · READ STOPPED AT ${HARD_CAP.toLocaleString()} DOCUMENTS — every all-time total below is a floor, not a total`;
+                    note.style.color = 'var(--coral)';
+                } else {
+                    note.style.color = '';
+                }
             }
             if (allPayments.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" class="empty">No payments yet.</td></tr>';
