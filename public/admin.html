@@ -1625,7 +1625,7 @@
                  these are the supporting read. They sit inside Overview rather
                  than above the tab panes so every other section opens on its own
                  content — Revenue already carries the five detail KPIs (Active
-                 Subs, Ticket Revenue, Rev/Buyer, LTV, LTV:CAC) that were split
+                 Subs, Ticket Revenue, Rev/Ticket, Lifetime Rev/Buyer, LTV:CAC) that were split
                  off this grid. Every id below is still populated by renderKPIs(),
                  so no metric stopped being calculated. -->
             <div class="kpi-grid kpi-grid-4">
@@ -1649,7 +1649,7 @@
                     <div class="kpi-label">Blended CAC</div>
                     <div class="kpi-value" id="kpiCAC">—</div>
                     <div class="kpi-foot">
-                        <span class="kpi-delta" id="kpiCACTrend">All acquisition ÷ new buyers</span>
+                        <span class="kpi-delta" id="kpiCACTrend">All acquisition ÷ paying buyers</span>
                         <span class="kpi-spark" id="sparkCac"></span>
                     </div>
                 </div>
@@ -1857,17 +1857,17 @@
                 <div class="kpi-card">
                     <div class="kpi-label">Ticket Revenue</div>
                     <div class="kpi-value" id="kpiMRR">—</div>
-                    <div class="kpi-foot"><span class="kpi-delta" id="kpiMRRTrend">All confirmed tickets</span></div>
+                    <div class="kpi-foot"><span class="kpi-delta" id="kpiMRRTrend">Paid tickets only</span></div>
                 </div>
                 <div class="kpi-card">
-                    <div class="kpi-label">Revenue Per Buyer</div>
-                    <div class="kpi-value" id="kpiARPU">—</div>
-                    <div class="kpi-foot"><span class="kpi-delta">Ticket rev / unique buyer</span></div>
+                    <div class="kpi-label">Revenue / Ticket</div>
+                    <div class="kpi-value" id="kpiRevPerTicket">—</div>
+                    <div class="kpi-foot"><span class="kpi-delta" id="kpiRevPerTicketTrend">Ticket rev ÷ paid tickets</span></div>
                 </div>
                 <div class="kpi-card">
-                    <div class="kpi-label">Est. LTV</div>
+                    <div class="kpi-label">Lifetime Rev / Buyer</div>
                     <div class="kpi-value" id="kpiLTV">—</div>
-                    <div class="kpi-foot"><span class="kpi-delta" id="kpiLTVTrend">Rev/buyer × avg events</span></div>
+                    <div class="kpi-foot"><span class="kpi-delta" id="kpiLTVTrend">Rev/ticket × tickets/buyer</span></div>
                 </div>
                 <div class="kpi-card">
                     <div class="kpi-label">LTV : CAC</div>
@@ -6813,11 +6813,11 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             // pace then headcount, with Active Subscriptions last.
             const cards = [
                 // — Revenue —
-                ['Ticket Revenue', money(k.ticketRevenue), `${k.paidTickets} paid`],
+                ['Ticket Revenue', money(k.ticketRevenue), `${k.paidTickets} paid` + (k.freeSeats ? ` · ${k.freeSeats} free` : '')],
                 ['Net Revenue', money(k.netRevenue), 'After fees + spend'],
-                ['Revenue / Buyer', money(k.arpu), `${k.uniqueBuyers} buyers`],
-                ['Est. LTV', money(k.ltv), `${k.avgEvents.toFixed(1)} events/buyer`],
-                ['Blended CAC', k.cac > 0 ? money(k.cac) : '—', `${money(k.totalAcquisition)} spend`],
+                ['Revenue / Ticket', k.paidTickets ? money(k.revPerTicket) : '—', `${k.paidTickets} paid tickets`],
+                ['Lifetime Rev / Buyer', k.payingBuyers ? money(k.ltv) : '—', `${k.ticketsPerBuyer.toFixed(2)} tickets × ${k.payingBuyers} buyers`],
+                ['Blended CAC', k.cac > 0 ? money(k.cac) : '—', `${money(k.totalAcquisition)} ÷ ${k.payingBuyers} buyers`],
                 ['LTV : CAC', k.ltvCac === '—' ? '—' : `${k.ltvCac}:1`, 'Target 3:1+'],
                 // — Operational —
                 ['Ticket Velocity', k.velocity, k.velocityNote],
@@ -6831,7 +6831,10 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                     <div class="kpi-foot"><span class="kpi-delta">${safe(String(note))}</span></div>
                 </div>`).join('');
 
-            // Tickets by event — paid tickets only, biggest first.
+            // Tickets by event — every non-comp seat, free-tier and plus-ones
+            // included, biggest first. This is a HEADCOUNT bar: those seats fill
+            // the room even though they carry no money, so it deliberately does
+            // not use the amount > 0 definition the revenue KPIs use.
             const bars = document.getElementById('reportEventBars');
             if (bars) {
                 const counts = {};
@@ -7070,6 +7073,80 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
         }
 
         // ─── KPI Calculations ──────────────────────────────
+        // The ticket arithmetic behind the revenue KPIs, CAC and LTV:CAC.
+        // Pure — ticket docs and the acquisition total in, numbers out — so
+        // tests/admin-kpis.test.js can lift it by name and assert against the
+        // SHIPPED code. `amount` is in cents, as stored.
+        //
+        // Three definitions in here were wrong until 2026-09-10; see
+        // reports/ADMIN_DASHBOARD_METRICS_REVIEW_2026-09-10.md, MECHANISM.
+        //
+        // PAID meant "not comped". 29 of 133 such tickets carried amount 0 —
+        //   21 Eventbrite free-tier, 7 two-for-one plus-ones, 1 manual import —
+        //   and were counted as paid tickets, their holders as buyers. Paid now
+        //   means money changed hands: amount > 0. The $0 seats are counted on
+        //   their own instead, because the free women's tier and the 2-for-1
+        //   are deliberate pricing decisions worth watching, not noise.
+        //
+        // CAC divided by buyers holding exactly ONE ticket. Every buyer was
+        //   acquired exactly once, so dropping the repeaters made CAC RISE as
+        //   retention improved — the inverse of what the number is for. It
+        //   divides by unique paying buyers now.
+        //
+        // LTV was arpu × max(ticketsPerBuyer, 1.5), and arpu is already
+        //   revenue ÷ unique buyers — lifetime-to-date spend with repeats
+        //   included. Multiplying it by tickets-per-buyer counted every repeat
+        //   twice, and the 1.5 floor applied a 50% uplift no cohort had earned
+        //   (measured 1.27). It is revenue per paid ticket × paid tickets per
+        //   paying buyer now: both measured, no floor, and the same lifetime
+        //   figure arpu already was. arpu is still returned and still equals
+        //   it — the card shows the two factors instead, because those are what
+        //   move it.
+        //
+        // Comps are excluded from revenue AND from every denominator. They are
+        // normally $0 so that usually changes nothing — but a comp saved with a
+        // price (a partial make-good, a fat finger) counted in revenue while
+        // its holder was excluded from the buyers would silently inflate the
+        // per-buyer figures. Excluding it in both places keeps the ratio honest
+        // either way. Comped and free seats still appear on the roster and in
+        // headcount, which read event_registrations and are untouched by this.
+        function ticketKpis(tickets, totalAcquisition) {
+            const cents = (p) => Number(p.amount) || 0;
+            const nonComp = tickets.filter(p => !p.isComp);
+            const compCount = tickets.length - nonComp.length;
+            const paid = nonComp.filter(p => cents(p) > 0);
+            const free = nonComp.filter(p => cents(p) <= 0);
+            const plusOneSeats = free.filter(p => p.isPlusOne).length;
+            const freeTierSeats = free.length - plusOneSeats;
+            const ticketRevenue = paid.reduce((s, p) => s + cents(p), 0) / 100;
+
+            // Unique paying buyers by email, and how many paid tickets each holds.
+            const perBuyer = {};
+            paid.forEach(p => {
+                const em = (p.email || '').toLowerCase().trim();
+                if (em) perBuyer[em] = (perBuyer[em] || 0) + 1;
+            });
+            const buyerCounts = Object.values(perBuyer);
+            const payingBuyers = buyerCounts.length;
+            const repeatBuyers = buyerCounts.filter(n => n >= 2).length;
+            const ticketsPerBuyer = payingBuyers
+                ? buyerCounts.reduce((s, n) => s + n, 0) / payingBuyers
+                : 0;
+
+            const revPerTicket = paid.length ? ticketRevenue / paid.length : 0;
+            const arpu = payingBuyers ? ticketRevenue / payingBuyers : 0;
+            const ltv = revPerTicket * ticketsPerBuyer;
+            const cac = payingBuyers > 0 ? totalAcquisition / payingBuyers : 0;
+            const ltvCac = cac > 0 ? (ltv / cac).toFixed(1) : '—';
+
+            return {
+                ticketRevenue, paidTickets: paid.length, freeSeats: free.length,
+                freeTierSeats, plusOneSeats, compCount,
+                payingBuyers, repeatBuyers, revPerTicket, ticketsPerBuyer,
+                arpu, ltv, cac, ltvCac,
+            };
+        }
+
         function renderKPIs() {
             // ── Member counts ────────────────────────────────
             const total = allUsers.length;
@@ -7085,46 +7162,13 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             document.getElementById('kpiActive').textContent = active.toLocaleString();
             document.getElementById('kpiActiveTrend').textContent = `${total > 0 ? Math.round(active/total*100) : 0}% of total`;
 
-            // ── Ticket revenue (allPayments populated after loadPayments) ──
-            // Comps are excluded from revenue as well as from the buyer counts
-            // below. They're normally $0 so this usually changes nothing — but if
-            // a comp is ever saved with a price (a partial make-good, a fat
-            // finger), counting it here while excluding its buyer from the
-            // denominator would silently inflate ARPU. Excluding it in BOTH
-            // places keeps the ratio honest either way.
-            const tickets = allPayments.filter(p => p._type === 'ticket');
-            const ticketRevenue = tickets
-                .filter(p => !p.isComp)
-                .reduce((s, p) => s + (Number(p.amount) || 0), 0) / 100;
-
-            // Unique buyers by email
-            // Comped seats (+1s, freebies, make-goods) are real ATTENDEES but not
-            // BUYERS, so every per-buyer figure below is computed on paid tickets
-            // only. Counting them would drag ARPU down toward zero and — worse —
-            // pad the first-time-buyer denominator CAC divides by, making
-            // acquisition look cheaper the more seats you give away.
-            // They still appear on the roster and in headcount, which read from
-            // event_registrations and are untouched by this.
-            const paidTickets = tickets.filter(p => !p.isComp);
-            const compCount = tickets.length - paidTickets.length;
-            const buyerEmails = new Set(paidTickets.map(p => (p.email || '').toLowerCase()).filter(Boolean));
-            const uniqueBuyers = buyerEmails.size;
-            const arpu = uniqueBuyers > 0 ? ticketRevenue / uniqueBuyers : 0;
-
-            // Avg events per buyer — count confirmed PAID tickets per email
-            const ticketsPerBuyer = {};
-            paidTickets.forEach(p => {
-                const em = (p.email || '').toLowerCase();
-                if (em) ticketsPerBuyer[em] = (ticketsPerBuyer[em] || 0) + 1;
-            });
-            const buyerCounts = Object.values(ticketsPerBuyer);
-            const avgEvents = buyerCounts.length
-                ? buyerCounts.reduce((s, n) => s + n, 0) / buyerCounts.length
-                : 1.5;
-            const ltv = arpu * Math.max(avgEvents, 1.5);
-
-            // ── CAC ──────────────────────────────────────────
-            // This used to divide FACEBOOK SPEND ALONE by first-time buyers,
+            // ── Ticket arithmetic ────────────────────────────
+            // All of it lives in ticketKpis() above — one pure function, so
+            // tests/admin-kpis.test.js can lift the SHIPPED code and run it
+            // against a fixture. Acquisition spend is summed first because
+            // CAC needs it.
+            //
+            // CAC used to divide FACEBOOK SPEND ALONE by first-time buyers,
             // which understated cost and therefore overstated LTV:CAC — the 3:1
             // badge could read green while the real ratio was below target. With
             // three channels running, every paid route in has to be in here:
@@ -7138,9 +7182,12 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             const totalAcqRecurring = Object.keys(allRecurring)
                 .reduce((s, mk) => s + recurringTotal(allRecurring[mk], true), 0);
             const totalAcquisition = totalAdSpend + totalAcqRecurring;
-            const firstTimers = buyerCounts.filter(n => n === 1).length;
-            const cac = firstTimers > 0 ? totalAcquisition / firstTimers : 0;
-            const ltvCac = cac > 0 ? (ltv / cac).toFixed(1) : '—';
+
+            const tickets = allPayments.filter(p => p._type === 'ticket');
+            const kpiTickets = ticketKpis(tickets, totalAcquisition);
+            const { ticketRevenue, paidTickets, freeSeats, freeTierSeats, plusOneSeats,
+                    compCount, payingBuyers, repeatBuyers, revPerTicket, ticketsPerBuyer,
+                    arpu, ltv, cac, ltvCac } = kpiTickets;
 
             // Net revenue: ticket revenue − every cost class.
             const totalEbFees = allEvents.reduce((s, e) => {
@@ -7155,13 +7202,44 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             const netRevenue = ticketRevenue - totalAcquisition - totalEbFees - totalOtherCosts
                              - (totalRecurring - totalAcqRecurring);
 
+            // Free seats are counted on their own line rather than folded into
+            // "paid": the free women's tier and the two-for-one are pricing
+            // decisions, and each has to be watchable on its own.
+            const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+            const seatBreakdown =
+                `${plural(paidTickets, 'paid ticket')} (money changed hands) from ${plural(payingBuyers, 'unique paying buyer')}`
+                + ` · ${plural(freeTierSeats, 'free-tier seat')} · ${plural(plusOneSeats, 'two-for-one plus-one')}`
+                + ` · ${plural(compCount, 'comp')}. Revenue and every per-buyer figure count paid tickets only.`;
             document.getElementById('kpiMRR').textContent = '$' + ticketRevenue.toFixed(2);
-            document.getElementById('kpiMRRTrend').textContent =
-                `${paidTickets.length} paid · ${uniqueBuyers} buyers` + (compCount ? ` · ${compCount} comp` : '');
+            const mrrTrendEl = document.getElementById('kpiMRRTrend');
+            mrrTrendEl.textContent =
+                `${paidTickets} paid · ${payingBuyers} buyers`
+                + (freeSeats ? ` · ${freeSeats} free` : '')
+                + (compCount ? ` · ${compCount} comp` : '');
+            mrrTrendEl.title = seatBreakdown;
             document.getElementById('kpiARR').textContent = '$' + netRevenue.toFixed(2);
-            document.getElementById('kpiARPU').textContent = '$' + arpu.toFixed(2);
-            document.getElementById('kpiLTV').textContent = '$' + ltv.toFixed(2);
-            document.getElementById('kpiLTVTrend').textContent = `${avgEvents.toFixed(1)} avg events/buyer`;
+
+            // Revenue per PAID seat — the price actually realised once early
+            // bird and discounts are netted out, with the $0 seats out of the
+            // denominator instead of dragging it down.
+            document.getElementById('kpiRevPerTicket').textContent = paidTickets ? '$' + revPerTicket.toFixed(2) : '—';
+            const rptTrendEl = document.getElementById('kpiRevPerTicketTrend');
+            if (rptTrendEl) {
+                rptTrendEl.textContent = `÷ ${plural(paidTickets, 'paid ticket')}`;
+                rptTrendEl.title = `${money(ticketRevenue)} ticket revenue ÷ ${plural(paidTickets, 'paid ticket')}. `
+                    + `${plural(freeSeats, '$0 seat')} (free tier + plus-ones) are not in the denominator.`;
+            }
+
+            // Lifetime revenue per buyer, MEASURED — what a buyer has paid us
+            // to date, shown as the two factors that move it. No projection and
+            // no floor: this is not a forecast.
+            document.getElementById('kpiLTV').textContent = payingBuyers ? '$' + ltv.toFixed(2) : '—';
+            const ltvTrendEl = document.getElementById('kpiLTVTrend');
+            ltvTrendEl.textContent = `$${revPerTicket.toFixed(2)}/ticket × ${ticketsPerBuyer.toFixed(2)}`;
+            ltvTrendEl.title = `${money(revPerTicket)} per paid ticket × ${ticketsPerBuyer.toFixed(2)} paid tickets per paying buyer `
+                + `(measured — ${plural(repeatBuyers, 'repeat buyer')} of ${payingBuyers}). Lifetime revenue per buyer TO DATE: `
+                + `it rises only when buyers actually come back, and it is what LTV:CAC divides.`;
+
             document.getElementById('kpiCAC').textContent = cac > 0 ? '$' + cac.toFixed(2) : 'No spend yet';
             // Show what's actually IN the CAC figure. The old label only ever said
             // "FB spend", which is exactly the assumption that made the number
@@ -7172,8 +7250,9 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
             const cacTrendEl = document.getElementById('kpiCACTrend');
             if (cacTrendEl) {
                 if (totalAcquisition > 0) {
-                    cacTrendEl.textContent = `÷ ${firstTimers} first-timer${firstTimers === 1 ? '' : 's'}`;
-                    cacTrendEl.title = `${money(totalAcquisition)} total acquisition spend ÷ ${firstTimers} first-time buyer${firstTimers === 1 ? '' : 's'}`;
+                    cacTrendEl.textContent = `÷ ${plural(payingBuyers, 'paying buyer')}`;
+                    cacTrendEl.title = `${money(totalAcquisition)} total acquisition spend ÷ ${plural(payingBuyers, 'unique paying buyer')}. `
+                        + `Every buyer was acquired once, so repeat buyers stay in the denominator; $0 seats never enter it.`;
                 } else {
                     cacTrendEl.textContent = 'No spend entered';
                     cacTrendEl.title = 'Enter ad spend on an event, or a monthly recurring cost';
@@ -7256,8 +7335,14 @@ marked INTRO and listed first. The rest are covered by the seating and are here 
                 members: total,
                 membersTrend: document.getElementById('kpiMembersTrend')?.textContent || '',
                 active,
-                ticketRevenue, netRevenue, arpu, ltv, cac, ltvCac, avgEvents,
-                uniqueBuyers, paidTickets: paidTickets.length,
+                ticketRevenue, netRevenue, arpu, ltv, cac, ltvCac,
+                // avgEvents and uniqueBuyers keep their names so anything
+                // reading the snapshot still works, but both changed meaning on
+                // 2026-09-10: avgEvents is paid tickets per PAYING buyer, and
+                // uniqueBuyers counts only buyers who paid money.
+                avgEvents: ticketsPerBuyer, uniqueBuyers: payingBuyers,
+                paidTickets, freeSeats, freeTierSeats, plusOneSeats, compCount,
+                payingBuyers, repeatBuyers, revPerTicket, ticketsPerBuyer,
                 totalAcquisition, totalEbFees, totalOtherCosts,
                 nonAcqRecurring: totalRecurring - totalAcqRecurring,
                 velocity: velocities.length ? avgVelocity.toFixed(1) + '/day' : '—',
