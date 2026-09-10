@@ -36,6 +36,38 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **A match email Resend refuses is now visible on the `matches` doc, but still
+  nothing re-sends it.** (09-10, #492) `resend.emails.send()` RESOLVES with
+  `{ error }` on a 4xx/5xx rather than throwing, so `notifyMatch` in
+  `api/declare-connection.js` logged `match notified` for mail that never went
+  out — behind an idempotency lock it had already claimed, so nothing would ever
+  retry. That is the highest-value email SparkDate sends. It now reads each send
+  result and records `notified` true/false plus `notifyError` on
+  `matches/{eventId}_{sortedPair}`. **The lock deliberately still PRECEDES the
+  send** — it closes the race between both directions of a mutual pick landing at
+  once, and `handleUnpick` reads the same doc to refuse an undo once contact info
+  is out, so a lock that only appeared on success would let someone unpick a real
+  match. **Next step: query `matches` for `notified == false` carrying a
+  `notifyError`. A non-empty result means those two people were told they matched
+  and never learned who — the fix is a re-send sweep, and nothing does it
+  today.** Same PR: the six silent `else { skipped++; }` branches in
+  `api/cron-send-emails.js` now log and count rejections separately (`rejected:`
+  in the `Cron complete` line), so a run being refused stops reading like a run
+  with nothing to send.
+
+- **TikTok legs are not publishing at all, and a separate chat owns it as of
+  09-10 — do not fix it here, and do not re-raise it with Taylor.**
+  `TIKTOK_ACCESS_TOKEN` is unset in `.github/workflows/social-publish.yml`, so
+  every TikTok surface hits `SKIP -- no token configured` on every run. Measured
+  against `content/queue.csv` at `c87f8e2a`: 18 of 48 rows list `tiktok`, **11
+  are already past their slot with the TikTok half never sent**, and 7 are still
+  ahead — LX-17 (09-12), LX-18 (09-14), LX-19 (09-15), LX-20 (09-16), LX-22
+  (09-19), LX-23 (09-20), all `approved`, plus LX-27 (09-23) which is `pending`
+  for the separate reason two entries below. They were approved expecting three
+  surfaces and are getting two. **Next step: none in this repo — Taylor said on
+  09-10 that TikTok is being handled in another session.** Recorded so the next
+  chat does not spend a round rediscovering it and proposing the fix again.
+
 - **TL2 (Tellus AfterDark, Oct 6) is LIVE on Eventbrite and Nextdoor; three
   things about it still need a human.** (09-09) Eventbrite
   `2000197587829` is On Sale, 0/30, tiers copied from Loxleys
