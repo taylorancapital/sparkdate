@@ -32,10 +32,11 @@ const {
 // Captured 2026-09-11 from the live endpoints, trimmed.
 const CAMPAIGNS_PAYLOAD = JSON.stringify({
   body: {
+    // As on the live payload: status is on the ad, and the campaign carries none.
     campaigns: [
-      { organization_id: 3002470694486, goal: 'CLICKS', name: "Sparkdate: The Loxley's Social", id: 474251, status: 1,
+      { organization_id: 3002470694486, goal: 'CLICKS', name: "Sparkdate: The Loxley's Social", id: 474251,
         ads: [{ event_id: 1997508062386, start_date: '2026-08-30T14:12:19', end_date: '2026-09-23T03:58:59', budget_amount: 2, id: 474251, status: 1 }] },
-      { organization_id: 3002470694486, goal: 'CLICKS', name: 'SparkDate: Real People, Real Drinks, Real Court', id: 475400, status: 3,
+      { organization_id: 3002470694486, goal: 'CLICKS', name: 'SparkDate: Real People, Real Drinks, Real Court', id: 475400,
         ads: [{ event_id: 1997508475622, start_date: '2026-09-02T00:00:00', end_date: '2026-09-09T02:05:23', budget_amount: 7, id: 475400, status: 3 }] },
     ],
   },
@@ -72,11 +73,17 @@ describe('unwrap', () => {
 });
 
 describe('parseCampaigns', () => {
-  it('reads id, name, goal, status and each ad with its Eventbrite event id as a string', () => {
+  it('reads id, name, goal and each ad with its Eventbrite event id as a string', () => {
     const c = parseCampaigns(CAMPAIGNS_PAYLOAD);
     expect(c).toHaveLength(2);
-    expect(c[0]).toMatchObject({ id: 474251, goal: 'CLICKS', status: 1 });
+    expect(c[0]).toMatchObject({ id: 474251, goal: 'CLICKS' });
     expect(c[0].ads[0]).toMatchObject({ id: 474251, eventId: '1997508062386', budget: 2 });
+  });
+  it("takes status from the ad when the campaign carries none (the live shape), so a live campaign is not printed as ended", () => {
+    const c = parseCampaigns(CAMPAIGNS_PAYLOAD);
+    expect(c[0].status).toBe(1);
+    expect(c[1].status).toBe(3);
+    expect(parseCampaigns('{"body":{"campaigns":[{"id":1,"name":"x","status":3,"ads":[{"id":1,"status":1}]}]}}')[0].status).toBe(3);
   });
   it('yields an empty list for an unexpected payload', () => {
     expect(parseCampaigns('{"body":{}}')).toEqual([]);

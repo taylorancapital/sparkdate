@@ -36,8 +36,21 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **Eventbrite Ads spend sync is built and untested against the live site;
-  three hand steps stand between it and the first nightly run.** (09-11)
+- **Eventbrite Ads spend sync is built and its browser half is verified
+  against the live site; the Firestore write is the one step not yet
+  exercised, and two hand steps stand between it and the first nightly
+  run.** (09-11) Verified the same evening from a worktree: the one-time
+  `--login` worked once passkey prompts were suppressed (Eventbrite's passkey
+  sign-in wedges an automation-controlled Chrome; use the email code), and a
+  headless `--days=all --verify` read all 13 campaigns and printed $436.30 /
+  556 clicks / 21 attributed tickets / $20.78 per ticket against the
+  report's $436.11 / 556 / 21 / $20.77, the difference being the 17 cents
+  Loxleys spent that day. The signed-in profile at
+  `%LOCALAPPDATA%\SparkDate\eventbrite-ads-profile` therefore already exists
+  on this machine; step (2) below is done unless the login has expired. The
+  dry run's `events` read failed only because the main checkout's
+  `firebase-admin` is half-installed (see next paragraph), so attribution
+  per event has been unit-tested but not seen live.
   Why: Eventbrite Ads has run on every event since June (13 campaigns,
   $436.11, 21 attributed tickets by 09-11) and none of it reached `ad_spend`
   or the dashboard's cost per ticket; the internal endpoints that feed the
@@ -51,16 +64,16 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   CLAUDE.md bullet. **Next steps, in order, in the main checkout after the PR
   merges: (1) `git pull` then `npm install` — this also repairs the
   half-installed `@google-cloud/firestore` that broke `firebase-admin` there
-  on 09-11; (2) `npm run ads:eventbrite-login` and sign in as the organizer
-  in the Chrome window that opens; (3) `node scripts/sync-eventbrite-ads-spend.js
-  --days=all --verify` and check it prints $436.11 / 556 clicks / 21 tickets
-  (plus whatever Loxleys has added since); (4) `--days=all --execute` once for
-  the backfill, then confirm the admin Ads tab shows Eventbrite rows and the
-  per-event cost per ticket moved; (5) let the 02:00 run take it from there
-  and read `Night Tasks/logs/<date>.log` the next morning.** Untested risks
-  the first live run will settle: whether headless Chrome with the profile is
-  served the JSON the way the headed session was, and whether the persistent
-  login survives a headless launch. Delete this entry once a nightly log shows
+  on 09-11; (2) only if `--verify` reports the login expired: `npm run
+  ads:eventbrite-login` and sign in with the EMAIL CODE, not the passkey;
+  (3) `node scripts/sync-eventbrite-ads-spend.js --days=all --verify` and
+  check it prints about $436 / 556 clicks / 21 tickets plus Loxleys' growth;
+  (4) `--days=all --execute` once for the backfill, then confirm the admin
+  Ads tab shows `eb:` campaign rows and each event's cost per ticket moved;
+  (5) let the 02:00 run take it from there and read
+  `Night Tasks/logs/<date>.log` the next morning.** Settled by the live
+  check: headless Chrome with the profile is served the JSON, and the login
+  survives a headless launch. Delete this entry once a nightly log shows
   "Eventbrite Ads spend written".
 
 - **The server-side GA4 purchase is merged (#531) and its secret validates;

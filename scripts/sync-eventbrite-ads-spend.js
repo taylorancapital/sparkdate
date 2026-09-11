@@ -145,11 +145,19 @@ function unwrap(payload) {
 function parseCampaigns(payload) {
   const v = unwrap(payload);
   const list = v && Array.isArray(v.campaigns) ? v.campaigns : [];
+  // Status lives on the AD (1 live, 3 ended), not on the campaign object; the
+  // live payload has no campaign-level status at all. Take the campaign's if
+  // one ever appears, else the first ad's.
+  const statusOf = (c) => {
+    if (c.status != null) return Number(c.status);
+    const a = (c.ads || []).find((x) => x && x.status != null);
+    return a ? Number(a.status) : null;
+  };
   return list.map((c) => ({
     id: Number(c.id),
     name: String(c.name || '(unnamed)'),
     goal: c.goal || null,
-    status: c.status != null ? Number(c.status) : null,
+    status: statusOf(c),
     ads: (c.ads || []).map((a) => ({
       id: Number(a.id),
       eventId: a.event_id != null ? String(a.event_id) : null,
