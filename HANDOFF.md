@@ -355,7 +355,11 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   can go out even if the rest slips. (2) Export the five fact frames in both
   shapes from the regenerated LX sheets into `SourceArt`, run
   `python scripts/prep-social-assets.py --rebuild`, keep only those ten JPEGs,
-  and merge that PR. (3) Once it is deployed, a second PR removes the five `fb`
+  and merge that PR. If TL2 exports are already in `SourceArt` by then, wait
+  until prep's fix for TL2 row keys is on main (#526 has the dry run): before
+  it, a `--rebuild` hands TL2's art to posted row TL-02, whose short key `tl2`
+  matches every TL2 filename (09-11). (3) Once it is deployed, a second PR
+  removes the five `fb`
   ids; within 15 minutes the publisher re-schedules them with the new images.**
   Clear the ids before the deploy and it re-schedules the old images; clear them
   before deleting and Facebook gets duplicates.
