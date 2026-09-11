@@ -403,27 +403,33 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
     [[check-for-existing-system-first]] — this is that failure exactly, and it
     cost a proposal to build something that shipped months ago. *(09-08)*
 
-- **§8.3 vs the women-only 2-for-1 — REVIEWED 09-10 at Taylor's ask; the
-  decision is still his.** `reports/TWO_FOR_ONE_TO_EVERYONE_2026-09-10.md`.
-  His question: *if we advertise it to all people do we get more women?* Answer
-  from the account's own delivery data: no. Every broad cold sales cell spent
-  60–68% on men; a women-locked cell lands 2.7× the women per dollar at the same
-  cost per woman ($1.64 vs $1.61); men click the 2-for-1 creative at close to
-  women's rate (83–96%, no detectable difference on 2,317 impressions) and
-  produced its only attributed purchase; the +1 mirrors the buyer 7/7 (09-08
-  Firestore figure, quoted; exact lower bound 59%). Report §7 weighs each
-  finding: the CPM direction is solid (21 of 22 ads), the magnitudes rest on
-  4 cells, and no passive data can separate creative from targeting — only
-  option B's test can. Recommends a carve-out (report §6, option
-  A): one women-locked cold ad set, gender expansion off, as the only home for
-  the 2-for-1; retargeting stays broad; §8.3 points 2 and 4 retired. Option B is
-  an A/B if he wants it measured rather than ruled. **Nothing changed** — no §8,
-  `brand.json` or live ad set edit. Firestore was NOT re-read (the production
-  env pull was blocked in-session). **Next step: Taylor picks A or B. Then ONE
-  PR: rewrite §8.3, fix `brand.json` `_no_gender_axis` (it says the female ad
-  set "no longer exists" — it is live), and add the assertion to
-  `scripts/meta-ads-review.js` that a 2-for-1 ad with women's share of spend
-  under 97% fails loudly.** *(09-10)*
+- **§8.3 vs the women-only 2-for-1 — DECIDED 09-10: option A, the carve-out.
+  The rule is rewritten; nothing BUILDS the cell yet.** Review:
+  `reports/TWO_FOR_ONE_TO_EVERYONE_2026-09-10.md` (every broad cold sales cell
+  spent 60–68% on men; a women-locked cell lands 2.7× the women per dollar at
+  the same $/woman; the +1 mirrors the buyer 7/7 — §7 there weighs each
+  finding). Taylor picked A. Done in the same PR as this entry: §8.3 of
+  `reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md` now says one women-locked
+  cold ad set, gender expansion off, is the only home for the 2-for-1
+  creative; retargeting stays broad; old points 2 and 4 retired with reasons.
+  `brand.json` `playbook_v2._gender_rule`, `roles[cold].targeting` and
+  `creative._no_gender_axis` say the same (the 09-06 note calling the female
+  ad set "gone" was wrong — it was live throughout). `npm run ads:review` has a
+  "2-for-1 delivery and gender expansion" section and exits 3 when a 2-for-1
+  ad still delivering has under 97% of spend on women or an ACTIVE ad set
+  carries `individual_setting.gender = 1`; the two archived 2026-08 leaks are
+  listed without failing the run (`tests/meta-ads-two-for-one-delivery.test.js`).
+  **Not done:** `scripts/build-paid-campaign.js` still builds one broad ad set
+  per role and asserts `genders` undefined, and `playbook_v2.creative` has no
+  2-for-1 creative — the cell is built by hand on the
+  `meta-create-lx-sales-campaign.js` pattern until then. Loxleys' live
+  `female | Sales` set already IS the cell; its `male | Sales` set is the one
+  that no longer matches. **Next step: add the cell to the builder — a third
+  ad set inside `<Event> | Cold`, `genders:[2]`, expansion off, its own ABO
+  budget ≥ $2.00/day out of the cold share — plus a `two_for_one` creative
+  entry keyed to it with a `gender: women` axis, and tests. Firestore side of
+  the review was never re-read (env pull blocked); refresh the 7/7 and
+  5-of-9 vs 2-of-13 figures after Loxleys 09-22.** *(09-10)*
 
 - **Loxleys retargeting went LIVE 09-08 — first spend since the shell was created
   2026-08-17. Three things to check, then it retires with the event.**
