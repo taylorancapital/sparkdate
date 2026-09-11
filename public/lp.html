@@ -1504,7 +1504,13 @@
               // Meta's cookies, carried so the server-side Purchase event from
               // the Stripe webhook can match the browser one.
               fbp: (typeof spdCookie === 'function' ? spdCookie('_fbp') : null),
-              fbc: (typeof spdCookie === 'function' ? spdCookie('_fbc') : null) };
+              fbc: (typeof spdCookie === 'function' ? spdCookie('_fbc') : null),
+              // GA4's cookies, same reason: the server-side purchase sent from
+              // the Stripe webhook (lib/ga4-mp.js) needs the client and session
+              // ids to land on this session and dedupe against the browser
+              // copy. Raw values; the server parses them.
+              ga: (typeof spdCookie === 'function' ? spdCookie('_ga') : null),
+              gas: (typeof spdCookie === 'function' ? spdCookie('_ga_21YLCC35F1') : null) };
             var res = await fetch('/api/purchase-ticket', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             var result = await res.json();
             if (!res.ok) throw new Error(result.error || 'Payment failed');

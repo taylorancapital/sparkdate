@@ -189,6 +189,30 @@ Eventbrite and Meetup imports fire no analytics at all. A large share of real
 revenue is invisible to GA4 by construction. **The admin dashboard is revenue
 truth; GA4 is not.** A GA4 revenue figure is a floor, not a total.
 
+**And own-site revenue was browser-only until 2026-09-11.** GA4's `purchase`
+fired only from the buyer's browser, so a buyer whose browser never ran the
+tag was a real Stripe sale GA4 never saw. On 2026-09-08 that was both of the
+day's sales, GA4 read $0, and the nightly called the checkout dead
+(`GA4_ANALYSIS_2026-09-11.md`, CORRECTION). Since 2026-09-11 the Stripe
+webhook also sends `purchase` server-side through the Measurement Protocol
+(`lib/ga4-mp.js`), the way Meta has had a CAPI copy since August. Read it
+this way:
+
+- Browser and server copies share `transaction_id` (the PaymentIntent id)
+  and, when the checkout captured the buyer's `_ga` cookie, the same
+  `client_id`, so GA4 counts one transaction when both arrive.
+- A sale whose ONLY copy is the server one (browser tag blocked or dropped)
+  carries `client_id_source = derived` and no `session_id`: it appears in
+  transactions and revenue but under no source/medium, and it is a "user"
+  with no session. Do not read a rise in `(not set)` source revenue as a
+  tagging defect; it is the sales the browser used to lose.
+- `send_path = server` on the event splits the two copies, once registered
+  as an event-scoped custom dimension.
+- It does nothing until `GA4_MP_API_SECRET` is set in the Vercel production
+  env. Before that date, and before the secret, GA4 transactions remain a
+  browser-only floor. **Never write a zero-sales headline from GA4 alone;
+  Firestore `tickets` is the check** (see the 09-11 correction's DECISION).
+
 ## 8. An event's name can lie about what it measures
 
 `ads_conversion_About_Us_1` does **not** fire on an About Us page. Its GA4

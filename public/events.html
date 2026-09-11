@@ -2770,7 +2770,14 @@
                         // on Stripe's servers with no browser to read them
                         // from -- this is the only chance to capture them.
                         fbp: (typeof spdCookie === 'function' ? spdCookie('_fbp') : null),
-                        fbc: (typeof spdCookie === 'function' ? spdCookie('_fbc') : null) };
+                        fbc: (typeof spdCookie === 'function' ? spdCookie('_fbc') : null),
+                        // GA4's cookies, same reason: the server-side purchase
+                        // sent from the Stripe webhook (lib/ga4-mp.js) needs
+                        // the client and session ids to land on this session
+                        // and dedupe against the browser copy. Raw values;
+                        // the server parses them.
+                        ga: (typeof spdCookie === 'function' ? spdCookie('_ga') : null),
+                        gas: (typeof spdCookie === 'function' ? spdCookie('_ga_21YLCC35F1') : null) };
                 } else {
                     const { paymentMethod, error: stripeError } = await stripeModal.createPaymentMethod({
                         type: 'card', card: cardElementModal, billing_details: { name, email, phone: phone || undefined }
@@ -2802,7 +2809,14 @@
                         // on Stripe's servers with no browser to read them
                         // from -- this is the only chance to capture them.
                         fbp: (typeof spdCookie === 'function' ? spdCookie('_fbp') : null),
-                        fbc: (typeof spdCookie === 'function' ? spdCookie('_fbc') : null) };
+                        fbc: (typeof spdCookie === 'function' ? spdCookie('_fbc') : null),
+                        // GA4's cookies, same reason: the server-side purchase
+                        // sent from the Stripe webhook (lib/ga4-mp.js) needs
+                        // the client and session ids to land on this session
+                        // and dedupe against the browser copy. Raw values;
+                        // the server parses them.
+                        ga: (typeof spdCookie === 'function' ? spdCookie('_ga') : null),
+                        gas: (typeof spdCookie === 'function' ? spdCookie('_ga_21YLCC35F1') : null) };
                 }
 
                 const headers = { 'Content-Type': 'application/json' };

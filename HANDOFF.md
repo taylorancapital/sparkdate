@@ -36,6 +36,32 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **The server-side GA4 purchase is built and does nothing until Taylor
+  creates the API secret — three steps, all his.** (09-11) Why: two real
+  Stripe sales on 09-08 produced no GA4 hit and the nightly (#528) called the
+  checkout dead; GA4 `purchase` was browser-only while Meta had a CAPI copy.
+  What landed: `lib/ga4-mp.js` (Measurement Protocol sender, fail-soft, same
+  shape as `lib/meta-capi.js`), a call from `api/stripe-webhook.js` on
+  `payment_intent.succeeded` keyed on the PaymentIntent id as
+  `transaction_id`, the three checkout pages forwarding `_ga` /
+  `_ga_21YLCC35F1` next to fbp/fbc, `api/purchase-ticket.js` storing them as
+  `gaClientId` / `gaSessionId` on the ticket doc, `tests/ga4-mp.test.js`, and
+  a structural check in `tests/attribution-wiring.test.js`. **Next steps, in
+  order: (1) GA4 Admin → Data streams → the sparkdate.date web stream →
+  Measurement Protocol API secrets → Create, copy the value; (2) Vercel →
+  project → Settings → Environment Variables → `GA4_MP_API_SECRET`,
+  Production, then redeploy (env changes do not apply to the running
+  deployment); (3) `GA4_MP_API_SECRET=<secret> node scripts/ga4-mp-validate.js`
+  — posts one synthetic purchase to GA4's DEBUG endpoint, records nothing,
+  and must print `validationMessages: []`.** Then, after the next own-site
+  sale, the nightly should show a GA4 transaction on the same day as the
+  Firestore ticket; that is the first real proof, and the dedupe against the
+  browser copy (same `transaction_id` + `client_id`) has been reasoned from
+  GA4's documentation, not yet observed. Optional afterwards: register
+  `send_path` and `client_id_source` as event-scoped custom dimensions in GA4
+  Admin so reports can split server copies from browser copies. Delete this
+  entry once a server-sent purchase has been seen in GA4.
+
 - **TikTok organic is now plumbed but has NO CREDENTIALS — the remaining half
   is Taylor's and cannot be done by a machine.** (09-10) Confirmed by
   `gh secret list`: of ten repo secrets, none is TikTok, so

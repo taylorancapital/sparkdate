@@ -27,6 +27,7 @@ const { seatFields, effectivePrice } = require('../lib/seat-model');
 const { makeProfileUrl } = require('../lib/profile-link');
 const { sameEmailIdentity } = require('../lib/email-identity');
 const { normalizeAttribution, toStripeMetadata, channelOf } = require('../lib/attribution');
+const { parseGaCookies } = require('../lib/ga4-mp');
 const { EMAIL_FROM, EMAIL_REPLY_TO } = require('../lib/email-sender');
 const { hasGender } = require('../lib/eventbrite');
 const { isEventOver } = require('../lib/next-event');
@@ -532,9 +533,18 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { paymentMethodId, email, name, phone, gender, eventId, ref, attribution, fbp, fbc } = req.body || {};
+    const { paymentMethodId, email, name, phone, gender, eventId, ref, attribution, fbp, fbc, ga, gas } = req.body || {};
     // Untrusted -- length-capped and key-restricted before it touches Firestore.
     const attr = normalizeAttribution(attribution);
+    // GA4's own cookies (_ga, _ga_<container>), raw from the browser. Parsed
+    // here into the two ids the Measurement Protocol needs, so the ticket doc
+    // carries clean values and the webhook never sees the raw cookie. Either
+    // parses to null when absent or malformed; the sender then derives a
+    // client id from the PaymentIntent instead. See lib/ga4-mp.js.
+    const { clientId: gaClientId, sessionId: gaSessionId } = parseGaCookies({
+      ga: typeof ga === 'string' ? ga.slice(0, 100) : null,
+      gas: typeof gas === 'string' ? gas.slice(0, 200) : null,
+    });
     let firebaseUid = null;
 
     // ── Basic input validation ─────────────────────────────────────
@@ -890,6 +900,11 @@ module.exports = async function handler(req, res) {
       // like every other browser-supplied field; see lib/attribution.js.
       fbp: typeof fbp === 'string' ? fbp.slice(0, 100) : null,
       fbc: typeof fbc === 'string' ? fbc.slice(0, 200) : null,
+      // GA4's ids, same reason as fbp/fbc above: the server-side purchase
+      // that stripe-webhook sends through lib/ga4-mp.js needs them to land
+      // on this buyer's session and to dedupe against the browser copy.
+      gaClientId: gaClientId || null,
+      gaSessionId: gaSessionId || null,
       createdAt: FieldValue.serverTimestamp(),
     });
     batch.set(regRef, {

@@ -7,6 +7,8 @@ const { seatFields } = require('../lib/seat-model');
 // the Spark trial, the profile magic link, and a nurture-lead row (audit P1).
 const { enrollGuestAsMember, recordLead } = require('./purchase-ticket');
 const { sendMetaEvent } = require('../lib/meta-capi');
+const { sendGa4Purchase } = require('../lib/ga4-mp');
+const { SERVICE_FEE_CENTS } = require('../lib/pricing');
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const db = admin.firestore();
@@ -169,9 +171,15 @@ module.exports = async function handler(req, res) {
       case 'payment_intent.succeeded': {
         const pi = event.data.object;
         if (pi.metadata?.type !== 'ticket') break;
+        // No limit(1): a 2-for-1 writes TWO ticket docs for one PaymentIntent,
+        // the buyer's and a $0 `isPlusOne` companion, and only the buyer's
+        // carries fbp/fbc and the GA ids captured at checkout. With limit(1)
+        // whichever doc Firestore returned first fed the CAPI Purchase, so a
+        // 2-for-1 could send Meta a Purchase with no match signals at all.
         const ticketSnap = await db.collection('tickets')
-          .where('paymentIntentId', '==', pi.id).limit(1).get();
-        const ticketData = !ticketSnap.empty ? ticketSnap.docs[0].data() : null;
+          .where('paymentIntentId', '==', pi.id).get();
+        const partyTickets = ticketSnap.docs.map((d) => d.data());
+        const ticketData = partyTickets.find((t) => !t.isPlusOne) || partyTickets[0] || null;
 
         // Atomically flip pending_3ds/pending → confirmed. Only the txn that
         // WINS the flip should trigger guest enrollment, so a non-3DS echo
@@ -256,6 +264,35 @@ module.exports = async function handler(req, res) {
               value: (pi.amount_received || pi.amount || 0) / 100,
               currency: (pi.currency || 'usd').toUpperCase(),
             },
+          });
+
+          // GA4 purchase, server-side. GA4 had only the browser copy, and on
+          // 2026-09-08 two real sales produced no GA4 hit at all, so the
+          // nightly read a dead checkout (GA4_ANALYSIS_2026-09-11.md,
+          // CORRECTION). Same transaction_id as the browser copy (the
+          // PaymentIntent id) and, when the buyer's _ga cookie was captured,
+          // the same client_id, so GA4 counts one transaction when both
+          // arrive. Value mirrors the browser copy: the charge including the
+          // service fee, with items priced per seat net of the fee so
+          // price x quantity stays the ticket revenue actually collected.
+          // Fail-soft like the CAPI call above; never 500s the webhook.
+          const value = (pi.amount_received || pi.amount || 0) / 100;
+          const seats = Math.max(1, partyTickets.length);
+          const ticketNet = Math.max(0, value - SERVICE_FEE_CENTS / 100);
+          await sendGa4Purchase({
+            transactionId: pi.id,
+            value,
+            currency: (pi.currency || 'usd').toUpperCase(),
+            items: [{
+              item_id: ticketData.eventId,
+              item_name: ticketData.eventName || 'SparkDate event',
+              price: parseFloat((ticketNet / seats).toFixed(2)),
+              quantity: seats,
+            }],
+            clientId: ticketData.gaClientId || undefined,
+            sessionId: ticketData.gaSessionId || undefined,
+            userId: ticketData.firebaseUid || undefined,
+            timestampMicros: pi.created ? pi.created * 1e6 : undefined,
           });
         }
         break;
