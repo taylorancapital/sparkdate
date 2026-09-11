@@ -32,6 +32,22 @@
  * image + Story" one feed frame plus one story frame. Two story frames is the
  * shape lib/social-publish.js refuses on Facebook (MC-12, LX-24).
  *
+ * THIS IS ALSO THE PROJECT SETUP -- THERE IS NO SEPARATE ONE
+ *
+ * scripts/design-project-setup.js was a one-time "set up the Design project"
+ * brief: brand system, templates, rules and export spec, then a single post.
+ * That is the shape described above, and by 2026-09-10 it had gone stale
+ * against everything it restated: the old Inter and coral-card look, "28"
+ * still banned (brand.json lifted that on 08-22), an
+ * approved_stat.proposed_revision brand.json never had (printed as
+ * "undefined"), a run of show with a standalone icebreaker and a quoted
+ * duration, and a slide planner of its own that disagreed with
+ * framesForRow() -- coral-gradient closing slide, no `_tt` twins. It was
+ * retired, not repaired. Paste this brief as the first message of a new
+ * Design project; the look block is the setup. A copy survives on the
+ * unmerged branch claude/no-approve-without-art, where #315 found it once
+ * already -- do not land it again.
+ *
  * Usage:
  *   node scripts/design-handoff.js --events=TL2 --out=handoff.md
  *   node scripts/design-handoff.js --events=LX,MC
