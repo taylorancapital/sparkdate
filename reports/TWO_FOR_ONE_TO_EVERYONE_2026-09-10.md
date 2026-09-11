@@ -16,13 +16,16 @@ measurements say so, and none of them depends on the others:
    **2.7× as many women per dollar** (6.1 vs 2.3 per $10). Broad does not find
    cheaper women. It finds fewer women and spends the rest on men.
 2. **The creative does not filter.** The two times 2-for-1 copy reached men
-   ($45.61 of $510.41 lifetime 2-for-1 spend), men clicked it at the same rate
-   as women (3.1% vs 3.7%; 8.4% vs 7.9%). On the Good Good cell the men produced
-   3 checkouts and the account's only Meta-attributed 2-for-1 purchase; the
-   women produced 0. "Bring your girl" does not stop a man tapping it.
+   ($45.61 of $510.41 lifetime 2-for-1 spend), men clicked it at close to
+   women's rate: 83% and 96% of women's link-click rate, no detectable
+   difference on 2,317 male impressions (p = 0.6 and 0.8). That rules out
+   "bring your girl" repelling men; it does not rule out men clicking a fifth
+   less. On the Good Good cell the men produced 3 checkouts and the account's
+   only Meta-attributed 2-for-1 purchase; the women produced 0. Those two
+   counts are anecdotes, not rates.
 3. **The +1 mirrors the buyer.** 7 of 7 plus-ones in account history matched the
    buyer's gender (measured against Firestore 2026-09-08, not re-read today —
-   see §7). A man who takes the 2-for-1 brings a man.
+   see §8). A man who takes the 2-for-1 brings a man.
 
 So "advertise it to all" pushes the room the wrong way twice: fewer women see
 it, and the men who act on it arrive in pairs.
@@ -31,13 +34,13 @@ The honest limit is in §5: on this account, *copy and targeting are perfectly
 entangled* — every 2-for-1 ad ran women-locked, every broad ad ran social-proof
 copy — so the account can say who a broad ad set **reaches** (measured, above)
 but cannot cleanly separate which creative **converts** women. The reach answer
-is the one the question asked.
+is the one the question asked. §7 says how much weight each finding bears.
 
 Source for every Meta figure: `node scripts/meta-ads-review.js`, pulled
 2026-09-10 22:53 UTC, 49 ads, 44 with delivery, lifetime window. Gender rows
 reconciled to totals within 2% on every ad (the script's own check). Grouping
 is by **delivered** gender split, not the targeting label, because Meta returns
-current targeting, not historical (§7).
+current targeting, not historical (§8).
 
 ## Four numbers
 
@@ -74,9 +77,11 @@ lands **23 women and 36 men**.
 
 The traffic "both" group is contaminated: eight of its thirteen ads are
 labelled `women` in current targeting and delivered 57–65% women, which reads
-as an ad set that was broad for part of its life and women-locked later (§7).
+as an ad set that was broad for part of its life and women-locked later (§8).
 The sales table has no such ads — its four broad cells are labelled `all`,
-`men+women`, or carry the gender-expansion flag — so it is the clean one.
+`men+women`, or carry the gender-expansion flag — so it is the clean one. The
+seven traffic cells whose label is genuinely broad ran 30–62% women, a wider
+band than the sales cells' 32–40%.
 
 **All cold, all objectives:** women-only 24.1 women's LPV per $10 (14 ads,
 $423.29); both 11.0 (17 ads, $557.40); ratio **2.2×**.
@@ -109,34 +114,41 @@ cell still spent 62.5% of its money on men.
 Every 2-for-1 ad on the account (16 ads, $510.41) ran in a women-targeted ad
 set. Men saw it twice anyway, for $45.61:
 
-| Cell | Gender | Spend | Impr | CTR | LPV | $/LPV | Checkouts | Purchases |
-|---|---|--:|--:|--:|--:|--:|--:|--:|
-| Good Good "Sales Obj Women" — *"Bring your girl — 2-for-1"*, expansion on | men | $39.60 | 1,566 | 3.13% | 22 | $1.80 | **3** | **1** |
-| | women | $20.96 | 603 | 3.65% | 14 | $1.50 | 0 | 0 |
-| Landing Page Event 3 Women — *"You + a friend … 2-for-1 this week only"* | men | $6.01 | 751 | **8.39%** | 48 | $0.13 | 0 | 0 |
-| | women | $19.20 | 1,654 | 7.86% | 115 | $0.17 | 5 | 0 |
+| Cell | Gender | Spend | Impr | CTR (all clicks) | Link-click rate | LPV | $/LPV | Checkouts | Purchases |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|
+| Good Good "Sales Obj Women" — *"Bring your girl — 2-for-1"*, expansion on | men | $39.60 | 1,566 | 3.13% | 1.66% | 22 | $1.80 | **3** | **1** |
+| | women | $20.96 | 603 | 3.65% | 1.99% | 14 | $1.50 | 0 | 0 |
+| Landing Page Event 3 Women — *"You + a friend … 2-for-1 this week only"* | men | $6.01 | 751 | 8.39% | 7.06% | 48 | $0.13 | 0 | 0 |
+| | women | $19.20 | 1,654 | 7.86% | 7.32% | 115 | $0.17 | 5 | 0 |
 
-Men click a "bring your girl" ad as readily as women do, and on the Good Good
-cell they were the only ones who got to checkout. The Good Good room finished
-16 men to 4 ticketed women, and both of its 2-for-1 seats were men
-(`good-good-was-19-to-1`). The one Meta-attributed 2-for-1 purchase in account
-history is a man's.
+On link clicks, men ran at 83% of women's rate on the Good Good cell (p = 0.6)
+and 96% on the Event 3 cell (p = 0.8). On 2,317 male impressions that is
+enough to rule out the creative repelling men, and not enough to rule out men
+clicking 20–30% less. Do not pool the two cells: Good Good is low-rate and
+mostly men, Event 3 high-rate and mostly women, so a pooled rate reads as a
+gender gap that neither cell shows.
+
+Men click a "bring your girl" ad at close to women's rate, and on the Good Good
+cell they were the only ones who got to checkout (3 to 0, an anecdote at that
+size). The Good Good room finished 16 men to 4 ticketed women, and both of its
+2-for-1 seats were men (`good-good-was-19-to-1`). The one Meta-attributed
+2-for-1 purchase in account history is a man's.
 
 ## §4 MECHANISM — why it comes out this way
 
 **The auction.** Inside a broad ad set a woman's impression costs 46% more than
 a man's ($32.42 vs $22.26 CPM, cold sales; $9.05 vs $7.54 on traffic).
 Optimising for the cheapest outcome, Meta spends where impressions are cheap.
-Every broad cold cell on this account landed at 60–68% men. Gender restriction
-does not make a woman cheaper — cost per woman's LPV is $1.64 locked vs $1.61
-broad — it stops the money leaking to the cheaper half.
+Every broad cold sales cell on this account landed at 60–68% men. Gender
+restriction does not make a woman cheaper — cost per woman's LPV is $1.64
+locked vs $1.61 broad — it stops the money leaking to the cheaper half.
 
 **The audience ceiling is not binding.** A women-only ad set halves the
 reachable pool (985k–1.2M broad vs 493k–580k women, `delivery_estimate`,
 09-08). The largest women-only cell the account has run reached 5,411 people
 at frequency 1.86. Nothing here is close to exhausting half a million.
 
-**The offer duplicates whoever takes it.** Firestore, 2026-09-08 (§7 — quoted,
+**The offer duplicates whoever takes it.** Firestore, 2026-09-08 (§8 — quoted,
 not re-read today): 7 of 7 plus-ones matched the buyer's gender; women took the
 offer 5 of 9 times, men 2 of 13 (Fisher p = 0.074, n = 22); paid tickets run
 75 men to 26 women. An ad set that puts the 2-for-1 in front of 60% men is
@@ -208,7 +220,39 @@ already ignoring. Not recommended.
 live ad set, budget or creative was touched. This report is the review; the
 rewrite is one PR once Taylor picks A or B.
 
-## §7 NOT VERIFIED — what I did not check
+## §7 EVIDENCE WEIGHT — how much each finding bears
+
+Asked 09-10: *how thorough is this, and do we need a large dataset?* Computed
+over the same pull.
+
+| Finding | Rests on | How solid | What more data would change |
+|---|---|---|---|
+| A broad ad set spends ~63% on men | Women's CPM is above men's in **21 of 22** ads where both genders were served (sign test p ≈ 1 × 10⁻⁵; median ratio 1.30). Four broad sales cells, 7,309 impressions, women got 22–32% of impressions in every cell | **Direction: the strongest thing here.** Magnitude: 4 cells from 3 campaigns | Two or three more broad cells pin the share within ~5 points. 55–70% men is the plausible band |
+| 2.7× women per dollar | Arithmetic on that share, given equal cost per woman ($1.64 vs $1.61) | "Equal cost" is a coincidence of two 4-ad averages. Per cell: $0.61–$2.25 locked, $1.34–$1.64 mixed | Anywhere from 2× to 4× with more cells. Not near 1× unless the CPM finding reverses |
+| Men click the 2-for-1 at close to women's rate | Two cells, 2,317 male impressions. Within each cell men ran at 83% and 96% of women's link-click rate, p = 0.6 and 0.8 | Rules out men being repelled. Cannot rule out men clicking 20–30% less. The 3-to-0 checkouts and the one purchase are anecdotes | Both cells are Philadelphia; a Lancaster cell would help more than a bigger Philadelphia one |
+| The +1 mirrors the buyer, 7 of 7 | 7 pairs, Firestore 09-08 | Rules out a coin flip (p = 0.008). Exact 95% lower bound on the mirror rate is **59%**. The prior — close friends are mostly same-gender — does most of the work | 14 of 14 lifts the bound to 80%. Every event adds pairs for free |
+
+**Precision is not the problem; cell count is.** Each broad cell has thousands
+of impressions, so its own gender share is known within a point. What is small
+is the number of cells and the number of events they come from, which is what
+leaves the finding open to "Philadelphia was different". The same-event pairs
+in §2 carry more weight than the pooled table for that reason.
+
+**No amount of observational data answers the conversion question.** The
+account has never run the 2-for-1 creative in a broad ad set and will not by
+accident, so passive data can only ever compare "locked with 2-for-1 copy"
+against "broad with social-proof copy". Only the designed test in §6 option B
+separates those, and it does so in one event for roughly $100–$200 on the broad
+cell. The purchase half is worse: 26 paid women's tickets in the account's
+history and 6 Meta-attributed purchases ever. No purchase-level comparison
+reaches significance at this volume for a long time, which is why this report
+argues from reach and mechanism rather than sales.
+
+**In practice:** bullet 1 is safe to act on today; bullet 3 is safe to act on
+because prior and data agree; bullet 2 is a "the creative is not a filter"
+claim and should not be leaned on harder than that.
+
+## §8 NOT VERIFIED — what I did not check
 
 - **Firestore was not re-read today.** The production credential pull
   (`vercel env pull --environment=production`) was blocked by this session's
@@ -236,6 +280,7 @@ rewrite is one PR once Taylor picks A or B.
   ad. The 09-02 case where it did not (a 105% women's share) closed within a
   day; a clean run is not proof it stays clean.
 - **Eventbrite's own 2-for-1 tier** is outside all of this.
-- The working tables (T1–T6) are the output of a throwaway classifier over the
-  review JSON, kept in the session scratchpad, not the repo. The review script
-  itself regenerates the underlying data in one command.
+- The working tables (T1–T6) and the §7 statistics are the output of two
+  throwaway scripts over the review JSON, kept in the session scratchpad, not
+  the repo. The review script itself regenerates the underlying data in one
+  command.
