@@ -408,9 +408,13 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   His question: *if we advertise it to all people do we get more women?* Answer
   from the account's own delivery data: no. Every broad cold sales cell spent
   60–68% on men; a women-locked cell lands 2.7× the women per dollar at the same
-  cost per woman ($1.64 vs $1.61); men click the 2-for-1 creative as readily as
-  women and produced its only attributed purchase; the +1 mirrors the buyer 7/7
-  (09-08 Firestore figure, quoted). Recommends a carve-out (report §6, option
+  cost per woman ($1.64 vs $1.61); men click the 2-for-1 creative at close to
+  women's rate (83–96%, no detectable difference on 2,317 impressions) and
+  produced its only attributed purchase; the +1 mirrors the buyer 7/7 (09-08
+  Firestore figure, quoted; exact lower bound 59%). Report §7 weighs each
+  finding: the CPM direction is solid (21 of 22 ads), the magnitudes rest on
+  4 cells, and no passive data can separate creative from targeting — only
+  option B's test can. Recommends a carve-out (report §6, option
   A): one women-locked cold ad set, gender expansion off, as the only home for
   the 2-for-1; retargeting stays broad; §8.3 points 2 and 4 retired. Option B is
   an A/B if he wants it measured rather than ruled. **Nothing changed** — no §8,
