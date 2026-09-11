@@ -205,6 +205,52 @@ if ($AnalysisOnly) {
         Log "WARN (ga4): pull threw '$_'. Continuing -- this does not block the review."
     }
 
+    # ── Step 2b: Eventbrite Ads spend and attributed sales ──────────────────
+    # Eventbrite Ads has run on every event since June 2026 and none of its
+    # spend reached ad_spend or the dashboard's cost per ticket until this step
+    # (reports/CHANNEL_ALTERNATIVES_2026-09-11.md, CORRECTION 2). Eventbrite has
+    # no ads API; the organizer dashboard's own JSON endpoints answer a signed-in
+    # browser session and nothing else, so the script drives the installed
+    # Chrome through a persistent profile that a human signs into ONCE:
+    #
+    #     node scripts\sync-eventbrite-ads-spend.js --login
+    #
+    # When that login expires the script exits 3, this step logs the repair, and
+    # the night carries on. Same pull-file rule as steps 1 and 2 for the CSV;
+    # the Firestore write is idempotent per day and always runs.
+    try {
+        $ebProfile = if ($env:EVENTBRITE_ADS_PROFILE_DIR) { $env:EVENTBRITE_ADS_PROFILE_DIR } else { Join-Path $env:LOCALAPPDATA "SparkDate\eventbrite-ads-profile" }
+        if (-not (Test-Path $ebProfile)) {
+            Log "SKIP (eventbrite-ads): no signed-in Chrome profile at '$ebProfile'. Run once by hand: node scripts\sync-eventbrite-ads-spend.js --login"
+        } elseif (-not $env:GOOGLE_APPLICATION_CREDENTIALS) {
+            Log "SKIP (eventbrite-ads): GOOGLE_APPLICATION_CREDENTIALS is not set for this user -- the ad_spend write needs it."
+        } else {
+            $ebArgs = @("scripts\sync-eventbrite-ads-spend.js", "--execute")
+            if ($Force -or -not (Test-Path (Join-Path $NightTasks "eventbrite-ads-$Today.csv"))) {
+                $ebArgs += "--csv"
+            } else {
+                Log "eventbrite-ads-$Today.csv already exists -- keeping the day's first pull; syncing Firestore only. Re-run with -Force to replace it."
+            }
+            Log "Syncing Eventbrite Ads spend (last 30 days)..."
+            Push-Location $RepoPath
+            try {
+                $ebOutput = & node @ebArgs 2>&1
+                Write-ProcessOutputToLog $ebOutput
+                if ($LASTEXITCODE -eq 0) {
+                    Log "Eventbrite Ads spend written to ad_spend (and Night Tasks when the CSV ran)."
+                } elseif ($LASTEXITCODE -eq 3) {
+                    Log "WARN (eventbrite-ads): the Eventbrite login has expired. Repair by hand: node scripts\sync-eventbrite-ads-spend.js --login. Continuing."
+                } else {
+                    Log "WARN (eventbrite-ads): sync-eventbrite-ads-spend.js exited $LASTEXITCODE -- see output above. Continuing."
+                }
+            } finally {
+                Pop-Location
+            }
+        }
+    } catch {
+        Log "WARN (eventbrite-ads): sync threw '$_'. Continuing -- this does not block the review."
+    }
+
     # ── Step 3: refresh the paid-UTM map in the campaign workbook ──────────
     # Writes a "Paid Ad UTMs" sheet mapping every utm_content back to the ad, ad
     # set, campaign and creative carrying it, and reports any two SERVING ads that

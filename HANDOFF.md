@@ -36,6 +36,33 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
+- **Eventbrite Ads spend sync is built and untested against the live site;
+  three hand steps stand between it and the first nightly run.** (09-11)
+  Why: Eventbrite Ads has run on every event since June (13 campaigns,
+  $436.11, 21 attributed tickets by 09-11) and none of it reached `ad_spend`
+  or the dashboard's cost per ticket; the internal endpoints that feed the
+  organizer dashboard refuse the OAuth token, so the sync drives the installed
+  Chrome through a persistent signed-in profile. What landed:
+  `scripts/sync-eventbrite-ads-spend.js` (pure parsers + grouping unit-tested
+  in `tests/eventbrite-ads-spend.test.js`; the browser and Firestore halves
+  are not), `playwright-core` as a devDependency, `npm run
+  ads:eventbrite-login` / `ads:eventbrite-spend`, Step 2b in
+  `run-nightly-claude-code.ps1` (non-fatal, exit 3 = login expired), and a
+  CLAUDE.md bullet. **Next steps, in order, in the main checkout after the PR
+  merges: (1) `git pull` then `npm install` — this also repairs the
+  half-installed `@google-cloud/firestore` that broke `firebase-admin` there
+  on 09-11; (2) `npm run ads:eventbrite-login` and sign in as the organizer
+  in the Chrome window that opens; (3) `node scripts/sync-eventbrite-ads-spend.js
+  --days=all --verify` and check it prints $436.11 / 556 clicks / 21 tickets
+  (plus whatever Loxleys has added since); (4) `--days=all --execute` once for
+  the backfill, then confirm the admin Ads tab shows Eventbrite rows and the
+  per-event cost per ticket moved; (5) let the 02:00 run take it from there
+  and read `Night Tasks/logs/<date>.log` the next morning.** Untested risks
+  the first live run will settle: whether headless Chrome with the profile is
+  served the JSON the way the headed session was, and whether the persistent
+  login survives a headless launch. Delete this entry once a nightly log shows
+  "Eventbrite Ads spend written".
+
 - **The server-side GA4 purchase is merged (#531) and its secret validates;
   one step is unconfirmed — that the secret is in Vercel and the live
   deployment was built after it.** (09-11) Why it exists: two real Stripe
