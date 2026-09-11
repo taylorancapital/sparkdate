@@ -32,6 +32,16 @@
  * "Gender rows vs totals" section names every ad where the two disagree. No
  * figure is corrected and no share is rescaled; the disagreement is the output.
  *
+ * Asserts the one gender rule playbook_v2 keeps (report section 8.3, rewritten
+ * 2026-09-10): every delivered ad carrying a 2-for-1 phrase spent at least 97%
+ * of its known-gender money on women, and no ACTIVE ad set has Advantage+
+ * gender expansion on. The "2-for-1 delivery and gender expansion" section
+ * lists every leak ever, and the process exits 3 when a leak is STILL
+ * DELIVERING (an ACTIVE ad, or spend in the last 7 days) or any expansion flag
+ * is on -- so a live fault cannot be silent, while the two archived 2026-08
+ * leaks stay on the record without failing every run forever. A written rule
+ * did not catch the $63.73 Good Good leak; this would have.
+ *
  * Usage:
  *   node scripts/meta-ads-review.js                    # writes build/meta-ads-review-<date>.{json,md}
  *   node scripts/meta-ads-review.js --md=path --json=path
@@ -49,6 +59,16 @@ const path = require('path');
 
 const GRAPH_VERSION = 'v21.0';
 const TOKEN = process.env.META_ADS_ACCESS_TOKEN || process.env.META_CAPI_ACCESS_TOKEN;
+
+// The 2-for-1 copy rule has one owner, content/brand.json. The words that may
+// only run in the women-locked cell are read from there, never retyped here.
+const BRAND = require(path.join(__dirname, '..', 'content', 'brand.json'));
+const TWO_FOR_ONE_PHRASES = BRAND.paid_template.caption_rules.banned_outside_female_ad_set;
+// Below this women's share of lifetime spend, a 2-for-1 ad has reached men. A
+// women-locked ad set with expansion off holds 100.0% on this account, every
+// time (reports/TWO_FOR_ONE_TO_EVERYONE_2026-09-10.md); 97% leaves room for
+// Meta's "unknown" bucket and rounding, not for delivery to men.
+const TWO_FOR_ONE_WOMEN_SHARE = 0.97;
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => {
@@ -303,7 +323,80 @@ function targetingSummary(t) {
     excluded_audiences: excluded,
     platforms: t.publisher_platforms || [],
     advantage_audience: t.targeting_automation ? t.targeting_automation.advantage_audience : undefined,
+    // Advantage+ gender EXPANSION -- a separate field from advantage_audience,
+    // and the one that overrides `genders: [2]`. 1 means Meta may serve a
+    // women-only ad set to men; Good Good "Sale Obj Women" delivered 64% to men
+    // through exactly this flag (memory gender-expansion-serves-men).
+    gender_expansion: t.targeting_automation && t.targeting_automation.individual_setting
+      ? t.targeting_automation.individual_setting.gender
+      : undefined,
   };
+}
+
+// The one gender-restricted ad set playbook_v2 permits (report section 8.3,
+// rewritten 2026-09-10): the 2-for-1 creative runs ONLY in a women-locked cold
+// ad set with gender expansion off; everything else is broad. This is the
+// check for it, because the written rule did not catch the $63.73 Good Good
+// leak -- a "women" ad set that delivered 64% to men through the expansion
+// flag while carrying "Bring your girl -- 2-for-1".
+//
+// Two assertions over the records the review already holds:
+//   1. every DELIVERED ad whose copy carries a 2-for-1 phrase spent at least
+//      TWO_FOR_ONE_WOMEN_SHARE of its known-gender money on women;
+//   2. no ad set that is currently ACTIVE carries gender expansion = 1.
+// Neither corrects anything. Every leak is listed; main() exits 3 only when a
+// leak is STILL DELIVERING (`live`) or an expansion flag is on -- the same
+// shape as budget-ladder's UNGOVERNED, so a live miss cannot be silent while
+// the archived Good Good cell does not fail every run for the rest of time.
+function carriesTwoForOne(creative, phrases = TWO_FOR_ONE_PHRASES) {
+  if (!creative) return false;
+  const text = [creative.primary_text, creative.headline, creative.description]
+    .concat((creative.cards || []).flatMap((c) => [c.headline, c.description]))
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return phrases.some((p) => text.includes(String(p).toLowerCase()));
+}
+
+function twoForOneDelivery(records, { phrases = TWO_FOR_ONE_PHRASES, threshold = TWO_FOR_ONE_WOMEN_SHARE } = {}) {
+  const out = [];
+  for (const r of records) {
+    if (!r.delivered || !r.lifetime || !carriesTwoForOne(r.creative, phrases)) continue;
+    const g = r.by_gender || {};
+    const women = g.female ? g.female.spend : 0;
+    const men = g.male ? g.male.spend : 0;
+    const known = women + men;
+    if (!known) continue; // nothing attributable to either gender yet
+    const share = women / known;
+    out.push({
+      id: r.id,
+      name: r.name,
+      adset: r.adset ? r.adset.name : null,
+      spend: r.lifetime.spend,
+      women_spend: women,
+      men_spend: men,
+      women_share: share,
+      ok: share >= threshold,
+      // Still moving money: an ACTIVE ad, or one that spent in the last 7
+      // days. A historical leak is listed for the record; only a live one
+      // fails the run, otherwise Good Good's archived cell would fail it forever.
+      live: r.effective_status === 'ACTIVE' || (r.spend_last_7d || 0) > 0,
+    });
+  }
+  return out;
+}
+
+function genderExpansionOn(records) {
+  const seen = new Set();
+  const out = [];
+  for (const r of records) {
+    if (!r.adset || r.adset.status !== 'ACTIVE') continue;
+    if (!r.adset.targeting || r.adset.targeting.gender_expansion !== 1) continue;
+    if (seen.has(r.adset.id)) continue;
+    seen.add(r.adset.id);
+    out.push({ adset_id: r.adset.id, adset: r.adset.name, targets: r.adset.targeting.gender });
+  }
+  return out;
 }
 
 function utmsOf(text) {
@@ -450,6 +543,44 @@ async function main() {
   }
   md.push('');
 
+  // The one gender rule the playbook keeps (report section 8.3, 2026-09-10):
+  // the 2-for-1 creative runs only in a women-locked ad set with expansion
+  // off. Anything listed here has already reached men.
+  const twoForOne = twoForOneDelivery(records);
+  const leaked = twoForOne.filter((x) => !x.ok);
+  const liveLeaks = leaked.filter((x) => x.live);
+  const expanded = genderExpansionOn(records);
+  md.push('## 2-for-1 delivery and gender expansion');
+  md.push('');
+  if (!twoForOne.length) {
+    md.push('No delivered ad carries a 2-for-1 phrase (`caption_rules.banned_outside_female_ad_set`).');
+  } else if (!leaked.length) {
+    md.push(`Every delivered 2-for-1 ad (${twoForOne.length}) spent at least ${pct(TWO_FOR_ONE_WOMEN_SHARE * 100)} of its known-gender money on women. ` +
+      'The carve-out in report section 8.3 is holding.');
+  } else {
+    md.push(`**${leaked.length} of ${twoForOne.length} delivered 2-for-1 ads reached men` +
+      (liveLeaks.length ? `, ${liveLeaks.length} of them still delivering.**` : '. None is still delivering; this is the record, not a live fault.**') +
+      ' The 2-for-1 creative may run only in a women-locked ad set with gender expansion off (report section 8.3): ' +
+      'the offer mirrors whoever takes it, and a man shown it brings a man.');
+    md.push('');
+    md.push('| Ad | Ad set | Spend | To women | To men | Women\'s share | Still delivering |');
+    md.push('|---|---|---:|---:|---:|---:|---|');
+    for (const x of leaked) {
+      md.push(`| ${q(x.name)} | ${q(x.adset)} | ${money(x.spend)} | ${money(x.women_spend)} | ${money(x.men_spend)} | ${pct(x.women_share * 100)} | ${x.live ? '**yes**' : 'no'} |`);
+    }
+  }
+  md.push('');
+  if (!expanded.length) {
+    md.push('No ACTIVE ad set carries Advantage+ gender expansion (`targeting_automation.individual_setting.gender = 1`).');
+  } else {
+    md.push(`**${expanded.length} ACTIVE ad set(s) carry gender expansion = 1**, which overrides \`genders\` and is how a women-only ad set delivers to men. ` +
+      'Turn it off on the ad set; `advantage_audience: 0` alone does not.');
+    md.push('');
+    for (const x of expanded) md.push(`- ${q(x.adset)} (targets ${x.targets}, ad set ${x.adset_id})`);
+  }
+  md.push('');
+  const violations = liveLeaks.length + expanded.length;
+
   // Summary table
   md.push('## Every ad, by lifetime spend');
   md.push('');
@@ -522,6 +653,12 @@ async function main() {
   fs.writeFileSync(OUT_MD, md.join('\n') + '\n');
   console.log(`Wrote ${OUT_JSON}`);
   console.log(`Wrote ${OUT_MD}`);
+
+  if (violations) {
+    console.error(`FAIL: ${liveLeaks.length} live 2-for-1 ad(s) reaching men, ${expanded.length} ACTIVE ad set(s) carrying gender expansion ` +
+      '-- see "2-for-1 delivery and gender expansion" in the markdown. Report section 8.3 permits the 2-for-1 only in a women-locked ad set with expansion off.');
+    process.exitCode = 3;
+  }
 }
 
 if (require.main === module) {
@@ -531,4 +668,7 @@ if (require.main === module) {
   });
 }
 
-module.exports = { reconcileGender, pixelTracking, promotedSummary, RECONCILE, RECONCILE_TOLERANCE };
+module.exports = {
+  reconcileGender, pixelTracking, promotedSummary, RECONCILE, RECONCILE_TOLERANCE,
+  carriesTwoForOne, twoForOneDelivery, genderExpansionOn, TWO_FOR_ONE_PHRASES, TWO_FOR_ONE_WOMEN_SHARE,
+};

@@ -14,9 +14,17 @@
 
 import { describe, it, expect } from 'vitest';
 import { framesForRow } from '../scripts/build-campaign-export.js';
-import { slidesFor, slideFileName } from '../scripts/design-handoff.js';
+import { slidesFor, buildBrief } from '../scripts/design-handoff.js';
 
 const brand = {
+  universal: { approved_testimonials: [] },
+  asset_rules: {
+    dimensions: {
+      feed: { width: 1080, height: 1080 },
+      story: { width: 1080, height: 1920 },
+      reel: { width: 1080, height: 1920 },
+    },
+  },
   events: {
     ZZ: {
       name: 'Test Night',
@@ -92,23 +100,24 @@ describe('every other format keeps one shape for the whole row', () => {
   });
 });
 
-describe('the Claude Design brief sizes and names each slide by its own shape', () => {
-  it('asks for a square feed PNG and a _story PNG, not two stories', () => {
-    const r = row('Single image + Story');
-    const slides = slidesFor(r, ev, brand);
+// tests/design-handoff.test.js checks the names the brief lists. These check
+// that the brief takes each slide's shape from its frame, so the brief and the
+// sheet cannot drift apart again.
+describe("the Claude Design brief reads each slide's shape from its frame", () => {
+  it('marks only the second slide of the pair as a story, and says it repeats', () => {
+    const slides = slidesFor(row('Single image + Story'), ev, brand);
     expect(slides.map((s) => s.story)).toEqual([false, true]);
-    expect(slides.map((_, k) => slideFileName(r.row_id, slides, k)))
-      .toEqual(['ZZ-11_1of2.png', 'ZZ-11_2of2_story.png']);
     expect(slides[1].note).toMatch(/same card/i);
   });
 
-  it('names single-shape rows as before', () => {
-    const reel = row('Reel', { platforms: 'ig,fb' });
-    expect(slideFileName(reel.row_id, slidesFor(reel, ev, brand), 0)).toBe('ZZ-11_story.png');
+  it('asks for the pair as a square file and a story file', () => {
+    const { text } = buildBrief(brand, [row('Single image + Story')], ['ZZ']);
+    expect(text).toContain('`ZZ-11_1of2.png` (1080×1080)');
+    expect(text).toContain('`ZZ-11_2of2_story.png` (1080×1920, Story layout)');
+  });
 
-    const carousel = row('Carousel, 3 slides', { platforms: 'ig,fb' });
-    const slides = slidesFor(carousel, ev, brand);
-    expect(slides.map((_, k) => slideFileName(carousel.row_id, slides, k)))
-      .toEqual(['ZZ-11_1of3.png', 'ZZ-11_2of3.png', 'ZZ-11_3of3.png']);
+  it('still asks for a Reel cover as a story file', () => {
+    const { text } = buildBrief(brand, [row('Reel', { platforms: 'ig,fb' })], ['ZZ']);
+    expect(text).toContain('`ZZ-11_story.png` (1080×1920, Story layout)');
   });
 });

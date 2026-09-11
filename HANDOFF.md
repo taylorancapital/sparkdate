@@ -205,19 +205,29 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   Taylor's `approve`.** (09-10) TL2 had ZERO rows in `content/queue.csv` while
   being live on Eventbrite, Nextdoor, LancasterOnline and Facebook, so the event
   had no organic social at all. Cadence mirrors LX (TL2-01 .. TL2-14, Sep 11 →
-  Oct 7). Lint is clean: 0 errors. **Next steps: (1) art — none exists, and
-  TL2-01 posts 2026-09-11 12:30, so its three frames go first or the row moves.
-  Both routes are ready as of 09-10: the export sheets
-  (`node scripts/build-campaign-export.js --event=TL2`, then again with
-  `--tiktok`: 35 frames from 13 posts, TL2-13 held for live photos) or the
-  Claude Design brief (`node scripts/design-handoff.js --events=TL2`: 14 posts,
-  35 slides). The PAID creative brief is a separate job
-  (`node scripts/build-paid-campaign.js --event=TL2 --handoff`). Then
-  `python scripts/prep-social-assets.py` — but not until prep's two 09-10 bugs
-  are fixed: in a dry run on sample TL2 exports, a row's first prep appended
-  every story and TikTok file twice (TL2-01's three `_tt` frames came out as
-  `1of6`..`6of6`), and posted row TL-02's legacy key `tl2` claimed every TL2
-  export.** `asset_files` is EMPTY on every TL2
+  Oct 7). Lint is clean: 0 errors. **Captions rewritten as marketing copy on
+  09-10 at Taylor's ask, so TL2 art must come from sheets or a Design prompt
+  generated AFTER that PR merged** — slide text is cut from the caption, and
+  anything rendered earlier carries the old lines. What changed: sharper hooks
+  and CTAs; every caption shaped to its slide count (a carousel shows its first
+  paragraphs, then the fact slide, then the LAST paragraph); two unsourced
+  claims gone (TL2-09's "21+", and TL2-06's "most people come on their own",
+  which the approved LX-22 contradicts); the same-night mutual-match line added
+  from `brand.json` `run_of_show`; TL2-08 carries three verbatim testimonials
+  and no closing card. **Next steps: (1) art — none exists, and TL2-01 posts
+  2026-09-11 12:30, so its frames go first or the row moves. Two routes: the
+  export sheets (`node scripts/build-campaign-export.js --event=TL2`, then again
+  with `--tiktok`), or the Claude Design prompt
+  (`node scripts/design-handoff.js --events=TL2`: 14 posts, 35 slides, 65
+  files). The prompt now describes the look the template actually renders —
+  the published Loxleys slides, with reference files to attach — and lists
+  every file a post needs, TikTok twins included. The PAID creative brief is a
+  separate job (`node scripts/build-paid-campaign.js --event=TL2 --handoff`).
+  Then `python scripts/prep-social-assets.py` — but not until prep's two 09-10
+  bugs are fixed: in a dry run on sample TL2 exports, a row's first prep
+  appended every story and TikTok file twice (TL2-01's three `_tt` frames came
+  out as `1of6`..`6of6`), and posted row TL-02's legacy key `tl2` claimed
+  every TL2 export.** `asset_files` is EMPTY on every TL2
   row, which is the convention: prep writes the names when art lands (LX-26 is
   the same). I had pre-filled 13 rows with names for art that did not exist,
   and that broke three things without an error: `design-handoff.js` skips any
@@ -231,20 +241,22 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   event day. Its COPY changed with the date, which is the part worth
   remembering: `early_bird_through` is 2026-09-22, so the price still holds ON
   the 22nd and the original "ends tonight" would have been false a day early —
-  it now reads "ends tomorrow / $24.99 through tomorrow / $29.99 from
-  Wednesday". Sep 21 still carries LX-24, but at 18:30 against 12:30, so the
+  it now reads "Early bird ends tomorrow night ... $24.99 holds through Tuesday,
+  September 22. From Wednesday it's $29.99". Sep 21 still carries LX-24, but at
+  18:30 against 12:30, so the
   linter warns on the day rather than erroring on a slot. **Every row from TL2-05 on says
   $29.99, never $24.99** — the lint only checks price MEMBERSHIP, not the date,
   so it would not have caught a stale early-bird price. **TL2-11 needs one
-  1080x1080 feed frame plus one story frame.** Its format `Single image + Story`
-  used to make `framesForRow` mark both frames as stories, and a story-only set
-  is what makes `lib/social-publish.js` refuse the Facebook leg (MC-12, LX-24).
-  Since 09-10 the sheet and the Design brief plan the same card twice, 1080x1080
-  then 1080x1920 (Taylor's call: repeat the card, not a closing card), and prep
-  names the pair `TL2-11.jpg` + `TL2-11_story.jpg`; no hand-made square. Two copy
-  calls for Taylor, not bugs: TL2-03's four slides drop the caption's
-  "one-on-ones" and "mutual interest is a match" lines, and TL2-14, the recap,
-  still gets a fact frame and a "Get tickets" card for an event that is over.
+  1080x1080 feed frame plus one story frame, and both routes now make that.**
+  The Design prompt asks for `TL2-11_1of2.png` + `TL2-11_2of2_story.png`, and
+  since the 09-10 planner fix the export sheet does too: `framesForRow` used to
+  mark both frames of a `Single image + Story` post as stories — the story-only
+  set `lib/social-publish.js` refuses on Facebook, which bit MC-12 and LX-24 —
+  and now plans the same card twice, 1080x1080 then 1080x1920 (Taylor's call:
+  repeat the card, not a closing card). Prep names the pair `TL2-11.jpg` +
+  `TL2-11_story.jpg`. One copy call for Taylor, not a bug:
+  TL2-14, the recap, still gets a fact frame and a "Get tickets" card for an
+  event that is over.
   TL2-14 keeps a `[REAL NUMBER]` placeholder on purpose and cannot be approved
   until the counted check-in figure exists after 2026-10-06.
 
@@ -331,9 +343,10 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   only the expected files; commit.** It has to be `--rebuild`: a plain run adds
   `LX-24.jpg` for Facebook but keeps the old two story frames (the hook, then
   "Last call") for the Story, because the row already has story art. The $24.99
-  re-export in the next entry needs the same `--rebuild`, so one pass can do
-  both. Or decide LX-24 is Story-only and drop `fb` from its platforms so it
-  stops reading as a scheduled post that never happened.
+  fix in the next entry runs the same `--rebuild`; if both go in one pass, keep
+  LX-24's new files and its `asset_files` change alongside those ten JPEGs. Or
+  decide LX-24 is Story-only and drop `fb` from its platforms so it stops
+  reading as a scheduled post that never happened.
 
 - **Five approved Loxleys carousels show $24.99 in the image, but brand.json has
   had LX at $29.99 since 09-08. LX-17 posts first: 2026-09-12 16:00.** (09-10)
@@ -345,14 +358,21 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   quote carousel with no fact frame, LX-25 names no price, and LX-11 posted
   09-07 while $24.99 was still true. Cause: `build-campaign-export.js` priced
   each fact frame by the day the SHEET was rendered, not the day the post goes
-  out. The 09-10 fix has a regression test, but merging it does not repair art
-  that is already rendered. **Next step, Taylor's, because it needs the sheet's
-  in-browser export: after the fix merges, `git pull`; run
-  `node scripts/build-campaign-export.js --event=LX` and again with `--tiktok`;
-  export those five frames in both shapes into `SourceArt`; run
-  `python scripts/prep-social-assets.py --rebuild`; check `git status` shows
-  only the expected files; commit `public/social/`.** If that cannot happen
-  before 09-12 16:00, hold LX-17.
+  out. The fix merged as #519 with a regression test, but it does not repair art
+  that is already rendered. **And re-exporting alone only fixes Instagram:** all
+  five rows already carry an `fb` id in `published_ids`, so Meta holds five
+  scheduled Facebook carousels with the $24.99 images, and the publisher never
+  re-sends a surface that has an id. Instagram pulls the image at post time, so a
+  deployed replacement does reach it. **Next steps, in this order: (1) Taylor
+  deletes the five scheduled Facebook posts in Meta Business Suite (9/12 4:00 PM,
+  9/14 4:00 PM, 9/15 12:30 PM, 9/19 7:00 PM, 9/20 4:00 PM), so no wrong-price post
+  can go out even if the rest slips. (2) Export the five fact frames in both
+  shapes from the regenerated LX sheets into `SourceArt`, run
+  `python scripts/prep-social-assets.py --rebuild`, keep only those ten JPEGs,
+  and merge that PR. (3) Once it is deployed, a second PR removes the five `fb`
+  ids; within 15 minutes the publisher re-schedules them with the new images.**
+  Clear the ids before the deploy and it re-schedules the old images; clear them
+  before deleting and Facebook gets duplicates.
 
 - **LX-27 is deliberately still `pending` — it is the Loxleys recap and its
   caption still says `[REAL NUMBER]`.** (09-10) It cannot be approved until the
@@ -415,23 +435,53 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
     [[check-for-existing-system-first]] — this is that failure exactly, and it
     cost a proposal to build something that shipped months ago. *(09-08)*
 
-- **§8.3 vs the women-only 2-for-1 — REVIEWED 09-10 at Taylor's ask; the
-  decision is still his.** `reports/TWO_FOR_ONE_TO_EVERYONE_2026-09-10.md`.
-  His question: *if we advertise it to all people do we get more women?* Answer
-  from the account's own delivery data: no. Every broad cold sales cell spent
-  60–68% on men; a women-locked cell lands 2.7× the women per dollar at the same
-  cost per woman ($1.64 vs $1.61); men click the 2-for-1 creative as readily as
-  women and produced its only attributed purchase; the +1 mirrors the buyer 7/7
-  (09-08 Firestore figure, quoted). Recommends a carve-out (report §6, option
-  A): one women-locked cold ad set, gender expansion off, as the only home for
-  the 2-for-1; retargeting stays broad; §8.3 points 2 and 4 retired. Option B is
-  an A/B if he wants it measured rather than ruled. **Nothing changed** — no §8,
-  `brand.json` or live ad set edit. Firestore was NOT re-read (the production
-  env pull was blocked in-session). **Next step: Taylor picks A or B. Then ONE
-  PR: rewrite §8.3, fix `brand.json` `_no_gender_axis` (it says the female ad
-  set "no longer exists" — it is live), and add the assertion to
-  `scripts/meta-ads-review.js` that a 2-for-1 ad with women's share of spend
-  under 97% fails loudly.** *(09-10)*
+- **The 2-for-1 cell is BUILT by the builder and MOVED by the ladder as of
+  09-10 (Taylor: "I don't want it built by hand").** Chain: review
+  `reports/TWO_FOR_ONE_TO_EVERYONE_2026-09-10.md` (#517) → §8.3 rewritten to
+  the carve-out, plus the `ads:review` check (#521) → #523. What landed:
+  `scripts/build-paid-campaign.js` builds THREE campaigns per event —
+  `<Event> | Cold` (broad), `<Event> | 2-for-1` (`genders:[2]`, expansion
+  verified off on read-back), `<Event> | Retargeting` (broad) — PAUSED,
+  **budget on the campaign, one ad set each**. That last part fixed a latent
+  defect: the builder had been putting `daily_budget` on the AD SET, reading
+  brand.json's "ABO" note literally, and `meta-budget-ladder.js` refuses any
+  campaign without a campaign-level budget, so nothing the v2 builder made
+  could ever have been laddered. `budget-ladder.js roleRates()` now returns
+  `two_for_one` = 25% of the cold amount (`playbook_v2.two_for_one_of_cold`,
+  exactly the $2.00 floor at Seed; $2.10 Build; floored $2.00 Close with
+  broad cold $3.60), and carves it out of cold ONLY when the event has a
+  `two_for_one` entry in `content/paid-campaigns.json` (`twoForOneOpts`) — so
+  Loxleys' live pair keeps its $5.11 / $3.40 byte for byte. `ad-utm.js` tags
+  the role `2f1`. Tests: `tests/budget-ladder.test.js` (+10),
+  `tests/ad-utm.test.js` (+1). §8's quick-reference table and checklist,
+  `brand.json` (roles, `_gender_rule`, `campaign.budget`, `_no_gender_axis`)
+  and the registry's `_how_to_add`/`_fields` all say three campaigns.
+  **Still by hand, and the same for every role:** the ad itself.
+  `playbook_v2.creative` has no 2-for-1 entry (the copy is the legacy
+  `caption_templates.female` offer line) and no v2 attach script exists — the
+  proven attach path is `meta-create-lx-sales-campaign.js` lines ~443-468.
+  **Next step: when Tellus Oct 6 (TL2) is ready to build, run
+  `node scripts/build-paid-campaign.js --event=TL2 --execute`, register the
+  three ids, and confirm the 03:00 ladder prints all three the next morning.
+  Then a `two_for_one` creative entry + a v2 attach script, one PR. Firestore
+  side of the review was never re-read (env pull blocked); refresh the 7/7
+  and 5-of-9 vs 2-of-13 figures after Loxleys 09-22.** *(09-10)*
+
+- **Is the 03:00 budget ladder actually applying? A dry run on 09-11 says
+  no.** `node scripts/meta-budget-ladder.js --all` (dry run, 09-11 ~03:05 UTC)
+  printed `Loxleys | Sales  live $9.00/day  PLAN $9.00 -> $5.11 (build)` — the
+  same drop the registry note of 09-08 said would happen "tonight". Three
+  nights later it has not, while `Loxley's Retargeting` sits at its planned
+  $3.40. Either the `SparkDate Budget Ladder` scheduled task is not running
+  `--execute`, it is failing before the write, or someone hand-set $9.00
+  after 09-08 and the ladder's 1.76x drop is being refused by `--max-jump`.
+  Also printed: both Marion Court acknowledgements expired 09-08 with the
+  campaigns still ACTIVE ($20/day "outside the ladder"). **Next step: read the
+  task's last log, run `--all` by hand and look at the verdict line for
+  Loxleys | Sales (PLAN vs a `!!` refusal), then either fix the task or, if
+  $9.00 was deliberate, acknowledge it in `content/paid-campaigns.json` with a
+  `review_after`. Decide the two Marion Court acknowledgements again — the
+  event was 09-08.** *(09-11)*
 
 - **Loxleys retargeting went LIVE 09-08 — first spend since the shell was created
   2026-08-17. Three things to check, then it retires with the event.**

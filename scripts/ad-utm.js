@@ -97,6 +97,10 @@ const PHASE_TAG = {
 const ROLE_TAG = {
   cold: 'cold',
   retargeting: 'rt',
+  // The 2-for-1 cell (report section 8.3, 2026-09-10): the one women-locked
+  // campaign, `<Event> | 2-for-1`. Digits are legal in a segment and `2f1`
+  // reads as itself in a GA4 row.
+  two_for_one: '2f1',
 };
 
 function loadBrand(brand) {
