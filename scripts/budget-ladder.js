@@ -125,28 +125,83 @@ function phaseWindowsV2(eventDate, runwayStart, playbook) {
  * to clear the floor on both sides (under $4.00/day), where retargeting is
  * `null`: the caller holds that campaign at whatever it is already running
  * rather than fund it below the floor at all.
+ *
+ * THE 2-FOR-1 CELL (report section 8.3, rewritten 2026-09-10). With
+ * `opts.twoForOne` on, a third campaign -- `<Event> | 2-for-1`, the one
+ * women-locked ad set the playbook permits -- takes `opts.twoForOneOfCold` of
+ * the COLD amount, after retargeting is settled (playbook_v2.two_for_one_of_cold,
+ * 25%: at the reference Seed that is 25% of $8.00, exactly the floor, the same
+ * way 20% retarget lands on it at $10.00). Same floor rule on the cold side:
+ * a cell share under $2.00 is set to exactly $2.00 and broad cold absorbs the
+ * rest; if cold itself cannot fund both past the floor (under $4.00) the cell
+ * is `null` and broad cold keeps the whole cold amount. Off (the default) means
+ * cold is one campaign and `two_for_one` is null -- which is what Loxleys'
+ * live pair needs, since its 2-for-1 already runs inside the legacy-shaped
+ * cold campaign. twoForOneOpts() decides from the registry.
  */
-function roleRates(phase, scale) {
+function roleRates(phase, scale, opts = {}) {
   const total = Math.round(phase.daily_cents * scale);
+  let cold;
+  let retarget;
   if (total < META_MIN_DAILY_CENTS * 2) {
-    return { cold: { cents: total, raw: total, floored: false }, retarget: null };
+    cold = { cents: total, raw: total, floored: false };
+    retarget = null;
+  } else {
+    const rawRetarget = Math.round(total * phase.retarget_share);
+    if (rawRetarget < META_MIN_DAILY_CENTS) {
+      cold = { cents: total - META_MIN_DAILY_CENTS, raw: total - rawRetarget, floored: false };
+      retarget = { cents: META_MIN_DAILY_CENTS, raw: rawRetarget, floored: true };
+    } else {
+      const rawCold = total - rawRetarget;
+      cold = { cents: rawCold, raw: rawCold, floored: false };
+      retarget = { cents: rawRetarget, raw: rawRetarget, floored: false };
+    }
   }
-  const rawRetarget = Math.round(total * phase.retarget_share);
-  if (rawRetarget < META_MIN_DAILY_CENTS) {
+  if (!opts.twoForOne) return { cold, two_for_one: null, retarget };
+
+  const share = opts.twoForOneOfCold;
+  if (!(share > 0 && share < 1)) {
+    throw new Error(`two_for_one_of_cold must be a fraction between 0 and 1, got ${JSON.stringify(share)} -- set it in brand.json playbook_v2`);
+  }
+  const coldTotal = cold.cents;
+  if (coldTotal < META_MIN_DAILY_CENTS * 2) {
+    return { cold, two_for_one: null, retarget };
+  }
+  const rawCell = Math.round(coldTotal * share);
+  if (rawCell < META_MIN_DAILY_CENTS) {
     return {
-      cold: { cents: total - META_MIN_DAILY_CENTS, raw: total - rawRetarget, floored: false },
-      retarget: { cents: META_MIN_DAILY_CENTS, raw: rawRetarget, floored: true },
+      cold: { cents: coldTotal - META_MIN_DAILY_CENTS, raw: coldTotal - rawCell, floored: false },
+      two_for_one: { cents: META_MIN_DAILY_CENTS, raw: rawCell, floored: true },
+      retarget,
     };
   }
-  const rawCold = total - rawRetarget;
   return {
-    cold: { cents: rawCold, raw: rawCold, floored: false },
-    retarget: { cents: rawRetarget, raw: rawRetarget, floored: false },
+    cold: { cents: coldTotal - rawCell, raw: coldTotal - rawCell, floored: false },
+    two_for_one: { cents: rawCell, raw: rawCell, floored: false },
+    retarget,
   };
 }
 
+const V2_ROLES = ['cold', 'two_for_one', 'retargeting'];
+
+/**
+ * Does this v2 event have a 2-for-1 cell to fund? True when the event has a
+ * managed `two_for_one` entry in the registry, or when this entry IS that
+ * cell. The cell's money is carved out of cold only when the cell exists:
+ * Loxleys' live pair has no cell entry and keeps its full cold rate, byte
+ * for byte, while anything scripts/build-paid-campaign.js built after
+ * 2026-09-10 has a third campaign to register and gets the split.
+ */
+function twoForOneOpts(entry, registry = registryDefault, brand = brandDefault) {
+  const PB = brand.paid_template.playbook_v2;
+  const has = entry.role === 'two_for_one'
+    || (registry.campaigns || []).some((c) => c.event === entry.event && c.playbook === 'v2'
+      && c.role === 'two_for_one' && c.managed !== false);
+  return { twoForOne: has, twoForOneOfCold: PB.two_for_one_of_cold };
+}
+
 /** rateFor()'s v2 branch -- see the block comment above phaseWindowsV2(). */
-function rateForV2(entry, ev, today, brand) {
+function rateForV2(entry, ev, today, brand, registry) {
   const PB = brand.paid_template.playbook_v2;
   const rows = phaseWindowsV2(ev.date, entry.runway_start, PB);
   const hit = rows.find((r) => today >= r.from && today <= r.to);
@@ -164,16 +219,21 @@ function rateForV2(entry, ev, today, brand) {
     };
   }
   const scale = (entry.total === undefined ? PB.reference_total_dollars : Number(entry.total)) / PB.reference_total_dollars;
-  const { cold, retarget } = roleRates(hit, scale);
-  const mine = entry.role === 'cold' ? cold : retarget;
+  const rates = roleRates(hit, scale, twoForOneOpts(entry, registry, brand));
+  const mine = entry.role === 'retargeting' ? rates.retarget
+    : entry.role === 'two_for_one' ? rates.two_for_one
+      : rates.cold;
   if (!mine) {
     return {
       state: 'hold',
       phase: hit.key,
       rows,
       eventDate: ev.date,
-      reason: `${hit.key}'s scaled total is too small to fund both roles past the $2.00 floor -- `
-        + 'retargeting holds its existing budget this phase (playbook_v2._floor_priority_rule).',
+      reason: entry.role === 'two_for_one'
+        ? `${hit.key}'s cold amount is too small to fund the 2-for-1 cell past the $2.00 floor -- `
+          + 'the cell holds its existing budget this phase and broad cold keeps the whole cold share (playbook_v2._floor_priority_rule).'
+        : `${hit.key}'s scaled total is too small to fund both roles past the $2.00 floor -- `
+          + 'retargeting holds its existing budget this phase (playbook_v2._floor_priority_rule).',
     };
   }
   return { state: 'set', phase: hit.key, cents: mine.cents, raw: mine.raw, floored: mine.floored, rows, eventDate: ev.date };
@@ -188,11 +248,13 @@ function rateForV2(entry, ev, today, brand) {
  * `outside` means the run has not started or the event has passed. Conflating
  * them sends someone hunting a bug that is not there.
  */
-function rateFor(entry, today, brand = brandDefault) {
+function rateFor(entry, today, brand = brandDefault, registry = registryDefault) {
   const ev = brand.events[entry.event];
   if (!ev) return { state: 'unknown-event', reason: `${entry.event} is not in brand.json events` };
 
-  if (entry.playbook === 'v2') return rateForV2(entry, ev, today, brand);
+  // v2 needs the registry too: whether this event has a 2-for-1 cell decides
+  // whether cold's share is split (twoForOneOpts).
+  if (entry.playbook === 'v2') return rateForV2(entry, ev, today, brand, registry);
 
   const rows = phaseWindows(ev.date, entry.runway_start, brand);
   const share = entry.share === undefined ? 1 : entry.share;
@@ -225,7 +287,7 @@ function rateFor(entry, today, brand = brandDefault) {
 function planDay(today, registry = registryDefault, brand = brandDefault) {
   const plans = registry.campaigns
     .filter((c) => c.managed !== false)
-    .map((c) => ({ entry: c, ...rateFor(c, today, brand) }));
+    .map((c) => ({ entry: c, ...rateFor(c, today, brand, registry) }));
   const accountCents = plans.reduce((s, p) => s + (p.state === 'set' ? p.cents : 0), 0);
   return { today, plans, accountCents };
 }
@@ -297,8 +359,8 @@ function validate(registry = registryDefault, brand = brandDefault) {
       const runway = daysBetween(c.runway_start, ev.date);
       if (runway <= 0) errors.push(`${label}: runway_start ${c.runway_start} is not before the event ${ev.date}`);
 
-      if (c.role !== 'cold' && c.role !== 'retargeting') {
-        errors.push(`${label}: playbook v2 requires role "cold" or "retargeting", got ${JSON.stringify(c.role)}`);
+      if (!V2_ROLES.includes(c.role)) {
+        errors.push(`${label}: playbook v2 requires role "cold", "two_for_one" or "retargeting", got ${JSON.stringify(c.role)}`);
       } else {
         const roles = v2RolesByEvent.get(c.event) || new Set();
         if (roles.has(c.role)) errors.push(`${label}: event ${c.event} already has a v2 "${c.role}" entry — one per role`);
@@ -340,9 +402,17 @@ function validate(registry = registryDefault, brand = brandDefault) {
   }
 
   for (const [event, roles] of v2RolesByEvent) {
+    const missing = V2_ROLES.filter((r) => !roles.has(r));
+    if (!missing.length) continue;
     if (roles.size === 1) {
       warnings.push(`event ${event}: only a "${[...roles][0]}" v2 entry is registered — `
-        + 'the other role is unmanaged until it is added or explicitly acknowledged');
+        + `the other roles (${missing.join(', ')}) are unmanaged until added or explicitly acknowledged`);
+    } else if (missing.length === 1 && missing[0] === 'two_for_one') {
+      warnings.push(`event ${event}: no v2 "two_for_one" entry — the cold campaign keeps the 2-for-1 cell's share. `
+        + 'Right for a pair built before 2026-09-10 (Loxleys); wrong for anything build-paid-campaign.js built since, '
+        + 'which has a third campaign, `<Event> | 2-for-1`, to register');
+    } else {
+      warnings.push(`event ${event}: no v2 "${missing.join('", "')}" entry — that role is unmanaged until added or explicitly acknowledged`);
     }
   }
 
@@ -377,10 +447,12 @@ function ungoverned(live, today, registry = registryDefault) {
 
 module.exports = {
   META_MIN_DAILY_CENTS,
+  V2_ROLES,
   phaseWindows,
   rowRate,
   phaseWindowsV2,
   roleRates,
+  twoForOneOpts,
   rateFor,
   planDay,
   forecast,
