@@ -331,29 +331,42 @@ async function getText(page, url) {
 }
 
 async function login() {
+  const minutes = parseInt(arg('wait', '20'), 10);
   console.log(`\nOpening Chrome on Eventbrite's sign-in page.`);
   console.log(`Profile: ${PROFILE_DIR}`);
   console.log('Sign in as the SparkDate organizer. This checks every 5 seconds and closes the window');
-  console.log('once it can read the campaign list. Nothing is typed or stored by this script.\n');
+  console.log(`once it can read the campaign list (giving up after ${minutes} minutes).`);
+  console.log('Nothing is typed or stored by this script.');
+  console.log('If "Continue with Google" refuses ("this browser may not be secure"), use the email');
+  console.log('option instead: Eventbrite can email a one-time code or link to the organizer address.\n');
   const context = await openContext({ headed: true });
   try {
     const page = context.pages()[0] || await context.newPage();
     await page.goto(`${BASE}/signin/?referrer=%2Forganizations%2Fmarketing%2Feventbrite-ads`, { waitUntil: 'domcontentloaded' });
+    // The probe is a hidden-ish second tab so the sign-in tab is never navigated
+    // away from mid-flow; it is brought to the front only on success.
     const probe = await context.newPage();
-    const deadline = Date.now() + 10 * 60 * 1000;
+    await page.bringToFront();
+    const deadline = Date.now() + minutes * 60 * 1000;
+    let last = { status: 0, text: '' };
+    let tick = 0;
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 5000));
-      let ok = false;
       try {
-        const { status, text } = await getText(probe, `${BASE}/eb-ads/api/organizations/${ORG}/campaigns/`);
-        ok = status === 200 && parseCampaigns(text).length > 0;
-      } catch { ok = false; }
-      if (ok) {
-        console.log('Signed in: the campaign list is readable. Closing Chrome.\n');
-        return 0;
+        last = await getText(probe, `${BASE}/eb-ads/api/organizations/${ORG}/campaigns/`);
+        if (last.status === 200 && parseCampaigns(last.text).length > 0) {
+          console.log('Signed in: the campaign list is readable. Closing Chrome.\n');
+          return 0;
+        }
+      } catch (e) { last = { status: 0, text: String(e && e.message) }; }
+      if (++tick % 6 === 0) {
+        const signedIn = !isUnauthorized(last.status, last.text);
+        console.log(`  still waiting (${tick * 5}s) — probe HTTP ${last.status}${signedIn ? ', signed in but no campaigns parsed' : ', not signed in yet'}`);
       }
     }
-    console.error('\n✗ Gave up after 10 minutes without a readable campaign list.');
+    console.error(`\n✗ Gave up after ${minutes} minutes without a readable campaign list.`);
+    console.error(`  Last probe: HTTP ${last.status}: ${String(last.text).replace(/\s+/g, ' ').slice(0, 200)}`);
+    console.error('  The profile is kept, so a completed sign-in is not lost; run --login again to retry.');
     return 1;
   } finally {
     await context.close();
