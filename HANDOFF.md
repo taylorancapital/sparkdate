@@ -223,11 +223,14 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   the published Loxleys slides, with reference files to attach — and lists
   every file a post needs, TikTok twins included. The PAID creative brief is a
   separate job (`node scripts/build-paid-campaign.js --event=TL2 --handoff`).
-  Then `python scripts/prep-social-assets.py` — but not until prep's two 09-10
-  bugs are fixed: in a dry run on sample TL2 exports, a row's first prep
-  appended every story and TikTok file twice (TL2-01's three `_tt` frames came
-  out as `1of6`..`6of6`), and posted row TL-02's legacy key `tl2` claimed
-  every TL2 export.** `asset_files` is EMPTY on every TL2
+  Then `git pull` and `python scripts/prep-social-assets.py`, reading its
+  `--dry-run` output first. Prep's two 09-10 bugs no longer gate this: a row's
+  first prep appended every story and TikTok file twice (TL2-01's three `_tt`
+  frames came out as `1of6`..`6of6`), and posted row TL-02's legacy key `tl2`
+  claimed every TL2 export. #526 fixed both, verified by dry runs, not by a
+  real prep.** *(Corrected 09-11 by the handoff after #522; the evidence is
+  #526's own diff, and its body asks the next HANDOFF edit to drop this gate.)*
+  `asset_files` is EMPTY on every TL2
   row, which is the convention: prep writes the names when art lands (LX-26 is
   the same). I had pre-filled 13 rows with names for art that did not exist,
   and that broke three things without an error: `design-handoff.js` skips any
@@ -323,8 +326,8 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   by hand. The Instagram Story half is fine and will go. **The planner makes the
   square now (09-10: `framesForRow` plans this format as one card at 1080x1080
   and again at 1080x1920), so no hand export is needed. Next step, before
-  2026-09-21 18:30 and only once prep's two 09-10 bugs are fixed (see the TL2
-  queue entry): `git pull`; `node scripts/build-campaign-export.js --event=LX`;
+  2026-09-21 18:30 (prep's two 09-10 bugs no longer gate it; #526 fixed both,
+  corrected 09-11): `git pull`; `node scripts/build-campaign-export.js --event=LX`;
   export LX-24's two frames into `SourceArt`;
   `python scripts/prep-social-assets.py --rebuild`; check `git status` shows
   only the expected files; commit.** It has to be `--rebuild`: a plain run adds
@@ -356,10 +359,10 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   can go out even if the rest slips. (2) Export the five fact frames in both
   shapes from the regenerated LX sheets into `SourceArt`, run
   `python scripts/prep-social-assets.py --rebuild`, keep only those ten JPEGs,
-  and merge that PR. If TL2 exports are already in `SourceArt` by then, wait
-  until prep's fix for TL2 row keys is on main (#526 has the dry run): before
-  it, a `--rebuild` hands TL2's art to posted row TL-02, whose short key `tl2`
-  matches every TL2 filename (09-11). (3) Once it is deployed, a second PR
+  and merge that PR. TL2 exports sitting in `SourceArt` no longer hold this up:
+  before #526 a `--rebuild` handed TL2's art to posted row TL-02, whose short
+  key `tl2` matched every TL2 filename, and #526 bounds that key (hold added
+  09-11, lifted 09-11 on #526's diff). (3) Once it is deployed, a second PR
   removes the five `fb`
   ids; within 15 minutes the publisher re-schedules them with the new images.**
   Clear the ids before the deploy and it re-schedules the old images; clear them
