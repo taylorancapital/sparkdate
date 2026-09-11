@@ -342,6 +342,22 @@ async function login() {
   const context = await openContext({ headed: true });
   try {
     const page = context.pages()[0] || await context.newPage();
+    // Passkeys cannot work here: an automation-controlled Chrome has no real
+    // authenticator behind the Windows Hello prompt, so Eventbrite's passkey
+    // sign-in hangs or errors and leaves the page wedged (observed 2026-09-11).
+    // Route WebAuthn to a virtual authenticator that holds no credentials, with
+    // the prompt UI off: any passkey request fails fast and quietly, and the
+    // page falls back to its email-code / password sign-in.
+    try {
+      const cdp = await context.newCDPSession(page);
+      await cdp.send('WebAuthn.enable', { enableUI: false });
+      await cdp.send('WebAuthn.addVirtualAuthenticator', {
+        options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true },
+      });
+      console.log('Passkey prompts are suppressed in this window: use the email code or password option.\n');
+    } catch (e) {
+      console.log(`(could not suppress passkey prompts: ${e.message}; cancel any passkey dialog and pick the email option)\n`);
+    }
     await page.goto(`${BASE}/signin/?referrer=%2Forganizations%2Fmarketing%2Feventbrite-ads`, { waitUntil: 'domcontentloaded' });
     // The probe is a hidden-ish second tab so the sign-in tab is never navigated
     // away from mid-flow; it is brought to the front only on success.
@@ -360,8 +376,14 @@ async function login() {
         }
       } catch (e) { last = { status: 0, text: String(e && e.message) }; }
       if (++tick % 6 === 0) {
-        const signedIn = !isUnauthorized(last.status, last.text);
-        console.log(`  still waiting (${tick * 5}s) — probe HTTP ${last.status}${signedIn ? ', signed in but no campaigns parsed' : ', not signed in yet'}`);
+        // status 0 = the probe navigation itself failed (a modal dialog such as
+        // a passkey prompt blocks navigation until it times out); say so rather
+        // than guessing at the sign-in state.
+        const state = last.status === 0
+          ? `probe could not load: ${String(last.text).slice(0, 80)}`
+          : isUnauthorized(last.status, last.text) ? `probe HTTP ${last.status}, not signed in yet`
+            : `probe HTTP ${last.status}, signed in but no campaigns parsed`;
+        console.log(`  still waiting (${tick * 5}s) — ${state}`);
       }
     }
     console.error(`\n✗ Gave up after ${minutes} minutes without a readable campaign list.`);
