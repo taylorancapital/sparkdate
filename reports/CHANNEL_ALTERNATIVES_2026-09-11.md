@@ -82,6 +82,70 @@ impressions / 399 clicks / $304 on an unlabelled default window.
 
 The rest of the report stands with those corrections applied where marked.
 
+### CORRECTION 2 (same evening) — Eventbrite Ads DOES attribute orders, and its internal API exposes everything a sync needs
+
+The UI page for a "Drive traffic" campaign shows impressions, clicks and
+spend only. Its data source shows more. Two internal endpoints on
+`www.eventbrite.com` (not the documented `eventbriteapi.com/v3`), read with
+the logged-in browser session:
+
+- `GET /eb-ads/api/organizations/3002470694486/campaigns/` — every campaign
+  with `id`, `name`, `goal`, `status` (1 live, 3 ended), and `ads[]` carrying
+  `event_id` (the Eventbrite event id), `start_date`, `end_date`,
+  `budget_amount`, plus `ad_location_targets`.
+- `GET /eb-ads/api/campaigns/{id}/insights/` — one row per day:
+  `spend`, `attributed_impressions`, `attributed_clicks`,
+  `attributed_orders`, `attributed_ticket_sales`, and campaign-level `cpc`,
+  `cpm`, `cpa` (cost per attributed ticket).
+
+All 13 campaigns read. **Lifetime: $436.11 spent, 556 clicks, 20 attributed
+orders, 21 attributed tickets, $20.77 per attributed ticket.**
+
+| Event | Campaigns | Spend | Clicks | Attributed tickets | $ / attributed ticket |
+|---|---:|---:|---:|---:|---:|
+| Founders Mixer (Jun 24) | 1 | $55.00 | 51 | 2 | $27.50 |
+| Round 2 / Summer Nights (Jul 29) | 5 (one never delivered: manual review) | $44.29 | 40 | 1 | $44.29 |
+| Good Good (Aug 31, Philadelphia targets) | 2 | $102.95 | 207 | 5 | $20.59 |
+| Tellus (Aug 26) | 2 (one targeted Philadelphia by mistake) | $68.76 | 83 | 3 | $22.92 |
+| Marion Court (Sep 8) | 2 | $145.27 | 143 | 8 | $18.16 |
+| Loxleys (Sep 22, live) | 1 | $19.84 | 32 | 2 | $9.93 |
+| **All** | **13** | **$436.11** | **556** | **21** | **$20.77** |
+
+The invoices ($343.78 through 09-01) plus the unbilled period reconcile to
+this within a few dollars.
+
+**What this changes, again:**
+
+1. **The "no attribution" claim in CORRECTION 1 was wrong.** Eventbrite
+   attributes orders to its ads; the traffic-objective page hides the
+   column. Eventbrite's model is not documented on the page beyond
+   "last-touch" in the Traffic report, and the field is named
+   `attributed_impressions`, so view-through may be included. Treat $20.77
+   as Eventbrite's number the way Meta's 6 purchases are Meta's number.
+2. **On like-for-like platform attribution, Eventbrite Ads is an order of
+   magnitude cheaper than Meta:** $436 → 21 tickets ($20.77) against
+   $1,371 → 6 ($228). Even if Eventbrite's attribution is twice as generous
+   as it should be, the gap holds.
+3. **21 of the 65 Eventbrite tickets (32%) are ad-attributed.** So "61% of
+   tickets are bought on Eventbrite" splits into roughly 20% of all tickets
+   found by Eventbrite's paid placement and 41% organic. The organic share
+   is still the largest single door in the business.
+4. **The $5/day question in §6 item 5 has a measured prior now:** Loxleys'
+   own campaign is at $9.93 per attributed ticket, the best in the account.
+   The CPC-at-scale risk stands (Marion Court's $7/day campaign paid $3.40 a
+   click and $51 per ticket).
+5. **Automation is feasible.** The two endpoints give a per-day, per-campaign
+   spend and sales feed keyed by Eventbrite event id, and Firestore `events`
+   already carry `eventbriteEventId`, so `ad_spend/{date}__eventbrite` docs
+   can be written the way `__google` ones are. The one unknown is auth: the
+   endpoints answered a browser session; whether they accept the private
+   OAuth token in an `Authorization: Bearer` header was not tested (the
+   token is only in GitHub Actions and Vercel secrets, not on this machine).
+   Called with no credentials at all, both endpoints return **401**, so they
+   are gated; the open question is only which credential they take. They
+   are undocumented and can change without notice, so the sync must fail
+   soft.
+
 ## §1 EVIDENCE — where the 106 tickets actually came from
 
 MEASURED, Firestore, all time to 2026-09-11. Paid means `status === 'confirmed'
