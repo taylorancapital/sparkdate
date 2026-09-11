@@ -205,11 +205,22 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   Taylor's `approve`.** (09-10) TL2 had ZERO rows in `content/queue.csv` while
   being live on Eventbrite, Nextdoor, LancasterOnline and Facebook, so the event
   had no organic social at all. Cadence mirrors LX (TL2-01 .. TL2-14, Sep 11 →
-  Oct 7). Lint is clean: 0 errors. **Next steps: (1) art — nothing exists, so
-  every row warns "not yet in public/social/"; the Claude Design brief for the
-  PAID creative is `build/TL2-design-brief.md` (regenerate any time with
-  `node scripts/build-paid-campaign.js --event=TL2 --handoff`), but the ORGANIC
-  slide art is a separate job. Then `python scripts/prep-social-assets.py`.
+  Oct 7). Lint is clean: 0 errors. **Next steps: (1) art — none exists, and
+  TL2-01 posts 2026-09-11 12:30, so its three frames go first or the row moves.
+  Both routes are ready as of 09-10: the export sheets
+  (`node scripts/build-campaign-export.js --event=TL2`, then again with
+  `--tiktok`: 35 frames from 13 posts, TL2-13 held for live photos) or the
+  Claude Design brief (`node scripts/design-handoff.js --events=TL2`: 14 posts,
+  35 slides). The PAID creative brief is a separate job
+  (`node scripts/build-paid-campaign.js --event=TL2 --handoff`). Then
+  `python scripts/prep-social-assets.py`.** `asset_files` is EMPTY on every TL2
+  row, which is the convention: prep writes the names when art lands (LX-26 is
+  the same). I had pre-filled 13 rows with names for art that did not exist,
+  and that broke three things without an error: `design-handoff.js` skips any
+  row with names, so the brief came out as 1 post and 0 slides; prep ignores a
+  new export for a shape the row already names; and `approve`'s no-art guard
+  only checks for an empty field, so art-less rows would have passed it.
+  Cleared 09-10, in the same PR as the Loxleys price fix below.
   (2) `node scripts/social.js approve --through=<date>` — Taylor's click, not
   mine.** Three things deliberately decided, all reversible: **TL2-04 is the
   early-bird deadline post and moved to Sep 21 at Taylor's call**, off LX's
@@ -220,10 +231,16 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   Wednesday". Sep 21 still carries LX-24, but at 18:30 against 12:30, so the
   linter warns on the day rather than erroring on a slot. **Every row from TL2-05 on says
   $29.99, never $24.99** — the lint only checks price MEMBERSHIP, not the date,
-  so it would not have caught a stale early-bird price. **TL2-11 carries one
-  1080x1080 feed frame plus one story frame**, not the `_tt`+`_story` pair LX-24
-  used, because a story-only set is exactly what makes `lib/social-publish.js`
-  refuse the Facebook leg — the failure that has now bitten MC-12 and LX-24.
+  so it would not have caught a stale early-bird price. **TL2-11 needs one
+  1080x1080 feed frame plus one story frame, and the export sheet will NOT make
+  that by itself:** its format `Single image + Story` makes `framesForRow` mark
+  both frames as stories (1080x1920, confirmed in the 09-10 sheet), and a
+  story-only set is exactly what makes `lib/social-publish.js` refuse the
+  Facebook leg — the failure that has now bitten MC-12 and LX-24. It needs a
+  hand-made 1080x1080 export before 2026-10-05 18:30, or a planner fix. Two copy
+  calls for Taylor, not bugs: TL2-03's four slides drop the caption's
+  "one-on-ones" and "mutual interest is a match" lines, and TL2-14, the recap,
+  still gets a fact frame and a "Get tickets" card for an event that is over.
   TL2-14 keeps a `[REAL NUMBER]` placeholder on purpose and cannot be approved
   until the counted check-in figure exists after 2026-10-06.
 
@@ -305,6 +322,25 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `python scripts/prep-social-assets.py`** — or decide LX-24 is Story-only and
   drop `fb` from its platforms so it stops reading as a scheduled post that never
   happened.
+
+- **Five approved Loxleys carousels show $24.99 in the image, but brand.json has
+  had LX at $29.99 since 09-08. LX-17 posts first: 2026-09-12 16:00.** (09-10)
+  The captions are right; the ART is stale. Each fact frame reads "Doors 6:30 PM
+  · $24.99" in both the square and the `_tt` file: `LX-17_4of5` (09-12 16:00),
+  `LX-18_5of6` (09-14 16:00), `LX-19_2of3` (09-15 12:30), `LX-22_3of4` (09-19
+  19:00), `LX-23_2of3` (09-20 16:00). That is ten JPEGs, all on approved rows.
+  Found by opening the fact frame of every approved LX carousel: LX-20 is a
+  quote carousel with no fact frame, LX-25 names no price, and LX-11 posted
+  09-07 while $24.99 was still true. Cause: `build-campaign-export.js` priced
+  each fact frame by the day the SHEET was rendered, not the day the post goes
+  out. The 09-10 fix has a regression test, but merging it does not repair art
+  that is already rendered. **Next step, Taylor's, because it needs the sheet's
+  in-browser export: after the fix merges, `git pull`; run
+  `node scripts/build-campaign-export.js --event=LX` and again with `--tiktok`;
+  export those five frames in both shapes into `SourceArt`; run
+  `python scripts/prep-social-assets.py --rebuild`; check `git status` shows
+  only the expected files; commit `public/social/`.** If that cannot happen
+  before 09-12 16:00, hold LX-17.
 
 - **LX-27 is deliberately still `pending` — it is the Loxleys recap and its
   caption still says `[REAL NUMBER]`.** (09-10) It cannot be approved until the

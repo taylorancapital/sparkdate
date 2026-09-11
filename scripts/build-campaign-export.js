@@ -136,8 +136,14 @@ function twoLines(text) {
   return { line1: r.line1, line2: r.line2 };
 }
 
-const priceOf = (ev) => {
-  const price = Q.currentPrice(ev && ev.pricing);
+// Price a frame by the day its POST goes out, never by the day the sheet is
+// rendered. currentPrice() defaults to today, and a sheet is rendered weeks
+// ahead of the posts it carries -- so every fact frame took the render day's
+// price. Loxleys' approved art says $24.99 on five carousels that all post
+// after its early bird ended (2026-09-07); TL2's sheet, rendered 09-10, put
+// $24.99 on posts running to Oct 7 against an early bird that ends Sep 22.
+const priceOf = (ev, onIso) => {
+  const price = Q.currentPrice(ev && ev.pricing, onIso);
   return typeof price === 'number' ? `$${price.toFixed(2)}` : '';
 };
 
@@ -357,7 +363,7 @@ function framesForRow(row, ev, brand) {
       // reads as cancelled. Verified in the template: isPrice always applies
       // text-decoration:line-through. Use it only for a real price CHANGE,
       // set by hand.
-      const price = priceOf(ev);
+      const price = priceOf(ev, row.date);
       push('elevated', {
         line1: prettyDate(ev.date),
         line2: ev.venue || '',
