@@ -165,9 +165,18 @@ function lint(rows, brand, opts = {}) {
       // Reels are exempt: a Reel IS vertical, so 1080x1920 is correct for it
       // on both Facebook and Instagram. The first version of this check
       // flagged LX-16 and LX-21 for being right.
+      //
+      // _tt art is TikTok's alone, so it is set aside before the test, exactly
+      // as planRow does. A _tt file fails the _story test without being
+      // feed-shaped, so judged on the raw list a row carrying only _story and
+      // _tt files passed silently. MC-12 was that row once orphaned TikTok
+      // exports joined its story frames; the publisher's guard was fixed for it
+      // and this one was not, so LX-24 then sat approved, its Facebook leg
+      // refused on every run, with no warning here.
       const feedSurface = platforms.includes('fb') || platforms.includes('ig');
       const isReel = /reel/i.test(row.format || '');
-      if (feedSurface && !isReel && assets.length && assets.every((a) => /_story\./i.test(a))) {
+      const feedCandidates = assets.filter((a) => !/_tt\./i.test(a));
+      if (feedSurface && !isReel && feedCandidates.length && feedCandidates.every((a) => /_story\./i.test(a))) {
         // WARNING, not an error, per this file's own rule: an error means a
         // post would state something FALSE; a warning means work is
         // outstanding for a human to judge. A missing 1080x1080 is the

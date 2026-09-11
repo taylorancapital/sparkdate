@@ -20,6 +20,7 @@ import {
   unfilledPlaceholder,
 } from '../lib/content-queue.js';
 import { lint } from '../scripts/lint-content-queue.js';
+import { planRow } from '../lib/social-publish.js';
 
 const BRAND = {
   universal: {
@@ -278,6 +279,62 @@ describe('consent', () => {
 
   it('allows consented images', () => {
     expect(errorsFor([row({ asset_files: 'IMG_8859.jpg' })], 'pulled-image')).toHaveLength(0);
+  });
+});
+
+// MC-12 and LX-24 are both "Single image + Story" rows delivered as story
+// frames alone, with no 1080x1080 for the Facebook post. The publisher refuses
+// that leg (planRow); the linter only warns. Both rows also carried _tt files,
+// which fail the _story test without being feed-shaped -- the publisher's
+// guard was fixed to set them aside and the linter's was not, so LX-24 sat
+// approved, refused on every run, with no warning.
+describe('feed-shaped art', () => {
+  const noFeedAsset = (rows) => lint(rows, BRAND).filter((f) => f.check === 'no-feed-asset');
+  const lx24 = (over = {}) => row({
+    row_id: 'LX-24', events: 'LX', utm_content: 'LX-24',
+    platforms: 'fb,ig_story', format: 'Single image + Story',
+    asset_files: 'LX-24_1of2_tt.jpg,LX-24_1of2_story.jpg,LX-24_2of2_tt.jpg,LX-24_2of2_story.jpg',
+    ...over,
+  });
+
+  it('warns when every asset is story-shaped and the row posts to a feed', () => {
+    expect(noFeedAsset([lx24({ asset_files: 'LX-24_1of2_story.jpg,LX-24_2of2_story.jpg' })])).toHaveLength(1);
+  });
+
+  it('still warns when TikTok frames sit beside the story frames (LX-24)', () => {
+    // A warning, not an error: an error turned main red for every unrelated
+    // PR until Design delivered, and the publisher's refusal is the block.
+    const found = noFeedAsset([lx24()]);
+    expect(found.map((f) => f.severity)).toEqual(['warning']);
+    expect(found[0].message).toContain('posts to fb');
+  });
+
+  it('is satisfied by a square beside the story and TikTok frames', () => {
+    expect(noFeedAsset([lx24({ asset_files: 'LX-24.jpg,LX-24_story.jpg,LX-24_1of2_tt.jpg' })])).toHaveLength(0);
+  });
+
+  it('exempts a Reel, which is vertical on every surface', () => {
+    expect(noFeedAsset([lx24({
+      row_id: 'LX-21', platforms: 'ig,fb', format: 'Reel', asset_files: 'LX-21_story.jpg,LX-21_tt.jpg',
+    })])).toHaveLength(0);
+  });
+
+  it('agrees with the publisher on each shape', () => {
+    const now = Date.UTC(2026, 8, 10, 16, 0);
+    for (const asset_files of [
+      'LX-24_1of2_story.jpg,LX-24_2of2_story.jpg',
+      'LX-24_1of2_tt.jpg,LX-24_1of2_story.jpg,LX-24_2of2_tt.jpg,LX-24_2of2_story.jpg',
+      'LX-24.jpg,LX-24_story.jpg,LX-24_1of2_tt.jpg',
+      'LX-17_1of2.jpg,LX-17_2of2.jpg,LX-17_1of2_tt.jpg,LX-17_2of2_tt.jpg',
+      // TikTok art alone: neither guard fires. Facebook's request builder
+      // throws "no assets" for this row instead.
+      'LX-24_1of2_tt.jpg',
+    ]) {
+      const r = lx24({ state: 'approved', asset_files });
+      const warned = noFeedAsset([r]).length > 0;
+      const refused = /story-shaped/.test(planRow(r, 'fb', now).reason || '');
+      expect({ asset_files, warned }).toEqual({ asset_files, warned: refused });
+    }
   });
 });
 
