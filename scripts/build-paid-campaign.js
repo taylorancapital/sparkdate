@@ -21,13 +21,28 @@
  *
  * WHAT IT BUILDS NOW: playbook_v2, section 8 of that report
  *
- * TWO campaigns per event, never one: `<Event> | Cold` and `<Event> |
- * Retargeting`. Both OUTCOME_SALES, OFFSITE_CONVERSIONS optimizing the
- * account's own PURCHASE pixel, 7-day click + 1-day view attribution, PAUSED
- * on creation. Every ad set THIS SCRIPT builds is broad -- no `genders` key.
- * The one gender-restricted cell playbook_v2 permits since 2026-09-10 -- the
- * women-locked 2-for-1 ad set inside Cold, report section 8.3 -- is NOT built
- * here yet (playbook_v2._gender_rule, HANDOFF.md). The phase math (Seed/Build/Close, a
+ * THREE campaigns per event, never one: `<Event> | Cold`, `<Event> | 2-for-1`
+ * and `<Event> | Retargeting`. All OUTCOME_SALES, OFFSITE_CONVERSIONS
+ * optimizing the account's own PURCHASE pixel, 7-day click + 1-day view
+ * attribution, PAUSED on creation, ONE ad set each, with the daily budget on
+ * the CAMPAIGN -- because that is the only field scripts/meta-budget-ladder.js
+ * writes (it refuses a campaign with no campaign-level daily_budget). Until
+ * 2026-09-10 this script put the budget on the AD SET, reading brand.json's
+ * "ABO" note literally, and a campaign it built could never have been
+ * laddered. Three single-ad-set campaigns is how "never let Meta allocate
+ * between roles" is kept without that trap.
+ *
+ * Cold and Retargeting are broad -- no `genders` key. The 2-for-1 campaign is
+ * the ONE gender-restricted ad set playbook_v2 permits (report section 8.3,
+ * rewritten 2026-09-10): `genders: [2]`, gender expansion verified OFF on
+ * read-back, and the only place the 2-for-1 creative may run -- the offer
+ * mirrors whoever takes it (7 of 7 plus-ones matched the buyer) and a broad
+ * ad set spends ~63% on men. Its budget is playbook_v2.two_for_one_of_cold
+ * (25%) of the cold share, which lands exactly on Meta's $2.00 floor at the
+ * reference Seed rate; the ladder applies the same split once the campaign is
+ * registered with role "two_for_one". --no-two-for-one builds the pair only.
+ *
+ * The phase math (Seed/Build/Close, a
  * cold:retarget split that VARIES by phase, the $2.00 floor-priority rule,
  * the cold-start rule for a runway under 21 days) is NOT reimplemented here
  * -- it is required from scripts/budget-ladder.js, the same offline-tested
@@ -158,9 +173,13 @@ if (runwayDays < PB._lead_time.default_days) {
 
 const rows = L.phaseWindowsV2(ev.date, runwayStart, PB);
 const scale = TOTAL / PB.reference_total_dollars;
+// The 2-for-1 cell is part of the playbook; --no-two-for-one builds the old
+// pair only (an event whose 2-for-1 already runs elsewhere, like Loxleys).
+const WITH_CELL = !flag('no-two-for-one');
+const cellOpts = { twoForOne: WITH_CELL, twoForOneOfCold: PB.two_for_one_of_cold };
 const plan = rows.map((r) => {
-  const { cold, retarget } = L.roleRates(r, scale);
-  return { ...r, cold, retarget };
+  const { cold, two_for_one, retarget } = L.roleRates(r, scale, cellOpts);
+  return { ...r, cold, two_for_one, retarget };
 });
 
 // Cross-check the price step against the measured inflection, same reasoning
@@ -192,23 +211,30 @@ console.log(`budget   $${TOTAL} total${TOTAL === PB.reference_total_dollars ? ' 
 console.log('');
 
 for (const role of PB.roles) {
+  if (role.key === 'two_for_one' && !WITH_CELL) continue;
   console.log(`campaign  "${ev.name} | ${role.name_suffix}"`);
   console.log(`          ${PB.campaign.objective} / ${PB.campaign.optimization_goal} / ${PB.campaign.billing_event}, PAUSED, stops ${ev.date}`);
   console.log(`          ad set: ${role.targeting}`);
 }
 console.log('');
 
-console.log('phase      window                       split    daily cold   daily retarget');
+console.log(`phase      window                       split    daily cold   ${WITH_CELL ? 'daily 2-for-1   ' : ''}daily retarget`);
 for (const p of plan) {
   const isNow = TODAY >= p.from && TODAY <= p.to;
   const cold = p.cold ? money(p.cold.cents) : '—';
+  const cell = p.two_for_one ? money(p.two_for_one.cents) + (p.two_for_one.floored ? ' (floor)' : '')
+    : 'HOLD (too small)';
   const ret = p.retarget ? money(p.retarget.cents) + (p.retarget.floored ? ' (floor)' : '')
     : 'HOLD (too small)';
   console.log(
     `${p.key.padEnd(9)}  ${`${p.from} .. ${p.to}`.padEnd(26)} `
     + `${`${(p.cold_share * 100).toFixed(0)}/${(p.retarget_share * 100).toFixed(0)}`.padEnd(8)} `
-    + `${cold.padStart(11)}   ${ret.padStart(11)}${isNow ? '   <- today' : ''}`,
+    + `${cold.padStart(11)}   ${WITH_CELL ? `${cell.padStart(13)}   ` : ''}${ret.padStart(11)}${isNow ? '   <- today' : ''}`,
   );
+}
+if (WITH_CELL) {
+  console.log('');
+  console.log(`  "daily cold" is the BROAD campaign after the 2-for-1 cell takes ${(PB.two_for_one_of_cold * 100).toFixed(0)}% of the cold share, never under the $2.00 floor.`);
 }
 console.log('');
 
@@ -496,22 +522,47 @@ function broadTargeting(baseGeo, audienceId) {
   return t;
 }
 
-async function createCampaign(name) {
+/**
+ * The 2-for-1 cell: broad targeting plus `genders: [2]`. Gender expansion is
+ * not sent (the API's default is off; Ads Manager's default is on) and is
+ * verified off on read-back, because `advantage_audience: 0` alone does not
+ * cover it -- Good Good's "women" ad set delivered 64% to men through that one
+ * flag while carrying "Bring your girl -- 2-for-1".
+ */
+function cellTargeting(baseGeo) {
+  return { ...broadTargeting(baseGeo), genders: [2] };
+}
+
+async function createCampaign(name, dailyCents) {
   const existing = await get(`${ACCOUNT}/campaigns`, { fields: 'name,id,effective_status', limit: '200' });
   const dupe = (existing.data || []).find((c) => c.name === name);
   if (dupe) throw new Error(`a campaign named "${name}" already exists (${dupe.id}, ${dupe.effective_status}) -- Meta accepts duplicate names silently, so this refuses rather than building a second one`);
 
-  return post(`${ACCOUNT}/campaigns`, {
+  // Budget on the CAMPAIGN, one ad set under it. This is the shape every live
+  // campaign has and the only one scripts/meta-budget-ladder.js will touch --
+  // it reads and writes campaign-level daily_budget and refuses a campaign
+  // without one. bid_strategy goes with a campaign budget, exactly as
+  // scripts/meta-create-lx-sales-campaign.js sends it.
+  const c = await post(`${ACCOUNT}/campaigns`, {
     name,
     objective: PB.campaign.objective,
     status: 'PAUSED',
     special_ad_categories: '[]',
+    daily_budget: String(dailyCents),
+    bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
     start_time: `${TODAY}T00:00:00-0400`,
     stop_time: `${ev.date}T16:30:00-0400`,
   });
+  const back = await get(c.id, { fields: 'daily_budget,status,objective' });
+  const ok = Number(back.daily_budget) === dailyCents && back.status === 'PAUSED';
+  console.log(`    ${ok ? 'OK  ' : '!!  '}  ${'campaign daily_budget'.padEnd(24)} ${money(back.daily_budget)}, ${back.status}`);
+  if (!ok) throw new Error(`campaign ${c.id} read back ${money(back.daily_budget)} ${back.status}, expected ${money(dailyCents)} PAUSED`);
+  return c;
 }
 
-async function createAdSet(campaignId, name, dailyCents, targeting) {
+async function createAdSet(campaignId, name, targeting, { genders } = {}) {
+  // No daily_budget here: the campaign carries it (createCampaign). An ad-set
+  // budget would make the campaign ABO, which the ladder refuses to move.
   const set = await post(`${ACCOUNT}/adsets`, {
     name,
     campaign_id: campaignId,
@@ -519,7 +570,6 @@ async function createAdSet(campaignId, name, dailyCents, targeting) {
     optimization_goal: PB.campaign.optimization_goal,
     billing_event: PB.campaign.billing_event,
     destination_type: 'WEBSITE',
-    daily_budget: String(dailyCents),
     promoted_object: JSON.stringify({ pixel_id: PIXEL_ID, custom_event_type: 'PURCHASE' }),
     // SETTABLE ONLY AT CREATION (code 1/1504040 on a live edit). Every prior
     // OUTCOME_SALES ad set built for this account carries this exact window --
@@ -536,16 +586,19 @@ async function createAdSet(campaignId, name, dailyCents, targeting) {
   // Read back. A 200 is not evidence -- meta-create-lx-sales-campaign.js
   // caught Meta silently enabling gender expansion server-side on a shape
   // that looked correct on write.
-  const back = await get(set.id, { fields: 'optimization_goal,promoted_object,targeting,attribution_spec,daily_budget' });
+  const back = await get(set.id, { fields: 'optimization_goal,promoted_object,targeting,attribution_spec' });
   const ta = (back.targeting || {}).targeting_automation || {};
   const genderExpansion = (ta.individual_setting || {}).gender;
   const checks = [
     ['goal', back.optimization_goal === PB.campaign.optimization_goal, back.optimization_goal],
     ['pixel', (back.promoted_object || {}).pixel_id === PIXEL_ID, (back.promoted_object || {}).custom_event_type],
-    ['broad (no genders key)', (back.targeting || {}).genders === undefined, JSON.stringify((back.targeting || {}).genders)],
+    // Broad ad sets must come back with NO genders key; the 2-for-1 cell must
+    // come back with exactly [2]. Either way the read-back is the evidence.
+    [genders ? `genders ${JSON.stringify(genders)}` : 'broad (no genders key)',
+      JSON.stringify((back.targeting || {}).genders) === JSON.stringify(genders),
+      JSON.stringify((back.targeting || {}).genders) || 'absent'],
     ['gender expansion OFF', genderExpansion !== 1, genderExpansion === undefined ? 'unset' : String(genderExpansion)],
     ['attribution 7d click', (back.attribution_spec || []).some((x) => x.event_type === 'CLICK_THROUGH' && Number(x.window_days) === 7), JSON.stringify(back.attribution_spec || [])],
-    ['daily_budget', Number(back.daily_budget) === dailyCents, money(back.daily_budget)],
   ];
   let failed = 0;
   for (const [label, ok, seen] of checks) {
@@ -594,36 +647,59 @@ async function main() {
     throw new Error('targeting has no geo_locations — refusing to create a campaign whose ad set would be rejected');
   }
 
-  // ---- Cold: campaign + ad set, always built in full.
+  // ---- Cold: campaign + broad ad set, always built in full.
   const coldName = `${ev.name} | Cold`;
-  const coldCampaign = await createCampaign(coldName);
-  console.log(`\ncampaign  ${coldCampaign.id}  ${coldName}`);
+  console.log(`\ncampaign  ${coldName}`);
+  const coldCampaign = await createCampaign(coldName, first.cold.cents);
+  console.log(`          ${coldCampaign.id} at the ${first.key} rate, ${money(first.cold.cents)}/day`);
   try {
-    await createAdSet(coldCampaign.id, `${coldName} | broad`, first.cold.cents, broadTargeting(baseGeo));
+    await createAdSet(coldCampaign.id, `${coldName} | broad`, broadTargeting(baseGeo));
   } catch (e) {
     console.error(`\n✗ Cold ad set failed: ${e.message}`);
     await rollback(coldCampaign.id, 'ad set failed');
     process.exit(1);
   }
-  console.log(`  ad set built at the ${first.key} rate, ${money(first.cold.cents)}/day`);
+
+  // ---- 2-for-1: the one women-locked campaign (report section 8.3). Built
+  // like Cold. If this phase's cold amount cannot fund the cell past the floor
+  // it is created AT the floor and the ladder holds it there -- a $2.00 PAUSED
+  // campaign spends nothing until a human starts it.
+  let cellCampaign = null;
+  if (WITH_CELL) {
+    const cellName = `${ev.name} | 2-for-1`;
+    console.log(`\ncampaign  ${cellName}`);
+    const cellCents = first.two_for_one ? first.two_for_one.cents : L.META_MIN_DAILY_CENTS;
+    cellCampaign = await createCampaign(cellName, cellCents);
+    console.log(`          ${cellCampaign.id} at ${money(cellCents)}/day${first.two_for_one
+      ? ` (${first.key} rate${first.two_for_one.floored ? ', floored' : ''})`
+      : ' (the floor; this phase cannot fund the cell, the ladder holds it here)'}`);
+    try {
+      await createAdSet(cellCampaign.id, `${cellName} | women`, cellTargeting(baseGeo), { genders: [2] });
+    } catch (e) {
+      console.error(`\n✗ 2-for-1 ad set failed: ${e.message}`);
+      await rollback(cellCampaign.id, 'ad set failed');
+      await rollback(coldCampaign.id, 'its 2-for-1 sibling failed -- not leaving half an event behind');
+      process.exit(1);
+    }
+  }
 
   // ---- Retargeting: campaign always built (so it has a real campaign_id to
   // register); its ad set only if an audience was given -- see the header.
   const rtName = `${ev.name} | Retargeting`;
-  const rtCampaign = await createCampaign(rtName);
-  console.log(`\ncampaign  ${rtCampaign.id}  ${rtName}`);
+  console.log(`\ncampaign  ${rtName}`);
+  const rtCents = first.retarget ? first.retarget.cents : L.META_MIN_DAILY_CENTS;
+  const rtCampaign = await createCampaign(rtName, rtCents);
+  console.log(`          ${rtCampaign.id} at ${money(rtCents)}/day${first.retarget
+    ? ` (${first.key} rate${first.retarget.floored ? ', floored' : ''})`
+    : ' (the floor; this phase cannot fund retargeting, the ladder holds it here)'}`);
   const audienceId = arg('retargeting-audience', null);
   if (!audienceId) {
     console.log('  ad set    NOT BUILT — needs --retargeting-audience=<id>. The campaign exists');
     console.log('            (register its id in content/paid-campaigns.json now if you want),');
     console.log('            but nothing will deliver until the ad set is added.');
-  } else if (!first.retarget) {
-    console.log(`  ad set    NOT BUILT — ${first.key}'s scaled total is too small to fund retargeting`);
-    console.log('            past the $2.00 floor this phase. Build it once a later phase clears it.');
   } else {
     try {
-      await createAdSet(rtCampaign.id, `${rtName} | broad`, first.retarget.cents, broadTargeting(baseGeo, audienceId));
-      console.log(`  ad set built at the ${first.key} rate, ${money(first.retarget.cents)}/day`);
+      await createAdSet(rtCampaign.id, `${rtName} | broad`, broadTargeting(baseGeo, audienceId));
     } catch (e) {
       console.error(`\n✗ Retargeting ad set failed: ${e.message}`);
       await rollback(rtCampaign.id, 'ad set failed');
@@ -631,12 +707,15 @@ async function main() {
     }
   }
 
-  console.log('\nBoth campaigns created PAUSED. No ads attached yet -- this builds the');
-  console.log('structure, not the art. Next, by hand:');
-  console.log(`  - Register both campaign ids in content/paid-campaigns.json: role "cold" =`);
-  console.log(`    ${coldCampaign.id}, role "retargeting" = ${rtCampaign.id}, playbook "v2",`);
-  console.log(`    total ${TOTAL}, runway_start ${runwayStart}.`);
-  console.log('  - Attach creative once it exists, then start each campaign yourself.');
+  console.log(`\n${cellCampaign ? 'All three' : 'Both'} campaigns created PAUSED, budget on each campaign, one ad set each.`);
+  console.log('No ads attached yet -- this builds the structure, not the art. Next, by hand:');
+  console.log('  - Register the campaign ids in content/paid-campaigns.json, one entry per role,');
+  console.log(`    playbook "v2", total ${TOTAL}, runway_start ${runwayStart}:`);
+  console.log(`      role "cold"        = ${coldCampaign.id}`);
+  if (cellCampaign) console.log(`      role "two_for_one" = ${cellCampaign.id}   (the ladder carves its share out of cold only once this is registered)`);
+  console.log(`      role "retargeting" = ${rtCampaign.id}`);
+  console.log('  - Attach creative once it exists, then start each campaign yourself. The 2-for-1');
+  console.log('    creative goes in the 2-for-1 campaign and nowhere else (caption_rules.banned_outside_female_ad_set).');
   if (!audienceId) console.log('  - Come back with --retargeting-audience once a pool exists.');
   console.log('');
 }

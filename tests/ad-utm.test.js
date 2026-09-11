@@ -81,6 +81,11 @@ describe('playbook_v2 tags by ROLE, and carry no phase', () => {
   // The reason the two shapes can coexist: a v2 retargeting tag IS the legacy
   // retargeting tag. Nothing built under the new playbook splits from the ads
   // running now, in the one field meant to join them.
+  it('tags the 2-for-1 cell as 2f1 -- digits are legal in a segment, and it reads as itself in GA4', () => {
+    expect(utmContent({ event: 'TL2', role: 'two_for_one', creative: 'offer' })).toBe('tl2_2f1_offer');
+    expect(urlTags({ event: 'TL2', role: 'two_for_one', creative: 'offer' })).toMatch(/utm_content=tl2_2f1_offer/);
+  });
+
   it('produces a byte-identical tag to the legacy retargeting form for the same ad', () => {
     const v2 = utmContent({ event: 'MC', role: 'retargeting', creative: 'quang' });
     const legacy = utmContent({
@@ -159,7 +164,7 @@ describe('playbook_v2 tags by ROLE, and carry no phase', () => {
     // The suite requires content/brand.json once and shares the object; the two
     // cases above must not mutate it or every later assertion is against a
     // brand.json that does not exist on disk.
-    expect(brand.paid_template.playbook_v2.roles.map((r) => r.key)).toEqual(['cold', 'retargeting']);
+    expect(brand.paid_template.playbook_v2.roles.map((r) => r.key)).toEqual(['cold', 'two_for_one', 'retargeting']);
   });
 
   it('leaves the legacy path untouched when no role is passed', () => {

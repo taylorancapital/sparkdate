@@ -170,12 +170,19 @@ function printLadderV2(entry, plan, ev) {
   const PB = brand.paid_template.playbook_v2;
   const total = entry.total === undefined ? PB.reference_total_dollars : Number(entry.total);
   const scale = total / PB.reference_total_dollars;
-  console.log(`\n${entry.name}  (${entry.event}, ${entry.role}, event ${ev.date}, total $${total})`);
+  // Whether this event's cold share is split with a 2-for-1 cell is decided
+  // by the registry, not by the entry alone (budget-ladder.js twoForOneOpts).
+  const opts = L.twoForOneOpts(entry, registry, brand);
+  console.log(`\n${entry.name}  (${entry.event}, ${entry.role}, event ${ev.date}, total $${total}${opts.twoForOne && entry.role !== 'retargeting' ? `, cold split ${((1 - opts.twoForOneOfCold) * 100).toFixed(0)}/${(opts.twoForOneOfCold * 100).toFixed(0)} broad/2-for-1` : ''})`);
   console.log(`  ${pad('PHASE', 9)}${pad('WINDOW', 26)}${rpad('SPLIT', 7)}${rpad('DAILY', 9)}`);
   for (const r of plan.rows) {
-    const { cold, retarget } = L.roleRates(r, scale);
-    const mine = entry.role === 'cold' ? cold : retarget;
-    const splitPct = `${((entry.role === 'cold' ? r.cold_share : r.retarget_share) * 100).toFixed(0)}%`;
+    const rates = L.roleRates(r, scale, opts);
+    const mine = entry.role === 'retargeting' ? rates.retarget
+      : entry.role === 'two_for_one' ? rates.two_for_one
+        : rates.cold;
+    const splitPct = entry.role === 'retargeting' ? `${(r.retarget_share * 100).toFixed(0)}%`
+      : entry.role === 'two_for_one' ? `${(r.cold_share * opts.twoForOneOfCold * 100).toFixed(0)}%`
+        : `${(r.cold_share * (opts.twoForOne ? 1 - opts.twoForOneOfCold : 1) * 100).toFixed(0)}%`;
     const isNow = TODAY >= r.from && TODAY <= r.to;
     const display = mine
       ? `${money(mine.cents)}${mine.floored ? '  (floored to the $2.00 minimum)' : ''}`

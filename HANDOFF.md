@@ -421,33 +421,37 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
     [[check-for-existing-system-first]] — this is that failure exactly, and it
     cost a proposal to build something that shipped months ago. *(09-08)*
 
-- **§8.3 vs the women-only 2-for-1 — DECIDED 09-10: option A, the carve-out.
-  The rule is rewritten; nothing BUILDS the cell yet.** Review:
-  `reports/TWO_FOR_ONE_TO_EVERYONE_2026-09-10.md` (every broad cold sales cell
-  spent 60–68% on men; a women-locked cell lands 2.7× the women per dollar at
-  the same $/woman; the +1 mirrors the buyer 7/7 — §7 there weighs each
-  finding). Taylor picked A. Done in the same PR as this entry: §8.3 of
-  `reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md` now says one women-locked
-  cold ad set, gender expansion off, is the only home for the 2-for-1
-  creative; retargeting stays broad; old points 2 and 4 retired with reasons.
-  `brand.json` `playbook_v2._gender_rule`, `roles[cold].targeting` and
-  `creative._no_gender_axis` say the same (the 09-06 note calling the female
-  ad set "gone" was wrong — it was live throughout). `npm run ads:review` has a
-  "2-for-1 delivery and gender expansion" section and exits 3 when a 2-for-1
-  ad still delivering has under 97% of spend on women or an ACTIVE ad set
-  carries `individual_setting.gender = 1`; the two archived 2026-08 leaks are
-  listed without failing the run (`tests/meta-ads-two-for-one-delivery.test.js`).
-  **Not done:** `scripts/build-paid-campaign.js` still builds one broad ad set
-  per role and asserts `genders` undefined, and `playbook_v2.creative` has no
-  2-for-1 creative — the cell is built by hand on the
-  `meta-create-lx-sales-campaign.js` pattern until then. Loxleys' live
-  `female | Sales` set already IS the cell; its `male | Sales` set is the one
-  that no longer matches. **Next step: add the cell to the builder — a third
-  ad set inside `<Event> | Cold`, `genders:[2]`, expansion off, its own ABO
-  budget ≥ $2.00/day out of the cold share — plus a `two_for_one` creative
-  entry keyed to it with a `gender: women` axis, and tests. Firestore side of
-  the review was never re-read (env pull blocked); refresh the 7/7 and
-  5-of-9 vs 2-of-13 figures after Loxleys 09-22.** *(09-10)*
+- **The 2-for-1 cell is BUILT by the builder and MOVED by the ladder as of
+  09-10 (Taylor: "I don't want it built by hand").** Chain: review
+  `reports/TWO_FOR_ONE_TO_EVERYONE_2026-09-10.md` (#517) → §8.3 rewritten to
+  the carve-out, plus the `ads:review` check (#521) → this PR. What landed:
+  `scripts/build-paid-campaign.js` builds THREE campaigns per event —
+  `<Event> | Cold` (broad), `<Event> | 2-for-1` (`genders:[2]`, expansion
+  verified off on read-back), `<Event> | Retargeting` (broad) — PAUSED,
+  **budget on the campaign, one ad set each**. That last part fixed a latent
+  defect: the builder had been putting `daily_budget` on the AD SET, reading
+  brand.json's "ABO" note literally, and `meta-budget-ladder.js` refuses any
+  campaign without a campaign-level budget, so nothing the v2 builder made
+  could ever have been laddered. `budget-ladder.js roleRates()` now returns
+  `two_for_one` = 25% of the cold amount (`playbook_v2.two_for_one_of_cold`,
+  exactly the $2.00 floor at Seed; $2.10 Build; floored $2.00 Close with
+  broad cold $3.60), and carves it out of cold ONLY when the event has a
+  `two_for_one` entry in `content/paid-campaigns.json` (`twoForOneOpts`) — so
+  Loxleys' live pair keeps its $5.11 / $3.40 byte for byte. `ad-utm.js` tags
+  the role `2f1`. Tests: `tests/budget-ladder.test.js` (+10),
+  `tests/ad-utm.test.js` (+1). §8's quick-reference table and checklist,
+  `brand.json` (roles, `_gender_rule`, `campaign.budget`, `_no_gender_axis`)
+  and the registry's `_how_to_add`/`_fields` all say three campaigns.
+  **Still by hand, and the same for every role:** the ad itself.
+  `playbook_v2.creative` has no 2-for-1 entry (the copy is the legacy
+  `caption_templates.female` offer line) and no v2 attach script exists — the
+  proven attach path is `meta-create-lx-sales-campaign.js` lines ~443-468.
+  **Next step: when Tellus Oct 6 (TL2) is ready to build, run
+  `node scripts/build-paid-campaign.js --event=TL2 --execute`, register the
+  three ids, and confirm the 03:00 ladder prints all three the next morning.
+  Then a `two_for_one` creative entry + a v2 attach script, one PR. Firestore
+  side of the review was never re-read (env pull blocked); refresh the 7/7
+  and 5-of-9 vs 2-of-13 figures after Loxleys 09-22.** *(09-10)*
 
 - **Loxleys retargeting went LIVE 09-08 — first spend since the shell was created
   2026-08-17. Three things to check, then it retires with the event.**

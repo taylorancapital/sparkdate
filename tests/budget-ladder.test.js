@@ -360,8 +360,9 @@ describe('playbook_v2 — two campaigns, a per-day rate, a split that varies by 
       expect(warnings.join(' ')).toMatch(/disagree on total\/runway_start/);
     });
 
-    it('warns when only one role is registered', () => {
-      expect(bad([cold()]).warnings.join(' ')).toMatch(/other role is unmanaged/);
+    it('warns when only one role is registered, naming the missing ones', () => {
+      const w = bad([cold()]).warnings.join(' ');
+      expect(w).toMatch(/other roles \(two_for_one, retargeting\) are unmanaged/);
     });
 
     it('does not apply legacy\'s 18-day runway floor -- v2 degrades gracefully instead', () => {
@@ -377,6 +378,83 @@ describe('playbook_v2 — two campaigns, a per-day rate, a split that varies by 
 
     it('still refuses an event key brand.json does not hold', () => {
       expect(bad([cold({ event: 'ZZ' })]).errors.join(' ')).toMatch(/not in content\/brand\.json/);
+    });
+  });
+
+  describe('the 2-for-1 cell (section 8.3, 2026-09-10): a third campaign carved out of cold, only once it is registered', () => {
+    const cell = (overrides = {}) => ({ event: 'V2E', campaign_id: '3', name: 'V2E | 2-for-1', playbook: 'v2', role: 'two_for_one', total: 296, runway_start: '2026-08-30', ...overrides });
+    const triple = (over = {}, ...extra) => ({ guards: registry.guards, campaigns: [cold(over), cell(over), retarget(over), ...extra] });
+    const pair = { guards: registry.guards, campaigns: [cold(), retarget()] };
+    const rateIn = (entry, today, reg) => L.rateFor(entry, today, brandV2, reg);
+
+    it('seed: broad cold $6.00, 2-for-1 $2.00 (25% of $8.00, exactly the floor), retarget $2.00 -- the $10.00 is preserved', () => {
+      const reg = triple();
+      const c = rateIn(cold(), '2026-09-01', reg);
+      const t = rateIn(cell(), '2026-09-01', reg);
+      const r = rateIn(retarget(), '2026-09-01', reg);
+      expect([c.cents, t.cents, r.cents]).toEqual([600, 200, 200]);
+      expect(t.floored).toBe(false);
+      expect(t.phase).toBe('seed');
+    });
+
+    it('build: broad cold $6.30, 2-for-1 $2.10, retarget $5.60', () => {
+      const reg = triple();
+      expect(rateIn(cold(), '2026-09-09', reg).cents).toBe(630);
+      expect(rateIn(cell(), '2026-09-09', reg).cents).toBe(210);
+      expect(rateIn(retarget(), '2026-09-09', reg).cents).toBe(560);
+    });
+
+    it('close: 25% of $5.60 is $1.40, so the cell is floored to $2.00 and broad cold takes $3.60', () => {
+      const reg = triple();
+      const t = rateIn(cell(), '2026-09-18', reg);
+      expect(t.cents).toBe(200);
+      expect(t.floored).toBe(true);
+      expect(rateIn(cold(), '2026-09-18', reg).cents).toBe(360);
+      expect(rateIn(retarget(), '2026-09-18', reg).cents).toBe(1040);
+    });
+
+    it('holds the cell, and leaves cold whole, when cold itself cannot fund both past the floor', () => {
+      // Seed at scale 0.4 ($4.00/day): retarget floors to $2.00, cold is $2.00 -- no room for a cell.
+      const e = { total: 296 * 0.4 };
+      const reg = triple(e);
+      const t = rateIn(cell(e), '2026-09-01', reg);
+      expect(t.state).toBe('hold');
+      expect(t.reason).toMatch(/2-for-1 cell/);
+      expect(rateIn(cold(e), '2026-09-01', reg).cents).toBe(200);
+    });
+
+    it('carves nothing out of cold when no cell is registered -- a pre-carve-out pair keeps its rate byte for byte', () => {
+      expect(rateIn(cold(), '2026-09-01', pair).cents).toBe(800);
+      expect(rateIn(cold(), '2026-09-18', pair).cents).toBe(560);
+    });
+
+    it('a cell entry alone still gets its rate -- the entry is the evidence the cell exists', () => {
+      expect(rateIn(cell(), '2026-09-01', { guards: registry.guards, campaigns: [cell()] }).cents).toBe(200);
+    });
+
+    it('ignores an unmanaged cell entry -- parking it hands the share back to cold', () => {
+      const reg = triple({}, ); reg.campaigns[1] = cell({ managed: false });
+      expect(rateIn(cold(), '2026-09-01', reg).cents).toBe(800);
+    });
+
+    it('sums all three into the account total', () => {
+      const day = L.planDay('2026-09-09', triple(), brandV2);
+      expect(day.accountCents).toBe(630 + 210 + 560);
+    });
+
+    it('refuses a two_for_one_of_cold that is not a fraction', () => {
+      const broken = { ...brandV2, paid_template: { ...brandV2.paid_template, playbook_v2: { ...brandV2.paid_template.playbook_v2, two_for_one_of_cold: 1.5 } } };
+      expect(() => L.rateFor(cell(), '2026-09-01', broken, triple())).toThrow(/two_for_one_of_cold/);
+    });
+
+    it('validate() accepts the triple, rejects a second cell, and warns when a pair has no cell', () => {
+      const ok = L.validate(triple(), brandV2);
+      expect(ok.errors).toEqual([]);
+      expect(ok.warnings.join(' ')).not.toMatch(/two_for_one/);
+      expect(L.validate(triple({}, cell({ campaign_id: '4' })), brandV2).errors.join(' ')).toMatch(/already has a v2 "two_for_one" entry/);
+      const p = L.validate(pair, brandV2);
+      expect(p.errors).toEqual([]);
+      expect(p.warnings.join(' ')).toMatch(/no v2 "two_for_one" entry/);
     });
   });
 
