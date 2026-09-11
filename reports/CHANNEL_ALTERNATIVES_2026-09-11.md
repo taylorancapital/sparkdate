@@ -34,6 +34,54 @@ night's GA4 pull (`Night Tasks/ga4-api-*-2026-09-11.csv`, window 2026-05-19 →
 
 ---
 
+## CORRECTION (same day, afternoon) — Eventbrite Ads has been running since June, and the report below did not know
+
+**§5 said Eventbrite Ads "has never been run on this account." That is false.**
+Read in the organizer account, Marketing → Eventbrite Ads, after Taylor asked
+to "set up the Eventbrite Ads test on Loxleys":
+
+| Campaign | Dates | Objective | Daily budget | Spend | Impressions | Clicks | CPC |
+|---|---|---|---:|---:|---:|---:|---:|
+| Loxleys (Sep 22) | 08/30 → 09/22, **live** | Drive traffic | $2 | $19.84 | 1,615 | 32 | $0.62 |
+| Marion Court #1 | 09/01 → 09/08 | Drive traffic | $7 | $51.00 | 1,204 | 15 | $3.40 |
+| Marion Court #2 | 08/16 → 09/08 | Drive traffic | $2 | $94.27 | 11,621 | 128 | $0.74 |
+| Tellus Aug (two campaigns) | 08/06 → 08/26 | Drive traffic | | not read | | | |
+| Good Good (two campaigns) | 07/24 → 08/31 | Drive traffic | | not read | | | |
+| Summer Nights (three campaigns) | 07/11 → 07/29 | Drive traffic / awareness | | not read | | | |
+| page 2 of the list | June, presumably Founders Mixer | | | not read | | | |
+
+**Invoices, all paid:** Jun 21 $50.23 · Jul 1 $19.13 · Aug 1 $42.89 · Aug 25
+$150.54 · Sep 1 $80.99 = **$343.78**, plus the unbilled period since 09-01
+(Marion Court #1's $51.00 in full and parts of the other two), so roughly
+**$400 lifetime**. The dashboard's "Monthly performance" panel read 26,656
+impressions / 399 clicks / $304 on an unlabelled default window.
+
+**What this changes:**
+
+1. **None of that spend is in Firestore `ad_spend`**, so the dashboard's CAC
+   and every "$1,408.64 of ad spend" figure in this report are understated by
+   roughly $400, about 28%. This is the Google Ads gap of 09-04 again, on a
+   third platform.
+2. **Eventbrite's per-ticket cost is not $2.61.** Fees plus roughly $400 of
+   Eventbrite Ads over 65 Eventbrite tickets is about **$8.80**. Still far
+   under Meta's band, but the "free discovery" framing in §2b was too clean.
+3. **Part of the "Eventbrite Marketplace" traffic in §2b is bought.** Marion
+   Court's two campaigns delivered 143 clicks against a listing that had 371
+   visits in total, so up to **39%** of that event's listing traffic was paid
+   placement, sitting inside Eventbrite's "site, app, and marketing efforts"
+   bucket. Loxleys: 32 of 278 (12%). The organic marketplace share is nearer
+   half than three quarters.
+4. **The Eventbrite Ads "test" in §6 item 5 is not a new thing to set up.** It
+   has been running for three months on a `Drive traffic` objective with no
+   sales attribution on the report page, so it has never been scored. The
+   way to score it exists (Traffic and Conversion orders per event against
+   the campaign's clicks), and on the listing's own 1.8 to 2.7% visit-to-order
+   rate the Marion Court campaigns bought roughly four orders for $145, about
+   **$35 to $40 per order** — a model, not an observation, because nothing
+   attributes an order to a paid click.
+
+The rest of the report stands with those corrections applied where marked.
+
 ## §1 EVIDENCE — where the 106 tickets actually came from
 
 MEASURED, Firestore, all time to 2026-09-11. Paid means `status === 'confirmed'
@@ -44,7 +92,7 @@ share below by more than a few points).
 
 | Door | Paid tickets | Share | Gross | What it cost | Per ticket |
 |---|---:|---:|---:|---|---:|
-| Bought on Eventbrite (`eventbrite_import`) | 65 | 61% | $1,482.87 | $169.72 Eventbrite fees (11.4%) | **$2.61** |
+| Bought on Eventbrite (`eventbrite_import`) | 65 | 61% | $1,482.87 | $169.72 Eventbrite fees (11.4%) + ≈$400 Eventbrite Ads, not in `ad_spend` (see CORRECTION) | **$2.61 fees only; ≈$8.80 with the ads** |
 | Bought on sparkdate.date | 39 | 37% | $1,019.63 | $1,370.72 Meta + $37.92 Google | $36 – $228 (see below) |
 | Bought on Meetup (`meetup_import`) | 2 | 2% | $52.15 | $0 | $0 |
 | **All** | **106** | | **$2,554.65** | **$1,408.64** | **$13.29** if every ticket is credited to ads |
@@ -207,17 +255,19 @@ women at a better rate than the others. That is a creative and offer problem
 audience problem (`/women-outreach`), not a channel-selection problem, and this
 report does not pretend otherwise.
 
-## §5 NOT VERIFIED — the one paid channel with an intent argument
+## §5 EVIDENCE (corrected) — Eventbrite Ads, the one paid channel with an intent argument, is already running
 
 **Eventbrite Ads** promotes a listing to people already browsing events on
 Eventbrite in the same market: budgets of $5 – $25 a day, promoted placement
-"in select markets", and a $20/month credit for Premium organisers, per
-Eventbrite's own product page and help centre (read today, not tested). It has
-never been run on this account. It is the only paid product whose audience is
-defined by *looking for an event nearby* rather than by demographics, so it is
-the one paid test this report recommends, and it is recommended as a test:
-nothing here says it works, only that its audience is the audience §2 says
-converts.
+on search, homepage, category pages, the app and related events, and a
+$20/month credit for Premium organisers, per Eventbrite's own product page.
+**This report first said it had never been run here. It has run on every
+event since June** — see the CORRECTION at the top for the campaigns, the
+invoices and the numbers. It is the only paid product whose audience is
+defined by *looking for an event nearby* rather than by demographics, and on
+the listing's own conversion rate its Marion Court campaigns modelled out at
+$35 to $40 per order, inside the cheap end of Meta's band. What it has never
+had is a score.
 
 How to read it if tried: Eventbrite Ads land on the Eventbrite listing, so the
 sales arrive as `eventbrite_import` and GA4 never sees them. Score it in
@@ -252,11 +302,17 @@ In order. The first four cost hours, not money.
    venue tagged.** Meetup has sold 2 tickets from a group nobody posts in.
    The Page Event exposes the night to the venue's followers (Tellus 360's
    page carries 83,750 check-ins) and produced a ticket from 12 visits.
-5. **Test Eventbrite Ads once, on Loxleys, now.** Loxleys is at T-11, inside the
-   14-day window where sales happen, and it is the event with the best cost per
-   ticket so far ($8.34). $5 – $10 a day through 09-22, roughly $75. Score it as
-   §5 says. If Eventbrite-sourced paid tickets at T-7 and T-1 beat the past-event
-   median at the same T-minus, it earned a second run on TL2.
+5. **Score the Eventbrite Ads campaign that is already live on Loxleys, and
+   decide its budget.** (Corrected: it exists, $2/day since 08-30, $19.84 spent,
+   32 clicks.) At $2/day the remaining 11 days buy about 35 more clicks, under
+   one expected order at the listing's rate, which reads as nothing either way.
+   Raising it to $5/day through 09-22 (about $55 more, the "Add to your budget"
+   control on the campaign page) buys roughly 90 clicks, two or three expected
+   orders — still thin, but the first campaign here that could be read at all.
+   Score it in Firestore as `eventbrite_import` tickets at T-7 and T-1 against
+   the past-event median at the same T-minus, and in Eventbrite's Traffic and
+   Conversion report as orders against the campaign's clicks. The budget change
+   is Taylor's click; nothing was changed today.
 6. **Keep Meta, in the shape the playbook already gives it.** Cold at the $2/day
    floor outside T-14, retargeting and the women-locked 2-for-1 cell carrying
    the Close phase. Nothing in this report argues for changing the ladder; it
@@ -283,9 +339,15 @@ In order. The first four cost hours, not money.
   and 106 overall. I did not reconcile the two. The channel shares are robust to
   it: Eventbrite's 61% would need 20 uncounted own-site tickets to fall below
   half.
-- **Eventbrite Ads' effectiveness.** Only its existence and price band were
-  read, from Eventbrite's own pages. No third-party benchmark was found and
-  none is quoted.
+- **Eventbrite Ads' effectiveness.** Corrected the same afternoon: the
+  campaigns exist and their spend, impressions and clicks were read for three
+  of eleven; the other eight and page 2 of the list were not opened, and no
+  campaign carries order attribution, so "$35 to $40 per order" is the
+  listing's blended rate applied to paid clicks, not a measurement. The
+  Marketplace row's split between organic browse and paid placement is not
+  exposed anywhere that was read.
+- **Eventbrite Ads spend is in no dataset.** Not in `ad_spend`, not in the
+  nightly, not in the dashboard CAC. The invoices page is the only record.
 - **LancasterOnline after the 09-06 link fix.** The 138-sessions day is
   historical; the fixed link has produced no measured conversions yet because
   the newsletter has not gone out again. Re-check due 09-13 to 09-17.
