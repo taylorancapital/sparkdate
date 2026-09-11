@@ -58,6 +58,31 @@ describe('attribution wiring', () => {
     ).toBe(payloads.length);
   });
 
+  it.each(purchasePages)('%s forwards the GA4 cookies with every purchase payload', (file) => {
+    // The server-side GA4 purchase (lib/ga4-mp.js, sent from the Stripe
+    // webhook) can only land on the buyer's session, and dedupe against the
+    // browser copy, if the browser handed over its _ga and _ga_<container>
+    // cookies at checkout -- the webhook runs on Stripe's servers and has no
+    // other way to learn them. A payload that omits them still records the
+    // sale, but as a sessionless pseudo-user with no source or medium.
+    const src = read(file);
+    const payloads = src.match(/payload\s*=\s*\{/g) || [];
+    const gaReads = src.match(/\bga:\s*\(typeof spdCookie === 'function' \? spdCookie\('_ga'\)/g) || [];
+    const gasReads = src.match(/\bgas:\s*\(typeof spdCookie === 'function' \? spdCookie\('_ga_21YLCC35F1'\)/g) || [];
+    expect(
+      gaReads.length,
+      `${file} builds ${payloads.length} purchase payload(s) but forwards _ga ${gaReads.length} time(s).`,
+    ).toBe(payloads.length);
+    expect(
+      gasReads.length,
+      `${file} builds ${payloads.length} purchase payload(s) but forwards _ga_21YLCC35F1 ${gasReads.length} time(s).`,
+    ).toBe(payloads.length);
+    // The container cookie is named after the stream this page actually
+    // loads; a page on a different measurement id would forward a cookie
+    // that does not exist.
+    expect(src, `${file} loads a different GA4 stream than the cookie it forwards`).toContain('gtag/js?id=G-21YLCC35F1');
+  });
+
   it.each(purchasePages)('%s also CAPTURES first-touch attribution on landing', (file) => {
     // Reading the store is useless if nothing ever writes it. A page reached
     // directly from an email or ad must record the UTMs itself -- it cannot
