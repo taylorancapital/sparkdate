@@ -267,7 +267,11 @@ function pickTestimonials(brand, rowId, count) {
 function framesForRow(row, ev, brand) {
   const n = slideCount(row.format);
   const u = units(row.caption);
-  const story = /story|reel/i.test(row.format);
+  // Shape is decided per frame for "Single image + Story" (below) and per row
+  // for every other format. /story/ matches that format too, which is how both
+  // of its frames used to come out 1080x1920.
+  const pair = /single image \+ story/i.test(row.format);
+  const story = !pair && /story|reel/i.test(row.format);
 
   // The eyebrow names the event the COPY is about, which is not always the
   // sheet it appears in. GG-07 recaps Good Good Things and forward-promotes
@@ -294,10 +298,34 @@ function framesForRow(row, ev, brand) {
     s: { mode: s.img ? 'photo' : mode, eyebrow, story: story || undefined, ...s },
   });
 
-  if (n === 1) {
+  // The one card a "Single image" post carries.
+  const pushCard = (extra) => {
     const m0 = pickMode(u[0], 'page');
     const h = contentSpec(u[0], m0);
-    push(m0, { ...h, sub: h.sub || u[1] || '' });
+    push(m0, { ...h, sub: h.sub || u[1] || '', ...extra });
+  };
+
+  if (n === 1) {
+    pushCard();
+    return out;
+  }
+
+  // "Single image + Story" is ONE card in two shapes: the square for the feed
+  // and the same card at 1080x1920 for the Story. It is not a hook followed by
+  // a closing card -- the row posts to fb and ig_story, each surface shows only
+  // its own frame, and a "Last call" endcard would reach Story viewers with no
+  // day, time or venue on it.
+  //
+  // Both frames used to be story-shaped, so prep-social-assets filed both as
+  // _story, the row had no feed image, and lib/social-publish.js refused its
+  // Facebook leg. MC-12 was rescued by a hand export; LX-24 was not.
+  //
+  // They keep 1of2 / 2of2 because the export filenames must differ (prep keeps
+  // one file per slide number), but drop the on-frame counter: a Story that
+  // says "2/2" has no 1/2 anywhere near it.
+  if (pair) {
+    pushCard({ standalone: true });
+    pushCard({ standalone: true, story: true });
     return out;
   }
 

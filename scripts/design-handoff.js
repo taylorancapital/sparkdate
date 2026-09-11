@@ -202,7 +202,8 @@ function slidesFor(row, ev, brand) {
   // build something a camera produces -- and inflated the slide count from 84
   // to 112 the moment this file started using the shared planner.
   if (isPhotoRow(row)) return [];
-  return framesForRow(row, ev, brand).map((f) => {
+  const frames = framesForRow(row, ev, brand);
+  return frames.map((f) => {
     const s = f.s;
     const style = {
       page: 'Statement',
@@ -224,6 +225,14 @@ function slidesFor(row, ev, brand) {
     if (s.cta) notes.push('GET TICKETS button below the copy.');
     if (s.mode === 'stat') notes.push('Number in gold #d4af37 at 300px.');
     return { style, head: s.line1 || '', head2: s.line2 || '', sub: s.sub || '', note: notes.join(' ') };
+  }).map((slide, k) => {
+    // Shape belongs to the FRAME, not the row: a "Single image + Story" row is
+    // a 1080x1080 feed image, then the same card at 1080x1920.
+    const s = frames[k].s;
+    const story = !!s.story;
+    // Two slides with identical words look like a mistake to tidy up.
+    const repeat = s.standalone && story ? 'The same card as the feed image, set as a Story.' : '';
+    return { ...slide, story, note: [repeat, slide.note].filter(Boolean).join(' ') };
   });
 }
 
@@ -231,16 +240,16 @@ function slidesFor(row, ev, brand) {
  * The files one slide has to come back as. The names are the ones
  * prep-social-assets.py discovers and suffixes: `_story` for Instagram's
  * 1080x1920 frame, `_tt` for TikTok's own 1080x1920 layout.
+ *
+ * The shape is the slide's own, read from its frame, so the brief and the
+ * sheet cannot disagree. "Single image + Story" is one card in two shapes -- a
+ * feed image for Facebook, then a story for Instagram -- and a post with no
+ * feed-shaped file is refused on Facebook (MC-12, LX-24).
  */
-function filesFor(row, k, n, D) {
+function filesFor(row, slide, k, n, D) {
   const base = n === 1 ? row.row_id : `${row.row_id}_${k + 1}of${n}`;
   const tall = `${D.story.width}×${D.story.height}`;
-  // "Single image + Story" is one message in two shapes: a feed image for
-  // Facebook and a story for Instagram. The planner marks both frames as
-  // stories, and a post with no feed-shaped file is refused on Facebook.
-  const pair = /single image \+ story/i.test(row.format || '');
-  const story = pair ? k > 0 : /story|reel/i.test(row.format || '');
-  const out = [story
+  const out = [slide.story
     ? { name: `${base}_story.png`, size: `${tall}, Story layout` }
     : { name: `${base}.png`, size: `${D.feed.width}×${D.feed.height}` }];
   const platforms = String(row.platforms || '').split(',').map((p) => p.trim());
@@ -260,7 +269,7 @@ function buildBrief(brand, rows, keys, opts = {}) {
   const plans = build.map((row) => {
     const ev = brand.events[Q.rowEvents(row)[0]] || {};
     const slides = slidesFor(row, ev, brand);
-    return { row, ev, slides, files: slides.map((_, k) => filesFor(row, k, slides.length, D)) };
+    return { row, ev, slides, files: slides.map((s, k) => filesFor(row, s, k, slides.length, D)) };
   });
   const totalSlides = plans.reduce((a, p) => a + p.slides.length, 0);
   const totalFiles = plans.reduce((a, p) => a + p.files.reduce((b, f) => b + f.length, 0), 0);

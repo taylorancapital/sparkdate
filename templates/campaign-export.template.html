@@ -151,9 +151,13 @@ function frameHTML(f) {
     inner += '<img src="' + photoSrc(s.img) + '" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;">';
     inner += '<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,14,39,0.72) 0%,rgba(10,14,39,0.45) 38%,rgba(10,14,39,0.92) 100%);"></div>';
   }
+  // A frame that posts on its own -- either half of a "Single image + Story"
+  // row -- has nothing beside it in the app, so "2/2" would read as a missing
+  // frame. The caption above each cell still shows n/of for whoever exports.
+  const counter = f.of > 1 && !s.standalone;
   inner += '<div style="position:absolute;top:' + (tt ? 150 : story ? 274 : 44) + 'px;left:52px;right:' + (tt ? 250 : 52) + 'px;display:flex;justify-content:space-between;gap:24px;">'
     + '<span style="font-size:27px;letter-spacing:4.5px;text-transform:uppercase;font-weight:700;color:' + p.eyebrow + ';">' + esc(s.eyebrow) + '</span>'
-    + (f.of > 1 ? '<span style="font-size:27px;letter-spacing:4.5px;text-transform:uppercase;font-weight:600;color:' + p.meta + ';">' + f.n + '/' + f.of + '</span>' : '')
+    + (counter ? '<span style="font-size:27px;letter-spacing:4.5px;text-transform:uppercase;font-weight:600;color:' + p.meta + ';">' + f.n + '/' + f.of + '</span>' : '')
     + '</div>';
 
   inner += '<div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:' + pad + ';' + align + '">';
