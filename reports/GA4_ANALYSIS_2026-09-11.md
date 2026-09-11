@@ -21,7 +21,132 @@ the commit-history correlation — was derived by hand from the individual
 CSVs and `git log`, because the standing summary computes window totals and
 does not diff consecutive nightly pulls against each other.
 
-## HEADLINE — GA4 and Meta's own pixel agree: zero purchases have completed anywhere on the site in at least 8 days, while checkout-starts kept climbing and ad spend kept flowing to the pages where they climbed fastest
+## CORRECTION — added 2026-09-11, same day, by a follow-up session with Firestore, Vercel-log and Meta-pixel access
+
+**The HEADLINE below is withdrawn. The checkout is not broken and sales did
+not stop.** Two own-site Stripe purchases completed on **2026-09-08** through
+the rebuilt checkout, four days after #456 shipped. GA4 recorded neither. The
+HEADLINE's other two legs — "Meta's own pixel agrees" and "checkout-starts
+kept climbing" — were both misreadings of the data, explained below. Nothing
+else in this report is affected: the TRAFFIC, EVENTS and UTM sections stand,
+with the caveat that their purchaser / transaction / revenue rows are
+GA4-measured floors (ANALYTICS_METHOD §7), and this week those floors read
+zero while real sales did not. NEEDS TAYLOR INPUT #1 is withdrawn.
+
+### EVIDENCE — from sources the unattended run did not have
+
+1. **Firestore `tickets`, the revenue truth.** Paid tickets written
+   2026-09-02 through 2026-09-10, by event and path:
+
+   | event | own-site (Stripe) | Eventbrite paid | comps |
+   | --- | ---: | ---: | ---: |
+   | Marion Court (09-08) | 2 | 6 | 2 |
+   | Loxleys (09-22) | 0 | 4 | 3 |
+   | Tellus Oct 6 | 0 | 2 | 0 |
+   | **total** | **2** | **12** | **5** |
+
+   The two own-site purchases: 09-08 13:15 UTC (channel `direct`, a returning
+   member on their third ticket) and 09-08 20:29 UTC (channel
+   `visitlancastercity / listing`, first-touch landing `/event`). Both Marion
+   Court, $27.49 each, status `confirmed`, `paymentIntentId` set. No ticket
+   since 08-28 sits in a `failed`, `pending` or `pending_3ds` state. Own-site
+   is 2 of 14 paid tickets in this window against 40 of 126 all-time; small
+   numbers, read as direction only.
+2. **Vercel runtime logs.** Both minutes show `POST /api/purchase-ticket 200`
+   on the production deployment, with the auto-enroll and lead writes logged
+   after the charge. Seven days of grouped runtime errors contain no
+   `/api/purchase-ticket` group at all (the only groups are a check-in email
+   template bug and two Resend rejections on `example.com` test leads).
+3. **Meta's raw pixel receipts, not its ad attribution.**
+   `GET /4390442851170732/stats?aggregation=event` returns `Purchase` 1 in the
+   09-08 13:00 UTC hour and `Purchase` 3, `AddPaymentInfo` 2, `AddToCart` 2 in
+   the 20:00 UTC hour — the two sale minutes exactly (the server-side CAPI
+   copy from `api/stripe-webhook.js` is one of the three). The
+   `meta-insights-*.csv` pulls read zero because campaign insights count
+   **ad-attributed** conversions, and neither buyer arrived from a Meta ad.
+   "Meta's own pixel agrees" was an attribution table read as a receipt
+   table. The 09-01 control behaves the same way: the pixel's receipts show
+   `Purchase` in the 14:00 and 19:00 UTC hours that day, matching the two GA4
+   transactions this report does count.
+4. **GA4 has no event of any kind from either buyer at purchase time.**
+   Queried by hour × page × source for 09-08 through the Data API: the 16:00
+   ET hour has no `/event` events from anyone, and the 09:00 ET hour has only
+   `/lp` paid-social sessions. GA4 `purchase` and `add_payment_info` are fired
+   only from the buyer's browser (`lp.html`, `event.html`, `events.html`);
+   Meta gets a second copy server-side, GA4 gets none. Why these two browsers
+   delivered nothing is not known — a blocker, a webview or a dropped hit all
+   fit. The live `/event` page still dispatches `g/collect` requests for
+   `view_item`, `begin_checkout`, `add_to_cart` and `checkout_field_started`
+   from a normal browser today (checked from a browser session, short of
+   submitting the form), so the tag is not structurally broken.
+
+### MECHANISM — why the report read a stop where there was none
+
+**"Checkout-starts kept climbing" is an artifact of the method, not a fact
+about buyers.** HEADLINE evidence item 3 diffs the window-to-date
+`ga4-api-events-*.csv` tables between pulls. Those tables only ever rise, so
+"begin_checkout grew while purchase stayed flat" is a tautology whenever the
+only purchases in the window were both lost. Per day, from the Data API, all
+pages:
+
+| period | begin_checkout / day | range | purchase | checkout_error |
+| --- | ---: | --- | ---: | ---: |
+| 08-22 to 09-01 (11 days, before the rebuild) | 10.3 | 2–17 | 10 | 10 |
+| 09-02 to 09-08 (7 closed days after it) | 7.3 | 5–11 | 0 (2 real, unrecorded) | 0 |
+
+Checkout starts **fell** by about 30% per day after the rebuild. Item 4's
+"+49 on the chain-count funnel" is the same cumulative arithmetic.
+
+**"add_payment_info and checkout_error both froze" is not evidence either.**
+`add_payment_info` has only ever tracked 1:1 with GA4's `purchase` (10 and 10
+from its 08-22 introduction to 09-01), so it was lost with the same two hits.
+`checkout_error` was already sparse: 11 of the 14 days before the rebuild
+recorded zero, and 18 of the 21 errors in the window since 08-15 were
+`card_incomplete`, 15 of them on the old `/events` dialog, which ad traffic no
+longer lands on. Nine error-free days is the ordinary state, not a stop.
+
+**The Loxleys arithmetic, since that is where the spend and the `/lp` form
+starts actually point.** Loxleys' three campaigns spent $48.37 in the
+09-04–09-10 window (`Loxleys | Sales` $34.49 / 65 landing-page views,
+retargeting $10.30 / 7, the paused Traffic remnant $3.58 / 24), about 96
+landing-page views in all. At the account's measured 0.40% view-to-purchase
+rate (`META_ADS_DELIVERY_DIAGNOSIS_2026-09-04.md` §7b) that is **0.38 expected
+own-site sales**, so zero is the likely outcome (P ≈ 68%), not a signal. The
+$132.53/week in the HEADLINE was mostly Marion Court's $20/day Sales campaign,
+which ended with that event on 09-08. Loxleys itself sits at 8 paid tickets
+(2 own-site in mid-August, 6 Eventbrite) with 11 of 30 seats counted, at
+T-11; past events at T-14 had 2, 13, 7, 6 and 4. Three of its four September
+Eventbrite sales landed on 09-07, the last day of early bird.
+
+### DECISION — what to change so this does not recur
+
+1. **Put real sales beside GA4 in the standing summary.** Pull a
+   `tickets-by-day-<date>.csv` from Firestore in the launcher's step 1, next
+   to the GA4 tables, so `ga4-nightly-summary.js` can print own-site and
+   Eventbrite paid tickets per day alongside GA4 transactions. The pull needs
+   no new credential: the service account behind
+   `GOOGLE_APPLICATION_CREDENTIALS` on this machine is the Firebase admin SDK
+   account. Until then, the nightly prompt should forbid any zero-sales
+   headline that has not been checked against `tickets`.
+2. **Never diff the cumulative `ga4-api-events-*.csv` tables across pulls to
+   claim a trend.** Use the per-day tables; that is this report's own §1 rule.
+3. **Send GA4 `purchase` server-side.** Add a Measurement Protocol call in
+   `api/stripe-webhook.js` next to the existing CAPI `Purchase`, with the
+   PaymentIntent id as `transaction_id` so the browser copy dedupes. Needs a
+   GA4 API secret from Admin → Data Streams. Not built here; this correction
+   is report-only.
+4. **NEEDS TAYLOR INPUT #1 is withdrawn.** No test purchase is needed; the
+   question it asked is answered by items 1–3 above.
+
+**What this correction did not verify:** why the two buyers' browsers
+delivered no GA4 hits; whether GA4 accepted the hits the browser session sent
+today (the realtime API returned nothing for the property during that check,
+so it is not a receipt test); Stripe directly (no key in the session —
+Firestore, Vercel logs and Meta's receipts were used instead); and whether the
+`/lp` inline form's post-submit events reach GA4, since the form was not
+submitted.
+
+## HEADLINE — RETRACTED, see CORRECTION above — GA4 and Meta's own pixel agree: zero purchases have completed anywhere on the site in at least 8 days, while checkout-starts kept climbing and ad spend kept flowing to the pages where they climbed fastest
 
 **The plain finding.** No GA4 transaction and no Meta purchase-pixel event has
 fired since **2026-09-01**. That is not a slow week — it is a complete stop,
@@ -500,9 +625,15 @@ overlap below rather than double-count it in a single grand total).
   the only "converting" source on `/lp` (91.1%, 56 sessions) — **not real**,
   every one of those "key events" is `ads_conversion_About_Us_1` (§8).
 
-## NEEDS TAYLOR INPUT (1)
+## NEEDS TAYLOR INPUT (0 — item 1 withdrawn by the same-day CORRECTION)
 
-1. **(NEW, urgent — this needs action this week, not at the next nightly
+**Item 1 is WITHDRAWN (2026-09-11, see CORRECTION at the top).** The checks
+it asks for were done by a follow-up session from Firestore, Vercel runtime
+logs and Meta's raw pixel receipts, and both possibilities it names resolved
+to (b): sales completed, GA4 did not see them. Nothing for Taylor to do here.
+Original text kept for the record:
+
+1. **(WITHDRAWN — was: NEW, urgent — this needs action this week, not at the next nightly
    pull) Run one real checkout end to end (test-mode charge, or a real
    refundable one) on `/lp`, `/event`, and `/events`, and separately check
    the Stripe dashboard / admin dashboard for any charge dated 2026-09-02 or
