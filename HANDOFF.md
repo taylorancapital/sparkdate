@@ -424,7 +424,7 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 - **The 2-for-1 cell is BUILT by the builder and MOVED by the ladder as of
   09-10 (Taylor: "I don't want it built by hand").** Chain: review
   `reports/TWO_FOR_ONE_TO_EVERYONE_2026-09-10.md` (#517) → §8.3 rewritten to
-  the carve-out, plus the `ads:review` check (#521) → this PR. What landed:
+  the carve-out, plus the `ads:review` check (#521) → #523. What landed:
   `scripts/build-paid-campaign.js` builds THREE campaigns per event —
   `<Event> | Cold` (broad), `<Event> | 2-for-1` (`genders:[2]`, expansion
   verified off on read-back), `<Event> | Retargeting` (broad) — PAUSED,
@@ -452,6 +452,22 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   Then a `two_for_one` creative entry + a v2 attach script, one PR. Firestore
   side of the review was never re-read (env pull blocked); refresh the 7/7
   and 5-of-9 vs 2-of-13 figures after Loxleys 09-22.** *(09-10)*
+
+- **Is the 03:00 budget ladder actually applying? A dry run on 09-11 says
+  no.** `node scripts/meta-budget-ladder.js --all` (dry run, 09-11 ~03:05 UTC)
+  printed `Loxleys | Sales  live $9.00/day  PLAN $9.00 -> $5.11 (build)` — the
+  same drop the registry note of 09-08 said would happen "tonight". Three
+  nights later it has not, while `Loxley's Retargeting` sits at its planned
+  $3.40. Either the `SparkDate Budget Ladder` scheduled task is not running
+  `--execute`, it is failing before the write, or someone hand-set $9.00
+  after 09-08 and the ladder's 1.76x drop is being refused by `--max-jump`.
+  Also printed: both Marion Court acknowledgements expired 09-08 with the
+  campaigns still ACTIVE ($20/day "outside the ladder"). **Next step: read the
+  task's last log, run `--all` by hand and look at the verdict line for
+  Loxleys | Sales (PLAN vs a `!!` refusal), then either fix the task or, if
+  $9.00 was deliberate, acknowledge it in `content/paid-campaigns.json` with a
+  `review_after`. Decide the two Marion Court acknowledgements again — the
+  event was 09-08.** *(09-11)*
 
 - **Loxleys retargeting went LIVE 09-08 — first spend since the shell was created
   2026-08-17. Three things to check, then it retires with the event.**
