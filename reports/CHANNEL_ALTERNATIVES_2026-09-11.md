@@ -113,6 +113,45 @@ The Eventbrite listing is the one surface that has never had an optimisation
 pass (`social-proof-pulls-women` memory, 08-25; TL2 was published with no cover
 on 09-08 and every share advertised Eventbrite's logo instead of ours).
 
+## §2b EVIDENCE (added the same afternoon) — Eventbrite's own traffic report
+
+MEASURED, read in the Eventbrite organizer account, Reporting → Traffic and
+Conversion, last-touch, online sales only. This is the number the ads range
+in §1 was missing: **where the people who buy on Eventbrite come from.**
+
+| Selection | Window | Listing visits | Orders | Tickets | Conversion | Eventbrite Marketplace | Direct | Creator event links (our shares) | Creator tools |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Loxleys (Sep 22) | all time | 278 | 5 | 5 | 1.8% | **201 (72%)** | 63 (23%) | 10 (4%) | 4 (1%) |
+| Loxleys + Marion Court (Sep 8) | 2026-05-01 → 09-11 | 649 | 15 | 17 | 2.31% | **494 (76%)** | 125 (19%) | 22 (3%) | 8 (1%) |
+| Marion Court alone (by subtraction) | | 371 | 10 | 12 | 2.7% | 293 (79%) | 62 (17%) | 12 (3%) | 4 (1%) |
+
+Eventbrite defines Marketplace as "Eventbrite's site, app, and marketing
+efforts", Direct as "traffic from outside Eventbrite with no known source",
+and Creator event links as "sharing your event link". The Marketplace row
+does not expand in the accessibility tree, so the split between search,
+app, and Eventbrite's own emails was not read. Select-all across every
+event did not take in the UI; the two most recent Lancaster events are what
+was read, and they are the two most relevant.
+
+Three things follow:
+
+1. **Eventbrite is the largest top of funnel the business has, and it is
+   Eventbrite's, not ours.** Three quarters of listing visits arrive from
+   Eventbrite browsing. Our own shared links are 3 to 4%.
+2. **The listing converts at 1.8 to 2.7% of visits**, against 0.19% for a
+   Meta session on the site (§2). Same product, ten times the rate.
+3. **The ads' cost per ticket sits at the expensive end of §1's range.** The
+   65 Eventbrite buyers mostly reached the listing through Eventbrite, so
+   crediting them to Meta ($13.29) is not supportable; the $36 to $228 band
+   is the honest one.
+
+For Eventbrite Ads (§5): being first in category organically means the
+*search* placement adds little. What it would add is the homepage, category
+page, app and related-events placements, which Eventbrite's product page
+lists and which are not category search. That is still a test, and this
+report can score it: the Traffic and Conversion report will show the paid
+placement as its own channel row.
+
 ## §3 EVIDENCE — the paid alternatives already tried
 
 MEASURED, same GA4 window. Taylor has already bought clicks on five other paid
