@@ -24,8 +24,10 @@
  * TWO campaigns per event, never one: `<Event> | Cold` and `<Event> |
  * Retargeting`. Both OUTCOME_SALES, OFFSITE_CONVERSIONS optimizing the
  * account's own PURCHASE pixel, 7-day click + 1-day view attribution, PAUSED
- * on creation. Every ad set is broad -- no `genders` restriction, ever,
- * either campaign, any phase. The phase math (Seed/Build/Close, a
+ * on creation. Every ad set THIS SCRIPT builds is broad -- no `genders` key.
+ * The one gender-restricted cell playbook_v2 permits since 2026-09-10 -- the
+ * women-locked 2-for-1 ad set inside Cold, report section 8.3 -- is NOT built
+ * here yet (playbook_v2._gender_rule, HANDOFF.md). The phase math (Seed/Build/Close, a
  * cold:retarget split that VARIES by phase, the $2.00 floor-priority rule,
  * the cold-start rule for a runway under 21 days) is NOT reimplemented here
  * -- it is required from scripts/budget-ladder.js, the same offline-tested
