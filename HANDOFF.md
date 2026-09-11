@@ -213,7 +213,11 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   Claude Design brief (`node scripts/design-handoff.js --events=TL2`: 14 posts,
   35 slides). The PAID creative brief is a separate job
   (`node scripts/build-paid-campaign.js --event=TL2 --handoff`). Then
-  `python scripts/prep-social-assets.py`.** `asset_files` is EMPTY on every TL2
+  `python scripts/prep-social-assets.py` — but not until prep's two 09-10 bugs
+  are fixed: in a dry run on sample TL2 exports, a row's first prep appended
+  every story and TikTok file twice (TL2-01's three `_tt` frames came out as
+  `1of6`..`6of6`), and posted row TL-02's legacy key `tl2` claimed every TL2
+  export.** `asset_files` is EMPTY on every TL2
   row, which is the convention: prep writes the names when art lands (LX-26 is
   the same). I had pre-filled 13 rows with names for art that did not exist,
   and that broke three things without an error: `design-handoff.js` skips any
@@ -232,12 +236,12 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   linter warns on the day rather than erroring on a slot. **Every row from TL2-05 on says
   $29.99, never $24.99** — the lint only checks price MEMBERSHIP, not the date,
   so it would not have caught a stale early-bird price. **TL2-11 needs one
-  1080x1080 feed frame plus one story frame, and the export sheet will NOT make
-  that by itself:** its format `Single image + Story` makes `framesForRow` mark
-  both frames as stories (1080x1920, confirmed in the 09-10 sheet), and a
-  story-only set is exactly what makes `lib/social-publish.js` refuse the
-  Facebook leg — the failure that has now bitten MC-12 and LX-24. It needs a
-  hand-made 1080x1080 export before 2026-10-05 18:30, or a planner fix. Two copy
+  1080x1080 feed frame plus one story frame.** Its format `Single image + Story`
+  used to make `framesForRow` mark both frames as stories, and a story-only set
+  is what makes `lib/social-publish.js` refuse the Facebook leg (MC-12, LX-24).
+  Since 09-10 the sheet and the Design brief plan the same card twice, 1080x1080
+  then 1080x1920 (Taylor's call: repeat the card, not a closing card), and prep
+  names the pair `TL2-11.jpg` + `TL2-11_story.jpg`; no hand-made square. Two copy
   calls for Taylor, not bugs: TL2-03's four slides drop the caption's
   "one-on-ones" and "mutual interest is a match" lines, and TL2-14, the recap,
   still gets a fact frame and a "Get tickets" card for an event that is over.
@@ -317,11 +321,19 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   four files are two `_tt` and two `_story` frames; there is no feed-shaped one,
   so `lib/social-publish.js`'s guard refuses it every run. **This is MC-12's
   failure exactly**, and that one was only fixed because Taylor exported a square
-  by hand. The Instagram Story half is fine and will go. **Next step: a 1080x1080
-  `LX-24` export into `SourceArt` before 2026-09-21 18:30, then
-  `python scripts/prep-social-assets.py`** — or decide LX-24 is Story-only and
-  drop `fb` from its platforms so it stops reading as a scheduled post that never
-  happened.
+  by hand. The Instagram Story half is fine and will go. **The planner makes the
+  square now (09-10: `framesForRow` plans this format as one card at 1080x1080
+  and again at 1080x1920), so no hand export is needed. Next step, before
+  2026-09-21 18:30 and only once prep's two 09-10 bugs are fixed (see the TL2
+  queue entry): `git pull`; `node scripts/build-campaign-export.js --event=LX`;
+  export LX-24's two frames into `SourceArt`;
+  `python scripts/prep-social-assets.py --rebuild`; check `git status` shows
+  only the expected files; commit.** It has to be `--rebuild`: a plain run adds
+  `LX-24.jpg` for Facebook but keeps the old two story frames (the hook, then
+  "Last call") for the Story, because the row already has story art. The $24.99
+  re-export in the next entry needs the same `--rebuild`, so one pass can do
+  both. Or decide LX-24 is Story-only and drop `fb` from its platforms so it
+  stops reading as a scheduled post that never happened.
 
 - **Five approved Loxleys carousels show $24.99 in the image, but brand.json has
   had LX at $29.99 since 09-08. LX-17 posts first: 2026-09-12 16:00.** (09-10)

@@ -90,7 +90,8 @@ function slidesFor(row, ev, brand) {
   // build something a camera produces -- and inflated the slide count from 84
   // to 112 the moment this file started using the shared planner.
   if (isPhotoRow(row)) return [];
-  return framesForRow(row, ev, brand).map((f) => {
+  const frames = framesForRow(row, ev, brand);
+  return frames.map((f) => {
     const s = f.s;
     const style = {
       page: 'Statement',
@@ -118,7 +119,27 @@ function slidesFor(row, ev, brand) {
     if (s.mode === 'stat') notes.push('Number in gold #d4af37, very large.');
     if (s.mode === 'endcard') notes.push('Coral gradient background, white type.');
     return { style, head, sub: s.sub || '', note: notes.join(' ') };
+  }).map((slide, k) => {
+    // Shape belongs to the FRAME, not the row. A "Single image + Story" row is
+    // a 1080x1080 feed image plus the same card at 1080x1920; reading shape off
+    // the format asked Design for two Story frames and no feed image.
+    const s = frames[k].s;
+    const story = !!s.story;
+    // Two slides with identical words look like a mistake to tidy up.
+    const repeat = s.standalone && story ? 'The same card as the feed image, set as a Story.' : '';
+    return { ...slide, story, note: [repeat, slide.note].filter(Boolean).join(' ') };
   });
+}
+
+/**
+ * The PNG name for slide k. `_story` marks a 1080x1920 slide -- decided per
+ * slide, since a "Single image + Story" row carries one of each shape.
+ */
+function slideFileName(rowId, slides, k) {
+  const suffix = slides[k].story ? '_story' : '';
+  return slides.length === 1
+    ? `${rowId}${suffix}.png`
+    : `${rowId}_${k + 1}of${slides.length}${suffix}.png`;
 }
 
 function main() {
@@ -177,9 +198,13 @@ function main() {
     i++;
     const ev = brand.events[Q.rowEvents(row)[0]] || {};
     const slides = slidesFor(row, ev, brand);
-    const tall = /story|reel/i.test(row.format);
-    const dim = tall ? `${D.story.width}×${D.story.height}` : `${D.feed.width}×${D.feed.height}`;
-    const suffix = tall ? '_story' : '';
+    const dimOf = (tall) => (tall ? `${D.story.width}×${D.story.height}` : `${D.feed.width}×${D.feed.height}`);
+    // Per slide, not per row: a "Single image + Story" row is one of each.
+    // Photo rows list no slides, so their line still reads the format.
+    const dims = slides.length
+      ? [...new Set(slides.map((s) => dimOf(s.story)))]
+      : [dimOf(/story|reel/i.test(row.format))];
+    const dim = dims.join(' + ');
 
     P(`## ${i}. \`${row.row_id}\` — ${ev.name} — ${prettyDate(row.date)}`);
     P('');
@@ -195,10 +220,9 @@ function main() {
       P('');
     }
     slides.forEach((s, k) => {
-      const name = slides.length === 1
-        ? `${row.row_id}${suffix}.png`
-        : `${row.row_id}_${k + 1}of${slides.length}${suffix}.png`;
-      P(`**${name}** — ${s.style}`);
+      const name = slideFileName(row.row_id, slides, k);
+      // Give each slide its own size only when the post mixes them.
+      P(`**${name}** — ${s.style}${dims.length > 1 ? ` · ${dimOf(s.story)}` : ''}`);
       P(`- Headline: **${s.head}**`);
       if (s.sub) P(`- Subline: ${s.sub}`);
       if (s.note) P(`- ${s.note}`);
@@ -251,4 +275,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { slidesFor };
+module.exports = { slidesFor, slideFileName };
