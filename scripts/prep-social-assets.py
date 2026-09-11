@@ -121,20 +121,27 @@ def discover(src_dir, row_id):
         return []
 
     m = re.match(r"^([A-Z]+)-0*(\d+)$", row_id)
-    keys = {row_id.lower()}
+    # Each key with what may follow it -- never a digit, so MC-1 does not also
+    # claim MC-10's files.
+    keys = [(row_id.lower(), r"(?![0-9])")]
     if m:
-        keys.add((m.group(1) + m.group(2)).lower())          # MC2
-        keys.add((m.group(1) + "-" + m.group(2)).lower())    # MC-2
+        # The short forms come from the older exports, where they END the name
+        # (sparkdate-aug23-1of3-MC2.png). They must not be followed by
+        # "-<digit>" either, or an event key that ends in a digit reads as one:
+        # TL-02's "tl2" claimed every export of the TL2 event
+        # (tellus-afterdark-tl2-11-1of2.png, TL2-01_1of3.png).
+        short = r"(?!-?[0-9])"
+        keys.append(((m.group(1) + m.group(2)).lower(), short))          # MC2
+        keys.append(((m.group(1) + "-" + m.group(2)).lower(), short))    # MC-2
     else:
-        keys.add(row_id.replace("-", "").lower())            # MCLAUNCH
+        keys.append((row_id.replace("-", "").lower(), r"(?![0-9])"))     # MCLAUNCH
 
     hits = []
     for name in os.listdir(src_dir):
         if not name.lower().endswith(".png"):
             continue
         stem = re.sub(r"\s+", "", os.path.splitext(name)[0]).lower()
-        # Bound the match so MC-1 does not also claim MC-10's files.
-        if not any(re.search(r"(^|[^a-z0-9])" + re.escape(k) + r"([^0-9]|$)", stem) for k in keys):
+        if not any(re.search(r"(^|[^a-z0-9])" + re.escape(k) + tail, stem) for k, tail in keys):
             continue
         n = re.search(r"(\d+)of(\d+)", stem)
         hits.append((int(n.group(1)) if n else 1, name))
@@ -231,7 +238,18 @@ def main():
             have = set()
             for f in files:
                 m = re.search(r"_(story|tt)\.jpg$", f, re.I)
-                have.add("_" + m.group(1).lower() if m else "")
+                if m:
+                    have.add("_" + m.group(1).lower())
+                elif f.lower().endswith(".jpg"):
+                    have.add("")
+                else:
+                    # A SOURCE name. A row prepared for the first time holds
+                    # exactly what discover() returned above, and reading only
+                    # the prepared-.jpg suffix saw no shapes in those -- so every
+                    # story and TikTok export was appended a second time. TL2-01's
+                    # three -tt frames came out as 1of6..6of6, and TL2-11 got two
+                    # identical story JPEGs from one PNG.
+                    have.add(suffix_for(resolve(args.src, f), f, dims))
 
             for cand in discover(args.src, row["row_id"]):
                 sp = resolve(args.src, cand)
