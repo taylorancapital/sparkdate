@@ -36,9 +36,10 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **The server-side GA4 purchase is built and does nothing until Taylor
-  creates the API secret — three steps, all his.** (09-11) Why: two real
-  Stripe sales on 09-08 produced no GA4 hit and the nightly (#528) called the
+- **The server-side GA4 purchase is merged (#531) and its secret validates;
+  one step is unconfirmed — that the secret is in Vercel and the live
+  deployment was built after it.** (09-11) Why it exists: two real Stripe
+  sales on 09-08 produced no GA4 hit and the nightly (#528) called the
   checkout dead; GA4 `purchase` was browser-only while Meta had a CAPI copy.
   What landed: `lib/ga4-mp.js` (Measurement Protocol sender, fail-soft, same
   shape as `lib/meta-capi.js`), a call from `api/stripe-webhook.js` on
@@ -46,21 +47,26 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `transaction_id`, the three checkout pages forwarding `_ga` /
   `_ga_21YLCC35F1` next to fbp/fbc, `api/purchase-ticket.js` storing them as
   `gaClientId` / `gaSessionId` on the ticket doc, `tests/ga4-mp.test.js`, and
-  a structural check in `tests/attribution-wiring.test.js`. **Next steps, in
-  order: (1) GA4 Admin → Data streams → the sparkdate.date web stream →
-  Measurement Protocol API secrets → Create, copy the value; (2) Vercel →
-  project → Settings → Environment Variables → `GA4_MP_API_SECRET`,
-  Production, then redeploy (env changes do not apply to the running
-  deployment); (3) `GA4_MP_API_SECRET=<secret> node scripts/ga4-mp-validate.js`
-  — posts one synthetic purchase to GA4's DEBUG endpoint, records nothing,
-  and must print `validationMessages: []`.** Then, after the next own-site
-  sale, the nightly should show a GA4 transaction on the same day as the
-  Firestore ticket; that is the first real proof, and the dedupe against the
-  browser copy (same `transaction_id` + `client_id`) has been reasoned from
-  GA4's documentation, not yet observed. Optional afterwards: register
-  `send_path` and `client_id_source` as event-scoped custom dimensions in GA4
-  Admin so reports can split server copies from browser copies. Delete this
-  entry once a server-sent purchase has been seen in GA4.
+  a structural check in `tests/attribution-wiring.test.js`. **Done 09-11:**
+  Taylor created the API secret in GA4 Admin and
+  `node scripts/ga4-mp-validate.js` printed `validationMessages: []` at
+  12:55 UTC (`client_id cookie, with session`), so GA4 accepts the payload
+  with that secret. **Unconfirmed, and the next step:** the Vercel project
+  settings changed at 12:54 UTC, two minutes AFTER the #531 production
+  deployment (12:52 UTC). If that change was `GA4_MP_API_SECRET`, the running
+  deployment was built without it and every webhook still logs
+  `[ga4-mp] no GA4_MP_API_SECRET set — skipping`. Check Vercel → project →
+  Settings → Environment Variables for the variable in Production, then
+  Deployments → latest → Redeploy. Proof it is live, cheaper than waiting for
+  the nightly: the first own-site sale after the redeploy prints
+  `[ga4-mp] purchase pi_… sent` in the Vercel runtime logs for
+  `/api/stripe-webhook`, and GA4 shows a transaction that day beside the
+  Firestore ticket. The dedupe against the browser copy (same
+  `transaction_id` + `client_id`) is reasoned from GA4's documentation, not
+  yet observed. Optional afterwards: register `send_path` and
+  `client_id_source` as event-scoped custom dimensions in GA4 Admin so
+  reports can split server copies from browser copies. Delete this entry
+  once a server-sent purchase has been seen in GA4.
 
 - **TikTok organic is now plumbed but has NO CREDENTIALS — the remaining half
   is Taylor's and cannot be done by a machine.** (09-10) Confirmed by
