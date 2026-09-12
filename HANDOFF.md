@@ -38,12 +38,17 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 - **Eventbrite Ads spend is BACKFILLED (70 `ad_spend/{date}__eventbrite`
   documents, $436.36, 21 attributed tickets, written 09-11 evening from the
-  merged #539's worktree) and one hand step stands between it and tonight's
-  first nightly run: `npm install` in the main checkout.** (09-11, updated
-  after #539 merged) The 02:00 launcher runs Step 2b from the main checkout,
-  which has neither `playwright-core` nor a working `firebase-admin` until
-  `git pull` + `npm install` are run there; until then the step logs a SKIP
-  or WARN and nothing else is affected. **Founders Mixer attribution: CLOSED
+  merged #539's worktree) and the main checkout is READY for tonight's first
+  nightly run.** (09-11, updated after #543 merged) Taylor ran `git pull` +
+  `npm install` there, then deleted `node_modules\@google-cloud\firestore`
+  and ran `npm install` again because a plain install had left the
+  half-installed package alone; a dry run from the main checkout afterwards
+  read 13 campaigns, authenticated to Firestore, mapped 7 Eventbrite event
+  ids and planned 8 documents, exit 0. **Next step is nobody's: read
+  `Night Tasks/logs/<date>.log` after 02:00 for "Eventbrite Ads spend
+  written to ad_spend" and delete this entry when it appears.** If the log
+  says the login expired, `npm run ads:eventbrite-login` and sign in with
+  the EMAIL CODE, not the passkey. **Founders Mixer attribution: CLOSED
   the same evening at Taylor's word.** `events/79nTqQ0WEtkVOdBr0vbA` now
   carries `eventbriteEventId = "1990063778332"` (the public Eventbrite page
   for that id starts 2026-06-24 18:30, the Founders night), the backfill was
