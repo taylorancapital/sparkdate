@@ -35,7 +35,20 @@ const { STATE_COOKIE } = require('./tiktok-callback');
 
 const REDIRECT_URI = process.env.TIKTOK_REDIRECT_URI || 'https://sparkdate.date/tiktok/callback';
 
+// A bare Vercel 502 with no log line is what a crashed function looks like,
+// and it reaches the browser as a body-less response the page can only report
+// as "Upload failed." Every stage therefore announces itself, so the next
+// failure names the step it died on instead of the whole request.
+const step = (msg) => console.error(`[tiktok] ${msg}`);
+
 function json(res, status, body) {
+  // Sending twice throws ERR_STREAM_WRITE_AFTER_END, which kills the process
+  // and produces exactly the logless 502 described above -- so a handler that
+  // has already answered must never be answered over by the outer catch.
+  if (res.writableEnded || res.headersSent) {
+    step(`suppressed a second response (${status}) -- already answered`);
+    return;
+  }
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify(body));
@@ -95,11 +108,13 @@ async function actionPost(req, res) {
   const q = req.query || {};
   const buf = await readRawBody(req);
   const mime = String(req.headers['content-type'] || '').split(';')[0].trim();
+  step(`post: received ${buf.length} bytes, content-type=${mime || '(none)'}`);
 
   // Re-query rather than trusting anything the page sent. TikTok grades the
   // server, and a reviewer will try a request the UI would not have produced.
   const info = await creatorInfo(accessToken);
   if (info.error) return json(res, 502, { error: info.error });
+  step('post: creator_info ok');
 
   const opts = {
     creator: info.data,
@@ -131,6 +146,7 @@ async function actionPost(req, res) {
   });
 
   if (!init.json || !init.json.error || init.json.error.code !== 'ok') {
+    step(`post: init refused -- ${JSON.stringify(init.json && init.json.error)}`);
     return json(res, 502, {
       error: (init.json && init.json.error && init.json.error.message) || 'Publish init failed.',
       code: init.json && init.json.error && init.json.error.code,
@@ -138,9 +154,15 @@ async function actionPost(req, res) {
   }
 
   const { publish_id, upload_url } = init.json.data;
-  const uploadError = await uploadBytes(upload_url, buf, mime);
-  if (uploadError) return json(res, 502, { error: uploadError, publish_id });
+  step(`post: init ok, publish_id=${publish_id}, uploading ${buf.length} bytes`);
 
+  const uploadError = await uploadBytes(upload_url, buf, mime);
+  if (uploadError) {
+    step(`post: ${uploadError}`);
+    return json(res, 502, { error: uploadError, publish_id });
+  }
+
+  step(`post: upload complete, publish_id=${publish_id}`);
   return json(res, 200, { ok: true, publish_id });
 }
 
@@ -226,6 +248,9 @@ module.exports = async function handler(req, res) {
   try {
     return await fn(req, res);
   } catch (e) {
+    // Logged as well as returned: when the response has already been sent,
+    // json() suppresses the write and the log line is the only record left.
+    step(`${action} threw: ${e && e.stack ? e.stack : e}`);
     return json(res, 500, { error: e.message || 'Unexpected error' });
   }
 };

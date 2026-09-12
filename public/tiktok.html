@@ -239,8 +239,12 @@ async function api(action, { method = 'GET', body = null, headers = {}, query = 
         headers: { Authorization: `Bearer ${token}`, ...headers },
         body,
     });
+    // A crashed function answers with no JSON at all, so `json` comes back
+    // empty and the caller has nothing to show but a generic failure. Keep the
+    // status so the message can at least name what happened.
     const json = await res.json().catch(() => ({}));
-    return { ok: res.ok, json };
+    if (!res.ok && !json.error) json.error = `HTTP ${res.status} - the server returned no detail.`;
+    return { ok: res.ok, json, status: res.status };
 }
 
 // ------------------------------------------------------------ sign-in
