@@ -43,12 +43,14 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   after #539 merged) The 02:00 launcher runs Step 2b from the main checkout,
   which has neither `playwright-core` nor a working `firebase-admin` until
   `git pull` + `npm install` are run there; until then the step logs a SKIP
-  or WARN and nothing else is affected. **Also open: the June Founders Mixer
-  campaign ($55.00, 2 attributed tickets) sits in `_unattributed` because
-  `events/79nTqQ0WEtkVOdBr0vbA` carries no `eventbriteEventId`; setting it
-  to `1990063778332` (the Eventbrite event the campaign advertised) and
-  re-running `--days=all --execute` attributes it. Every other campaign
-  maps.** Earlier detail, still true: (09-11) Verified the same evening from a worktree: the one-time
+  or WARN and nothing else is affected. **Founders Mixer attribution: CLOSED
+  the same evening at Taylor's word.** `events/79nTqQ0WEtkVOdBr0vbA` now
+  carries `eventbriteEventId = "1990063778332"` (the public Eventbrite page
+  for that id starts 2026-06-24 18:30, the Founders night), the backfill was
+  re-run, and all seven Eventbrite event ids map; Firestore read-back after
+  the rewrite: 70 Eventbrite docs / $436.37 / 21 tickets, Meta 92 docs /
+  $1,373.30 and Google 16 / $37.92 unchanged. Earlier detail, still true:
+  (09-11) Verified the same evening from a worktree: the one-time
   `--login` worked once passkey prompts were suppressed (Eventbrite's passkey
   sign-in wedges an automation-controlled Chrome; use the email code), and a
   headless `--days=all --verify` read all 13 campaigns and printed $436.30 /
