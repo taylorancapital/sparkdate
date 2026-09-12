@@ -1,7 +1,8 @@
 # Twenty-three of thirty-one incidents were found by someone digging into something else
 
 > **Designed version:** https://claude.ai/code/artifact/2f58288a-fc25-4591-a4b5-7ceecd666b1f
-> (open the **September** tab — one page covers all five months)
+> (open the **September** tab — one page covers all five months; incidents 35–48 are
+> marked NEW, and incident 40 is called out on the Overview)
 > Local path to this file:
 > `C:\Users\penns\source\repos\sparkdate\reports\FIELD_NOTES_2026-09.md`
 > (after this branch merges and the main checkout is pulled)
