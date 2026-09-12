@@ -205,7 +205,11 @@ not have shown a sales signal either way.
 
 ## DECISION — what is Taylor's to decide
 
-Nothing below has been done. The first two are the ones I would take.
+**UPDATE, same evening ~23:05 EDT — Taylor: "do 01 and 02". Both executed
+and read back; see §EXECUTED below. Items 3 and 4 stand as written.**
+
+Nothing below had been done when this section was written. The first two are
+the ones I would take.
 
 1. **Add a second video to the male cold ad set; do not replace the one that
    is there.** Replacing mints a new dark post and drops the video-viewer
@@ -233,6 +237,64 @@ Nothing below has been done. The first two are the ones I would take.
    log as evidence) and decide the two expired Marion Court acknowledgements
    the dry run keeps printing — both campaigns are still ACTIVE but have spent
    $0 since 09-09, so it is housekeeping, not money.
+
+---
+
+## EXECUTED — 2026-09-11 ~23:05 EDT, on Taylor's "do 01 and 02"
+
+**01 — second male ad, added, incumbent untouched.**
+`Loxleys | male | close patio video` (ad `120251400329350542`, creative
+`1713869680741086`) in ad set `Loxleys | male | Sales` (`120251304239850542`).
+Video: the 09-08 patio facts card `1634620321428923` (5.0 s, 4:5), reused, not
+re-uploaded — a clip men in the cold pool have not seen. Copy: brand.json's
+`caption_templates.male.close` rendered from `events.LX` — "Tuesday, September
+22. Loxleys, patio bar, Lancaster, PA. Doors 6:30 PM. / One evening, in person,
+with people who showed up on purpose. / $29.99." with headline "Sep 22 ·
+Lancaster, PA" and description "$29.99"; the price is safe in copy now that the
+early bird ended 09-07. `url_tags` computed by `ad-utm.js`:
+`utm_content=lx_close_male_patio` (unique on the account). Pixel
+`4390442851170732` in `tracking_specs`. Created ACTIVE, so Meta put it
+straight into review (`IN_PROCESS`); the dark-post id populates when review
+clears. `Loxleys | male | convert video` still ACTIVE. Script kept as
+`scripts/meta-lx-add-male-ad.js`.
+
+**02 — retargeting pool widened; budgets and ladder untouched.**
+Ad set `120250964028400542` went from two audiences to six:
+
+| audience | id | what it is | status at write |
+|---|---|---|---|
+| Loxleys Retargeting - Site Visitors | `120251194124890542` | LX landing-page visitors, 30d | kept |
+| Loxleys Retargeting - Video Viewers | `120251341306880542` | the four LX reels, 3 s, 30d | kept |
+| Visited but did not order tickets | `120249320696310542` | all site visitors 60d, excl. Purchase | added, 200 |
+| MC Retargeting | `120250973173480542` | every Page video, 3 s views, 365d (name is historical) | added, 200 |
+| SparkDate Page Engagers 365d | `120251400342080542` | Page engagement, 365d — **new** | added, 300 "too small" |
+| SparkDate Instagram Engagers 365d | `120251400342280542` | IG profile engagement, 365d — **new** | added, 300 "too small" |
+
+The two new audiences report "too small" at the moment of creation, before
+Meta's prefill has run; that is not a verdict and is re-checked in the HANDOFF
+next steps. Genders stay `[1,2]`, no expansion, no `flexible_spec`. The ad set
+went `IN_PROCESS` on the targeting edit, which restarts its learning — accepted,
+since the pool it was learning on had stalled. Script kept as
+`scripts/meta-lx-widen-retargeting.js`.
+
+**Audience-rule syntax, measured tonight (adds to memory
+`video-engagement-audience-api-syntax`):** for a **Page** engagement audience
+the flat `[{event_name, object_id}]` shape is refused as "too old" with or
+without `subtype`, and the modern `inclusions/event_sources{type:page}`
+envelope with `event eq page_engaged` is refused with `#2654 Invalid Event
+Name` when `subtype: ENGAGEMENT` is sent, and **accepted when `subtype` is
+omitted** (Meta sets `ENGAGEMENT` itself). For **Instagram** the same envelope
+with `type: ig_business` and `event eq ig_business_profile_all`, no subtype,
+is accepted (Meta sets subtype `IG_BUSINESS`). So the rule is per source type:
+video wants flat + explicit ENGAGEMENT; page and IG want the envelope and no
+subtype.
+
+**Not done, on purpose:** no budget change (the Close step to $6.32 stays,
+now with a wider pool to spend into); no change to the female ad set; no
+purchaser exclusion on retargeting (8 buyers, not worth a seventh audience);
+no fresh creative — the Claude Design brief for a testimonial video is
+generated on demand by `node scripts/build-paid-campaign.js --event=LX
+--handoff`, six ads from three videos, if Taylor wants to push it.
 
 ---
 

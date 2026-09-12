@@ -629,6 +629,44 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   09-09). **Next step: decide the two Marion Court acknowledgements again — the
   event was 09-08.** *(09-11)*
 
+- **Loxleys: a second male cold ad and a widened retargeting pool went in
+  on 09-11 at ~23:05 EDT (Taylor: "do 01 and 02" on
+  `reports/LOXLEYS_LINK_CLICKS_2026-09-11.md`). Three checks, then this
+  retires with the event.** What was written, each read back:
+  (1) ad **`Loxleys | male | close patio video`** (`120251400329350542`,
+  creative `1713869680741086`) ADDED to `Loxleys | male | Sales`
+  (`120251304239850542`) — the 09-08 patio video `1634620321428923` reused,
+  `caption_templates.male.close` copy rendered from brand.json ($29.99 is
+  stable now), `utm_content=lx_close_male_patio`, pixel in tracking, created
+  ACTIVE so it went straight to Meta review (`IN_PROCESS`). The incumbent
+  `convert video` ad is untouched and still ACTIVE. Script:
+  `scripts/meta-lx-add-male-ad.js` (dry-run default, idempotent by name).
+  (2) retargeting ad set `120250964028400542` now targets SIX audiences: the
+  two it had, plus `Visited but did not order tickets` (all site 60d excl.
+  buyers), `MC Retargeting` (every Page video, 3s views, 365d — reused as the
+  any-video layer despite its name), and two NEW ones,
+  `SparkDate Page Engagers 365d` (`120251400342080542`) and
+  `SparkDate Instagram Engagers 365d` (`120251400342280542`). Both new ones
+  read back `300 too small` at creation — expected for a fresh audience
+  before prefill, not a verdict. Script: `scripts/meta-lx-widen-retargeting.js`.
+  Nothing else changed: budgets untouched ($5.11 / $3.40), ladder untouched,
+  the Close step to $6.32 retargeting on 09-15 stays as planned because the
+  pool is now wider.
+  **Next steps: (a) 09-12 morning — confirm `120251400329350542` is ACTIVE
+  and delivering, not DISAPPROVED (`node scripts/meta-lx-add-male-ad.js`
+  dry run prints the ad set's ads); (b) by 09-13 — confirm the two engager
+  audiences flipped from 300 to 200 (`node scripts/meta-lx-widen-retargeting.js`
+  dry run prints them), else drop them from the ad set; (c) 09-16 morning,
+  the day after Close raises retargeting to $6.32 — read the ad set's
+  DAILY frequency; over ~2.5 with reach not growing means the widening did
+  not take and the budget should be held near $3.40 by hand
+  (`managed: false` on the retargeting registry entry). (d) OPTIONAL: a
+  fresh testimonial video for the male set. The Claude Design brief is
+  generated, not stored: `node scripts/build-paid-campaign.js --event=LX
+  --handoff --out=build/LX_AD_BRIEF.md` (6 ads from 3 videos). If Taylor
+  produces one, attach it with the same request shape as
+  `meta-lx-add-male-ad.js` (new slug, never reuse `patio`).** *(09-11)*
+
 - **Loxleys retargeting went LIVE 09-08 — first spend since the shell was created
   2026-08-17. Three things to check, then it retires with the event.**
   **Next steps:** (1) confirm `LX-RT-PATIO` reached ACTIVE rather than
