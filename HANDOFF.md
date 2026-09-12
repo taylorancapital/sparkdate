@@ -153,12 +153,43 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
     Publishing fails without this and **preflight cannot see it**: TikTok pulls
     the images from `sparkdate.date` by URL and refuses an unverified domain at
     publish time, so every check can pass green while nothing posts.
+  - **DOMAIN VERIFICATION IS DONE (09-12) and it was NOT the last blocker.**
+    Verified under Content Posting API → Verify domains. TikTok issues **one
+    site-verification token per domain**, so the apex TXT record that was
+    already live from the URL-properties step (`…imx50scd8hHjtTF65gsKQY17CmCeFm56`)
+    satisfied both — no second record was needed. The scheduled path is
+    genuinely unblocked: `lib/social-requests.js` sends `source:
+    'PULL_FROM_URL'` with `photo_images` pointing at `sparkdate.date/social/*.jpg`,
+    which is exactly what that verification gates.
+  - **THE REAL BLOCKER, found 09-12 by posting for real:
+    `unaudited_client_can_only_post_to_private_accounts`.** An unaudited app can
+    Direct Post **only to a private account**, and `@sparkdate.date` is public —
+    so `video.publish` is refused at `init` regardless of which privacy level is
+    chosen. **`video.upload` is unaffected and WORKS**: a draft uploaded
+    successfully through `/admin/tiktok`, publish id
+    `v_inbox_file~v2.7684463603617040397`, landing in the account's inbox.
+    **This does not threaten the queue** — `buildTikTok` posts
+    `post_mode: MEDIA_UPLOAD`, the same inbox path that succeeded, not Direct
+    Post. **Next step is Taylor's and is a filming problem, not a code one:**
+    the review demo has to show Direct Post reaching `PUBLISH_COMPLETE`, which
+    cannot happen while the account is public, so the account has to be set
+    private for the length of one unbroken take and then set back. **And the
+    placeholder clip still sitting in the App review section must be swapped
+    first** — a reviewer seeing it is a straightforward rejection, and Content
+    Posting API rejections are slow to recover from. Do not submit before both.
   - **CORRECTION to this entry's own claim above: the account is NOT capped at
     `SELF_ONLY`.** Preflight reports `privacy levels allowed:
     PUBLIC_TO_EVERYONE, MUTUAL_FOLLOW_FRIENDS, SELF_ONLY`, so `DIRECT_POST`
     would genuinely post publicly rather than privately to nobody. The "2–4
     week audit" framing written on 09-10 came from the runbook and does not
-    match the live account. **`TIKTOK_POST_MODE` is still left at
+    match the live account. **THAT INFERENCE WAS WRONG AND IS CORRECTED ABOVE
+    (09-12): the privacy list describes what the ACCOUNT permits, not what the
+    APP may do.** Posting for real returned
+    `unaudited_client_can_only_post_to_private_accounts`, so the audit gate is
+    real after all — it is simply not visible in `privacy_level_options`, and no
+    amount of reading that field would have revealed it. The lesson worth
+    keeping: a capability reported by `creator_info` is not permission.
+    **`TIKTOK_POST_MODE` is still left at
     `UPLOAD_TO_DRAFT` deliberately**, because the queue posts 1080x1080 squares
     letterboxed onto a vertical feed and nobody has yet seen how that looks in
     the app. Flipping it is a repo variable, not a code change — but look at a
@@ -166,8 +197,11 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   - **TL2-01's TikTok leg is also lost** — it was due 09-11 12:30 and the
     secrets landed at 19:45 local, past the 6h grace. Its Facebook and
     Instagram legs went out normally. **The first TikTok post that can actually
-    fire is LX-17, 09-12 16:00**, and only if domain verification is done by
-    then.
+    fire is LX-17, 09-12 16:00** — domain verification landed in time, so it
+    should arrive as a draft in the account's inbox rather than as a live post.
+    **If it does not appear, check the run log before assuming credentials:**
+    the `*/15` cron really fires every 2–4.6 hours (entry below), and a slot
+    missed by more than 6h is skipped by design.
   - **MC-15's TikTok leg was lost to this on 09-10** and is past its 6h grace,
     so it would have to be posted by hand if it is wanted at all. Measured
     against `content/queue.csv` at `c87f8e2a`: 18 of 48 rows list `tiktok`, 11
