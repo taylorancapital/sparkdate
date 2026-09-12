@@ -11,6 +11,9 @@
     },
     "api/admin-sync.js": {
       "maxDuration": 30
+    },
+    "api/tiktok.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
@@ -509,6 +512,14 @@
     {
       "source": "/",
       "destination": "/index.html"
+    },
+    {
+      "source": "/tiktok/callback",
+      "destination": "/api/tiktok-callback"
+    },
+    {
+      "source": "/admin/tiktok",
+      "destination": "/tiktok.html"
     },
     {
       "source": "/signup",

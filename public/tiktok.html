@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Admin-only; never index. -->
+    <meta name="robots" content="noindex, nofollow">
+    <!-- Canonical-domain guard - must run BEFORE anything else, and matters
+         more here than on admin.html. TikTok has https://sparkdate.date/tiktok/callback
+         registered as the redirect URI on the APEX, and the OAuth state cookie
+         is set by a fetch() from this page. Loaded from www, that cookie would
+         be written on the wrong host and every authorization would fail the
+         state check with nothing to explain it. -->
+    <script>
+      if (location.host === 'www.sparkdate.date') {
+        location.replace('https://sparkdate.date' + location.pathname + location.search + location.hash);
+      }
+    </script>
+    <title>TikTok Publisher - SparkDate</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <style>
+        :root { --ink:#1a1a2e; --muted:#666; --line:#e3e3e3; --tiktok:#FE2C55; --bad:#a33; --good:#137333; }
+        * { box-sizing: border-box; }
+        body { margin:0; background:#fafafa; color:var(--ink);
+               font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+        main { max-width:600px; margin:40px auto; padding:20px; }
+        h1 { font-size:22px; margin-bottom:2px; }
+        .muted { color:var(--muted); font-size:13px; }
+        .box { border:1px solid var(--line); border-radius:10px; padding:16px;
+               margin-bottom:16px; background:#fff; }
+        .box.warn { border-color:#e6d3a3; background:#fffdf3; }
+        .box.err  { border-color:#e0b4b4; background:#fff6f6; color:var(--bad); }
+        label.field { display:block; font-size:13px; font-weight:600; margin-bottom:6px; }
+        input[type=text], input[type=email], input[type=password], textarea, select {
+            width:100%; padding:10px; font-size:14px; border:1px solid #ccc;
+            border-radius:6px; font-family:inherit; }
+        select { min-width:240px; width:auto; }
+        button { font-family:inherit; }
+        .btn { padding:12px 20px; font-size:15px; font-weight:600; background:var(--tiktok);
+               color:#fff; border:0; border-radius:6px; cursor:pointer; }
+        .btn:disabled { background:#ddd; color:#888; cursor:not-allowed; }
+        .btn-ghost { padding:8px 12px; font-size:13px; background:#fff; border:1px solid #ccc;
+                     border-radius:6px; cursor:pointer; }
+        .btn-ghost:disabled { opacity:.5; cursor:not-allowed; }
+        .row { display:flex; align-items:center; gap:12px; }
+        .check { margin-bottom:6px; }
+        .check label { display:flex; align-items:center; gap:8px; font-size:14px; }
+        .check.off { opacity:.45; }
+        .check .note { margin-left:24px; color:var(--muted); font-size:13px; }
+        .avatar { width:48px; height:48px; border-radius:50%; }
+        video.preview { margin-top:12px; width:240px; border-radius:8px; background:#000; display:block; }
+        #overlay { position:fixed; inset:0; background:#fafafa; display:flex;
+                   align-items:center; justify-content:center; z-index:10; }
+        #overlay .box { width:340px; }
+        [hidden] { display:none !important; }
+    </style>
+</head>
+<body>
+
+<!-- Sign-in gate. Same Firebase project and same `admin: true` custom claim as
+     admin.html - this is not a second credential. -->
+<div id="overlay">
+    <div class="box">
+        <h1 style="margin-top:0">TikTok Publisher</h1>
+        <p class="muted" style="margin-top:0">Sign in with your SparkDate admin account.</p>
+        <form id="loginForm">
+            <label class="field" for="email">Email</label>
+            <input type="email" id="email" autocomplete="username" required>
+            <div style="height:10px"></div>
+            <label class="field" for="password">Password</label>
+            <input type="password" id="password" autocomplete="current-password" required>
+            <div style="height:14px"></div>
+            <button class="btn" type="submit" style="width:100%">Sign in</button>
+        </form>
+        <p id="loginError" class="muted" style="color:var(--bad)" hidden></p>
+    </div>
+</div>
+
+<main id="app" hidden>
+    <h1>SparkDate Publisher</h1>
+    <p class="muted" style="margin-top:0">
+        Post SparkDate event videos to the SparkDate TikTok account.
+    </p>
+
+    <div id="error" class="box err" hidden></div>
+
+    <!-- Disconnected -->
+    <div id="disconnected" class="box" hidden>
+        <p style="margin-top:0">No TikTok account connected.</p>
+        <button id="connectBtn" class="btn">Connect TikTok</button>
+    </div>
+
+    <!-- Connected -->
+    <div id="connected" hidden>
+        <div class="box row">
+            <img id="avatar" class="avatar" alt="" hidden>
+            <div style="flex:1">
+                <div id="nickname" style="font-weight:600"></div>
+                <div id="username" class="muted"></div>
+            </div>
+            <button id="disconnectBtn" class="btn-ghost">Disconnect</button>
+        </div>
+        <p class="muted" style="margin-top:-8px">
+            Disconnecting also stops the scheduled publisher, which shares this
+            connection.
+        </p>
+
+        <div id="privateOnly" class="box warn" hidden>
+            This app has not been approved by TikTok yet, so posts can only be
+            published as <strong>Only me (private)</strong>. That changes once
+            the app is approved.
+        </div>
+
+        <form id="postForm">
+            <div class="box">
+                <label class="field" for="video">Video</label>
+                <input type="file" id="video" accept="video/mp4,video/quicktime,video/webm">
+                <p id="maxDuration" class="muted" hidden></p>
+                <p id="sizeNote" class="muted" hidden></p>
+                <video id="preview" class="preview" controls hidden></video>
+            </div>
+
+            <div class="box">
+                <label class="field" for="caption">Caption</label>
+                <textarea id="caption" rows="3" maxlength="2200"
+                          placeholder="Saturday night at Marion Court Room..."></textarea>
+                <div class="muted"><span id="captionCount">0</span> / 2200</div>
+            </div>
+
+            <div class="box">
+                <label class="field" for="privacy">Who can view this video</label>
+                <!-- No default value. TikTok requires an explicit selection,
+                     and Post stays disabled until one is made. -->
+                <select id="privacy" required>
+                    <option value="" disabled selected>Select...</option>
+                </select>
+            </div>
+
+            <div class="box">
+                <label class="field">Allow users to</label>
+                <div class="check" id="wrapComment">
+                    <label><input type="checkbox" id="allowComment"><span>Comment</span></label>
+                    <div class="note" hidden>Turned off in your TikTok account settings</div>
+                </div>
+                <div class="check" id="wrapDuet">
+                    <label><input type="checkbox" id="allowDuet"><span>Duet</span></label>
+                    <div class="note" hidden>Turned off in your TikTok account settings</div>
+                </div>
+                <div class="check" id="wrapStitch">
+                    <label><input type="checkbox" id="allowStitch"><span>Stitch</span></label>
+                    <div class="note" hidden>Turned off in your TikTok account settings</div>
+                </div>
+            </div>
+
+            <div class="box">
+                <div class="check">
+                    <label><input type="checkbox" id="disclose"><span>Disclose video content</span></label>
+                </div>
+                <p class="muted">Turn on to declare that this video promotes a brand, product or service.</p>
+                <div id="discloseOpts" hidden style="margin-top:8px; padding-left:4px">
+                    <div class="check">
+                        <label><input type="checkbox" id="yourBrand"><span>Your brand</span></label>
+                    </div>
+                    <p class="muted">You are promoting yourself or your own business. The video will be labelled Promotional content.</p>
+                    <div class="check" id="wrapBranded">
+                        <label><input type="checkbox" id="brandedContent"><span>Branded content</span></label>
+                        <div class="note" hidden>Branded content cannot be posted privately</div>
+                    </div>
+                    <p class="muted">You are promoting another brand or a third party. The video will be labelled Paid partnership.</p>
+                    <p id="commercialError" class="muted" style="color:var(--bad)" hidden>
+                        Select at least one: Your brand or Branded content.
+                    </p>
+                </div>
+            </div>
+
+            <p class="muted" id="musicNotice"></p>
+
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+                <button type="submit" id="postBtn" class="btn" disabled>Post to TikTok</button>
+                <button type="button" id="draftBtn" class="btn-ghost" disabled>Send to TikTok drafts instead</button>
+            </div>
+            <p class="muted" style="margin-top:8px">
+                Drafts land in your TikTok inbox. You choose the caption, privacy
+                and interaction settings inside the TikTok app when you open the draft.
+            </p>
+        </form>
+
+        <div id="result" class="box" hidden style="margin-top:16px">
+            <div><strong>Publish ID:</strong> <span id="publishId"></span></div>
+            <div id="statusLine"><strong>Status:</strong> <span id="status">PROCESSING_UPLOAD</span></div>
+            <p id="resultNote" hidden></p>
+        </div>
+    </div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+    from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyAJ4s0ZC1xZD3DNGSDx7a9Axd6aY3VPD3Q",
+    authDomain: "sparkdate-philly.firebaseapp.com",
+    projectId: "sparkdate-philly",
+    storageBucket: "sparkdate-philly.firebasestorage.app",
+    messagingSenderId: "330206052938",
+    appId: "1:330206052938:web:18762191153f4037b75cb3"
+};
+const auth = getAuth(initializeApp(firebaseConfig));
+
+const $ = (id) => document.getElementById(id);
+const PRIVACY_LABELS = {
+    PUBLIC_TO_EVERYONE: 'Public to everyone',
+    MUTUAL_FOLLOW_FRIENDS: 'Friends',
+    FOLLOWER_OF_CREATOR: 'Followers',
+    SELF_ONLY: 'Only me (private)',
+};
+// Mirrors MAX_UPLOAD_BYTES in lib/tiktok-publish.js. Checked here only so the
+// operator finds out before a 4MB upload, not after; the server check is the
+// one that counts.
+const MAX_BYTES = 4 * 1024 * 1024;
+
+let creator = null;
+let file = null;
+let pollTimer = null;
+
+function showError(msg) {
+    const el = $('error');
+    if (!msg) { el.hidden = true; return; }
+    el.textContent = msg;
+    el.hidden = false;
+}
+
+async function api(action, { method = 'GET', body = null, headers = {}, query = {} } = {}) {
+    const token = await auth.currentUser.getIdToken();
+    const qs = new URLSearchParams({ action, ...query });
+    const res = await fetch(`/api/tiktok?${qs}`, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, ...headers },
+        body,
+    });
+    const json = await res.json().catch(() => ({}));
+    return { ok: res.ok, json };
+}
+
+// ------------------------------------------------------------ sign-in
+
+$('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('loginError').hidden = true;
+    try {
+        await signInWithEmailAndPassword(auth, $('email').value, $('password').value);
+    } catch {
+        $('loginError').textContent = 'Sign-in failed.';
+        $('loginError').hidden = false;
+    }
+});
+
+onAuthStateChanged(auth, async (user) => {
+    if (!user) { $('overlay').hidden = false; $('app').hidden = true; return; }
+    const t = await user.getIdTokenResult(true);
+    if (!t.claims.admin) {
+        $('loginError').textContent = 'That account is not an admin.';
+        $('loginError').hidden = false;
+        await signOut(auth);
+        return;
+    }
+    $('overlay').hidden = true;
+    $('app').hidden = false;
+    loadCreator();
+});
+
+// ------------------------------------------------------------ connect
+
+$('connectBtn').addEventListener('click', async () => {
+    const { ok, json } = await api('connect');
+    if (!ok || !json.authorizeUrl) return showError(json.error || 'Could not start the TikTok connection.');
+    // The state cookie was set on that response; navigating now carries it.
+    window.location.href = json.authorizeUrl;
+});
+
+$('disconnectBtn').addEventListener('click', async () => {
+    if (!confirm('Disconnect TikTok?\n\nThis also stops the scheduled publisher, which shares this connection.')) return;
+    await api('disconnect', { method: 'POST' });
+    window.location.reload();
+});
+
+async function loadCreator() {
+    const params = new URLSearchParams(location.search);
+    if (params.get('error')) showError(params.get('error'));
+
+    const { json } = await api('creator-info');
+    if (json.error) showError(json.error);
+    if (!json.connected) {
+        $('disconnected').hidden = false;
+        $('connected').hidden = true;
+        return;
+    }
+    creator = json.data || {};
+    $('disconnected').hidden = true;
+    $('connected').hidden = false;
+
+    $('nickname').textContent = creator.creator_nickname || '';
+    $('username').textContent = creator.creator_username ? '@' + creator.creator_username : '';
+    if (creator.creator_avatar_url) {
+        $('avatar').src = creator.creator_avatar_url;
+        $('avatar').hidden = false;
+    }
+
+    const opts = creator.privacy_level_options || [];
+    const sel = $('privacy');
+    for (const p of opts) {
+        const o = document.createElement('option');
+        o.value = p;
+        o.textContent = PRIVACY_LABELS[p] || p;
+        sel.appendChild(o);
+    }
+    $('privateOnly').hidden = !(opts.length === 1 && opts[0] === 'SELF_ONLY');
+
+    if (creator.max_video_post_duration_sec) {
+        $('maxDuration').textContent = `Maximum length for this account: ${creator.max_video_post_duration_sec}s`;
+        $('maxDuration').hidden = false;
+    }
+
+    // A creator who disabled comments in their TikTok settings must not have
+    // them re-enabled from here, so the box is forced off and locked.
+    for (const [key, wrapId, boxId] of [
+        ['comment_disabled', 'wrapComment', 'allowComment'],
+        ['duet_disabled', 'wrapDuet', 'allowDuet'],
+        ['stitch_disabled', 'wrapStitch', 'allowStitch'],
+    ]) {
+        if (creator[key]) {
+            $(boxId).checked = false;
+            $(boxId).disabled = true;
+            $(wrapId).classList.add('off');
+            $(wrapId).querySelector('.note').hidden = false;
+        }
+    }
+    refresh();
+}
+
+// ------------------------------------------------------------ form state
+
+$('video').addEventListener('change', (e) => {
+    file = e.target.files[0] || null;
+    const p = $('preview');
+    if (p.src) URL.revokeObjectURL(p.src);
+    if (file) {
+        p.src = URL.createObjectURL(file);
+        p.hidden = false;
+        const mb = (file.size / 1048576).toFixed(1);
+        $('sizeNote').textContent = file.size > MAX_BYTES
+            ? `${mb}MB - too large. This route tops out at 4MB; trim the clip.`
+            : `${mb}MB`;
+        $('sizeNote').style.color = file.size > MAX_BYTES ? 'var(--bad)' : '';
+        $('sizeNote').hidden = false;
+    } else {
+        p.hidden = true;
+        $('sizeNote').hidden = true;
+    }
+    refresh();
+});
+
+$('caption').addEventListener('input', () => {
+    $('captionCount').textContent = $('caption').value.length;
+});
+
+$('disclose').addEventListener('change', () => {
+    const on = $('disclose').checked;
+    $('discloseOpts').hidden = !on;
+    if (!on) { $('yourBrand').checked = false; $('brandedContent').checked = false; }
+    refresh();
+});
+
+for (const id of ['privacy', 'yourBrand', 'brandedContent', 'allowComment', 'allowDuet', 'allowStitch']) {
+    $(id).addEventListener('change', refresh);
+}
+
+function refresh() {
+    const privacy = $('privacy').value;
+
+    // Branded content cannot be private - enforced here AND server-side.
+    const selfOnly = privacy === 'SELF_ONLY';
+    $('brandedContent').disabled = selfOnly;
+    $('wrapBranded').classList.toggle('off', selfOnly);
+    $('wrapBranded').querySelector('.note').hidden = !selfOnly;
+    if (selfOnly && $('brandedContent').checked) $('brandedContent').checked = false;
+
+    const disclose = $('disclose').checked;
+    const commercialValid = !disclose || $('yourBrand').checked || $('brandedContent').checked;
+    $('commercialError').hidden = commercialValid;
+
+    const sizeOk = file && file.size > 0 && file.size <= MAX_BYTES;
+    $('postBtn').disabled = !(creator && sizeOk && privacy && commercialValid);
+    $('draftBtn').disabled = !(creator && sizeOk);
+
+    $('musicNotice').innerHTML = (disclose && $('brandedContent').checked)
+        ? 'By posting, you agree to TikTok\'s <a href="https://www.tiktok.com/legal/page/global/bc-policy/en" target="_blank" rel="noreferrer">Branded Content Policy</a> and <a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noreferrer">Music Usage Confirmation</a>.'
+        : 'By posting, you agree to TikTok\'s <a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noreferrer">Music Usage Confirmation</a>.';
+}
+
+// ------------------------------------------------------------ publish
+
+function startResult(id, draft) {
+    $('publishId').textContent = id;
+    $('result').hidden = false;
+    $('statusLine').hidden = Boolean(draft);
+    $('resultNote').hidden = !draft;
+    if (draft) {
+        $('resultNote').style.color = 'var(--good)';
+        $('resultNote').textContent = 'Uploaded to your TikTok inbox. Open the TikTok app, go to your drafts and finish the post there.';
+    }
+}
+
+function pollStatus(id) {
+    clearInterval(pollTimer);
+    pollTimer = setInterval(async () => {
+        const { json } = await api('status', { query: { publish_id: id } });
+        const s = json && json.data && json.data.status;
+        if (!s) return;
+        $('status').textContent = s;
+        if (s === 'PUBLISH_COMPLETE' || s === 'FAILED') {
+            clearInterval(pollTimer);
+            $('resultNote').hidden = false;
+            $('resultNote').style.color = s === 'PUBLISH_COMPLETE' ? 'var(--good)' : 'var(--bad)';
+            $('resultNote').textContent = s === 'PUBLISH_COMPLETE'
+                ? 'Posted. Check the TikTok app.'
+                : 'TikTok reported the publish failed.';
+        }
+    }, 3000);
+}
+
+// The file goes up as a raw body with its own content type, not multipart -
+// see readRawBody() in lib/tiktok-publish.js for why. Metadata rides in the
+// query string.
+async function send(action, query) {
+    showError(null);
+    $('result').hidden = true;
+    const { ok, json } = await api(action, {
+        method: 'POST',
+        body: file,
+        headers: { 'Content-Type': file.type },
+        query,
+    });
+    if (!ok) { showError(json.error || 'Upload failed.'); return null; }
+    return json;
+}
+
+$('postForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('postBtn').disabled = true;
+    $('postBtn').textContent = 'Posting...';
+    const json = await send('post', {
+        title: $('caption').value,
+        privacy_level: $('privacy').value,
+        allow_comment: String($('allowComment').checked),
+        allow_duet: String($('allowDuet').checked),
+        allow_stitch: String($('allowStitch').checked),
+        disclose: String($('disclose').checked),
+        your_brand: String($('yourBrand').checked),
+        branded_content: String($('brandedContent').checked),
+    });
+    $('postBtn').textContent = 'Post to TikTok';
+    refresh();
+    if (json) { startResult(json.publish_id, false); pollStatus(json.publish_id); }
+});
+
+$('draftBtn').addEventListener('click', async () => {
+    $('draftBtn').disabled = true;
+    $('draftBtn').textContent = 'Uploading...';
+    const json = await send('draft', {});
+    $('draftBtn').textContent = 'Send to TikTok drafts instead';
+    refresh();
+    if (json) startResult(json.publish_id, true);
+});
+</script>
+</body>
+</html>
