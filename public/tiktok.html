@@ -161,12 +161,17 @@
                     <div class="check">
                         <label><input type="checkbox" id="yourBrand"><span>Your brand</span></label>
                     </div>
-                    <p class="muted">You are promoting yourself or your own business. The video will be labelled Promotional content.</p>
+                    <p class="muted">You are promoting yourself or your own business.</p>
                     <div class="check" id="wrapBranded">
                         <label><input type="checkbox" id="brandedContent"><span>Branded content</span></label>
                         <div class="note" hidden>Branded content cannot be posted privately</div>
                     </div>
-                    <p class="muted">You are promoting another brand or a third party. The video will be labelled Paid partnership.</p>
+                    <p class="muted">You are promoting another brand or a third party.</p>
+                    <!-- ONE label statement, not one per checkbox. Ticking both used
+                         to assert "Promotional content" and "Paid partnership" at the
+                         same time; TikTok's guidelines require a single prompt, and
+                         Branded content wins when both are on. -->
+                    <p id="contentLabel" class="muted" hidden></p>
                     <p id="commercialError" class="muted" style="color:var(--bad)" hidden>
                         Select at least one: Your brand or Branded content.
                     </p>
@@ -394,6 +399,15 @@ function refresh() {
     const commercialValid = !disclose || $('yourBrand').checked || $('brandedContent').checked;
     $('commercialError').hidden = commercialValid;
 
+    // Branded content outranks Your brand: with both on, TikTok labels the post
+    // "Paid partnership", and the guidelines want that said once and plainly.
+    const label = !disclose ? ''
+        : $('brandedContent').checked ? 'Your video will be labelled "Paid partnership".'
+        : $('yourBrand').checked ? 'Your video will be labelled "Promotional content".'
+        : '';
+    $('contentLabel').textContent = label;
+    $('contentLabel').hidden = !label;
+
     const sizeOk = file && file.size > 0 && file.size <= MAX_BYTES;
     $('postBtn').disabled = !(creator && sizeOk && privacy && commercialValid);
     $('draftBtn').disabled = !(creator && sizeOk);
@@ -409,7 +423,14 @@ function startResult(id, draft) {
     $('publishId').textContent = id;
     $('result').hidden = false;
     $('statusLine').hidden = Boolean(draft);
-    $('resultNote').hidden = !draft;
+    $('resultNote').hidden = false;
+    if (!draft) {
+        // TikTok's guidelines require telling the user processing takes a while.
+        // pollStatus overwrites this the moment a terminal status arrives.
+        $('resultNote').style.color = '';
+        $('resultNote').textContent =
+            'Processing can take a few minutes. Leave this page open -- the status updates by itself.';
+    }
     if (draft) {
         $('resultNote').style.color = 'var(--good)';
         $('resultNote').textContent = 'Uploaded to your TikTok inbox. Open the TikTok app, go to your drafts and finish the post there.';

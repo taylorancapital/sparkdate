@@ -197,10 +197,22 @@ publishing every time someone checked whether publishing worked.
 **Draft vs direct.** Default is `UPLOAD_TO_DRAFT` — posts land in the app's
 drafts, you tap publish, and this needs **no audit**.
 `TIKTOK_POST_MODE=DIRECT_POST` publishes outright but requires TikTok's app
-review (2–4 weeks, and it can be rejected). Until that clears, an unaudited app
-is capped at `SELF_ONLY`, so DIRECT_POST "succeeds" and posts privately to
-nobody. `social-preflight` reports the account's real allowed privacy levels —
-check it before flipping the mode.
+review (2–4 weeks, and it can be rejected).
+
+**Until that clears, DIRECT_POST does not "succeed privately" — it is refused
+outright.** An unaudited client may Direct Post **only to a private account**,
+and `publish/init` returns
+`unaudited_client_can_only_post_to_private_accounts` while the account is
+public, whatever privacy level was chosen. (An earlier version of this section
+said the app was "capped at `SELF_ONLY`, so DIRECT_POST succeeds and posts
+privately to nobody." That was wrong, and was disproved on 09-12 by posting for
+real.)
+
+**`privacy_level_options` will not tell you any of this.** It describes what the
+ACCOUNT permits, not what the APP may do — a sandbox target user gets all three
+levels back while `video.publish` is still gated. Reading that field is how the
+09-11 session talked itself into believing the audit had cleared. A capability
+reported by `creator_info` is not permission.
 
 **Before the first real post**, two things are worth confirming, because both
 fail at publish time with errors that do not name the cause:
@@ -209,6 +221,54 @@ fail at publish time with errors that do not name the cause:
    is pulled by URL (`PULL_FROM_URL`), and TikTok refuses unverified domains.
 2. **The audit application** (Developer Portal → your app → Content Posting
    API) is what unlocks `DIRECT_POST` and `PUBLIC_TO_EVERYONE`.
+
+### Two Vercel variables that break `/admin/tiktok` silently
+
+Both were found on 09-12 while filming the review demo, and neither is visible
+from `social-preflight`, which does not go near the admin page's OAuth path.
+
+- **`TIKTOK_REDIRECT_URI` was set to the literal string `na`.** `api/tiktok.js`
+  and `api/tiktok-callback.js` both read it and only fall back to
+  `https://sparkdate.date/tiktok/callback` when it is *unset*, so Connect sent
+  `redirect_uri=na` and TikTok answered `param_error / errCode=10006`. **Delete
+  the variable rather than correcting it** — the code default is already the URI
+  registered with TikTok, and one copy cannot drift from another. This is why
+  the admin page's Connect button had never worked: the 09-11 setup authorized
+  with `scripts/tiktok-authorize.js`, which takes its redirect from its own
+  default and ignores the variable entirely.
+- **`TIKTOK_REFRESH_TOKEN` in Vercel made Disconnect a no-op.** Disconnect wipes
+  the Firestore store, then the next page load re-seeds from the env copy
+  (`lib/tiktok-token-store.js`, `resolveRefreshToken`) and the UI never leaves
+  the connected state. Observed twice in a row before the cause was found. This
+  is the concrete version of the warning above: once the store holds a token,
+  **delete the env copy**. Its only legitimate use is seeding an empty store.
+
+### The app review demo video
+
+TikTok wants **one video showing the complete end-to-end flow**, every requested
+scope exercised, on the registered domain — 5 videos max, 50 MB each. A missing
+scope or a domain that does not match the redirect URI is a standard rejection.
+
+What worked, filmed at `https://sparkdate.date/admin/tiktok`:
+
+1. **Set the account private first.** Direct Post cannot reach
+   `PUBLISH_COMPLETE` on a public account while the app is unaudited (above),
+   so there is no take to be had without this. Set it back afterwards.
+2. **Revoke the existing grant** — TikTok app → Settings and privacy → Security
+   and login → Manage app permissions → remove access. Without this, Connect
+   skips the consent screen entirely because the grant is remembered, and the
+   scopes never appear on camera. This is account-level and reversible; it does
+   not touch the app on `developers.tiktok.com`.
+3. Connect → consent screen listing `user.info.basic`, `video.publish`,
+   `video.upload` → approve → fill the form → Post → hold on the status box
+   until it reads `PUBLISH_COMPLETE`.
+
+**A Direct Post publish id starts `v_pub_file~`; the draft/inbox path gives
+`v_inbox_file~`.** That prefix is how you tell which path actually ran.
+
+**Before submitting, swap the placeholder clip in the App review section.** A
+reviewer seeing a placeholder is a straightforward rejection, and Content
+Posting API rejections are slow to recover from.
 
 ### 10. TikTok video
 

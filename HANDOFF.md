@@ -194,6 +194,27 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
     letterboxed onto a vertical feed and nobody has yet seen how that looks in
     the app. Flipping it is a repo variable, not a code change — but look at a
     draft first.
+  - **THE DEMO IS FILMED AND DIRECT POST REACHED `PUBLISH_COMPLETE` (09-12).**
+    Publish id `v_pub_file~v2.7684698923767777293` — note the `v_pub_file~`
+    prefix, which is Direct Post; the 09-12 draft that succeeded earlier was
+    `v_inbox_file~`. Recorded at `/admin/tiktok` with the account temporarily
+    private and the existing grant revoked so the consent screen actually
+    appeared; account set back to public afterwards. Procedure written up in
+    `docs/SOCIAL_RUNBOOK.md` §9 under "The app review demo video".
+    **Next step is Taylor's: swap the placeholder clip in the App review
+    section, then submit.** Do not submit before the swap — a reviewer seeing a
+    placeholder is a straightforward rejection.
+  - **Two Vercel variables were breaking `/admin/tiktok` and are now deleted
+    (09-12).** `TIKTOK_REDIRECT_URI` was the literal string `na`, so Connect
+    sent `redirect_uri=na` and TikTok answered `param_error / errCode=10006` —
+    meaning the admin page's Connect button had never once worked, because
+    09-11 authorized through `scripts/tiktok-authorize.js`, which ignores that
+    variable. `TIKTOK_REFRESH_TOKEN` re-seeded the Firestore store on every page
+    load, making Disconnect a no-op twice over before the cause was found.
+    Both are gone from Vercel and documented in the runbook. **The GitHub secret
+    copy of `TIKTOK_REFRESH_TOKEN` was deliberately left in place** — it is the
+    scheduled publisher's seed path and is a different store; if the next
+    session wants it gone too, confirm the Firestore token is healthy first.
   - **TL2-01's TikTok leg is also lost** — it was due 09-11 12:30 and the
     secrets landed at 19:45 local, past the 6h grace. Its Facebook and
     Instagram legs went out normally. **The first TikTok post that can actually
