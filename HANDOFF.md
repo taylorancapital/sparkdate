@@ -466,35 +466,35 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   and it has never yet been observed working.**
 
 
-- **The Loxleys art corrections are DONE for every square and on Facebook. The
-  five `_tt` twins are NOT, and TikTok can now reach them.** (09-12) The thread
-  that ran 09-10 → 09-12 is closed on its original terms: Design re-exported the
-  fact frames at $29.99 (#535); the pull on IMG_9203/9204 was lifted and LX-24
-  gained its 29-check-ins caption line (#536); the second batch landed LX-24's
-  first-ever 1080x1080 plus photo backs for LX-20/21/25 (#537); Taylor deleted
-  all eight stale Facebook posts; and their `fb` ids were cleared in two passes
-  (#538, #545) so the publisher re-scheduled each with the corrected art.
-  **Two things were checked rather than assumed, and both are worth not
-  re-deriving.** (a) It was EIGHT stale Facebook posts, not the five this entry
-  used to name — #537's photo re-export made LX-20, LX-21 and LX-25 stale too,
-  so re-derive the list from what changed, never from the last count. (b) **Meta
-  re-fetches; there is no stale cache.** LX-17 and LX-18 came back on the very
-  filenames Meta had already pulled for the $24.99 art, and each recreated post's
-  price band reads $29.99 — 0.98 correlation against the current art vs 0.80
-  against the old, masked to the 1293 pixels that actually differ. So
-  delete → deploy → clear is sufficient; no cache-busting filename is needed.
-  **What is left, and it is newly live-reachable: `LX-17_4of5_tt`,
-  `LX-18_5of6_tt`, `LX-19_2of3_tt`, `LX-22_3of4_tt` and `LX-23_2of3_tt` still
-  read "Doors 6:30 PM · $24.99".** None has changed since #235 — #535 re-exported
-  squares only. That was harmless while TikTok had never published, but the
-  credentials landed 09-11 and **LX-17's TikTok leg is the first that can fire,
-  09-12 16:00.** `TIKTOK_POST_MODE` is `UPLOAD_TO_DRAFT`, so it arrives in the
-  account's inbox rather than going live; the exposure is someone publishing that
-  draft at the wrong price, not an instant wrong post. **Next step: export those
-  five fact frames from the TikTok sheet (`node scripts/build-campaign-export.js
-  --event=LX --tiktok`) into `SourceArt`, `python scripts/prep-social-assets.py
-  --rebuild`, keep only those five JPEGs, and merge — before anyone posts from the
-  TikTok inbox. Delete this entry once all five read $29.99.**
+- **The five Loxleys `_tt` fact frames now say $29.99 (#551) — but TWO are still
+  serving $24.99 from a seven-day edge cache, and one of them posts today.**
+  (09-12) The art itself is corrected and deployed: `LX-17_4of5_tt`,
+  `LX-18_5of6_tt`, `LX-19_2of3_tt`, `LX-22_3of4_tt` and `LX-23_2of3_tt` were
+  re-rendered through the export sheet's own `renderPNG`, and a `?cb=` request
+  returns the new file for all five. **The plain URLs do not.** Fetched an hour
+  after the deploy, `LX-17_4of5_tt.jpg` and `LX-19_2of3_tt.jpg` still returned
+  the $24.99 art at `age=4068`, unchanged across repeat requests, while the
+  other three came back fresh. Cause: `vercel.json` sets
+  `Cache-Control: public, max-age=604800` on every image path, so `/social/`
+  art is cached **a week** — this is the same trap that served MC-15's
+  superseded slide for a week, and it means deploying replacement art is not
+  the same as the world seeing it. **TikTok fetches the plain URL at publish
+  time (`PULL_FROM_URL`), and LX-17's TikTok leg is 09-12 16:00**, so on
+  current state it pulls $24.99. `TIKTOK_POST_MODE` is `UPLOAD_TO_DRAFT`, so
+  it lands in the account's inbox rather than going public — the exposure is
+  someone publishing that draft, not an instant wrong post. **Next step, one
+  of two, before 16:00: (a) purge the CDN for
+  `/social/LX-17_4of5_tt.jpg` and `/social/LX-19_2of3_tt.jpg` — Taylor's
+  click, and it keeps the filenames tidy; or (b) rename those two and update
+  `asset_files`, which is guaranteed but must keep the name ending `_tt.jpg`,
+  because `lib/social-requests.js` routes on `/_tt\./i` and a `-v2` appended
+  AFTER `_tt` silently drops the file out of TikTok's set entirely.** Verify
+  either by fetching the plain URL and reading the price off the pixels — a
+  `?cb=` check will pass while the real URL is still wrong, which is exactly
+  how this hid. Delete this entry once both plain URLs read $29.99.
+  - **Worth carrying: the "Meta re-fetches, no stale cache" finding recorded
+    for the squares was about META's own stored copy, not the CDN.** Both are
+    true and they are different layers; that finding does not cover this one.
 
 - **LX-24's card says "Last call - link in bio." where its caption says "29
   people checked in at our last event."** (09-12) The art was exported minutes
