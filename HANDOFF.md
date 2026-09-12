@@ -667,6 +667,26 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   produces one, attach it with the same request shape as
   `meta-lx-add-male-ad.js` (new slug, never reuse `patio`).** *(09-11)*
 
+- **Custom-audience rule syntax is per SOURCE TYPE, and the account's scripts
+  only know the video shape.** (09-11, measured live while widening Loxleys'
+  retargeting; Taylor asked for this to be written here as well as in memory
+  `video-engagement-audience-api-syntax`.)
+  | source | what Meta ACCEPTED | what it REFUSED |
+  |---|---|---|
+  | video | flat `[{event_name:'video_watched', object_id}]` + explicit `subtype:'ENGAGEMENT'` | flat without subtype (1870029), envelope (1870049) |
+  | Page | envelope `inclusions/event_sources[{type:'page', id:<NUMBER>}]`, filter `event eq page_engaged`, **no subtype** (Meta sets ENGAGEMENT) | flat with or without subtype (1870029); envelope WITH subtype (#2654 "Invalid Event Name") |
+  | Instagram | envelope `event_sources[{type:'ig_business', id:<NUMBER>}]`, filter `event eq ig_business_profile_all`, **no subtype** (Meta sets IG_BUSINESS) | flat (#2654 / 1870029); envelope with subtype, or with `ig_business_profile_engaged` (#2654) |
+  Ids go in as numbers. The #2654 "Invalid Event Name" error is misleading —
+  the event name was fine, the `subtype` was the problem. A fresh engagement
+  audience reads `delivery_status 300 "too small"` with `operation_status 441
+  "finding people… you can start running ads right away"` until prefill runs;
+  that is not a verdict. `scripts/meta-lx-widen-retargeting.js` holds the
+  working requests. **Next step: when the next event's retargeting is built
+  (Tellus Oct 6 is first), lift the Page + IG envelopes out of that script
+  into `scripts/meta-launch-lx-retargeting.js`'s `candidateRules()` (or a
+  shared helper) so a retargeting pool is built with all three layers from
+  day one instead of the four-reel video audience alone.** *(09-11)*
+
 - **Loxleys retargeting went LIVE 09-08 — first spend since the shell was created
   2026-08-17. Three things to check, then it retires with the event.**
   **Next steps:** (1) confirm `LX-RT-PATIO` reached ACTIVE rather than
