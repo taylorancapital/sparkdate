@@ -500,6 +500,36 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `view_item` — that is the specific thing the `/l/` link was introduced to fix
   and it has never yet been observed working.**
 
+- **The five Loxleys `_tt` fact frames now say $29.99 (#551) — but TWO are still
+  serving $24.99 from a seven-day edge cache, and one of them posts today.**
+  (09-12) The art itself is corrected and deployed: `LX-17_4of5_tt`,
+  `LX-18_5of6_tt`, `LX-19_2of3_tt`, `LX-22_3of4_tt` and `LX-23_2of3_tt` were
+  re-rendered through the export sheet's own `renderPNG`, and a `?cb=` request
+  returns the new file for all five. **The plain URLs do not.** Fetched an hour
+  after the deploy, `LX-17_4of5_tt.jpg` and `LX-19_2of3_tt.jpg` still returned
+  the $24.99 art at `age=4068`, unchanged across repeat requests, while the
+  other three came back fresh. Cause: `vercel.json` sets
+  `Cache-Control: public, max-age=604800` on every image path, so `/social/`
+  art is cached **a week** — this is the same trap that served MC-15's
+  superseded slide for a week, and it means deploying replacement art is not
+  the same as the world seeing it. **TikTok fetches the plain URL at publish
+  time (`PULL_FROM_URL`), and LX-17's TikTok leg is 09-12 16:00**, so on
+  current state it pulls $24.99. `TIKTOK_POST_MODE` is `UPLOAD_TO_DRAFT`, so
+  it lands in the account's inbox rather than going public — the exposure is
+  someone publishing that draft, not an instant wrong post. **Next step, one
+  of two, before 16:00: (a) purge the CDN for
+  `/social/LX-17_4of5_tt.jpg` and `/social/LX-19_2of3_tt.jpg` — Taylor's
+  click, and it keeps the filenames tidy; or (b) rename those two and update
+  `asset_files`, which is guaranteed but must keep the name ending `_tt.jpg`,
+  because `lib/social-requests.js` routes on `/_tt\./i` and a `-v2` appended
+  AFTER `_tt` silently drops the file out of TikTok's set entirely.** Verify
+  either by fetching the plain URL and reading the price off the pixels — a
+  `?cb=` check will pass while the real URL is still wrong, which is exactly
+  how this hid. Delete this entry once both plain URLs read $29.99.
+  - **Worth carrying: the "Meta re-fetches, no stale cache" finding recorded
+    for the squares was about META's own stored copy, not the CDN.** Both are
+    true and they are different layers; that finding does not cover this one.
+
 - **LX-24's card says "Last call - link in bio." where its caption says "29
   people checked in at our last event."** (09-12) The art was exported minutes
   before that prompt existed, so the line lives in the caption only — which does
