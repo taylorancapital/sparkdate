@@ -174,6 +174,15 @@ The 09:00 `SparkDate Nightly Report Review` task then fact-checks that PR.
   names are documented at the top of the script).
 - `-SmokeTest` exercises the launcher end to end with a throwaway prompt and
   no push. Run it after upgrading the CLI or editing the script.
+- **Step 2b syncs Eventbrite Ads spend** (`scripts/sync-eventbrite-ads-spend.js`,
+  since 2026-09-11) by driving the installed Chrome through a signed-in profile
+  at `%LOCALAPPDATA%\SparkDate\eventbrite-ads-profile`, because Eventbrite has
+  no ads API and its dashboard endpoints refuse the OAuth token. The profile
+  is created ONCE by hand with `npm run ads:eventbrite-login`; when the login
+  expires the step logs a WARN with that command and the night carries on. It
+  writes `ad_spend/{date}__eventbrite` (never `{date}`, which is Meta's) and
+  `Night Tasks/eventbrite-ads-<date>.csv`. Eventbrite's attributed tickets in
+  those documents are Eventbrite's count, not sales.
 - Health: `Night Tasks/logs/<date>.log`. **The Cowork nightly task must stay
   paused.** If both run, two reports race for one branch name.
 - `TONIGHT_PROMPT.md` is dead. The prompt library file keeps the run log only.
