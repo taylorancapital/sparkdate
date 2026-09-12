@@ -609,20 +609,24 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   side of the review was never re-read (env pull blocked); refresh the 7/7
   and 5-of-9 vs 2-of-13 figures after Loxleys 09-22.** *(09-10)*
 
-- **Is the 03:00 budget ladder actually applying? A dry run on 09-11 says
-  no.** `node scripts/meta-budget-ladder.js --all` (dry run, 09-11 ~03:05 UTC)
-  printed `Loxleys | Sales  live $9.00/day  PLAN $9.00 -> $5.11 (build)` — the
-  same drop the registry note of 09-08 said would happen "tonight". Three
-  nights later it has not, while `Loxley's Retargeting` sits at its planned
-  $3.40. Either the `SparkDate Budget Ladder` scheduled task is not running
-  `--execute`, it is failing before the write, or someone hand-set $9.00
-  after 09-08 and the ladder's 1.76x drop is being refused by `--max-jump`.
+- **~~Is the 03:00 budget ladder actually applying? A dry run on 09-11 says
+  no.~~ ANSWERED 09-11 evening: yes, it applied at 03:00 on 09-11.** The
+  dry run above was at 23:05 EDT on 09-10, four hours BEFORE the run that
+  did it. Evidence, from `Night Tasks/logs/budget-ladder.log` and the
+  account's `/activities` change log
+  (`reports/LOXLEYS_LINK_CLICKS_2026-09-11.md` §MECHANISM): 09-08 03:00 the
+  main checkout's ladder, still on the LEGACY registry, set $2.00→$9.00; the
+  retargeting-launch session's v2 ladder set $9.00→$5.11 from a worktree at
+  09:29; **09-09 03:00 the main checkout, still legacy, put it back to $9.00**
+  (its log line says `1 ungoverned` — it did not know the retargeting
+  campaign existed); 09-10 no change; the main checkout was pulled on 09-10
+  and **09-11 03:00 the v2 ladder set $9.00→$5.11**. Nobody hand-set $9.00 and
+  nothing was refused — it was [[nightly-pulls-from-stale-main-checkout]],
+  and it cost the campaign five budget edits in six days. Tonight's dry run
+  prints `SKIP already at the build rate` for both Loxleys campaigns.
   Also printed: both Marion Court acknowledgements expired 09-08 with the
-  campaigns still ACTIVE ($20/day "outside the ladder"). **Next step: read the
-  task's last log, run `--all` by hand and look at the verdict line for
-  Loxleys | Sales (PLAN vs a `!!` refusal), then either fix the task or, if
-  $9.00 was deliberate, acknowledge it in `content/paid-campaigns.json` with a
-  `review_after`. Decide the two Marion Court acknowledgements again — the
+  campaigns still ACTIVE ($20/day "outside the ladder", $0 spent since
+  09-09). **Next step: decide the two Marion Court acknowledgements again — the
   event was 09-08.** *(09-11)*
 
 - **Loxleys retargeting went LIVE 09-08 — first spend since the shell was created
