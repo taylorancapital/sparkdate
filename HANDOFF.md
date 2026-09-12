@@ -465,7 +465,6 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `view_item` — that is the specific thing the `/l/` link was introduced to fix
   and it has never yet been observed working.**
 
-
 - **The five Loxleys `_tt` fact frames now say $29.99 (#551) — but TWO are still
   serving $24.99 from a seven-day edge cache, and one of them posts today.**
   (09-12) The art itself is corrected and deployed: `LX-17_4of5_tt`,
@@ -516,57 +515,6 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   check-in number into LX-27's `caption` and `caption_x`, then
   `node scripts/social.js approve --row=LX-27`.** This is the same trap MC-15 was
   one keystroke from on 09-10.
-
-- **MC-12's Instagram Story and MC-13's Instagram feed post are queued correctly
-  but need `social.js run --execute` run again at their actual moments — nothing
-  currently does that automatically.** (09-07, PR #471) Both are `state=approved`
-  with real art; `social.js plan` confirms they're just not due yet, not stuck:
-  MC-12's Story fires at 6:30 PM today (09-07), MC-13's Instagram post at 9:00 AM
-  tomorrow (09-08). Facebook can be scheduled minutes ahead of time because Meta
-  holds the scheduled post; Instagram cannot (no scheduling parameter exists), so
-  its container can only be created once the slot actually arrives, within a 6h
-  grace window after — this is why MC-09 and MC-10's Instagram legs upstream of
-  this entry were permanently missed (nobody ran the publisher within 6h of their
-  slots). **Next step: run `node scripts/social.js run --execute` again after each
-  of those two times** (see `[[meta-tokens-live-in-shell-env]]` for the env vars
-  it actually needs in this shell), or decide this needs a real recurring
-  scheduled task rather than relying on a session happening to be open at the
-  right moment — worth asking Taylor rather than building one unprompted, since
-  it would be new standing infrastructure that also runs `--execute` live.
-  **Separately, MC-12's Facebook leg is structurally blocked, not just
-  unscheduled:** its only two source-art files are both 1080x1920 Story frames
-  (confirmed in `~/OneDrive/SparkDate/SourceArt` — no square export was ever
-  made), so `lib/social-publish.js`'s feed-shape guard correctly refuses it
-  every time `run` executes. **Needs a real 1080x1080 export from Taylor/design
-  before this leg can ever go out**, or a decision to leave MC-12 Facebook-less.
-  **RESTORED AND CLOSED 09-08.** This entry was deleted by accident by the 09-08
-  Loxleys session — an edit that replaced the span between its own entry and the
-  next one swallowed this bullet, and #482 merged the deletion before anyone
-  noticed. Recovered verbatim from `a5020a3b`. Everything above is the 09-07
-  text; everything below is what is actually true now.
-  - **Both rows are DONE.** MC-12 `state=posted`, ids for `fb`
-    (`1139242662602769_122122424685340130`) and `ig_story`
-    (`17906442375520962`). MC-13 `state=posted`, ids for `fb`
-    (`122119894995340130`) and `ig` (`17970315816132176`), recorded by
-    `github-actions[bot]` in `8175af27` at 13:45 UTC on 09-08.
-  - **"MC-12's Facebook leg is structurally blocked" is retired.** The
-    feed-shape guard was right and the fix was art: Taylor exported
-    `MC-12FB_1of2.png` / `MC-12FB_2of2.png` into `SourceArt` at 10:28 on 09-07,
-    and it published.
-  - **The premise of this entry's "next step" was WRONG, and that is the part
-    worth carrying forward.** It said "nothing currently does that
-    automatically" and proposed asking Taylor whether to build a recurring
-    scheduled task. **That task already existed** —
-    `.github/workflows/social-publish.yml` has run `node scripts/social.js run
-    --execute` on a `*/15 * * * *` cron since #215, and it is what published
-    MC-13 unattended. Nobody needed to be at a keyboard.
-    **So why were MC-09/MC-10's Instagram legs really missed?** Not absent
-    automation — the corrupted `content/queue.csv` documented elsewhere in this
-    file: dates round-tripped through a spreadsheet into M/D/YYYY, which the
-    publisher cannot parse, so no row was schedulable until #471 fixed it.
-    **Nothing to build. Close this thread.** See
-    [[check-for-existing-system-first]] — this is that failure exactly, and it
-    cost a proposal to build something that shipped months ago. *(09-08)*
 
 - **The 2-for-1 cell is BUILT by the builder and MOVED by the ladder as of
   09-10 (Taylor: "I don't want it built by hand").** Chain: review
@@ -701,42 +649,6 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `reports/LOXLEYS_RETARGETING_LAUNCH_2026-09-08.md` (#482).
   Retire this entry after 2026-09-22. *(09-08)*
 
-- **DECIDED (09-06): Business Plan documents (financial models, the IP
-  assignment agreement, legal analysis, the investor pitch deck, ~50 files)
-  are untracked going forward; history is deliberately left alone.**
-  They'd been tracked in this repo's git history, on a PUBLIC repo, since
-  before the 07-15 reorg moved the working copies into subfolders without a
-  `git mv` — found while making sure those new subfolder locations didn't
-  also get committed. Taylor's read, having looked at the actual content:
-  mostly a financial model and a routine founder-to-LLC IP assignment,
-  "not very sensitive." **`git rm --cached` untracked all ~50 in this PR**
-  (files stay on disk, nothing deleted) and `.gitignore` now denies
-  `Business Plan/files/*` by default — the reorg subfolders and any future
-  addition are covered too. Two files kept tracked on purpose:
-  `Night Tasks/run-nightly-claude-code.ps1` and `REVIEW_PROMPT.md` (plus
-  `TONIGHT_PROMPT.md` and `review-nightly-reports.ps1`) are the nightly
-  automation's own scripts, not business documents — same reasoning as any
-  other tracked script. **This does NOT remove anything from history** —
-  every old commit still has the old content, and always will unless
-  someone runs a history rewrite (`git filter-repo`/BFG) plus a force-push
-  that every clone, worktree and open PR would then have to reconcile
-  against. Not done, and not needed given the sensitivity call above. If
-  that call ever changes, that's the next step — nothing further needed
-  otherwise. *(09-06)*
-- **~~The main checkout is behind `origin/main` with uncommitted edits on
-  top~~ — CLOSED 09-08.** Pulled and now clean: `0 0` against `origin/main`,
-  full suite green there (1141 at the time). Nothing was discarded on
-  assumption — each of the seven files was checked against main first.
-  `.gitignore` had **zero** lines main lacked; `HANDOFF.md`'s 27 local-only
-  lines were 09-05 entries later sessions had already resolved and deleted;
-  `content/queue.csv`'s 47 were the M/D/YYYY spreadsheet corruption #471 had
-  already rebuilt. Four untracked files (`women-outreach.md`,
-  `women-surfaces.json`, `build-outreach-pack.js`, `outreach-pack.test.js`)
-  looked like genuinely unpushed work and were **not** — byte-different but
-  content-identical to main, which is the line-ending trap in the next entry.
-  All seven were backed up before removal. The plaintext Meta token file
-  (`Business Plan/files/curl -X POST httpsgraph.facebook.co.txt`) is no longer
-  on disk. *(09-08)*
 - **`core.autocrlf=true` and NO `.gitattributes` — nothing pins line endings in
   this repo, and it has already corrupted `content/queue.csv` once.** Git
   converts LF to CRLF on checkout here, so a working-tree file is
@@ -751,98 +663,6 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   minimum `*.csv text eol=lf` to protect the queue.** Deliberately not done
   here — a repo-wide renormalisation is not something to slip into a handoff
   PR. Memory: `file-comparison-lies-on-this-machine`. *(09-10)*
-- **A concurrent session's merge silently reverted an already-merged
-  correction, and neither CI nor GitHub's own conflict check caught it.**
-  Merging this handoff PR against PR #463 (merged first) found the Ticket
-  Tailor / free-listing-surfaces entry below — corrected by #426 earlier the
-  same evening — had reverted to its stale pre-#426 text. #463's own PR body
-  never mentions touching that entry; its commit message documents a
-  *different* stale-checkout problem the same evening (for a gitignored
-  file, unrelated to this one), consistent with #463 having branched from a
-  main checkout that predated #426 and carrying that section's old content
-  through untouched, which a squash merge then applied over #426's fix
-  without flagging a conflict — only one side's change was deliberate, so
-  there was nothing for git to flag. Restored the correct text here rather
-  than trusting `main`'s state at face value. **No general fix built** — flagging
-  as a pattern: a squash-merge touching a heavily-churned file like this one
-  can silently carry stale content on lines nobody meant to change, and nothing
-  in this repo's CI checks for that. *(09-06)*
-- **Both the ladder AND the campaign-builder now build the new playbook —
-  the old shape is gone from this codebase's tools, not merely superseded.**
-  Taylor, 09-06, verbatim: *"I don't want to retain the old shape fyi. I want
-  the new playbook for go forward."* `reports/ADS_OBJECTIVE_GAP_ANALYSIS_2026-09-06.md`'s playbook
-  (§8) found OUTCOME_TRAFFIC produced zero purchases across $740.23 lifetime
-  spend and that heavier women-targeted ad spend correlates with a WORSE
-  actual women's ticket share, plus a live delivery failure independent of
-  that correlation — Marion Court's women-only ad set is spending ~4% of its
-  assigned budget. **Built and offline-tested (22 new cases,
-  `tests/budget-ladder.test.js`):** `content/brand.json`
-  `paid_template.playbook_v2` — two campaigns per event (cold, retargeting),
-  OUTCOME_SALES, broad targeting only, a cold:retarget split that VARIES by
-  phase (80/20 Seed → 60/40 Build → 35/65 Close), a $2.00 floor-priority rule,
-  and the cold-start rule for a runway shorter than 21 days. `scripts/
-  budget-ladder.js` computes it (`phaseWindowsV2`, `roleRates`, `rateFor`
-  dispatching on a registry entry's `playbook: 'v2'` field) with ZERO change
-  to the legacy path Loxleys' live campaign depends on — same 28 legacy tests
-  still pass, `--check`/`--forecast` against the real live registry print
-  byte-identical output to before. **Correction to what this entry said when
-  first written:** it claimed `content/paid-campaigns.json`'s `share` field
-  already supported a Cold+Retargeting split with no change needed. Wrong —
-  `share` is one flat fraction applied to every phase alike, and the
-  playbook's split varies BY PHASE, which a flat fraction can't express. v2
-  registry entries use `role` (`"cold"`/`"retargeting"`) instead — both
-  `_fields` and `_playbook_ref` in `paid-campaigns.json` now say so. Also
-  fixed in the same pass: `scripts/meta-budget-ladder.js`'s `printLadder`
-  would have printed NaN for a v2 entry's ladder table (it called the legacy
-  `rowRate()` against rows that don't carry a legacy `share`/`days` shape) —
-  caught by an actual dry run against a scratch `--registry=`, not by the
-  offline tests, since printing isn't part of what they cover.
-  **`scripts/build-paid-campaign.js` is rewritten, same session, once Taylor
-  said the line above.** It no longer knows how to build the legacy shape at
-  all — no flag reverts to it. `--execute` now builds TWO PAUSED campaigns
-  (`<Event> | Cold`, `<Event> | Retargeting`), each with one broad ad set,
-  reusing the exact field values `scripts/meta-create-lx-sales-campaign.js`
-  already proved live on 2026-09-05 (pixel `4390442851170732`,
-  `OFFSITE_CONVERSIONS`/`PURCHASE`, 7-day-click+1-day-view attribution,
-  `advantage_audience: 0`) plus the same read-back verification that script
-  used to catch Meta silently enabling gender expansion server-side. Dry-run
-  verified against Loxleys' real event (plan only — nothing was created
-  against the live account): correct output at the default 21-day runway,
-  correct cold-start skip at `--runway=10`, and a clean refusal from
-  `--captions`/`--handoff` rather than rendering the retired female/male ad
-  copy against a shape that no longer has those ad sets. **Not yet done:**
-  new broad-targeting ad copy to replace the retired templates — nothing
-  writes ads yet either way, so this only blocks the day someone attaches
-  creative, not before. **Loxleys itself is untouched, on purpose** — its
-  live campaign stays on the legacy fields in `paid_template` until it
-  retires 2026-09-22 (rebuilding it now risks a cold-start at the worst
-  time); those fields are wind-down scaffolding now, not a second supported
-  shape, and are safe to delete once that entry retires. Also still
-  unreconciled, smaller: the playbook's 73%/37% final-14/7-day sales-curve
-  figures were cut across all 6 events including 2 still selling, while
-  `paid_template._measured` deliberately used only the 2 completed events to
-  avoid exactly that censoring bias — both currently read close (73% vs ~76%)
-  but were never formally cross-checked. *(09-06)*
-- **`status: 'full'` is a SOFT close — answered and shipped, do not re-raise.**
-  Taylor, 09-06: *"I'd like it to be soft close, a lot of these venues could
-  utilize more people."* The flag means stop advertising, not refuse money. The
-  three client surfaces honour it (off the grid, checkout swapped for the
-  waitlist, `/api/next-event` stops promoting); the purchase endpoint
-  deliberately does NOT, so a direct link, a stale tab or a host putting a
-  walk-up through still completes. A hard block was written in #456 and reverted
-  before it shipped, and a test now pins its absence so a later parity pass
-  cannot re-add it. A hard close, if ever wanted, needs its own flag
-  (`status: 'closed'`) so the soft one keeps working. Capacity is still enforced
-  server-side and remains the real backstop. *(09-06)*
-- **The #453 audit's queue is closed but not empty.** All 100 findings that had
-  never been checked now have a verify verdict (52 confirmed, 43 rejected, 5
-  split), but the usage limit cut the second adversarial lens short on the last
-  batch, so some "confirmed" carry one lens instead of two. Four findings also
-  sit outside that queue (196 − 92 verdicts = 104; the resume queue held 100).
-  Everything acted on in #456 was re-read by hand first; the rest was not.
-  **Next step: nothing, unless someone wants the tail — the raw verdicts are in
-  the run journal named in the report, and the confirmed-but-unfixed ones are
-  content and layout decisions, not defects.** *(09-06)*
 
 - **The nightly's data pull runs from the MAIN CHECKOUT's working tree, while its
   analysis cuts from `origin/main`.** So merging a change to
@@ -882,42 +702,6 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   `/event?id=KL4onXm7hJbqiwI9quAZ`, url_tags via `scripts/ad-utm.js`. Still
   never done by anyone: **buy a real ticket through the new `/lp` form from
   inside the Instagram app** — the one test that settles the webview question.
-- **~~Marion Court is hands-off~~ — SUPERSEDED 09-05 by Taylor's instruction.**
-  Its Traffic campaign is now PAUSED and a Sales campaign runs in its place; the
-  retargeting set was left untouched exactly as this entry asked. The rest of
-  the entry still holds for what remains running:
-  Four ad changes went live 09-02 (`reports/META_ADS_REVIEW_2026-09-02.md` §10)
-  and the pixel was attached to the two Traffic ads; both campaigns are in
-  learning and each edit restarts the clock. Two remaining items are deferred BY
-  DECISION, not forgotten — the retargeting set's missing site-visitor audience,
-  and the Traffic ads' shared `utm_content`, which cannot be fixed on a live
-  creative. Do not re-raise them as findings. MC-RT-QUANG and MC-RT-NO-SCORECARDS
-  stay running for the data; do not pause them as tidy-up.
-- **Both live events are now on a SALES objective and every Traffic campaign is
-  paused (09-05).** This closes the "objective question asked and never
-  answered" entry that sat here since 09-04. Taylor directed it; the analysis
-  that preceded it is `reports/META_ADS_ROOT_CAUSE_2026-09-04.md`. Live now:
-  `Loxleys | Sales` ($2.00/day, stops 09-22), `Marion Court | Sales`
-  ($10/day, stops 09-08), `Marion Court Retargeting` (untouched, $6/day).
-  `Loxleys | Traffic` and `Marion Court | Traffic` are PAUSED.
-  **Two things the next session must NOT re-derive.** (1) The objective's
-  evidence changed: on *purchases* it is p=0.224 and worthless, but on
-  *initiate_checkout* — 44 events instead of 6 — it is p=8e-18 and reproduces
-  inside Instagram Stories and Facebook feed separately. Use the checkout
-  endpoint. (2) **Placement was REFUTED as a lever** and my earlier
-  recommendation to restrict it is withdrawn: Instagram's clicks arrive BETTER
-  than Facebook's, and the in-app browser is a browser effect (FB app 71.5%,
-  IG app 74.0%, p=0.31), not a placement one. Only Audience Network is
-  genuinely bad. Memory: `automatic-placements-buy-stories`. *(09-05)*
-- **`Marion Court | Sales` is a T-3 hail mary and must be scored as one.** Built
-  09-05 on the 2-for-1 female creative because Taylor asked for women's sales.
-  It has ~3 days minus review, and `purchase` had ZERO events in the prior 7
-  days against the ~50/week Meta wants, so it will not leave the learning
-  phase. **Judge it on whether women reach checkout, never on purchases** —
-  there will be far too few to read. It also carries the first correct tags on
-  a Marion Court ad (`mc_close_female_bringafriend`, CTA `LEARN_MORE`); the
-  live MC Women ad still carries `proof_rsa1` and `BOOK_TRAVEL` frozen in.
-  *(09-05)*
 - **The budget ladder takes as many campaigns as you register, and it is now
   loud about the ones you do not.** The hardcoded `CAMPAIGNS` array is gone;
   the list lives in `content/paid-campaigns.json`, the arithmetic in
@@ -980,97 +764,6 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   (3) **Both Marion Court acknowledgements expire 09-08** and
   will start reporting themselves as stale the next morning; retire them with
   the event. *(09-06)*
-- **The "scrambled email UTM" ask is CLOSED — it was never an email-platform
-  problem, and the report that closed it 404'd its own fix.** PR #449
-  escalated it twice as needing the email vendor's send history. It decodes
-  with a one-line cipher (a–f shift +1, g–z ROT13) to `Lancaster | Master
-  List / email` — LNP | LancasterOnline's events newsletter, powered by
-  Evvnt, where Taylor submitted both events on 09-02. GA4 carries the SAME
-  channel twice, obfuscated (129 sessions) and plaintext (7): the 129 fired
-  **zero** `view_item`, the 7 fired 6. **Taylor's fix, in the Evvnt
-  dashboard: set each event's ticket URL to `sparkdate.date/l/lx-
-  lancasteronline` and `/l/mc-lancasteronline`.** Those two links work —
-  confirmed by loading each and reading the event title/date/venue/price out
-  of the DOM, not just a `curl` 200 (see memory
-  `lancasteronline-is-the-biggest-free-channel` for why a 200 alone doesn't
-  prove it on this site). **What went wrong first:** the report printed each
-  link with its destination on the next line starting `->`; copying both
-  lines together mangles the URL into something the router correctly 404s.
-  Taylor hit exactly this. Fixed in `reports/GA4_DEEP_READ_2026-09-06.md` and
-  its artifact (commit `e6cc9513`, merged via #455) — the links now stand
-  alone with an explicit warning not to paste the destination alongside them.
-  Re-check in a week: `lancasteronline / listing` should show non-zero
-  `view_item`. **The nightly GA4 report (PR #460, run by hand after the
-  02:00 job hit a session limit) independently repeated the same wrong
-  framing as a "3rd ask" — it never read this file. Caught by Taylor in
-  review, corrected in place via PR #461.** Memory
-  `always-check-memory-before-an-nth-ask` has the process fix: check
-  `HANDOFF.md` and memory before writing any repeat-ask item, not just
-  increment the counter. *(09-06)*
-- **The nightly's depth problem is fixed in code, not in exhortation, and the
-  first run under the new rules is tonight's 02:00.** Taylor, 09-06: the reports
-  "are basically half a page and they really don't have great insights" — no
-  traffic summary, no events summary, nothing on UTM gaps, against 46 tables
-  pulled nightly (the 09-05 report read ~15 and named seven more as "skimmed").
-  `scripts/ga4-nightly-summary.js` now computes the standing floor and prints a
-  **coverage ledger naming every table and whether it was used**;
-  `.claude/commands/nightly-ga4.md` makes TRAFFIC / EVENTS / UTM GAPS
-  non-omittable and requires a numbers block in the PR body. **Partially
-  validated already:** the 02:00 09-06 run itself hit a session limit before
-  writing anything, so it was re-run by hand (PR #460) — that run used the
-  new script and format end to end, hit 46/46 coverage, and the PR body
-  carried numbers. That is not the same as an unattended pass, though: it
-  also caught, in a fresh worktree, that the `Skill` tool served the OLD
-  pre-#455 version of `nightly-ga4.md` from a stale main checkout (memory
-  `nightly-pulls-from-stale-main-checkout`) — an interactive session has to
-  notice and override that; an unattended one in the dedicated clone does
-  not hit it. **Next step unchanged: read the 09-07 nightly PR** (the first
-  genuinely unattended run under the new rules) **and check the ledger says
-  46/46 and the body carries numbers.** If a run skips the script, that is
-  the thing to fix, not the prose. *(09-06)*
-- **The NIGHTLY RUN LOG never got tonight's 09-06 entry — a worktree-isolated
-  session cannot write it, and someone needs to paste it in by hand.**
-  `Business Plan\files\Night Tasks\sparkdate-nightly-claude-code-prompts.md`
-  is gitignored, lives only in the main checkout, and both `Edit`/`Write` and
-  compound `Bash` refuse any path there from inside a worktree ("Edit the
-  worktree copy of this file instead" — except gitignored files have no
-  worktree copy to redirect to). Memory `worktree-blocks-crosscheckout-writes`
-  has the general rule. **Next step: from the main checkout (not a worktree),
-  prepend this under the `## NIGHTLY RUN LOG` heading:**
-
-  > - **2026-09-06 (local CLI run, interactive, recovering the 02:00 run that
-  >   hit a session limit at 02:13)** — branches `worktree-ga4-nightly-manual-
-  >   run` then `fix/ga4-2026-09-06-lancasteronline-retraction`, merged as
-  >   #460 then #461. **HEADLINE:** sessions/users held (+10%) but
-  >   purchasers/key events/transactions/revenue all fell ~33% w/w — two
-  >   dated mechanisms, neither demand: a Facebook-tag fragmentation
-  >   artifact from Loxleys' new campaign (already fixed via #450/#451), and
-  >   an unexplained Eventbrite session cliff on 09-01. **ALSO:** caught and
-  >   fixed a false "$14.46 accruing" Google Ads figure from a script bug
-  >   (real: still dark since 07-24). **CORRECTED (#461):** first version
-  >   wrongly re-asked the already-closed "scrambled email UTM" question as
-  >   a 3rd ask — Taylor caught it; real cause was the LancasterOnline/Evvnt
-  >   listing link, already fixed. **NEEDS TAYLOR INPUT (0):** none.
-  >   **RETIRED:** the scrambled-UTM ask, for real this time.
-
-  *(09-06)*
-- **D3 is fixed: GA4 now has a Channel Group so `medium=listing` stops
-  filing under Unassigned. Nothing left to do.** `reports/GA4_DEEP_READ_2026-
-  09-06.md` flagged it as Taylor's call — `content/listing-sites.json`
-  deliberately rejected `referral` as the medium (GA4 auto-assigns `referral`
-  to any uncontrolled inbound link, so a hand-tagged listing would drown in
-  it), which is exactly why GA4's Default Channel Group has no rule for
-  `listing` and dumps it all into Unassigned. Taylor: "you do this." Built
-  and saved live in GA4 Admin → Data display → Channel groups: **"SparkDate
-  Channels"** — a copy of Default Channel Group plus one new rule, `Event
-  Listings` = Session medium exactly matches `listing`. Confirmed against
-  real data: the Traffic acquisition report, both groupings side by side,
-  splits the old 283-session Unassigned bucket into 160 still-Unassigned and
-  **123 sessions / $97.96 (16.91% of all revenue) now labeled "Event
-  Listings."** This only changes GA4's own native reports —
-  `ga4-nightly-summary.js` already parsed `eventbrite/listing` straight from
-  source+medium and is unaffected. Data API dimension name for reference:
-  `sessionCustomChannelGroupingSlot01`. *(09-06)*
 - **Two Loxleys Traffic campaigns exist and only one carries the Single
   filter.** Pulled live 09-04 20:15: `Loxleys | Traffic` (`120251085229290542`)
   is ACTIVE at $3/day with **no `flexible_spec`**, while `Loxley's | Traffic`
@@ -1081,35 +774,8 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   does not carry it" and a glance at the account can suggest otherwise. **Next
   step: confirm the paused pair is dead and archive it, or say why it is
   being kept, before the 09-22 retirement.** *(09-04)*
-- **The score comes 09-09, not before.** ~~both Traffic sets still optimise
-  `LINK_CLICKS`~~ — no longer true as of 09-05, both are PAUSED and the live
-  campaigns are `OUTCOME_SALES`. Run `npm run ads:review` and read **purchases
-  by gender per ad**, never landing-page views. Note the new ad sets carry a
-  7-day click window; the paused ones were frozen at 1 day, so the two are not
-  measured on the same instrument.
-- **The UTM convention is enforced at BUILD time now (#411); its first real use was the three
-  creatives built 09-05, not the Sep 8 retargeting.** `scripts/ad-utm.js` computes
-  the tag from brand.json and refuses what GA4 cannot split;
-  `tests/ad-utm.test.js` gates it with no token, which `ads:lint` never could.
-  When those creatives are built, import `urlTags` and let it fail rather than
-  typing a tag. Nothing live is retagged — `url_tags` is frozen at creation.
 - **Taylor must pause the Cowork nightly task himself; nothing in the repo can.**
   Until then Cowork and the local run both fire and race for one branch name.
-- **~~Loxleys is next, held for its own chat~~ — done 09-05, rebuilt on a sales
-  objective.** Its retargeting is still unbuilt and the entry below still
-  describes why that is by design: Its budget ladder is deliberate
-  (memory `lx-campaign-live`) and the event is 09-22, so none of Marion Court's
-  six-day pressure applies. Its retargeting is meant to be built at the Sep 8
-  ladder step — the paused campaigns and unattached audience are by design.
-- **Eight venue-outreach emails sit in Taylor's Gmail Drafts, unsent by his own
-  choice (09-02).** Beer gardens and rooftops, per the revised criteria and the
-  nine verified contacts in `Business Plan/files/Venue_Outreach_Package.md`. Two
-  steps are his alone: **check the From line** — the signature says
-  `hello@sparkdate.date`, and if that is not a send-as alias on that account all
-  eight leave from his personal Gmail contradicting their own signature; and
-  **Uptown Beer Garden is phone-only, (267) 639-4493** — 700 standing, the best
-  room on the list, no published email anywhere. Yards and Silk City came from the
-  old scraped CSV and are unverified; expect bounces.
 - **That outdoor list expires with the season — late October, ~8 weeks from 09-02.**
   Cherry Street Pier, Frankford Hall and Evil Genius are the covered/year-round
   three that survive it. Independence and Morgan's Pier are already written as
@@ -1128,21 +794,16 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   ticket link.** Do not trust a report that says it saved one — AllEvents
   HTML-escaped the ampersands and Discover Lancaster truncated at 100 chars,
   both silently, which is the entire reason `/l/` short links exist.
-- **Ticket Tailor is abandoned, and two live pages still say "Sold out".**
-  Both events posted 09-02, then held unsold — which makes Ticket Tailor title
-  the page `Sold out – <event>` and emit `"offers": []`, defeating the only two
-  reasons to be there. Taylor stopped 09-03: the dashboard wants a password he
-  does not have, and the channel does not justify recovering one. **No action
-  needed.** The pages are unlinked, in no sitemap, and both events pass by
-  09-22, after which the titles are moot. If anyone ever wants it closed:
-  reset the password and unpublish both — do NOT "fix" it by turning sales on,
-  which reopens the third-checkout and nothing-syncs problems. Full finding in
-  the `tickettailor` entry of `content/listing-sites.json`.
-- **Philadelphia is quoted at $24.99 in a $29.99 market.** The city page and
-  two Philly-targeted blog posts state a flat price; Good Good Things was
-  $29.99. `reports/FACT_AUDIT_2026-09-01.md` §2. Deliberately not edited: the
-  fix is a decision — stop quoting a number and point at the event page, or
-  commit to maintaining per-city ones. First is cheaper to keep true.
+- **Philadelphia is quoted at $24.99 in a $29.99 market — the city page is
+  fixed, five blog lines are not.** `reports/FACT_AUDIT_2026-09-01.md` §2.
+  *(Corrected 09-12: `public/city.html:541` now reads "$24.99 to $29.99
+  depending on the event, plus a $2.50 service fee"; the flat figure survives
+  in `public/blog/first-timer-guide-lancaster.html` (two lines),
+  `first-timer-guide.html`, `going-to-a-singles-event-alone.html` and
+  `what-to-wear.html`.)* Deliberately not edited: the fix is a decision — stop
+  quoting a number and point at the event page, or commit to maintaining
+  per-city ones. The city page took the first route. **Next step: Taylor's yes
+  to the range wording, then one PR across those five lines.**
 
 ## Open threads nobody owns
 
@@ -1216,11 +877,6 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## Watch signals
 
-- **Marion Court retargeting frequency should fall 13.8 → ~2.5.** If it does not,
-  the pool is delivery-limited rather than pool-limited — report §3b is explicitly
-  unresolved on that — and the extra budget is buying repetition, not reach.
-- **Marion Court Traffic cost per LP view at $10/day.** It ran $0.31 at $6/day and
-  the model assumed ~$0.38 blended; above ~$0.68 the increment is not paying.
 - **The `/lp`-vs-`/` gap was read with the channel control on 09-02**
   (`reports/PAID_FUNNEL_AUDIT_2026-09-02.md`): the two paid leaks are the tap
   (in-app 1.4% vs normal browser 26%) and the form's first field (23 of 77
