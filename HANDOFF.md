@@ -125,11 +125,33 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   as repo secrets; (4) `node scripts/social-preflight.js` to confirm.** Full
   sequence in `docs/SOCIAL_RUNBOOK.md` §9. Until then nothing changes — TikTok
   rows keep skipping and Meta is unaffected.
-  - **Expect drafts, not posts, at first.** `UPLOAD_TO_DRAFT` needs no audit;
-    `DIRECT_POST` needs TikTok's app review (2–4 weeks, and it can be rejected),
-    and until that clears an unaudited app is capped at `SELF_ONLY`, so
-    DIRECT_POST "succeeds" and posts privately to nobody. Preflight reports the
-    account's real allowed privacy levels — read that before flipping the mode.
+  - **STEPS 1–4 ARE DONE AS OF 09-11. One blocker left: domain verification.**
+    All three secrets exist (`TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`,
+    `TIKTOK_REFRESH_TOKEN`, set 23:45–23:46 UTC), and
+    `node scripts/social-preflight.js` now passes every check: `posting as
+    @sparkdate.date`, token refreshed and valid 1440 min. **Next step:
+    verify `sparkdate.date` in the TikTok portal's URL-properties screen, and
+    use the DNS TXT method in Cloudflare, not the hosted file** — the file
+    route needs a PR, a merge and a Vercel deploy, and then walks into the
+    Cloudflare edge-cache trap that served MC-15's superseded slide for a week.
+    Publishing fails without this and **preflight cannot see it**: TikTok pulls
+    the images from `sparkdate.date` by URL and refuses an unverified domain at
+    publish time, so every check can pass green while nothing posts.
+  - **CORRECTION to this entry's own claim above: the account is NOT capped at
+    `SELF_ONLY`.** Preflight reports `privacy levels allowed:
+    PUBLIC_TO_EVERYONE, MUTUAL_FOLLOW_FRIENDS, SELF_ONLY`, so `DIRECT_POST`
+    would genuinely post publicly rather than privately to nobody. The "2–4
+    week audit" framing written on 09-10 came from the runbook and does not
+    match the live account. **`TIKTOK_POST_MODE` is still left at
+    `UPLOAD_TO_DRAFT` deliberately**, because the queue posts 1080x1080 squares
+    letterboxed onto a vertical feed and nobody has yet seen how that looks in
+    the app. Flipping it is a repo variable, not a code change — but look at a
+    draft first.
+  - **TL2-01's TikTok leg is also lost** — it was due 09-11 12:30 and the
+    secrets landed at 19:45 local, past the 6h grace. Its Facebook and
+    Instagram legs went out normally. **The first TikTok post that can actually
+    fire is LX-17, 09-12 16:00**, and only if domain verification is done by
+    then.
   - **MC-15's TikTok leg was lost to this on 09-10** and is past its 6h grace,
     so it would have to be posted by hand if it is wanted at all. Measured
     against `content/queue.csv` at `c87f8e2a`: 18 of 48 rows list `tiktok`, 11
@@ -149,6 +171,13 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   widen the cron deliberately to match reality, or move the trigger somewhere
   that fires reliably.** Do not "fix" it by shortening the interval; GitHub is
   already ignoring `*/15`.
+  - **Re-measured 09-11 and it is WORSE than the line above says.** Run starts
+    that day, UTC: 00:17, 04:55, 09:17, 13:41, 17:13, 19:43, 21:56, 23:49 —
+    gaps of 4h38m, 4h22m, 4h24m, 3h32m, 2h30m, 2h13m, 1h53m. So the real range
+    is **2–4.6 hours**, not 2–3.5, and the worst gap leaves barely 1h20m of
+    Instagram's 6h grace. Anything that delays a run past its slot by 90
+    minutes now loses the Instagram leg outright. This raises the priority of
+    the decision above rather than changing it.
 
 - **Tellus produced 2 matches from 34 people, and the dashboard now says the
   likely reason is nobody answered the email — not the room. Tellus is booked
