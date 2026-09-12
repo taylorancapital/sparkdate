@@ -36,10 +36,19 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
 
 ## In flight
 
-- **Eventbrite Ads spend sync is built and its browser half is verified
-  against the live site; the Firestore write is the one step not yet
-  exercised, and two hand steps stand between it and the first nightly
-  run.** (09-11) Verified the same evening from a worktree: the one-time
+- **Eventbrite Ads spend is BACKFILLED (70 `ad_spend/{date}__eventbrite`
+  documents, $436.36, 21 attributed tickets, written 09-11 evening from the
+  merged #539's worktree) and one hand step stands between it and tonight's
+  first nightly run: `npm install` in the main checkout.** (09-11, updated
+  after #539 merged) The 02:00 launcher runs Step 2b from the main checkout,
+  which has neither `playwright-core` nor a working `firebase-admin` until
+  `git pull` + `npm install` are run there; until then the step logs a SKIP
+  or WARN and nothing else is affected. **Also open: the June Founders Mixer
+  campaign ($55.00, 2 attributed tickets) sits in `_unattributed` because
+  `events/79nTqQ0WEtkVOdBr0vbA` carries no `eventbriteEventId`; setting it
+  to `1990063778332` (the Eventbrite event the campaign advertised) and
+  re-running `--days=all --execute` attributes it. Every other campaign
+  maps.** Earlier detail, still true: (09-11) Verified the same evening from a worktree: the one-time
   `--login` worked once passkey prompts were suppressed (Eventbrite's passkey
   sign-in wedges an automation-controlled Chrome; use the email code), and a
   headless `--days=all --verify` read all 13 campaigns and printed $436.30 /
