@@ -201,9 +201,23 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
     private and the existing grant revoked so the consent screen actually
     appeared; account set back to public afterwards. Procedure written up in
     `docs/SOCIAL_RUNBOOK.md` §9 under "The app review demo video".
-    **Next step is Taylor's: swap the placeholder clip in the App review
-    section, then submit.** Do not submit before the swap — a reviewer seeing a
-    placeholder is a straightforward rejection.
+    **SUBMITTED 09-12 — the app is `In review`.** Four demo videos attached;
+    the placeholder (`GG-RT-THIRTYONE_feed_portrait.mp4`, a Meta ad creative
+    that showed none of the integration) was removed first. The account is back
+    to public.
+    **A second take was needed and nearly was not filmed:** the submission
+    carries `video.upload` as well, the form requires every selected scope to be
+    demonstrated, and take one only exercised `user.info.basic` and
+    `video.publish`. The drafts clip closed it — publish id
+    `v_inbox_file~v2.7684704174844463118`, filmed with the account public, since
+    the inbox path was never gated by the audit.
+    **Next step is to wait, and nothing else.** Do not edit app details while
+    it is `In review`; there is a `Recall` button if the submission has to be
+    pulled back. **Approval will not flip anything by itself** —
+    `TIKTOK_POST_MODE` stays `UPLOAD_TO_DRAFT` for the reason in the bullet
+    above, so when the outcome lands, look at a draft in the app before
+    changing the variable. The nightly queue is unaffected either way: it posts
+    `MEDIA_UPLOAD`, which has been working throughout.
   - **Two Vercel variables were breaking `/admin/tiktok` and are now deleted
     (09-12).** `TIKTOK_REDIRECT_URI` was the literal string `na`, so Connect
     sent `redirect_uri=na` and TikTok answered `param_error / errCode=10006` —
