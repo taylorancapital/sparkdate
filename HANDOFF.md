@@ -374,11 +374,12 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   the published Loxleys slides, with reference files to attach — and lists
   every file a post needs, TikTok twins included. The PAID creative brief is a
   separate job (`node scripts/build-paid-campaign.js --event=TL2 --handoff`).
-  Then `python scripts/prep-social-assets.py` — but not until prep's two 09-10
-  bugs are fixed: in a dry run on sample TL2 exports, a row's first prep
-  appended every story and TikTok file twice (TL2-01's three `_tt` frames came
-  out as `1of6`..`6of6`), and posted row TL-02's legacy key `tl2` claimed
-  every TL2 export.** `asset_files` is EMPTY on every TL2
+  Then `python scripts/prep-social-assets.py` — **prep's two 09-10 bugs (a first
+  prep appending every story and TikTok file twice, and posted row TL-02's legacy
+  key `tl2` claiming every TL2 export) were FIXED in #526 and this gate is
+  lifted.** *(corrected 09-12; evidence: #526 is on `main`, and `--rebuild` was
+  run against real Loxleys exports twice on 09-11 — #537 and the batch before it
+  — each time touching only the intended rows.)* `asset_files` is EMPTY on every TL2
   row, which is the convention: prep writes the names when art lands (LX-26 is
   the same). I had pre-filled 13 rows with names for art that did not exist,
   and that broke three things without an error: `design-handoff.js` skips any
@@ -465,56 +466,46 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   and it has never yet been observed working.**
 
 
-- **LX-24's Facebook leg cannot publish and will fail silently on 09-21 — it
-  needs a 1080x1080 export.** (09-10) Approved with the rest of the Loxleys run,
-  but `plan` already skips `LX-24/fb` with "every asset is story-shaped". Its
-  four files are two `_tt` and two `_story` frames; there is no feed-shaped one,
-  so `lib/social-publish.js`'s guard refuses it every run. **This is MC-12's
-  failure exactly**, and that one was only fixed because Taylor exported a square
-  by hand. The Instagram Story half is fine and will go. **The planner makes the
-  square now (09-10: `framesForRow` plans this format as one card at 1080x1080
-  and again at 1080x1920), so no hand export is needed. Next step, before
-  2026-09-21 18:30 and only once prep's two 09-10 bugs are fixed (see the TL2
-  queue entry): `git pull`; `node scripts/build-campaign-export.js --event=LX`;
-  export LX-24's two frames into `SourceArt`;
-  `python scripts/prep-social-assets.py --rebuild`; check `git status` shows
-  only the expected files; commit.** It has to be `--rebuild`: a plain run adds
-  `LX-24.jpg` for Facebook but keeps the old two story frames (the hook, then
-  "Last call") for the Story, because the row already has story art. The $24.99
-  fix in the next entry runs the same `--rebuild`; if both go in one pass, keep
-  LX-24's new files and its `asset_files` change alongside those ten JPEGs. Or
-  decide LX-24 is Story-only and drop `fb` from its platforms so it stops
-  reading as a scheduled post that never happened.
+- **The Loxleys art corrections are DONE for every square and on Facebook. The
+  five `_tt` twins are NOT, and TikTok can now reach them.** (09-12) The thread
+  that ran 09-10 → 09-12 is closed on its original terms: Design re-exported the
+  fact frames at $29.99 (#535); the pull on IMG_9203/9204 was lifted and LX-24
+  gained its 29-check-ins caption line (#536); the second batch landed LX-24's
+  first-ever 1080x1080 plus photo backs for LX-20/21/25 (#537); Taylor deleted
+  all eight stale Facebook posts; and their `fb` ids were cleared in two passes
+  (#538, #545) so the publisher re-scheduled each with the corrected art.
+  **Two things were checked rather than assumed, and both are worth not
+  re-deriving.** (a) It was EIGHT stale Facebook posts, not the five this entry
+  used to name — #537's photo re-export made LX-20, LX-21 and LX-25 stale too,
+  so re-derive the list from what changed, never from the last count. (b) **Meta
+  re-fetches; there is no stale cache.** LX-17 and LX-18 came back on the very
+  filenames Meta had already pulled for the $24.99 art, and each recreated post's
+  price band reads $29.99 — 0.98 correlation against the current art vs 0.80
+  against the old, masked to the 1293 pixels that actually differ. So
+  delete → deploy → clear is sufficient; no cache-busting filename is needed.
+  **What is left, and it is newly live-reachable: `LX-17_4of5_tt`,
+  `LX-18_5of6_tt`, `LX-19_2of3_tt`, `LX-22_3of4_tt` and `LX-23_2of3_tt` still
+  read "Doors 6:30 PM · $24.99".** None has changed since #235 — #535 re-exported
+  squares only. That was harmless while TikTok had never published, but the
+  credentials landed 09-11 and **LX-17's TikTok leg is the first that can fire,
+  09-12 16:00.** `TIKTOK_POST_MODE` is `UPLOAD_TO_DRAFT`, so it arrives in the
+  account's inbox rather than going live; the exposure is someone publishing that
+  draft at the wrong price, not an instant wrong post. **Next step: export those
+  five fact frames from the TikTok sheet (`node scripts/build-campaign-export.js
+  --event=LX --tiktok`) into `SourceArt`, `python scripts/prep-social-assets.py
+  --rebuild`, keep only those five JPEGs, and merge — before anyone posts from the
+  TikTok inbox. Delete this entry once all five read $29.99.**
 
-- **Five approved Loxleys carousels show $24.99 in the image, but brand.json has
-  had LX at $29.99 since 09-08. LX-17 posts first: 2026-09-12 16:00.** (09-10)
-  The captions are right; the ART is stale. Each fact frame reads "Doors 6:30 PM
-  · $24.99" in both the square and the `_tt` file: `LX-17_4of5` (09-12 16:00),
-  `LX-18_5of6` (09-14 16:00), `LX-19_2of3` (09-15 12:30), `LX-22_3of4` (09-19
-  19:00), `LX-23_2of3` (09-20 16:00). That is ten JPEGs, all on approved rows.
-  Found by opening the fact frame of every approved LX carousel: LX-20 is a
-  quote carousel with no fact frame, LX-25 names no price, and LX-11 posted
-  09-07 while $24.99 was still true. Cause: `build-campaign-export.js` priced
-  each fact frame by the day the SHEET was rendered, not the day the post goes
-  out. The fix merged as #519 with a regression test, but it does not repair art
-  that is already rendered. **And re-exporting alone only fixes Instagram:** all
-  five rows already carry an `fb` id in `published_ids`, so Meta holds five
-  scheduled Facebook carousels with the $24.99 images, and the publisher never
-  re-sends a surface that has an id. Instagram pulls the image at post time, so a
-  deployed replacement does reach it. **Next steps, in this order: (1) Taylor
-  deletes the five scheduled Facebook posts in Meta Business Suite (9/12 4:00 PM,
-  9/14 4:00 PM, 9/15 12:30 PM, 9/19 7:00 PM, 9/20 4:00 PM), so no wrong-price post
-  can go out even if the rest slips. (2) Export the five fact frames in both
-  shapes from the regenerated LX sheets into `SourceArt`, run
-  `python scripts/prep-social-assets.py --rebuild`, keep only those ten JPEGs,
-  and merge that PR. If TL2 exports are already in `SourceArt` by then, wait
-  until prep's fix for TL2 row keys is on main (#526 has the dry run): before
-  it, a `--rebuild` hands TL2's art to posted row TL-02, whose short key `tl2`
-  matches every TL2 filename (09-11). (3) Once it is deployed, a second PR
-  removes the five `fb`
-  ids; within 15 minutes the publisher re-schedules them with the new images.**
-  Clear the ids before the deploy and it re-schedules the old images; clear them
-  before deleting and Facebook gets duplicates.
+- **LX-24's card says "Last call - link in bio." where its caption says "29
+  people checked in at our last event."** (09-12) The art was exported minutes
+  before that prompt existed, so the line lives in the caption only — which does
+  post, correctly. Only the card is behind. The row note in `content/queue.csv`
+  records this and names the re-export that fixes it. **The cost of fixing it is
+  the reason it is still here:** Facebook already holds LX-24's post (scheduled
+  09-21 18:30) built from the current art, so changing the card means deleting
+  that post, deploying, and clearing the id a third time. **Next step is a
+  yes/no from Taylor, not a build: is a line the caption already carries worth
+  another delete/deploy/clear cycle?** Delete this entry either way once he says.
 
 - **LX-27 is deliberately still `pending` — it is the Loxleys recap and its
   caption still says `[REAL NUMBER]`.** (09-10) It cannot be approved until the
