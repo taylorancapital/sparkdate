@@ -600,21 +600,83 @@ in `reports/`.** If an entry here stops being "in flight," move it or delete it.
   side of the review was never re-read (env pull blocked); refresh the 7/7
   and 5-of-9 vs 2-of-13 figures after Loxleys 09-22.** *(09-10)*
 
-- **Is the 03:00 budget ladder actually applying? A dry run on 09-11 says
-  no.** `node scripts/meta-budget-ladder.js --all` (dry run, 09-11 ~03:05 UTC)
-  printed `Loxleys | Sales  live $9.00/day  PLAN $9.00 -> $5.11 (build)` — the
-  same drop the registry note of 09-08 said would happen "tonight". Three
-  nights later it has not, while `Loxley's Retargeting` sits at its planned
-  $3.40. Either the `SparkDate Budget Ladder` scheduled task is not running
-  `--execute`, it is failing before the write, or someone hand-set $9.00
-  after 09-08 and the ladder's 1.76x drop is being refused by `--max-jump`.
+- **~~Is the 03:00 budget ladder actually applying? A dry run on 09-11 says
+  no.~~ ANSWERED 09-11 evening: yes, it applied at 03:00 on 09-11.** The
+  dry run above was at 23:05 EDT on 09-10, four hours BEFORE the run that
+  did it. Evidence, from `Night Tasks/logs/budget-ladder.log` and the
+  account's `/activities` change log
+  (`reports/LOXLEYS_LINK_CLICKS_2026-09-11.md` §MECHANISM): 09-08 03:00 the
+  main checkout's ladder, still on the LEGACY registry, set $2.00→$9.00; the
+  retargeting-launch session's v2 ladder set $9.00→$5.11 from a worktree at
+  09:29; **09-09 03:00 the main checkout, still legacy, put it back to $9.00**
+  (its log line says `1 ungoverned` — it did not know the retargeting
+  campaign existed); 09-10 no change; the main checkout was pulled on 09-10
+  and **09-11 03:00 the v2 ladder set $9.00→$5.11**. Nobody hand-set $9.00 and
+  nothing was refused — it was [[nightly-pulls-from-stale-main-checkout]],
+  and it cost the campaign five budget edits in six days. Tonight's dry run
+  prints `SKIP already at the build rate` for both Loxleys campaigns.
   Also printed: both Marion Court acknowledgements expired 09-08 with the
-  campaigns still ACTIVE ($20/day "outside the ladder"). **Next step: read the
-  task's last log, run `--all` by hand and look at the verdict line for
-  Loxleys | Sales (PLAN vs a `!!` refusal), then either fix the task or, if
-  $9.00 was deliberate, acknowledge it in `content/paid-campaigns.json` with a
-  `review_after`. Decide the two Marion Court acknowledgements again — the
+  campaigns still ACTIVE ($20/day "outside the ladder", $0 spent since
+  09-09). **Next step: decide the two Marion Court acknowledgements again — the
   event was 09-08.** *(09-11)*
+
+- **Loxleys: a second male cold ad and a widened retargeting pool went in
+  on 09-11 at ~23:05 EDT (Taylor: "do 01 and 02" on
+  `reports/LOXLEYS_LINK_CLICKS_2026-09-11.md`). Three checks, then this
+  retires with the event.** What was written, each read back:
+  (1) ad **`Loxleys | male | close patio video`** (`120251400329350542`,
+  creative `1713869680741086`) ADDED to `Loxleys | male | Sales`
+  (`120251304239850542`) — the 09-08 patio video `1634620321428923` reused,
+  `caption_templates.male.close` copy rendered from brand.json ($29.99 is
+  stable now), `utm_content=lx_close_male_patio`, pixel in tracking, created
+  ACTIVE so it went straight to Meta review (`IN_PROCESS`). The incumbent
+  `convert video` ad is untouched and still ACTIVE. Script:
+  `scripts/meta-lx-add-male-ad.js` (dry-run default, idempotent by name).
+  (2) retargeting ad set `120250964028400542` now targets SIX audiences: the
+  two it had, plus `Visited but did not order tickets` (all site 60d excl.
+  buyers), `MC Retargeting` (every Page video, 3s views, 365d — reused as the
+  any-video layer despite its name), and two NEW ones,
+  `SparkDate Page Engagers 365d` (`120251400342080542`) and
+  `SparkDate Instagram Engagers 365d` (`120251400342280542`). Both new ones
+  read back `300 too small` at creation — expected for a fresh audience
+  before prefill, not a verdict. Script: `scripts/meta-lx-widen-retargeting.js`.
+  Nothing else changed: budgets untouched ($5.11 / $3.40), ladder untouched,
+  the Close step to $6.32 retargeting on 09-15 stays as planned because the
+  pool is now wider.
+  **Next steps: (a) 09-12 morning — confirm `120251400329350542` is ACTIVE
+  and delivering, not DISAPPROVED (`node scripts/meta-lx-add-male-ad.js`
+  dry run prints the ad set's ads); (b) by 09-13 — confirm the two engager
+  audiences flipped from 300 to 200 (`node scripts/meta-lx-widen-retargeting.js`
+  dry run prints them), else drop them from the ad set; (c) 09-16 morning,
+  the day after Close raises retargeting to $6.32 — read the ad set's
+  DAILY frequency; over ~2.5 with reach not growing means the widening did
+  not take and the budget should be held near $3.40 by hand
+  (`managed: false` on the retargeting registry entry). (d) OPTIONAL: a
+  fresh testimonial video for the male set. The Claude Design brief is
+  generated, not stored: `node scripts/build-paid-campaign.js --event=LX
+  --handoff --out=build/LX_AD_BRIEF.md` (6 ads from 3 videos). If Taylor
+  produces one, attach it with the same request shape as
+  `meta-lx-add-male-ad.js` (new slug, never reuse `patio`).** *(09-11)*
+
+- **Custom-audience rule syntax is per SOURCE TYPE, and the account's scripts
+  only know the video shape.** (09-11, measured live while widening Loxleys'
+  retargeting; Taylor asked for this to be written here as well as in memory
+  `video-engagement-audience-api-syntax`.)
+  | source | what Meta ACCEPTED | what it REFUSED |
+  |---|---|---|
+  | video | flat `[{event_name:'video_watched', object_id}]` + explicit `subtype:'ENGAGEMENT'` | flat without subtype (1870029), envelope (1870049) |
+  | Page | envelope `inclusions/event_sources[{type:'page', id:<NUMBER>}]`, filter `event eq page_engaged`, **no subtype** (Meta sets ENGAGEMENT) | flat with or without subtype (1870029); envelope WITH subtype (#2654 "Invalid Event Name") |
+  | Instagram | envelope `event_sources[{type:'ig_business', id:<NUMBER>}]`, filter `event eq ig_business_profile_all`, **no subtype** (Meta sets IG_BUSINESS) | flat (#2654 / 1870029); envelope with subtype, or with `ig_business_profile_engaged` (#2654) |
+  Ids go in as numbers. The #2654 "Invalid Event Name" error is misleading —
+  the event name was fine, the `subtype` was the problem. A fresh engagement
+  audience reads `delivery_status 300 "too small"` with `operation_status 441
+  "finding people… you can start running ads right away"` until prefill runs;
+  that is not a verdict. `scripts/meta-lx-widen-retargeting.js` holds the
+  working requests. **Next step: when the next event's retargeting is built
+  (Tellus Oct 6 is first), lift the Page + IG envelopes out of that script
+  into `scripts/meta-launch-lx-retargeting.js`'s `candidateRules()` (or a
+  shared helper) so a retargeting pool is built with all three layers from
+  day one instead of the four-reel video audience alone.** *(09-11)*
 
 - **Loxleys retargeting went LIVE 09-08 — first spend since the shell was created
   2026-08-17. Three things to check, then it retires with the event.**
